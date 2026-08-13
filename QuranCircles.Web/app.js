@@ -117,7 +117,12 @@ async function handleLogin(e) {
     const passwordInput = document.getElementById("login-password").value;
     const errorContainer = document.getElementById("login-error-container");
     
-    errorContainer.innerHTML = "";
+    const submitBtn = document.querySelector("#login-form button[type='submit']");
+    const origBtnText = submitBtn ? submitBtn.innerHTML : "تسجيل الدخول";
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تسجيل الدخول وتجهيز السيرفر...';
+    }
     
     try {
         const response = await fetch(`${API_BASE}/auth/login`, {
@@ -155,11 +160,20 @@ async function handleLogin(e) {
         setupAuth();
         
     } catch(err) {
+        let msg = err.message || "حدث خطأ في الاتصال بالسيرفر";
+        if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+            msg = "السيرفر الأونلاين يجري تشغيله حالياً أو في وضع الاستيقاظ.. يرجى الانتظار 10 ثوانٍ وإعادة المحاولة.";
+        }
         errorContainer.innerHTML = `
             <div class="alert alert-danger" style="margin-top:0; margin-bottom:15px; padding: 10px 15px;">
-                <i class="fa-solid fa-circle-exclamation me-2"></i> ${err.message}
+                <i class="fa-solid fa-circle-exclamation me-2"></i> ${msg}
             </div>
         `;
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnText;
+        }
     }
 }
 
