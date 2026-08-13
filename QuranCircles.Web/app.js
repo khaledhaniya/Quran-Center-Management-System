@@ -3,7 +3,7 @@
 const savedApiUrl = localStorage.getItem("custom_api_url");
 const API_BASE = savedApiUrl || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://localhost:5070/api" 
-    : "http://" + window.location.hostname + ":5070/api");
+    : "https://albayan-quran.onrender.com/api");
 
 // Application State
 let currentRole = "";

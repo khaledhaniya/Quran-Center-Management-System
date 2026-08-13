@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
 class ApiService {
-  static String baseUrl = 'http://localhost:5070/api';
+  static String baseUrl = 'https://albayan-quran.onrender.com/api';
   static User? currentUser;
   static String? authToken;
 
