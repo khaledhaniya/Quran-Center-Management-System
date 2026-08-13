@@ -1,0 +1,24 @@
+# Flutter / Dart
+**/build/
+**/.dart_tool/
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/android/.gradle/
+**/android/app/build/
+**/ios/Pods/
+**/ios/.symlinks/
+
+# dotnet / C#
+**/bin/
+**/obj/
+*.user
+*.suo
+**/quran.db
+**/quran.db-journal
+
+# IDE & OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db

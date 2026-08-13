@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مركز حلقات تحفيظ القرآن الكريم</title>
+    <!-- Favicon / Center Emblem -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <!-- Cairo Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel Exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Chart.js for Interactive Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- App Container -->
+    <div class="app-container">
+        
+        <!-- Top Header Bar -->
+        <header class="main-header">
+            <div class="header-logo-group">
+                <button id="mobile-nav-toggle" class="btn-mobile-toggle"><i class="fa-solid fa-bars"></i></button>
+                <div class="header-logo">
+                    <img src="assets/logo.png" alt="شعار مركز البيان" class="logo-icon-img">
+                    <div class="logo-text">
+                        <h1>مركز البيان لتعليم القرآن</h1>
+                        <span>مسجد علي بن أبي طالب</span>
+                    </div>
+                </div>
+                <!-- Dual Calendar Widget -->
+                <div class="header-calendar-widget" id="header-calendar">
+                    <i class="fa-regular fa-calendar-days"></i>
+                    <span id="calendar-text">- هـ | - م</span>
+                </div>
+            </div>
+            
+            <!-- User Profile, Notifications & Logout -->
+            <div class="user-profile-section" id="user-profile-area">
+                <!-- Notification Bell for Admin & Developer -->
+                <div id="notification-bell-container" style="display: none; position: relative;">
+                    <button id="btn-notifications-bell" class="btn btn-outline-warning text-warning position-relative rounded-circle shadow-sm" title="الإشعارات وطلبات التعديل">
+                        <i class="fa-solid fa-bell fs-5"></i>
+                        <span id="notif-badge-count" class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-danger shadow">0</span>
+                    </button>
+                </div>
+                <div class="user-info text-end">
+                    <span class="user-name" id="profile-display-name">-</span>
+                    <span class="user-role-badge" id="profile-display-role">-</span>
+                </div>
+                <button id="btn-logout" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-right-from-bracket"></i> <span class="logout-text">تسجيل خروج</span></button>
+            </div>
+        </header>
+
+        <div class="layout-body">
+            <!-- Sidebar Overlay for mobile -->
+            <div class="sidebar-overlay" id="sidebar-overlay"></div>
+            
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar" id="app-sidebar">
+                <!-- Mobile Drawer Header -->
+                <div class="sidebar-mobile-header d-flex d-lg-none justify-content-between align-items-center pb-3 mb-2 border-bottom">
+                    <span class="fw-bold text-success fs-6"><i class="fa-solid fa-bars-staggered me-2"></i> القائمة الرئيسية</span>
+                    <button type="button" class="btn-close" id="btn-close-mobile-sidebar" aria-label="إغلاق"></button>
+                </div>
+                <!-- Navigation links will be dynamically populated/modified by app.js based on role -->
+                <nav class="nav-menu" id="sidebar-nav">
+                    <!-- Admin Links -->
+                    <div class="nav-group admin-links">
+                        <a href="#admin-dashboard" class="nav-item active" id="btn-admin-dashboard">
+                            <i class="fa-solid fa-chart-pie"></i>
+                            <span>لوحة الإحصائيات</span>
+                        </a>
+                        <a href="#admin-circles" class="nav-item" id="btn-admin-circles">
+                            <i class="fa-solid fa-circle-nodes"></i>
+                            <span>إدارة الحلقات</span>
+                        </a>
+                        <a href="#admin-teachers" class="nav-item" id="btn-admin-teachers">
+                            <i class="fa-solid fa-chalkboard-user"></i>
+                            <span>إدارة المعلمين</span>
+                        </a>
+                        <a href="#admin-students" class="nav-item" id="btn-admin-students">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <span>إدارة الطلاب</span>
+                        </a>
+                        <a href="#parent-audit" class="nav-item" id="btn-parent-audit">
+                            <i class="fa-solid fa-people-roof"></i>
+                            <span>تدقيق أبناء أولياء الأمور</span>
+                        </a>
+                        <a href="#profile-requests" class="nav-item" id="btn-profile-requests">
+                            <i class="fa-solid fa-bell text-warning"></i>
+                            <span>طلبات تعديل البيانات</span>
+                            <span id="sidebar-notif-count" class="badge bg-danger rounded-pill me-auto" style="display: none; font-size: 0.7rem; padding: 3px 6px;">0</span>
+                        </a>
+                        <a href="#dynamic-reports" class="nav-item" id="btn-dynamic-reports">
+                            <i class="fa-solid fa-chart-line text-success"></i>
+                            <span>مُولد التقارير والفلترة الذكية</span>
+                        </a>
+                    </div>
+
+                    <!-- Developer Links -->
+                    <div class="nav-group developer-links hidden">
+                        <a href="#developer-users" class="nav-item" id="btn-developer-users">
+                            <i class="fa-solid fa-users-gear"></i>
+                            <span>إدارة حسابات النظام</span>
+                        </a>
+                        <a href="#audit-logs" class="nav-item" id="btn-audit-logs">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>سجل الرقابة الأمنية</span>
+                        </a>
+                    </div>
+
+
+
+                    <!-- Teacher Links -->
+                    <div class="nav-group teacher-links hidden">
+                        <a href="#teacher-attendance" class="nav-item" id="btn-teacher-attendance">
+                            <i class="fa-solid fa-clipboard-user"></i>
+                            <span>تسجيل الحضور اليومي</span>
+                        </a>
+                        <a href="#teacher-sessions" class="nav-item" id="btn-teacher-sessions">
+                            <i class="fa-solid fa-book-open-reader"></i>
+                            <span>سجل تسميع الحفظ</span>
+                        </a>
+                        <a href="#teacher-lottery" class="nav-item" id="btn-teacher-lottery">
+                            <i class="fa-solid fa-dice"></i>
+                            <span>قرعة التسميع العشوائية</span>
+                        </a>
+                    </div>
+
+                    <!-- Parent Links -->
+                    <div class="nav-group parent-links hidden">
+                        <a href="#parent-progress" class="nav-item" id="btn-parent-progress">
+                            <i class="fa-solid fa-people-roof"></i>
+                            <span>متابعة مستوى الأبناء</span>
+                        </a>
+                    </div>
+
+                    <!-- Student Links -->
+                    <div class="nav-group student-links hidden">
+                        <a href="#student-progress" class="nav-item" id="btn-student-progress">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <span>سجل حفظي وتسميعي</span>
+                        </a>
+                    </div>
+
+                    <!-- Shared Links -->
+                    <div class="nav-group shared-links">
+                        <a href="#announcements" class="nav-item" id="btn-announcements">
+                            <i class="fa-solid fa-bell"></i>
+                            <span>مركز الإشعارات والتنبيهات</span>
+                        </a>
+                        <a href="#competitions" class="nav-item" id="btn-competitions">
+                            <i class="fa-solid fa-trophy"></i>
+                            <span>لوحة صدارة الحلقات</span>
+                        </a>
+                        <a href="#courses" class="nav-item" id="btn-courses">
+                            <i class="fa-solid fa-book-bookmark"></i>
+                            <span>الدورات والمسارات</span>
+                        </a>
+                        <a href="#exams" class="nav-item" id="btn-exams">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <span>إدارة الاختبارات والترشيحات</span>
+                        </a>
+                    </div>
+                </nav>
+
+                <!-- Azkar Widget -->
+                <div class="sidebar-azkar-widget" id="azkar-widget" style="margin: 15px; background: linear-gradient(135deg, #e6f4ea, rgba(205, 162, 80, 0.12)); border: 1px solid rgba(13, 92, 58, 0.2); border-radius: 14px; color: var(--text-dark); text-align: center; padding: 16px; cursor: pointer; transition: all 0.3s ease; box-shadow: var(--shadow-sm);">
+                    <div style="font-weight: 700; color: var(--primary-color); font-size: 1.05rem; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fa-solid fa-hands-praying" style="font-size: 1.15rem; color: var(--accent-color);"></i>
+                        <span id="azkar-title">أذكار الصباح</span>
+                    </div>
+                    <p id="azkar-text" style="font-size: 0.95rem; margin: 0; line-height: 1.7; color: var(--text-dark); font-weight: 600; padding: 8px 4px;">جارٍ تحميل الذكر...</p>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
+                        <i class="fa-solid fa-chevron-down"></i> اضغط لعرض جميع الأذكار
+                    </div>
+                    <div id="azkar-expand" class="hidden" style="margin-top: 10px; font-size: 0.9rem; border-top: 1px solid rgba(13, 92, 58, 0.2); padding-top: 12px; text-align: right; line-height: 1.8; color: var(--text-dark); max-height: 250px; overflow-y: auto;">
+                        <!-- Full zikr text -->
+                    </div>
+                </div>
+
+                <div class="sidebar-footer">
+                    <p>نظام الحلقات الذكي &copy; 2026</p>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="main-content">
+                <div id="alert-container"></div>
+
+                <!-- SECTION: Admin Dashboard / Reports -->
+                <section id="admin-dashboard-section" class="content-section">
+                    <div id="admin-dashboard-notif-banner" class="mb-3" style="display: none;"></div>
+
+                    <!-- Executive Header Card & Toolbar -->
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column gap-3">
+                            <div class="header-titles w-100">
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 rounded-pill mb-2"><i class="fa-solid fa-chart-line me-1"></i> لوحة التحليلات التنفيذية الشاملة</span>
+                                <h2 class="dashboard-main-title mb-1"><i class="fa-solid fa-chart-pie me-2 text-primary"></i> تقرير إحصائيات وأداء المركز العام</h2>
+                                <p class="text-muted small mb-0">متابعة دقيقة للأداء، الحضور والغياب، إنجاز التسميع للحلقات، والخدمات الاجتماعية للطلاب.</p>
+                            </div>
+                            <div class="action-buttons-group d-flex align-items-center gap-2">
+                                <button id="btn-export-excel-report" onclick="exportExecutiveExcelReport()" class="btn btn-success shadow-sm rounded-3 px-3 py-2 fw-bold" style="background: linear-gradient(135deg, #107c41, #0f6c38); border: none; color: white; cursor: pointer;">
+                                    <i class="fa-solid fa-file-excel me-1"></i> تصدير تقرير إكسل 📊
+                                </button>
+                                <button id="btn-refresh-report" onclick="loadAdminDashboard()" class="btn btn-primary shadow-sm rounded-3 px-3 py-2 fw-bold" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7); border: none; cursor: pointer;">
+                                    <i class="fa-solid fa-rotate me-1"></i> تحديث البيانات
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Date Presets & Custom Filter Toolbar -->
+                        <div class="filter-toolbar mt-4 pt-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <div class="preset-buttons-group d-flex flex-wrap align-items-center gap-2">
+                                <span class="fw-bold text-dark me-1 small"><i class="fa-solid fa-filter text-primary me-1"></i> فلترة سريعة:</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary date-preset-btn" onclick="setDashboardDatePreset('today')">اليوم</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary date-preset-btn" onclick="setDashboardDatePreset('week')">هذا الأسبوع</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary date-preset-btn active" onclick="setDashboardDatePreset('month')">هذا الشهر</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary date-preset-btn" onclick="setDashboardDatePreset('year')">هذا العام</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary date-preset-btn" onclick="setDashboardDatePreset('all')">الكل</button>
+                            </div>
+                            <div class="custom-date-inputs d-flex align-items-center gap-2">
+                                <div class="input-group-custom d-flex align-items-center gap-2">
+                                    <label for="report-from-date" class="small fw-bold text-success mb-0"><i class="fa-regular fa-calendar-check me-1"></i> من:</label>
+                                    <input type="date" id="report-from-date" class="form-control form-control-sm">
+                                </div>
+                                <div class="input-group-custom d-flex align-items-center gap-2">
+                                    <label for="report-to-date" class="small fw-bold text-success mb-0"><i class="fa-regular fa-calendar-days me-1"></i> إلى:</label>
+                                    <input type="date" id="report-to-date" class="form-control form-control-sm">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center Snapshot Ribbon -->
+                    <div class="center-snapshot-grid mb-4">
+                        <div class="snapshot-card snapshot-attendance">
+                            <div class="snapshot-icon"><i class="fa-solid fa-user-check"></i></div>
+                            <div class="snapshot-content flex-grow-1">
+                                <span class="snapshot-label">نسبة الانضباط والحضور العامة</span>
+                                <h3 class="snapshot-value" id="snap-attendance-rate">98.5%</h3>
+                                <div class="progress mt-2" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
+                                    <div id="snap-attendance-bar" class="progress-bar bg-success" style="width: 98.5%; border-radius: 10px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="snapshot-card snapshot-orphans">
+                            <div class="snapshot-icon"><i class="fa-solid fa-heart text-danger"></i></div>
+                            <div class="snapshot-content">
+                                <span class="snapshot-label">طلاب رعاية الأيتام بالمركز</span>
+                                <h3 class="snapshot-value" id="snap-orphans-count">24 طالب</h3>
+                                <span class="snapshot-subtext text-muted small"><i class="fa-solid fa-hands-holding-child me-1"></i> كفالة ورعاية كاملة</span>
+                            </div>
+                        </div>
+                        <div class="snapshot-card snapshot-courses">
+                            <div class="snapshot-icon"><i class="fa-solid fa-award text-warning"></i></div>
+                            <div class="snapshot-content">
+                                <span class="snapshot-label">المساقات العلمية والتجويدية</span>
+                                <h3 class="snapshot-value" id="snap-courses-count">5 مساقات</h3>
+                                <span class="snapshot-subtext text-muted small"><i class="fa-solid fa-book-quran me-1"></i> تجويد وأحكام وتلاوة</span>
+                            </div>
+                        </div>
+                        <div class="snapshot-card snapshot-juz">
+                            <div class="snapshot-icon"><i class="fa-solid fa-book-open text-primary"></i></div>
+                            <div class="snapshot-content">
+                                <span class="snapshot-label">إجمالي الأجزاء المحفوظة</span>
+                                <h3 class="snapshot-value" id="snap-juz-count">342 جزءاً</h3>
+                                <span class="snapshot-subtext text-muted small"><i class="fa-solid fa-check-circle me-1"></i> مقيدة بسجلات الطلاب</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards Grid -->
+                    <div class="kpi-grid mb-4">
+                        <div class="kpi-card glass-kpi color-1">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-graduation-cap"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="stat-total-students">243</h3>
+                                <p>إجمالي الطلاب المقيدين</p>
+                                <span class="kpi-badge"><i class="fa-solid fa-users me-1 text-success"></i> طلاب نشطون بالمركز</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-kpi color-2">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-chalkboard-user"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="stat-total-teachers">15</h3>
+                                <p>كادر المعلمين والمحفظين</p>
+                                <span class="kpi-badge"><i class="fa-solid fa-user-tie me-1 text-primary"></i> محفظون معتمدون</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-kpi color-3">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-circle-nodes"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="stat-total-circles">13</h3>
+                                <p>الحلقات القرآنية</p>
+                                <span class="kpi-badge"><i class="fa-solid fa-mosque me-1 text-warning"></i> حلقات قائمة ومسندة</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-kpi color-4">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-book-bookmark"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="stat-total-sessions">0</h3>
+                                <p>جلسات التسميع المسجلة</p>
+                                <span class="kpi-badge"><i class="fa-solid fa-check-double me-1 text-info"></i> النطاق المحدد</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-kpi color-5">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-lines-leaning"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="stat-total-verses">0</h3>
+                                <p>الآيات القرآنية المسمَّعة</p>
+                                <span class="kpi-badge"><i class="fa-solid fa-quran me-1 text-purple"></i> إنجاز التلاوة والحفظ</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-kpi color-6">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-user-large-slash"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="stat-absence-count">0</h3>
+                                <p>حالات الغياب المسجلة</p>
+                                <span class="kpi-badge text-danger bg-danger bg-opacity-10"><i class="fa-solid fa-calendar-xmark me-1"></i> في النطاق المحدد</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Section: Charts & Breakdown -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-lg-7">
+                            <div class="card shadow-sm border-0 h-100 analytics-card">
+                                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+                                    <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-chart-bar text-success me-2"></i> توزيع مستويات تقييم الحفظ والتسميع</h5>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">مخطط تفاعلي</span>
+                                </div>
+                                <div class="card-body p-4">
+                                    <div style="height: 240px; position: relative;" class="mb-3">
+                                        <canvas id="dashboard-assessment-chart"></canvas>
+                                    </div>
+                                    <div class="assessment-container mt-2" id="assessment-chart-list">
+                                        <!-- Dynamic Breakdown Progress Bars -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="card shadow-sm border-0 h-100 analytics-card">
+                                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+                                    <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-house-chimney-user text-primary me-2"></i> التحليل الاجتماعي وحالات السكن للطلاب</h5>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">رعاية وأولويات</span>
+                                </div>
+                                <div class="card-body p-4">
+                                    <div style="height: 200px; position: relative;" class="mb-3">
+                                        <canvas id="dashboard-social-chart"></canvas>
+                                    </div>
+                                    <div class="row g-2 text-center mt-2" id="social-metrics-breakdown">
+                                        <div class="col-6">
+                                            <div class="p-2 border rounded-3 bg-light">
+                                                <span class="d-block small text-muted fw-bold">أيتام الأب/الأبوين</span>
+                                                <strong class="fs-6 text-danger" id="soc-stat-orphans">0 طالب</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-2 border rounded-3 bg-light">
+                                                <span class="d-block small text-muted fw-bold">قاطنو الخيام والإيواء</span>
+                                                <strong class="fs-6 text-warning" id="soc-stat-tents">0 طالب</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Profile Update Requests Manager -->
+                <section id="profile-requests-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-bell text-warning"></i> طلبات تعديل وتحديث بيانات العائلة والأبناء</h2>
+                        <button class="btn btn-outline-primary shadow-sm" onclick="loadAdminProfileRequests()"><i class="fa-solid fa-rotate"></i> تحديث الطلبات</button>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card p-3 text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #fff8e1, #ffecb3); border-radius: 12px; border-right: 6px solid #ffb300;">
+                                <h3 id="stat-req-pending" class="fw-bold text-dark mb-1">0</h3>
+                                <span class="fw-bold text-dark">طلبات تنتظر الاعتماد والمراجعة</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 12px; border-right: 6px solid #4caf50;">
+                                <h3 id="stat-req-approved" class="fw-bold text-dark mb-1">0</h3>
+                                <span class="fw-bold text-dark">طلبات تم اعتمادها وتطبيقها</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #eceff1, #cfd8dc); border-radius: 12px; border-right: 6px solid #78909c;">
+                                <h3 id="stat-req-rejected" class="fw-bold text-dark mb-1">0</h3>
+                                <span class="fw-bold text-dark">طلبات تم رفضها</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+                        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-3 py-3 border-bottom">
+                            <h5 class="mb-0 text-primary fw-bold"><i class="fa-solid fa-list-check"></i> قائمة طلبات تعديل البيانات الواردة</h5>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="input-group input-group-sm" style="width: 250px;">
+                                    <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                    <input type="text" id="req-search-input" class="form-control" placeholder="بحث باسم الطالب أو ولي الأمر..." oninput="filterProfileRequestsTable(currentProfileRequestFilter)">
+                                </div>
+                                <div class="btn-group btn-group-sm" id="req-filter-buttons">
+                                    <button class="btn btn-primary active fw-bold" data-filter="all" onclick="filterProfileRequestsTable('all')">الكل</button>
+                                    <button class="btn btn-outline-warning text-dark fw-bold" data-filter="Pending" onclick="filterProfileRequestsTable('Pending')">المعلقة ⏳</button>
+                                    <button class="btn btn-outline-success fw-bold" data-filter="Approved" onclick="filterProfileRequestsTable('Approved')">المعتمدة ✅</button>
+                                    <button class="btn btn-outline-secondary fw-bold" data-filter="Rejected" onclick="filterProfileRequestsTable('Rejected')">المرفوضة ❌</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-3 bg-light">
+                            <div id="profile-requests-cards-container" class="d-flex flex-column gap-3">
+                                <!-- Populated dynamically with rich cards -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Admin Circles -->
+                <section id="admin-circles-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-circle-nodes"></i> إدارة الحلقات القرآنيّة</h2>
+                        <button id="btn-add-circle" class="btn btn-success"><i class="fa-solid fa-plus"></i> إضافة حلقة جديدة</button>
+                    </div>
+                    
+                    <div class="card shadow-sm">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الحلقة</th>
+                                        <th>اسم الحلقة</th>
+                                        <th>التوقيت</th>
+                                        <th>المعلّم المشرف</th>
+                                        <th>عدد الطلاب</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="circles-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Admin Teachers -->
+                <section id="admin-teachers-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-chalkboard-user"></i> إدارة المشايخ والمعلّمين</h2>
+                        <button id="btn-add-teacher" class="btn btn-success"><i class="fa-solid fa-plus"></i> إضافة معلّم جديد</button>
+                    </div>
+
+                    <!-- Search bar -->
+                    <div class="search-filter-bar">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="teacher-search-input" placeholder="ابحث باسم المعلّم...">
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم المعلّم</th>
+                                        <th>الاسم الكامل</th>
+                                        <th>العنوان</th>
+                                        <th>رقم الهاتف</th>
+                                        <th>تاريخ الميلاد</th>
+                                        <th>تاريخ التسجيل</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="teachers-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Admin Students -->
+                <section id="admin-students-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-graduation-cap"></i> إدارة الطلاب المنتسبين</h2>
+                        <button id="btn-add-student" class="btn btn-success"><i class="fa-solid fa-plus"></i> إضافة طالب جديد</button>
+                    </div>
+
+                    <!-- Search bar -->
+                    <div class="search-filter-bar">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="student-search-input" placeholder="ابحث باسم الطالب...">
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الطالب</th>
+                                        <th>الاسم الكامل</th>
+                                        <th>رقم العائلة</th>
+                                        <th>تاريخ الميلاد</th>
+                                        <th>الحلقة المنتسب لها</th>
+                                        <th>رقم ولي الأمر</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="students-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Parent-Children Audit & Disambiguation -->
+                <section id="parent-audit-section" class="content-section hidden">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h2><i class="fa-solid fa-people-roof text-primary me-2"></i> تدقيق وحوكمة أبناء أولياء الأمور (فك وإعادة الربط)</h2>
+                            <p class="text-muted">استعراض إجمالي عدد الأبناء المسجلين لكل ولي أمر، وفك الربط الخاطئ أو نقل الطالب لولي أمر آخر بضغطة زر.</p>
+                        </div>
+                        <button class="btn btn-outline-primary" onclick="loadParentAuditScreen()"><i class="fa-solid fa-rotate"></i> تحديث القائمة</button>
+                    </div>
+
+                    <div class="card card-custom p-3 mb-4">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                    <input type="text" id="parent-audit-search" class="form-control" placeholder="ابحث باسم ولي الأمر أو رقم الهوية..." oninput="filterParentAuditView()">
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <span class="badge bg-primary fs-6 p-2" id="parent-audit-count-badge">إجمالي أولياء الأمور: 0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="parent-audit-container">
+                        <!-- Dynamically rendered cards of Parents and their children -->
+                    </div>
+                </section>
+
+                <!-- SECTION: Dynamic Smart Reports Generator -->
+                <section id="dynamic-reports-section" class="content-section hidden">
+                    <div class="section-header d-flex flex-wrap justify-content-between align-items-center mb-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <img src="assets/logo.png" alt="شعار المركز" style="width: 65px; height: 65px; object-fit: contain;">
+                            <div>
+                                <h2 class="fw-bold mb-1 text-success"><i class="fa-solid fa-filter text-primary me-2"></i> مُولد التقارير والفلترة الديناميكية المتقدمة</h2>
+                                <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-mosque text-success me-1"></i> مركز البيان لتعليم القرآن - مسجد علي بن أبي طالب</h6>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="btn btn-success fw-bold shadow-sm" onclick="printDynamicReport()"><i class="fa-solid fa-print me-1"></i> طباعة التقرير</button>
+                            <button class="btn btn-danger fw-bold shadow-sm" onclick="exportDynamicReportToPdf()"><i class="fa-solid fa-file-pdf me-1"></i> تنزيل PDF</button>
+                            <button class="btn btn-primary fw-bold shadow-sm" onclick="exportDynamicReportToExcel()"><i class="fa-solid fa-file-excel me-1"></i> تنزيل Excel (.xlsx)</button>
+                            <button class="btn btn-outline-secondary fw-bold" onclick="resetDynamicReportFilters()"><i class="fa-solid fa-rotate-left me-1"></i> إعادة ضبط الفلاتر</button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Filter Controls Panel -->
+                    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background: #ffffff;">
+                        <div class="card-header bg-primary text-white p-3 fw-bold d-flex justify-content-between align-items-center" style="border-radius: 12px 12px 0 0;">
+                            <span><i class="fa-solid fa-sliders me-1"></i> لوحة التحكم بالفلاتر المركّبة والتقارير الحية</span>
+                            <span class="badge bg-light text-dark fw-bold">مركز البيان لتعليم القرآن - مسجد علي بن أبي طالب</span>
+                        </div>
+                        <div class="card-body p-4 bg-light">
+                            <div class="row g-3">
+                                <!-- Filter 1: Social & Orphan Status -->
+                                <div class="col-md-6 col-lg-3">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-ribbon text-danger me-1"></i> حالة اليتم والوالدين:</label>
+                                    <select id="dyn-filter-orphan" class="form-select border-primary shadow-xs" onchange="runDynamicFilter()">
+                                        <option value="all">الكل (كافة الطلاب)</option>
+                                        <option value="orphans_all">كافة الأيتام فقط (يتيم الأب / الأبوين / الأم)</option>
+                                        <option value="father_orphan">يتيم الأب فقط (شهيد / متوفي)</option>
+                                        <option value="both_orphans">يتيم الأبوين (شهيدين / متوفين)</option>
+                                        <option value="mother_orphan">يتيم الأم</option>
+                                        <option value="special_father">حالات الأب خاصة (مرض / مصاب / أسير)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter 2: Age Category -->
+                                <div class="col-md-6 col-lg-3">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-cake-candles text-warning me-1"></i> الفئة العمرية (العمر):</label>
+                                    <select id="dyn-filter-age" class="form-select border-warning shadow-xs" onchange="toggleCustomAgeInputs()">
+                                        <option value="all">كافة الأعمار</option>
+                                        <option value="12_under">12 سنة وأقل 🧒</option>
+                                        <option value="13_15">من 13 إلى 15 سنة 👦</option>
+                                        <option value="16_above">16 سنة وأكثر 👨</option>
+                                        <option value="custom">مدى عمر مخصص (من - إلى)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter 3: Quran Memorization Level -->
+                                <div class="col-md-6 col-lg-3">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-book-quran text-success me-1"></i> مستوى الحفظ من القرآن:</label>
+                                    <select id="dyn-filter-quran" class="form-select border-success shadow-xs" onchange="runDynamicFilter()">
+                                        <option value="all">كافة مستويات الحفظ</option>
+                                        <option value="1_juz">جزء واحد (جزء عم / تبارك...)</option>
+                                        <option value="2_juz">جزئين (2 أجزاء)</option>
+                                        <option value="3_5_juz">من 3 إلى 5 أجزاء</option>
+                                        <option value="10_plus_juz">10 أجزاء فأكثر</option>
+                                        <option value="khatim">خاتم القرآن الكريم (30 جزء)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter 4: Health Status -->
+                                <div class="col-md-6 col-lg-3">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-notes-medical text-danger me-1"></i> الحالة الصحية للطالب:</label>
+                                    <select id="dyn-filter-health" class="form-select border-danger shadow-xs" onchange="runDynamicFilter()">
+                                        <option value="all">الجميع (سليم ومصاب)</option>
+                                        <option value="healthy">سليم خالي من الأمراض</option>
+                                        <option value="sick_special">حالات مرضية / إصابات / احتياجات خاصة</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter 5: Circle -->
+                                <div class="col-md-6 col-lg-4">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-mosque text-info me-1"></i> الحلقة القرآنية:</label>
+                                    <select id="dyn-filter-circle" class="form-select shadow-xs" onchange="runDynamicFilter()">
+                                        <option value="all">كافة الحلقات والمراكز</option>
+                                        <!-- Loaded dynamically -->
+                                    </select>
+                                </div>
+
+                                <!-- Custom Age Range Inputs -->
+                                <div id="dyn-custom-age-inputs" class="col-md-6 col-lg-4 d-none">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-arrow-down-up-across-line me-1"></i> حدد العمر الدقيق (من - إلى):</label>
+                                    <div class="input-group">
+                                        <input type="number" id="dyn-min-age" class="form-control" placeholder="من (مثلاً 6)" min="1" max="99" oninput="runDynamicFilter()">
+                                        <span class="input-group-text">إلى</span>
+                                        <input type="number" id="dyn-max-age" class="form-control" placeholder="إلى (مثلاً 12)" min="1" max="99" oninput="runDynamicFilter()">
+                                    </div>
+                                </div>
+
+                                <!-- Filter 6: Custom Keyword Search -->
+                                <div class="col-md-6 col-lg-4">
+                                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-magnifying-glass me-1"></i> بحث بالاسم أو المكان أو الملاحظات:</label>
+                                    <input type="text" id="dyn-filter-keyword" class="form-control shadow-xs" placeholder="أدخل اسم الطالب أو العنوان..." oninput="runDynamicFilter()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Stats Summary Ribbon -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
+                                <h3 id="dyn-stat-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">طالب يطابق الفلتر المركّب المختار</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
+                                <h3 id="dyn-stat-percentage" class="fw-bold mb-1">0%</h3>
+                                <span class="fw-bold">من إجمالي طلاب المركز</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 12px;">
+                                <h3 id="dyn-stat-orphans" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">عدد الأيتام في النتيجة الحالية</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Data Table -->
+                    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+                        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-primary fw-bold"><i class="fa-solid fa-table-list me-1"></i> نتائج الفلترة التقاريرية المخصصة (كافة البيانات بأعمدة منفصلة)</h5>
+                            <span id="dyn-report-tag" class="badge bg-light text-dark border font-monospace px-3 py-2">تقرير جميع الطلاب</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="dynamic-reports-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم الطالب الكامل</th>
+                                        <th>رقم الهوية</th>
+                                        <th>تاريخ الميلاد</th>
+                                        <th>العمر</th>
+                                        <th>حالة الأب</th>
+                                        <th>حالة الأم</th>
+                                        <th>تصنيف اليتم</th>
+                                        <th>الحالة الصحية</th>
+                                        <th>الحفظ السابق</th>
+                                        <th>الحلقة المنتسب لها</th>
+                                        <th>اسم ولي الأمر</th>
+                                        <th>رقم جوال التواصل</th>
+                                        <th>عنوان السكن الحالي</th>
+                                        <th>ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dynamic-reports-table-body">
+                                    <!-- Loaded dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Teacher Attendance -->
+                <section id="teacher-attendance-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-clipboard-user"></i> تسجيل غياب وحضور طلاب الحلقة</h2>
+                    </div>
+
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="attendance-setup-bar">
+                                <div class="form-group">
+                                    <label for="attendance-circle-select">الحلقة:</label>
+                                    <select id="attendance-circle-select" class="form-control">
+                                        <!-- Populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="attendance-date">التاريخ:</label>
+                                    <input type="date" id="attendance-date" class="form-control">
+                                </div>
+                                <div class="form-group align-self-end">
+                                    <button id="btn-load-attendance" class="btn btn-primary"><i class="fa-solid fa-users"></i> عرض طلاب الحلقة</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm hidden" id="attendance-list-card">
+                        <div class="card-header d-flex justify-content-between">
+                            <h3 id="attendance-list-title">قائمة طلاب حلقة ...</h3>
+                            <span class="badge badge-info" id="attendance-status-badge">تاريخ اليوم</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>اسم الطالب</th>
+                                        <th style="width: 40%; text-align: center;">حالة الحضور</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendance-table-body">
+                                    <!-- Populated dynamically with radio choices -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer text-start">
+                            <button id="btn-save-attendance" class="btn btn-success btn-lg"><i class="fa-solid fa-cloud-arrow-up"></i> حفظ وتحديث سجل الحضور</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Teacher Sessions -->
+                <section id="teacher-sessions-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-book-open-reader"></i> سجل التسميع وحفظ الآيات</h2>
+                    </div>
+
+                    <div class="grid-split">
+                        <!-- Left Sidebar: Students list in Circle -->
+                        <div class="card shadow-sm">
+                            <div class="card-header">
+                                <h3>اختر الطالب</h3>
+                                <div class="mt-2">
+                                    <select id="session-circle-select" class="form-control select-sm">
+                                        <!-- Populated with teacher's circles -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="student-list-group" id="session-students-list">
+                                <!-- Populated dynamically by JS -->
+                                <p class="text-center p-3 text-muted">اختر الحلقة أولاً</p>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Student recitations logs & record button -->
+                        <div class="sessions-detail-panel">
+                            <div id="no-student-selected" class="card shadow-sm p-5 text-center">
+                                <i class="fa-solid fa-circle-info text-muted mb-3" style="font-size: 3rem;"></i>
+                                <h3>يرجى اختيار طالب من القائمة الجانبية لعرض وتعديل سجل تسميعه</h3>
+                            </div>
+
+                            <div id="student-sessions-detail" class="hidden">
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h3 id="selected-student-name">الطالب: -</h3>
+                                            <span class="text-muted" id="selected-student-sub">الحلقة: -</span>
+                                        </div>
+                                        <button id="btn-new-session" class="btn btn-success"><i class="fa-solid fa-plus"></i> تسجيل تسميع جديد</button>
+                                    </div>
+                                </div>
+
+                                <div class="timeline" id="student-sessions-timeline">
+                                    <!-- Sessions populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Teacher Lottery -->
+                <section id="teacher-lottery-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-dice"></i> القرعة العشوائية (اختيار الطالب التالي للتسميع)</h2>
+                    </div>
+
+                    <div class="grid-split-symmetric">
+                        <div class="card shadow-sm">
+                            <div class="card-header">
+                                <h3>إعدادات سحب القرعة</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group mb-3">
+                                    <label for="lottery-circle-select">الحلقة المستهدفة:</label>
+                                    <select id="lottery-circle-select" class="form-control">
+                                        <!-- Circles -->
+                                    </select>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="lottery-date">استبعاد الغائبين لتاريخ اليوم:</label>
+                                    <input type="date" id="lottery-date" class="form-control">
+                                </div>
+                                <p class="text-muted small mb-4">
+                                    * تضمن القرعة استبعاد أي طالب تم تسجيله كـ "غائب" في جدول الحضور لهذا اليوم لضمان اختيار طالب متواجد في المسجد فعلياً.
+                                </p>
+                                <button id="btn-draw-lottery" class="btn btn-primary btn-lg w-100"><i class="fa-solid fa-wand-magic-sparkles"></i> سحب القرعة الآن</button>
+                            </div>
+                        </div>
+
+                        <!-- Lottery result box -->
+                        <div class="card shadow-sm lottery-result-card d-flex flex-column align-items-center justify-content-center text-center p-5">
+                            <div class="lottery-icon-container" id="lottery-wheel">
+                                <i class="fa-solid fa-dice-d20"></i>
+                            </div>
+                            <div id="lottery-result-display" class="mt-4">
+                                <h3 class="text-muted">اضغط على "سحب القرعة" للاختيار</h3>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Student Progress -->
+                <section id="student-progress-section" class="content-section hidden">
+                    <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h2><i class="fa-solid fa-graduation-cap"></i> سجل الحفظ والتسميع الخاص بي</h2>
+                        <button class="btn btn-warning text-dark fw-bold shadow-sm" onclick="showProfileEditModalForRole('Student')">
+                            <i class="fa-solid fa-pen-to-square"></i> طلب تعديل وتحديث بياناتي
+                        </button>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center" style="flex-wrap: wrap; gap: 15px; padding: 15px;">
+                            <div>
+                                <h3 id="student-self-name" style="margin:0; font-weight:700; color:var(--primary-color);">الطالب: -</h3>
+                                <span class="text-muted" id="student-self-circle">الحلقة: -</span>
+                            </div>
+                            <div class="child-quick-stats" style="display:flex; gap:10px;">
+                                <div class="child-stat-pill" id="student-self-total-sessions"><i class="fa-solid fa-book"></i> الجلسات: -</div>
+                                <div class="child-stat-pill bg-danger text-white" id="student-self-absence"><i class="fa-solid fa-circle-xmark"></i> الغياب: -</div>
+                                <div class="child-stat-pill bg-warning text-dark" id="student-self-late"><i class="fa-solid fa-clock"></i> التأخير: -</div>
+                            </div>
+                        </div>
+                        <div class="card-body" style="padding: 20px;">
+                            <h4 class="mb-3" style="color: var(--primary-color); font-weight: 700;"><i class="fa-solid fa-calendar-days"></i> سجل تسميعاتي الأخير</h4>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>التاريخ</th>
+                                            <th>السورة والآيات</th>
+                                            <th>التقييم</th>
+                                            <th>ملاحظات الشيخ المعلم</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="student-self-sessions-table">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Parent Progress -->
+                <section id="parent-progress-section" class="content-section hidden">
+                    <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h2><i class="fa-solid fa-hands-holding-child"></i> لوحة متابعة مستوى الأبناء وحضورهم</h2>
+                        <button class="btn btn-warning text-dark fw-bold shadow-sm" onclick="showProfileEditModalForRole('Parent')">
+                            <i class="fa-solid fa-pen-to-square"></i> طلب تعديل وتحديث بيانات العائلة
+                        </button>
+                    </div>
+
+                    <div id="parent-children-container">
+                        <!-- Populated by JS for each child -->
+                    </div>
+                </section>
+
+                <!-- SECTION: Announcements Board -->
+                <section id="announcements-section" class="content-section hidden">
+                    <div class="section-header d-flex justify-content-between align-items-center">
+                        <h2><i class="fa-solid fa-bell"></i> مركز الإشعارات والتنبيهات التلقائية للنظام</h2>
+                        <div>
+                            <button class="btn btn-success btn-sm me-2 fw-bold" id="btn-create-announcement-web" onclick="showCreateAnnouncementModal()"><i class="fa-solid fa-bullhorn"></i> نشر إعلان / تعميم جديد</button>
+                            <button class="btn btn-outline-danger btn-sm me-2" id="btn-clear-all-announcements" onclick="clearAllAnnouncementsWeb()"><i class="fa-solid fa-trash-can"></i> مسح كافة الإعلانات</button>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="announcements-timeline" id="announcements-list">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Developer Users -->
+                <section id="developer-users-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-users-gear"></i> إدارة حسابات النظام والصلاحيات</h2>
+                        <button class="btn btn-primary" onclick="showCreateUserModal()"><i class="fa-solid fa-plus"></i> إنشاء مستخدم جديد</button>
+                    </div>
+
+                    <!-- Search bar -->
+                    <div class="search-filter-bar mb-3">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="users-search-input" placeholder="ابحث باسم الحساب أو اسم المستخدم...">
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الحساب</th>
+                                        <th>الاسم الكامل</th>
+                                        <th>الدور والصلاحيات</th>
+                                        <th>اسم المستخدم (Username)</th>
+                                        <th>رقم المرجع (Ref Id)</th>
+                                        <th>كلمة المرور</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body">
+                                    <!-- Populated dynamically by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                        </section>
+
+                <!-- SECTION: Competitions / Leaderboard -->
+                <section id="competitions-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-trophy"></i> لوحة صدارة المسابقات التنافسية بين الحلقات</h2>
+                    </div>
+
+                    <!-- Honor Board (لوحة الشرف) -->
+                    <div class="card shadow-sm mb-4" style="background: linear-gradient(135deg, #1b382b, #0c2317); border: 2px solid var(--accent-color);">
+                        <div class="card-body text-center p-4" style="color: var(--text-light);">
+                            <i class="fa-solid fa-crown" style="font-size: 3rem; color: #ffd700; margin-bottom: 10px;"></i>
+                            <h3 style="font-weight: 800; color: var(--accent-color); margin-bottom: 5px;">لوحة شرف الحلقات المتصدرة</h3>
+                            <p style="font-size: 1.1rem; max-width: 600px; margin: 0 auto 15px;">يتم احتساب المراكز تلقائياً بناءً على إجمالي حفظ الآيات، نقاط الحديث الشريف، معدل علامات الدورات، ونسبة الالتزام بالحضور.</p>
+                            <div class="overall-winner-badge" id="overall-winner-display" style="display: inline-block; background: rgba(255,255,255,0.08); padding: 15px 30px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.15);">
+                                <h4 style="font-weight: 700; margin: 0; color: #fff;" id="winner-circle-name">حلقة الفجر</h4>
+                                <span style="font-size: 0.9rem; color: #a3cbb8;" id="winner-teacher-name">بإشراف الشيخ أحمد</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leaderboards grid -->
+                    <div class="grid-split-symmetric">
+                        <!-- Quran Memorization Leaderboard -->
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header text-white" style="background: #1e4620; padding: 12px 15px;">
+                                <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fa-solid fa-book-open"></i> صدارة حفظ القرآن (إجمالي الآيات)</h3>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px;">الترتيب</th>
+                                            <th>الحلقة</th>
+                                            <th>المعلم</th>
+                                            <th>مجموع الآيات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leaderboard-quran-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Hadith Leaderboard -->
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header text-white" style="background: #1b3b5a; padding: 12px 15px;">
+                                <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fa-solid fa-bookmark"></i> صدارة الحديث الشريف (النقاط)</h3>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px;">الترتيب</th>
+                                            <th>الحلقة</th>
+                                            <th>المعلم</th>
+                                            <th>النقاط</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leaderboard-hadith-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-split-symmetric">
+                        <!-- Courses Performance Leaderboard -->
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header text-white" style="background: #5a1b3b; padding: 12px 15px;">
+                                <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fa-solid fa-graduation-cap"></i> صدارة الدورات التعليمية (متوسط العلامة)</h3>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px;">الترتيب</th>
+                                            <th>الحلقة</th>
+                                            <th>المعلم</th>
+                                            <th>المعدل</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leaderboard-courses-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Attendance/Commitment Leaderboard -->
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header text-white" style="background: #4a1e60; padding: 12px 15px;">
+                                <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fa-solid fa-user-check"></i> صدارة الالتزام والحضور (%)</h3>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px;">الترتيب</th>
+                                            <th>الحلقة</th>
+                                            <th>المعلم</th>
+                                            <th>النسبة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leaderboard-attendance-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Courses & Portfolio -->
+                <section id="courses-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-book-bookmark"></i> الدورات التعليمية وملف الإنجاز الرقمي</h2>
+                    </div>
+
+                    <!-- Tabs switcher -->
+                    <div class="tab-control-bar" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                        <button class="btn btn-outline-primary active-tab-btn" id="tab-btn-courses-list" onclick="switchCourseTab('list')"><i class="fa-solid fa-list-check"></i> الدورات الأكاديمية</button>
+                        <button class="btn btn-outline-primary" id="tab-btn-portfolio" onclick="switchCourseTab('portfolio')"><i class="fa-solid fa-award"></i> ملف الإنجاز والشهادات الرقمية</button>
+                    </div>
+
+                    <!-- TAB 1: Courses List & Management -->
+                    <div id="course-tab-list-view">
+                        <div class="admin-only developer-only mb-3" style="text-align: left;">
+                            <button class="btn btn-success" id="btn-create-course-modal" style="display:none;"><i class="fa-solid fa-plus"></i> إضافة دورة أكاديمي جديد</button>
+                        </div>
+
+                        <div class="card shadow-sm">
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>رقم الدورة</th>
+                                            <th>اسم الدورة</th>
+                                            <th>الوصف</th>
+                                            <th>المعلم / مشرف التقييم</th>
+                                            <th>الطلاب المسجلين</th>
+                                            <th>الحالة</th>
+                                            <th>الإجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="courses-table-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Portfolio / Certificates View -->
+                    <div id="course-tab-portfolio-view" class="hidden">
+                        <div class="card shadow-sm p-4 mb-4 text-center" style="background: rgba(255,255,255,0.03);">
+                            <i class="fa-solid fa-award text-warning mb-2" style="font-size: 2.5rem;"></i>
+                            <h3 id="portfolio-title" style="font-weight: 700; color: var(--primary-color);">ملف الإنجاز الرقمي الخاص بك</h3>
+                            <p id="portfolio-desc" style="font-size: 0.95rem; color: var(--text-muted); max-width: 600px; margin: 0 auto;">استعرض هنا جميع الشهادات الرقمية المعتمدة الصادرة باسمك فور اجتيازك لأي دورة أكاديمية أو تسميع أجزاء من القرآن الكريم بنجاح.</p>
+                        </div>
+
+                        <div class="certificates-grid" id="certificates-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px;">
+                            <!-- Certificates loaded here -->
+                            <div class="card shadow-sm p-5 text-center text-muted" style="grid-column: 1/-1;">
+                                <i class="fa-solid fa-graduation-cap mb-3" style="font-size: 3rem;"></i>
+                                <p>لا توجد شهادات رقمية مصدرة حالياً.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Nominations & Exam Management -->
+                <section id="exams-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-file-signature"></i> نظام الترشيحات وإدارة الاختبارات الشفوية</h2>
+                    </div>
+
+                    <div class="teacher-only admin-only developer-only mb-3" id="nominate-action-wrapper" style="text-align: left;">
+                        <button class="btn btn-success" id="btn-nominate-student-modal" style="display:none;"><i class="fa-solid fa-user-plus"></i> ترشيح طالب جديد للاختبار</button>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h3 style="margin: 0; font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-list"></i> جدول طلبات الترشيح والامتحانات</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الطلب</th>
+                                        <th>اسم الطالب</th>
+                                        <th>الحلقة</th>
+                                        <th>المعلم المرشِّح</th>
+                                        <th>نوع الاختبار</th>
+                                        <th>التفاصيل/الأجزاء</th>
+                                        <th>تاريخ الترشيح</th>
+                                        <th>موعد الامتحان</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="exams-table-body">
+                                    <!-- Loaded dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Audit Logs -->
+                <section id="audit-logs-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-shield-halved text-danger"></i> سجل الرقابة الأمنية وعمليات النظام (للمطور والإدارة)</h2>
+                        <button class="btn btn-outline-primary shadow-sm" onclick="loadAuditLogs()"><i class="fa-solid fa-rotate"></i> تحديث السجل فوراً</button>
+                    </div>
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-danger text-white" style="background: #a94442; color: #fff;">
+                            <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#fff;"><i class="fa-solid fa-triangle-exclamation"></i> سجل التدقيق غير القابل للتعديل (Read-Only Audit Log)</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>الرقم</th>
+                                        <th>اسم المستخدم</th>
+                                        <th>العملية الحساسة</th>
+                                        <th>التفاصيل الكاملة للحدث</th>
+                                        <th>تاريخ العملية (UTC)</th>
+                                        <th>عنوان الـ IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-logs-table-body">
+                                    <!-- Loaded dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+            </main>
+        </div>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Modal Base Container -->
+    <div class="modal-overlay" id="modal-container">
+        <!-- Inside populated by JS depending on what button was clicked -->
+        <div class="modal-card animate-zoom">
+            <div class="modal-header">
+                <h3 id="modal-title">العنوان</h3>
+                <button class="modal-close-btn" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body-content">
+                <!-- Dynamic forms -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== LOGIN SCREEN ==================== -->
+    <div class="login-wrapper" id="login-screen">
+        <div class="login-card animate-zoom">
+            <div class="login-logo text-center">
+                <img src="assets/logo.png" alt="شعار مركز البيان" class="login-logo-img mb-3">
+                <h2 class="fw-bold mb-1" style="color: #0d5c3a; font-size: 1.45rem; font-weight: 800;">مركز البيان لتعليم القرآن الكريم</h2>
+                <h6 class="fw-bold text-success mb-2" style="font-size: 1rem;"><i class="fa-solid fa-mosque me-1"></i> مسجد علي بن أبي طالب</h6>
+                <p class="text-muted small mb-0">نظام إدارة ومتابعة الحلقات القرآنيّة المتقدم</p>
+            </div>
+            
+            <div id="login-error-container"></div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username"><i class="fa-solid fa-user"></i> اسم المستخدم:</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="أدخل اسم المستخدم..." required autocomplete="username">
+                </div>
+                
+                <div class="form-group">
+                    <label for="login-password"><i class="fa-solid fa-lock"></i> كلمة المرور:</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="أدخل كلمة المرور..." required autocomplete="current-password">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg w-100 mt-3"><i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول</button>
+            </form>
+            
+            <div class="login-footer">
+                <p>يرجى مراجعة إدارة المركز للحصول على حسابك الخاص.</p>
+                <div class="demo-hints" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; text-align: center; line-height: 1.6;">
+                    <strong>الحسابات التجريبية للمشروع:</strong><br>
+                    مطور: <code style="color:var(--primary-color)">dev</code> / <code style="color:var(--primary-color)">dev123</code><br>
+                    مدير: <code style="color:var(--primary-color)">admin</code> / <code style="color:var(--primary-color)">admin123</code><br>
+                    معلم: <code style="color:var(--primary-color)">ahmad</code> / <code style="color:var(--primary-color)">teacher123</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script loading -->
+    <script src="assets/logo_base64.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

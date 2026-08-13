@@ -1,0 +1,146 @@
+### تم إنشاء هذا الملف باستخدام الذكاء الاصطناعي لغايات التجربة
+
+@host = https://localhost:7070
+@admin = Admin
+@teacher = Teacher
+@parent = Parent
+
+###############################################
+# تسجيل التسميع (Sessions) — Teacher / Admin
+###############################################
+
+### تسجيل جلسة تسميع لطالب (Assessment: Excellent/VeryGood/Good/Medium/Rejected)
+POST {{host}}/api/sessions
+X-User-Role: {{teacher}}
+X-User-Id: 1
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "sessionDate": "2026-06-06",
+  "surahName": "البقرة",
+  "fromVerse": 1,
+  "toVerse": 20,
+  "assessment": "Excellent",
+  "notes": "أداء ممتاز وحفظ متقن",
+  "viaLottery": false
+}
+
+### تسجيل جلسة بآيات غير منطقية (to < from) → 400
+POST {{host}}/api/sessions
+X-User-Role: {{teacher}}
+X-User-Id: 1
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "sessionDate": "2026-06-06",
+  "surahName": "آل عمران",
+  "fromVerse": 50,
+  "toVerse": 10,
+  "assessment": "Good",
+  "notes": null,
+  "viaLottery": false
+}
+
+### عرض جلسات طالب
+GET {{host}}/api/sessions/student/1
+X-User-Role: {{teacher}}
+X-User-Id: 1
+
+### تعديل جلسة (id=1)
+PUT {{host}}/api/sessions/1
+X-User-Role: {{teacher}}
+X-User-Id: 1
+Content-Type: application/json
+
+{
+  "sessionDate": "2026-06-06",
+  "surahName": "البقرة",
+  "fromVerse": 1,
+  "toVerse": 25,
+  "assessment": "VeryGood",
+  "notes": "تحسّن ملحوظ"
+}
+
+### حذف جلسة
+DELETE {{host}}/api/sessions/2
+X-User-Role: {{teacher}}
+X-User-Id: 1
+
+###############################################
+# القرعة (Lottery)
+###############################################
+
+### اختيار طالب عشوائي من الحلقة 1
+GET {{host}}/api/sessions/lottery/1
+X-User-Role: {{teacher}}
+X-User-Id: 1
+
+### القرعة بتاريخ محدد (يستثني الغائبين في ذلك اليوم)
+GET {{host}}/api/sessions/lottery/1?date=2026-06-06
+X-User-Role: {{teacher}}
+X-User-Id: 1
+
+###############################################
+# الحضور (Attendance)
+###############################################
+
+### تسجيل حضور (Status: Present/Absent/Late)
+POST {{host}}/api/attendance
+X-User-Role: {{teacher}}
+X-User-Id: 1
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "circleId": 1,
+  "sessionDate": "2026-06-06",
+  "status": "Present"
+}
+
+### تسجيل غياب لطالب آخر
+POST {{host}}/api/attendance
+X-User-Role: {{teacher}}
+X-User-Id: 1
+Content-Type: application/json
+
+{
+  "studentId": 2,
+  "circleId": 1,
+  "sessionDate": "2026-06-06",
+  "status": "Absent"
+}
+
+### عرض حضور طالب
+GET {{host}}/api/attendance/student/1
+X-User-Role: {{teacher}}
+X-User-Id: 1
+
+###############################################
+# التقارير (Reports) — Admin
+###############################################
+
+### تقرير ملخّص لنطاق تاريخي
+GET {{host}}/api/reports/summary?from=2026-01-01&to=2026-12-31
+X-User-Role: {{admin}}
+X-User-Id: 1
+
+### تقرير افتراضي (آخر شهر)
+GET {{host}}/api/reports/summary
+X-User-Role: {{admin}}
+X-User-Id: 1
+
+###############################################
+# متابعة ولي الأمر (Parent) — read-only
+###############################################
+
+### أبناء ولي الأمر رقم 100 (مزروع بالبيانات التجريبية)
+GET {{host}}/api/parent/children
+X-User-Role: {{parent}}
+X-User-Id: 100
+
+### ولي أمر بدور خاطئ على مسار التقارير → 403
+GET {{host}}/api/reports/summary
+X-User-Role: {{parent}}
+X-User-Id: 100

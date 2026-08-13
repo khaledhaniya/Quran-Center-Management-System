@@ -1,0 +1,62 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\Courses - PRIVATE\\Programming\\ASP.NET\\QuranCircles.Api\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{8B6CA59A-82CE-427D-832D-96B5DC5567C2}|QuranCircles.Api\\QuranCircles.Api.csproj|d:\\courses - private\\programming\\asp.net\\qurancircles.api\\qurancircles.api\\request.http||{5703B403-55E7-4C63-8C88-A8F52C7A45C5}",
+      "RelativeMoniker": "D:0:0:{8B6CA59A-82CE-427D-832D-96B5DC5567C2}|QuranCircles.Api\\QuranCircles.Api.csproj|solutionrelative:qurancircles.api\\request.http||{5703B403-55E7-4C63-8C88-A8F52C7A45C5}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8B6CA59A-82CE-427D-832D-96B5DC5567C2}|QuranCircles.Api\\QuranCircles.Api.csproj|d:\\courses - private\\programming\\asp.net\\qurancircles.api\\qurancircles.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{8B6CA59A-82CE-427D-832D-96B5DC5567C2}|QuranCircles.Api\\QuranCircles.Api.csproj|solutionrelative:qurancircles.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 3,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\Courses - PRIVATE\\Programming\\ASP.NET\\QuranCircles.Api\\QuranCircles.Api\\Program.cs",
+              "RelativeDocumentMoniker": "QuranCircles.Api\\Program.cs",
+              "ToolTip": "D:\\Courses - PRIVATE\\Programming\\ASP.NET\\QuranCircles.Api\\QuranCircles.Api\\Program.cs",
+              "RelativeToolTip": "QuranCircles.Api\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-06T12:23:41.17Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "request.http",
+              "DocumentMoniker": "D:\\Courses - PRIVATE\\Programming\\ASP.NET\\QuranCircles.Api\\QuranCircles.Api\\request.http",
+              "RelativeDocumentMoniker": "QuranCircles.Api\\request.http",
+              "ToolTip": "D:\\Courses - PRIVATE\\Programming\\ASP.NET\\QuranCircles.Api\\QuranCircles.Api\\request.http",
+              "RelativeToolTip": "QuranCircles.Api\\request.http",
+              "ViewState": "AgIAACIAAAAAAAAAAAAQwAgAAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003502|",
+              "WhenOpened": "2026-06-06T12:19:01.032Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

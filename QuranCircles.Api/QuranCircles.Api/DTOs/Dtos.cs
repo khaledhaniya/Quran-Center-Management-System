@@ -1,0 +1,181 @@
+namespace QuranCircles.Api.DTOs;
+
+using System;
+using System.Collections.Generic;
+using QuranCircles.Api.Entities;
+
+// ====================== Student ======================
+public record CreateStudentDto(
+    string FullName,
+    string? Address,
+    DateOnly? DateOfBirth,
+    string? FamilyContact,
+    int? CircleId,
+    int? ParentId,
+    string? Username,
+    string? Password,
+    string? StudentIdentityNumber = null,
+    string? PreviousQuranMemorization = null,
+    string? StudentMobile = null,
+    string? StudentWhatsapp = null,
+    string? HealthStatus = null,
+    string? FatherStatus = null,
+    string? MotherStatus = null,
+    string? Kinship = null,
+    string? ParentIdentityNumber = null,
+    string? WhatsappNumber = null,
+    string? WalletNumber = null,
+    string? BankAccountNumber = null,
+    string? BankName = null,
+    string? OriginalAddress = null,
+    string? OriginalHousingType = null,
+    string? OriginalHousingStatus = null,
+    string? CurrentAddress = null,
+    string? CurrentHousingType = null,
+    string? Notes = null,
+    string? ParentName = null
+);
+
+public record UpdateStudentDto(
+    string FullName,
+    string? Address,
+    DateOnly? DateOfBirth,
+    string? FamilyContact,
+    int? CircleId,
+    int? ParentId,
+    bool IsActive,
+    string? StudentIdentityNumber = null,
+    string? PreviousQuranMemorization = null,
+    string? StudentMobile = null,
+    string? StudentWhatsapp = null,
+    string? HealthStatus = null,
+    string? FatherStatus = null,
+    string? MotherStatus = null,
+    string? Kinship = null,
+    string? ParentIdentityNumber = null,
+    string? WhatsappNumber = null,
+    string? WalletNumber = null,
+    string? BankAccountNumber = null,
+    string? BankName = null,
+    string? OriginalAddress = null,
+    string? OriginalHousingType = null,
+    string? OriginalHousingStatus = null,
+    string? CurrentAddress = null,
+    string? CurrentHousingType = null,
+    string? Notes = null,
+    string? ParentName = null
+);
+
+public record StudentDto(
+    int Id,
+    string FullName,
+    string? Address,
+    DateOnly? DateOfBirth,
+    string? FamilyContact,
+    DateOnly RegistrationDate,
+    bool IsActive,
+    int? CircleId,
+    string? CircleName,
+    int? ParentId,
+    string? StudentIdentityNumber = null,
+    string? PreviousQuranMemorization = null,
+    string? StudentMobile = null,
+    string? StudentWhatsapp = null,
+    string? HealthStatus = null,
+    string? FatherStatus = null,
+    string? MotherStatus = null,
+    string? Kinship = null,
+    string? ParentIdentityNumber = null,
+    string? WhatsappNumber = null,
+    string? WalletNumber = null,
+    string? BankAccountNumber = null,
+    string? BankName = null,
+    string? OriginalAddress = null,
+    string? OriginalHousingType = null,
+    string? OriginalHousingStatus = null,
+    string? CurrentAddress = null,
+    string? CurrentHousingType = null,
+    string? Notes = null
+);
+
+// ====================== Teacher ======================
+public record CreateTeacherDto(
+    string FullName,
+    string? Address,
+    DateOnly? DateOfBirth,
+    string? Contact,
+    string? Username,
+    string? Password
+);
+
+public record UpdateTeacherDto(
+    string FullName,
+    string? Address,
+    DateOnly? DateOfBirth,
+    string? Contact,
+    bool IsActive
+);
+
+public record TeacherDto(
+    int Id,
+    string FullName,
+    string? Address,
+    DateOnly? DateOfBirth,
+    string? Contact,
+    DateOnly RegistrationDate,
+    bool IsActive
+);
+
+// ====================== Circle ======================
+public record CreateCircleDto(
+    string Name,
+    SessionTiming Timing,
+    int? TeacherId
+);
+
+public record UpdateCircleDto(
+    string Name,
+    SessionTiming Timing,
+    int? TeacherId,
+    bool IsActive
+);
+
+public record CircleDto(
+    int Id,
+    string Name,
+    SessionTiming Timing,
+    bool IsActive,
+    int? TeacherId,
+    string? TeacherName,
+    int StudentCount,
+    List<StudentBriefDto>? Students
+);
+
+public record StudentBriefDto(int Id, string FullName);
+
+public record AssignStudentDto(int StudentId);
+
+// ====================== Exams DTOs ======================
+public class CreateNominationDto
+{
+    public int StudentId { get; set; }
+    public string NominationType { get; set; } = "Quran";
+    public int? CourseId { get; set; }
+    public int? JuzStart { get; set; }
+    public int? JuzEnd { get; set; }
+}
+
+public class ScheduleExamDto
+{
+    public int NominationId { get; set; }
+    public DateTime ExamDate { get; set; }
+}
+
+public class EvaluateExamDto
+{
+    public int NominationId { get; set; }
+    public int MajorMistakes { get; set; }
+    public int MinorMistakes { get; set; }
+    public double Grade { get; set; }
+    public string? Notes { get; set; }
+}

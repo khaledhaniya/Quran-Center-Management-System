@@ -1,0 +1,634 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../models/models.dart';
+
+class ApiService {
+  static String baseUrl = 'http://localhost:5070/api';
+  static User? currentUser;
+  static String? authToken;
+
+  static void setBaseUrl(String url) {
+    if (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    if (!url.endsWith('/api')) {
+      baseUrl = '$url/api';
+    } else {
+      baseUrl = url;
+    }
+  }
+
+  static Map<String, String> _headers({String? code2FA}) {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (authToken != null && authToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $authToken';
+    }
+    if (currentUser != null) {
+      headers['X-User-Id'] = currentUser!.id.toString();
+    }
+    if (code2FA != null && code2FA.isNotEmpty) {
+      headers['X-2FA-Code'] = code2FA;
+    }
+    return headers;
+  }
+
+  // --- Auth ---
+  static Future<User> login(String username, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login'),
+      headers: _headers(),
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      final user = User.fromJson(json['user'] ?? json);
+      currentUser = user;
+      authToken = json['token']?.toString() ?? '';
+      return user;
+    } else {
+      try {
+        final err = jsonDecode(response.body);
+        throw Exception(err['message'] ?? err['error'] ?? 'فشل تسجيل الدخول. تحقق من كلمة المرور.');
+      } catch (e) {
+        if (e.toString().contains('Exception:')) rethrow;
+        throw Exception('فشل الاتصال بالسيرفر. تأكد من تشغيل backend على http://localhost:5070');
+      }
+    }
+  }
+
+  // --- Students CRUD ---
+  static Future<List<Student>> getStudents({String? search}) async {
+    String url = '$baseUrl/students';
+    if (search != null && search.isNotEmpty) {
+      url += '?search=${Uri.encodeComponent(search)}';
+    }
+    final response = await http.get(Uri.parse(url), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => Student.fromJson(item)).toList();
+    }
+    throw Exception('فشل جلب قائمة الطلاب (${response.statusCode})');
+  }
+
+  static Future<bool> createStudent(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/students'),
+      headers: _headers(),
+      body: jsonEncode(data),
+    );
+    return response.statusCode == 201 || response.statusCode == 200;
+  }
+
+  static Future<bool> updateStudent(int id, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/students/$id'),
+      headers: _headers(),
+      body: jsonEncode(data),
+    );
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> deleteStudent(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/students/$id'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  // --- Teachers CRUD ---
+  static Future<List<Teacher>> getTeachers() async {
+    final response = await http.get(Uri.parse('$baseUrl/teachers'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => Teacher.fromJson(item)).toList();
+    }
+    throw Exception('فشل جلب قائمة المعلمين (${response.statusCode})');
+  }
+
+  static Future<bool> createTeacher({
+    required String fullName,
+    String? contact,
+    String? address,
+    String? dateOfBirth,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/teachers'),
+      headers: _headers(),
+      body: jsonEncode({
+        'fullName': fullName,
+        'contact': contact,
+        'address': address,
+        'dateOfBirth': dateOfBirth,
+      }),
+    );
+    return response.statusCode == 201 || response.statusCode == 200;
+  }
+
+  static Future<bool> updateTeacher(int id, {
+    required String fullName,
+    String? contact,
+    String? address,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/teachers/$id'),
+      headers: _headers(),
+      body: jsonEncode({
+        'fullName': fullName,
+        'contact': contact,
+        'address': address,
+      }),
+    );
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> deleteTeacher(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/teachers/$id'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  // --- Circles CRUD ---
+  static Future<List<Circle>> getCircles() async {
+    final response = await http.get(Uri.parse('$baseUrl/circles'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => Circle.fromJson(item)).toList();
+    }
+    throw Exception('فشل جلب قائمة الحلقات (${response.statusCode})');
+  }
+
+  static Future<bool> createCircle({
+    required String name,
+    String? timing,
+    int? teacherId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/circles'),
+      headers: _headers(),
+      body: jsonEncode({
+        'name': name,
+        'timing': timing ?? 'Fajr',
+        'teacherId': teacherId,
+      }),
+    );
+    return response.statusCode == 201 || response.statusCode == 200;
+  }
+
+  static Future<bool> updateCircle(int id, {
+    required String name,
+    String? timing,
+    int? teacherId,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/circles/$id'),
+      headers: _headers(),
+      body: jsonEncode({
+        'name': name,
+        'timing': timing,
+        'teacherId': teacherId,
+      }),
+    );
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> deleteCircle(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/circles/$id'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  // --- Courses CRUD ---
+  static Future<List<Course>> getCourses() async {
+    final response = await http.get(Uri.parse('$baseUrl/courses'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => Course.fromJson(item)).toList();
+    }
+    throw Exception('فشل جلب قائمة الدورات والمساقات (${response.statusCode})');
+  }
+
+  static Future<bool> createCourse({
+    required String name,
+    String? description,
+    int? teacherId,
+    int? examSupervisorId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/courses'),
+      headers: _headers(),
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        'teacherId': teacherId,
+        'examSupervisorId': examSupervisorId,
+      }),
+    );
+    return response.statusCode == 201 || response.statusCode == 200;
+  }
+
+  static Future<bool> updateCourse(int id, {
+    required String name,
+    String? description,
+    int? teacherId,
+    int? examSupervisorId,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/courses/$id'),
+      headers: _headers(),
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        'teacherId': teacherId,
+        'examSupervisorId': examSupervisorId,
+      }),
+    );
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> deleteCourse(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/courses/$id'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  // --- Attendance & Sessions ---
+  static Future<List<CourseAttendanceRecord>> getCourseAttendance(int courseId, String date) async {
+    final enrollmentsResp = await http.get(
+      Uri.parse('$baseUrl/courses/$courseId/enrollments'),
+      headers: _headers(),
+    );
+    final attendanceResp = await http.get(
+      Uri.parse('$baseUrl/courses/$courseId/attendance?date=$date'),
+      headers: _headers(),
+    );
+
+    final Map<int, int> statusMap = {};
+    if (attendanceResp.statusCode == 200) {
+      final List attData = jsonDecode(attendanceResp.body);
+      for (var item in attData) {
+        statusMap[item['studentId'] ?? 0] = item['status'] ?? 1;
+      }
+    }
+
+    if (enrollmentsResp.statusCode == 200) {
+      final List enrollData = jsonDecode(enrollmentsResp.body);
+      return enrollData.map((item) {
+        final sId = item['studentId'] ?? 0;
+        final statusVal = statusMap[sId] ?? 1;
+        String statusTxt = 'حاضر';
+        if (statusVal == 2) statusTxt = 'غائب';
+        if (statusVal == 3) statusTxt = 'متأخر';
+
+        return CourseAttendanceRecord(
+          id: item['id'] ?? 0,
+          studentId: sId,
+          studentName: item['studentName'] ?? '',
+          courseId: courseId,
+          courseName: '',
+          sessionDate: date,
+          status: statusVal,
+          statusText: statusTxt,
+        );
+      }).toList();
+    }
+    return [];
+  }
+
+  static Future<bool> saveCourseAttendance(int courseId, String sessionDate, List<Map<String, dynamic>> items) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/courses/attendance'),
+      headers: _headers(),
+      body: jsonEncode({
+        'courseId': courseId,
+        'sessionDate': sessionDate,
+        'items': items,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> saveCircleAttendance(int circleId, String sessionDate, List<Map<String, dynamic>> records) async {
+    bool ok = true;
+    for (var r in records) {
+      final resp = await http.post(
+        Uri.parse('$baseUrl/attendance'),
+        headers: _headers(),
+        body: jsonEncode({
+          'studentId': r['studentId'],
+          'circleId': circleId,
+          'sessionDate': sessionDate,
+          'status': r['status'],
+        }),
+      );
+      if (resp.statusCode != 200) ok = false;
+    }
+    return ok;
+  }
+
+  static Future<bool> saveRecitationSession({
+    required int studentId,
+    required String sessionDate,
+    required String surahName,
+    required int fromVerse,
+    required int toVerse,
+    required int assessment,
+    String? notes,
+    bool viaLottery = false,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/sessions'),
+      headers: _headers(),
+      body: jsonEncode({
+        'studentId': studentId,
+        'sessionDate': sessionDate,
+        'surahName': surahName,
+        'fromVerse': fromVerse,
+        'toVerse': toVerse,
+        'assessment': assessment,
+        'notes': notes,
+        'viaLottery': viaLottery,
+      }),
+    );
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  // --- Exams & Nominations ---
+  static Future<List<ExamNomination>> getNominations() async {
+    final response = await http.get(Uri.parse('$baseUrl/exams/nominations'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => ExamNomination.fromJson(item)).toList();
+    }
+    throw Exception('فشل جلب قائمة طلبات الترشيح والامتحانات (${response.statusCode})');
+  }
+
+  static Future<bool> nominateExam({
+    required int studentId,
+    required String nominationType,
+    int? courseId,
+    required int juzStart,
+    required int juzEnd,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/exams/nominate'),
+      headers: _headers(),
+      body: jsonEncode({
+        'studentId': studentId,
+        'nominationType': nominationType,
+        'courseId': courseId,
+        'juzStart': juzStart,
+        'juzEnd': juzEnd,
+      }),
+    );
+    if (response.statusCode == 200) return true;
+    final err = jsonDecode(response.body);
+    throw Exception(err['message'] ?? 'فشل تقديم الترشيح');
+  }
+
+  static Future<bool> scheduleExam(int nominationId, String examDate) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/exams/schedule'),
+      headers: _headers(),
+      body: jsonEncode({
+        'nominationId': nominationId,
+        'examDate': examDate,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  static Future<Map<String, dynamic>> evaluateExam({
+    required int nominationId,
+    required int majorMistakes,
+    required int minorMistakes,
+    required double grade,
+    String? notes,
+    required String code2FA,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/exams/evaluate'),
+      headers: _headers(code2FA: code2FA),
+      body: jsonEncode({
+        'nominationId': nominationId,
+        'majorMistakes': majorMistakes,
+        'minorMistakes': minorMistakes,
+        'grade': grade,
+        'notes': notes,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final err = jsonDecode(response.body);
+      throw Exception(err['message'] ?? 'فشل حفظ نتيجة التقييم');
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getCourseEnrollments(int courseId) async {
+    final response = await http.get(Uri.parse('$baseUrl/courses/$courseId/enrollments'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  // --- Active Toggles ---
+  static Future<bool> toggleStudentActive(int id) async {
+    final response = await http.post(Uri.parse('$baseUrl/students/$id/toggle-active'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> toggleTeacherActive(int id) async {
+    final response = await http.post(Uri.parse('$baseUrl/teachers/$id/toggle-active'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> toggleCircleActive(int id) async {
+    final response = await http.post(Uri.parse('$baseUrl/circles/$id/toggle-active'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  // --- Student 360 View ---
+  static Future<Map<String, dynamic>> getStudent360(int studentId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/students/$studentId/progress'), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (_) {}
+
+    final responseFallback = await http.get(Uri.parse('$baseUrl/students/$studentId/360'), headers: _headers());
+    if (responseFallback.statusCode == 200) {
+      return jsonDecode(responseFallback.body);
+    }
+    throw Exception('فشل جلب الملف الموحد للطالب (${responseFallback.statusCode})');
+  }
+
+  // --- Users & Announcements ---
+  static Future<List<User>> getUsers() async {
+    final response = await http.get(Uri.parse('$baseUrl/users'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => User.fromJson(item)).toList();
+    }
+    return [];
+  }
+
+  static Future<bool> createUser({
+    required String username,
+    required String password,
+    required String fullName,
+    required String role,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users'),
+      headers: _headers(),
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+        'fullName': fullName,
+        'role': role,
+      }),
+    );
+    return response.statusCode == 201 || response.statusCode == 200;
+  }
+
+  static Future<List<Announcement>> getAnnouncements() async {
+    final response = await http.get(Uri.parse('$baseUrl/announcements/my'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => Announcement.fromJson(item)).toList();
+    }
+    return [];
+  }
+
+  static Future<bool> createAnnouncement({
+    required String title,
+    required String content,
+    int targetType = 1,
+    int? targetId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/announcements'),
+      headers: _headers(),
+      body: jsonEncode({
+        'title': title,
+        'content': content,
+        'targetType': targetType,
+        'targetId': targetId,
+      }),
+    );
+    return response.statusCode == 201 || response.statusCode == 200;
+  }
+
+  static Future<List<AuditLog>> getAuditLogs() async {
+    final response = await http.get(Uri.parse('$baseUrl/audit-logs'), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => AuditLog.fromJson(item)).toList();
+    }
+    return [];
+  }
+
+  // --- Profile Requests ---
+  static Future<List<dynamic>> getProfileUpdateRequests() async {
+    final response = await http.get(Uri.parse('$baseUrl/profile-update-requests'), headers: _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List;
+    }
+    return [];
+  }
+
+  static Future<bool> approveProfileRequest(int id) async {
+    final response = await http.post(Uri.parse('$baseUrl/profile-update-requests/$id/approve'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> rejectProfileRequest(int id) async {
+    final response = await http.post(Uri.parse('$baseUrl/profile-update-requests/$id/reject'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  // --- Parent Audit Data ---
+  static Future<List<dynamic>> getParentAuditData() async {
+    final response = await http.get(Uri.parse('$baseUrl/parent/audit'), headers: _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List;
+    }
+    return [];
+  }
+
+  // --- Permanent Hard Delete ---
+  static Future<bool> hardDeleteStudent(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/students/$id/permanent'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> hardDeleteTeacher(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/teachers/$id/permanent'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> hardDeleteCircle(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/circles/$id/permanent'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  // --- Announcements Actions ---
+  static Future<bool> clearAllAnnouncements() async {
+    final response = await http.delete(Uri.parse('$baseUrl/announcements/clear-all'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> deleteAnnouncement(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/announcements/$id'), headers: _headers());
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> hardDeleteUser(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/users/$id'), headers: _headers());
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  // --- Profile Update Requests ---
+  static Future<bool> submitProfileUpdateRequest({
+    required int? studentId,
+    required String requestedByRole,
+    required String requestedByName,
+    required Map<String, String> changes,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/profile-update-requests'),
+      headers: _headers(),
+      body: jsonEncode({
+        'studentId': studentId,
+        'requestedByRole': requestedByRole,
+        'requestedByName': requestedByName,
+        'changes': changes,
+      }),
+    );
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  // --- SMS Dispatching ---
+  static Future<Map<String, dynamic>> sendSms({
+    required int targetType,
+    required int? targetId,
+    required String messageContent,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/sms/send'),
+      headers: _headers(),
+      body: jsonEncode({
+        'targetType': targetType,
+        'targetId': targetId,
+        'messageContent': messageContent,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return {'error': 'فشل إرسال رسالة SMS'};
+  }
+}
