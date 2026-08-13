@@ -1,13 +1,13 @@
 @echo off
-chcp 65001 > nul
+title GitHub Sync - AlBayan Quran Center
 echo ========================================================
-echo   جاري تحديث ورفع كافة تعديلات النظام الكامل إلى GitHub...
+echo   Updating and Pushing Project to GitHub...
 echo ========================================================
 cd /d "c:\xampp\htdocs\Quran Center"
 git add .
-git commit -m "تحديث تلقائي للنظام - الويب والموبايل"
+git commit -m "Auto sync updates"
 git push origin main
 echo ========================================================
-echo   تم الرفع والتحديث بنجاح إلى مستودعك على GitHub!
+echo   Push to GitHub Completed Successfully!
 echo ========================================================
 pause
