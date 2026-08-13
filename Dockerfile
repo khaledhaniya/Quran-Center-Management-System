@@ -1,9 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["QuranCircles.Api/QuranCircles.Api.csproj", "QuranCircles.Api/"]
-RUN dotnet restore "QuranCircles.Api/QuranCircles.Api.csproj"
-COPY . .
-WORKDIR "/src/QuranCircles.Api"
+COPY ["QuranCircles.Api/QuranCircles.Api/QuranCircles.Api.csproj", "QuranCircles.Api/QuranCircles.Api/"]
+RUN dotnet restore "QuranCircles.Api/QuranCircles.Api/QuranCircles.Api.csproj"
+COPY ["QuranCircles.Api/", "QuranCircles.Api/"]
+WORKDIR "/src/QuranCircles.Api/QuranCircles.Api"
 RUN dotnet publish "QuranCircles.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
