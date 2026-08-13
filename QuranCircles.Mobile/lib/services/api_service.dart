@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
+import 'offline_cache.dart';
 
 class ApiService {
   static String baseUrl = 'https://albayan-quran.onrender.com/api';
@@ -48,14 +49,23 @@ class ApiService {
       final user = User.fromJson(json['user'] ?? json);
       currentUser = user;
       authToken = json['token']?.toString() ?? '';
+      await OfflineCache.save('user_login', response.body);
       return user;
     } else {
       try {
         final err = jsonDecode(response.body);
         throw Exception(err['message'] ?? err['error'] ?? 'فشل تسجيل الدخول. تحقق من كلمة المرور.');
       } catch (e) {
+        final cached = await OfflineCache.load('user_login');
+        if (cached != null) {
+          final json = jsonDecode(cached);
+          final user = User.fromJson(json['user'] ?? json);
+          currentUser = user;
+          authToken = json['token']?.toString() ?? '';
+          return user;
+        }
         if (e.toString().contains('Exception:')) rethrow;
-        throw Exception('فشل الاتصال بالسيرفر. تأكد من تشغيل backend على http://localhost:5070');
+        throw Exception('فشل الاتصال بالسيرفر. يرجى التحقق من الاتصال بالإنترنت.');
       }
     }
   }
@@ -66,12 +76,21 @@ class ApiService {
     if (search != null && search.isNotEmpty) {
       url += '?search=${Uri.encodeComponent(search)}';
     }
-    final response = await http.get(Uri.parse(url), headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((item) => Student.fromJson(item)).toList();
+    try {
+      final response = await http.get(Uri.parse(url), headers: _headers());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        await OfflineCache.save('students_list', response.body);
+        return data.map((item) => Student.fromJson(item)).toList();
+      }
+    } catch (_) {
+      final cached = await OfflineCache.load('students_list');
+      if (cached != null) {
+        final List data = jsonDecode(cached);
+        return data.map((item) => Student.fromJson(item)).toList();
+      }
     }
-    throw Exception('فشل جلب قائمة الطلاب (${response.statusCode})');
+    return [];
   }
 
   static Future<bool> createStudent(Map<String, dynamic> data) async {
@@ -99,12 +118,21 @@ class ApiService {
 
   // --- Teachers CRUD ---
   static Future<List<Teacher>> getTeachers() async {
-    final response = await http.get(Uri.parse('$baseUrl/teachers'), headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((item) => Teacher.fromJson(item)).toList();
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/teachers'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        await OfflineCache.save('teachers_list', response.body);
+        return data.map((item) => Teacher.fromJson(item)).toList();
+      }
+    } catch (_) {
+      final cached = await OfflineCache.load('teachers_list');
+      if (cached != null) {
+        final List data = jsonDecode(cached);
+        return data.map((item) => Teacher.fromJson(item)).toList();
+      }
     }
-    throw Exception('فشل جلب قائمة المعلمين (${response.statusCode})');
+    return [];
   }
 
   static Future<bool> createTeacher({
@@ -150,12 +178,21 @@ class ApiService {
 
   // --- Circles CRUD ---
   static Future<List<Circle>> getCircles() async {
-    final response = await http.get(Uri.parse('$baseUrl/circles'), headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((item) => Circle.fromJson(item)).toList();
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/circles'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        await OfflineCache.save('circles_list', response.body);
+        return data.map((item) => Circle.fromJson(item)).toList();
+      }
+    } catch (_) {
+      final cached = await OfflineCache.load('circles_list');
+      if (cached != null) {
+        final List data = jsonDecode(cached);
+        return data.map((item) => Circle.fromJson(item)).toList();
+      }
     }
-    throw Exception('فشل جلب قائمة الحلقات (${response.statusCode})');
+    return [];
   }
 
   static Future<bool> createCircle({

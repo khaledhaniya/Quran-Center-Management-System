@@ -187,51 +187,85 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
                 final c = _circles[index];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: AppTheme.primary,
-                      child: Icon(Icons.groups, color: Colors.white),
-                    ),
-                    title: Row(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: Text(c.name, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold))),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: c.isActive ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: c.isActive ? Colors.green : Colors.red),
-                          ),
-                          child: Text(
-                            c.isActive ? 'نشط' : 'معطّل',
-                            style: TextStyle(fontSize: 10, color: c.isActive ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
-                          ),
+                        Row(
+                          children: [
+                            const CircleAvatar(
+                              backgroundColor: AppTheme.primary,
+                              child: Icon(Icons.groups, color: Colors.white),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(c.name, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const SizedBox(height: 2),
+                                  Text('المعلم المسؤول: ${c.teacherName ?? "غير مسند"}', style: AppTheme.cairoStyle(fontSize: 13, color: AppTheme.primaryDark)),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: c.isActive ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: c.isActive ? Colors.green : Colors.red),
+                              ),
+                              child: Text(
+                                c.isActive ? 'نشط' : 'معطّل',
+                                style: TextStyle(fontSize: 11, color: c.isActive ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    subtitle: Text('المعلم: ${c.teacherName ?? "غير مسند"} | عدد الطلاب: ${c.studentCount}', style: AppTheme.cairoStyle(fontSize: 12)),
-                    onTap: () => _showCircleStudentsModal(c),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.people, color: AppTheme.primary),
-                          tooltip: 'إدارة طلاب الحلقة',
-                          onPressed: () => _showCircleStudentsModal(c),
+                        const Divider(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'عدد الطلاب المسجلين بالحلقة: ${c.studentCount}',
+                              style: AppTheme.cairoStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(foregroundColor: AppTheme.primary),
+                              onPressed: () => _showCircleStudentsModal(c),
+                              icon: const Icon(Icons.people, size: 18),
+                              label: Text('عرض وإدارة الطلاب', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showAddEditCircleModal(c),
-                        ),
-                        IconButton(
-                          icon: Icon(c.isActive ? Icons.block : Icons.check_circle, color: c.isActive ? Colors.orange : Colors.green),
-                          tooltip: c.isActive ? 'تعطيل الحلقات' : 'تفعيل الحلقات',
-                          onPressed: () => _toggleCircleStatus(c),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_forever, color: Colors.red),
-                          tooltip: 'حذف نهائي من النظام',
-                          onPressed: () => _confirmHardDeleteCircle(c),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: Colors.blue),
+                              onPressed: () => _showAddEditCircleModal(c),
+                              icon: const Icon(Icons.edit, size: 16),
+                              label: const Text('تعديل'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: c.isActive ? Colors.orange : Colors.green),
+                              onPressed: () => _toggleCircleStatus(c),
+                              icon: Icon(c.isActive ? Icons.block : Icons.check_circle, size: 16),
+                              label: Text(c.isActive ? 'تعطيل' : 'تفعيل'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                              onPressed: () => _confirmHardDeleteCircle(c),
+                              icon: const Icon(Icons.delete_forever, size: 16),
+                              label: const Text('حذف'),
+                            ),
+                          ],
                         ),
                       ],
                     ),

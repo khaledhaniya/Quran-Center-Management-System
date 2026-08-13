@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'theme/app_theme.dart';
+import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 
 void main() {
@@ -14,7 +15,7 @@ class QuranCirclesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'مركز حلقات تحفيظ القرآن الكريم',
+      title: 'مركز البيان لتعليم القرآن الكريم',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       localizationsDelegates: const [
@@ -30,10 +31,10 @@ class QuranCirclesApp extends StatelessWidget {
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: child ?? const LoginScreen(),
+          child: child ?? const SplashScreen(),
         );
       },
-      home: const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }
