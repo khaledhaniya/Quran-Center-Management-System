@@ -1,6 +1,10 @@
 // Quran Circles Management System - Main JS File (Single Page Application Router & API Client)
 
-const savedApiUrl = localStorage.getItem("custom_api_url");
+let savedApiUrl = localStorage.getItem("custom_api_url");
+if (window.location.protocol === "https:" && savedApiUrl && savedApiUrl.startsWith("http:")) {
+    localStorage.removeItem("custom_api_url");
+    savedApiUrl = null;
+}
 const API_BASE = savedApiUrl || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://localhost:5070/api" 
     : "https://albayan-quran.onrender.com/api");
