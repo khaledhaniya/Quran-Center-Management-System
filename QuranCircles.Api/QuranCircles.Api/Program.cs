@@ -2,10 +2,15 @@ using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://0.0.0.0:5070");
 
+// 1. Dynamic Port binding for Cloud Providers (Render, Railway, Docker, Localhost)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5070";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+// 2. Database Context with reliable file path resolution
+var dbPath = Path.Combine(AppContext.BaseDirectory, "quran.db");
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? "Data Source=quran.db"));
+    opt.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? $"Data Source={dbPath}"));
 
 builder.Services.AddScoped<QuranCircles.Api.Services.StudentService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.TeacherService>();
@@ -17,6 +22,7 @@ builder.Services.AddScoped<QuranCircles.Api.Services.AnnouncementService>();
 builder.Services.AddSingleton<QuranCircles.Api.Services.PasswordHasher>();
 builder.Services.AddSingleton<QuranCircles.Api.Services.TokenService>();
 
+// 3. CORS Policy allowing all origins, methods, and headers
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -43,6 +49,17 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("AllowAll");
+
+// 4. Root & Health Check Endpoints
+app.MapGet("/", () => Results.Ok(new
+{
+    status = "online",
+    center = "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
+    timestamp = DateTime.UtcNow,
+    version = "1.0.0"
+}));
+
+app.MapGet("/healthz", () => Results.Ok("OK"));
 
 app.MapControllers();
 

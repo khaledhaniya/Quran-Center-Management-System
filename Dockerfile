@@ -10,6 +10,5 @@ RUN cp quran.db /app/publish/quran.db || true
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENV ASPNETCORE_URLS=http://+:5070
-EXPOSE 5070
+EXPOSE 5070 10000 8080
 ENTRYPOINT ["dotnet", "QuranCircles.Api.dll"]
