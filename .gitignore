@@ -14,8 +14,6 @@
 **/obj/
 *.user
 *.suo
-**/quran.db
-**/quran.db-journal
 
 # IDE & OS
 .vscode/
