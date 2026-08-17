@@ -187,7 +187,10 @@
                 </div>
 
                 <div class="sidebar-footer">
-                    <p>نظام الحلقات الذكي &copy; 2026</p>
+                    <button id="btn-sidebar-logout" class="btn btn-outline-danger btn-sm w-100 fw-bold mb-2 d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج الآمن</span>
+                    </button>
+                    <p class="mb-0">نظام الحلقات الذكي &copy; 2026</p>
                 </div>
             </aside>
 
@@ -1257,8 +1260,15 @@
                     <label for="login-password"><i class="fa-solid fa-lock"></i> كلمة المرور:</label>
                     <input type="password" id="login-password" class="form-control" placeholder="أدخل كلمة المرور..." required autocomplete="current-password">
                 </div>
+
+                <div class="form-check d-flex align-items-center gap-2 mt-2 mb-3">
+                    <input class="form-check-input" type="checkbox" id="remember-me-checkbox" style="cursor: pointer;">
+                    <label class="form-check-label small text-muted" for="remember-me-checkbox" style="cursor: pointer; user-select: none;">
+                        <i class="fa-solid fa-shield-halved text-success"></i> حفظ الجلسة على هذا الجهاز (تذكرني)
+                    </label>
+                </div>
                 
-                <button type="submit" class="btn btn-primary btn-lg w-100 mt-3"><i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول</button>
+                <button type="submit" class="btn btn-primary btn-lg w-100"><i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول</button>
             </form>
             
             <div class="login-footer">

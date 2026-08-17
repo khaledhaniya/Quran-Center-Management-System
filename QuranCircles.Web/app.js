@@ -55,12 +55,50 @@ function formatDateString(date) {
     return `${year}-${month}-${day}`;
 }
 
-// ----------------- Authentication & Token Management -----------------
+// ----------------- High-Grade Security & Authentication Management -----------------
+function getAuthStorage(key) {
+    return sessionStorage.getItem(key) || localStorage.getItem(key);
+}
+
+function setAuthStorage(key, value, rememberMe) {
+    if (rememberMe) {
+        localStorage.setItem(key, value);
+    } else {
+        sessionStorage.setItem(key, value);
+    }
+}
+
+function clearAllAuthStorage() {
+    ['token', 'role', 'userId', 'fullName', 'username', 'loginTime'].forEach(k => {
+        sessionStorage.removeItem(k);
+        localStorage.removeItem(k);
+    });
+}
+
+// Inactivity Auto-Logout Watchdog (15 minutes idle timeout)
+let inactivityTimer = null;
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+
+function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    if (!authToken) return;
+    inactivityTimer = setTimeout(() => {
+        if (authToken) {
+            handleLogout(true);
+            showAlert("🔒 تم تسجيل الخروج التلقائي لحماية حسابك لعدم وجود نشاط لمدة 15 دقيقة.", "warning");
+        }
+    }, INACTIVITY_TIMEOUT_MS);
+}
+
+['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+    window.addEventListener(evt, resetInactivityTimer, { passive: true });
+});
+
 function setupAuth() {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
-    const userId = localStorage.getItem("userId");
-    const fullName = localStorage.getItem("fullName");
+    const token = getAuthStorage("token");
+    const role = getAuthStorage("role");
+    const userId = getAuthStorage("userId");
+    const fullName = getAuthStorage("fullName");
     
     const loginScreen = document.getElementById("login-screen");
     const appContainer = document.querySelector(".app-container");
@@ -85,6 +123,7 @@ function setupAuth() {
         updateSidebarMenu();
         handleRouting();
         triggerFaithToast();
+        resetInactivityTimer();
 
         if (currentRole === "Admin" || currentRole === "Developer") {
             updateNotificationBadgeAndBanner();
@@ -98,31 +137,52 @@ function setupAuth() {
         if (appContainer) appContainer.style.display = "none";
         const areaEl = document.getElementById("user-profile-area");
         if (areaEl) areaEl.style.display = "none";
+        if (window.notifIntervalId) {
+            clearInterval(window.notifIntervalId);
+            window.notifIntervalId = null;
+        }
     }
     
+    // Always restore login button state
+    const submitBtn = document.querySelector("#login-form button[type='submit']");
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول';
+    }
+
     // Bind Login Form
     const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        const newLoginForm = loginForm.cloneNode(true);
+        loginForm.parentNode.replaceChild(newLoginForm, loginForm);
+        newLoginForm.addEventListener("submit", handleLogin);
+    }
     
-    // Avoid duplicate event listener binding
-    const newLoginForm = loginForm.cloneNode(true);
-    loginForm.parentNode.replaceChild(newLoginForm, loginForm);
-    newLoginForm.addEventListener("submit", handleLogin);
-    
-    // Bind Logout Button
+    // Bind Top Bar Logout Button
     const logoutBtn = document.getElementById("btn-logout");
-    const newLogoutBtn = logoutBtn.cloneNode(true);
-    logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
-    newLogoutBtn.addEventListener("click", handleLogout);
+    if (logoutBtn) {
+        const newLogoutBtn = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+        newLogoutBtn.addEventListener("click", () => handleLogout(false));
+    }
+
+    // Bind Mobile Sidebar Logout Button
+    const sidebarLogoutBtn = document.getElementById("btn-sidebar-logout");
+    if (sidebarLogoutBtn) {
+        const newSidebarLogoutBtn = sidebarLogoutBtn.cloneNode(true);
+        sidebarLogoutBtn.parentNode.replaceChild(newSidebarLogoutBtn, sidebarLogoutBtn);
+        newSidebarLogoutBtn.addEventListener("click", () => handleLogout(false));
+    }
 }
 
 async function handleLogin(e) {
     e.preventDefault();
-    const usernameInput = document.getElementById("login-username").value;
+    const usernameInput = document.getElementById("login-username").value.trim();
     const passwordInput = document.getElementById("login-password").value;
+    const rememberMe = document.getElementById("remember-me-checkbox")?.checked || false;
     const errorContainer = document.getElementById("login-error-container");
     
     const submitBtn = document.querySelector("#login-form button[type='submit']");
-    const origBtnText = submitBtn ? submitBtn.innerHTML : "تسجيل الدخول";
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تسجيل الدخول وتجهيز السيرفر...';
@@ -151,12 +211,14 @@ async function handleLogin(e) {
         
         const data = await response.json();
         
-        // Save to localStorage
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("role", data.role);
-        localStorage.setItem("userId", data.userId.toString());
-        localStorage.setItem("fullName", data.fullName);
-        localStorage.setItem("username", data.username);
+        // Secure Storage based on Remember Me preference
+        clearAllAuthStorage();
+        setAuthStorage("token", data.token, rememberMe);
+        setAuthStorage("role", data.role, rememberMe);
+        setAuthStorage("userId", data.userId.toString(), rememberMe);
+        setAuthStorage("fullName", data.fullName, rememberMe);
+        setAuthStorage("username", data.username, rememberMe);
+        setAuthStorage("loginTime", Date.now().toString(), rememberMe);
         
         showAlert(`مرحباً بك يا <strong>${data.fullName}</strong>. تم تسجيل الدخول بنجاح.`, "success");
         
@@ -168,25 +230,24 @@ async function handleLogin(e) {
         if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
             msg = "السيرفر الأونلاين يجري تشغيله حالياً أو في وضع الاستيقاظ.. يرجى الانتظار 10 ثوانٍ وإعادة المحاولة.";
         }
-        errorContainer.innerHTML = `
-            <div class="alert alert-danger" style="margin-top:0; margin-bottom:15px; padding: 10px 15px;">
-                <i class="fa-solid fa-circle-exclamation me-2"></i> ${msg}
-            </div>
-        `;
+        if (errorContainer) {
+            errorContainer.innerHTML = `
+                <div class="alert alert-danger" style="margin-top:0; margin-bottom:15px; padding: 10px 15px;">
+                    <i class="fa-solid fa-circle-exclamation me-2"></i> ${msg}
+                </div>
+            `;
+        }
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = origBtnText;
+            submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول';
         }
     }
 }
 
-function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("fullName");
-    localStorage.removeItem("username");
+function handleLogout(isSilent = false) {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    clearAllAuthStorage();
     
     authToken = "";
     currentRole = "";
@@ -203,7 +264,9 @@ function handleLogout() {
     
     // Reset view
     setupAuth();
-    showAlert("تم تسجيل الخروج بنجاح.", "success");
+    if (!isSilent) {
+        showAlert("تم تسجيل الخروج بنجاح وبأمان.", "success");
+    }
 }
 
 function getRoleArabicName(role) {

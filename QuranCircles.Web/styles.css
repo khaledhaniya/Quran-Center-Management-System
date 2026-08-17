@@ -411,6 +411,7 @@ button, input, select, textarea {
         align-items: center !important;
         height: 100% !important;
         flex-shrink: 0 !important;
+        display: flex !important;
     }
     .user-info {
         display: flex !important;
@@ -418,13 +419,14 @@ button, input, select, textarea {
         justify-content: center !important;
         margin-left: 2px !important;
         margin-right: 2px !important;
+        max-width: 75px !important;
         flex-shrink: 1 !important;
         overflow: hidden !important;
     }
     .user-name {
-        font-size: 0.78rem !important;
+        font-size: 0.72rem !important;
         font-weight: 800 !important;
-        max-width: 110px !important;
+        max-width: 75px !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
@@ -432,9 +434,12 @@ button, input, select, textarea {
         display: block !important;
     }
     .user-role-badge {
-        font-size: 0.64rem !important;
-        padding: 1px 5px !important;
+        font-size: 0.60rem !important;
+        padding: 1px 4px !important;
         margin-top: 1px !important;
+        max-width: 75px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
         white-space: nowrap !important;
         display: inline-block !important;
     }
@@ -444,36 +449,44 @@ button, input, select, textarea {
         display: none !important;
     }
     #btn-logout {
-        width: 38px !important;
-        height: 38px !important;
-        min-width: 38px !important;
-        min-height: 38px !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
         padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
         justify-content: center !important;
         border-radius: 50% !important;
-        margin-left: 4px !important;
-        font-size: 1.05rem !important;
+        margin-left: 2px !important;
+        font-size: 1rem !important;
         flex-shrink: 0 !important;
+        background: rgba(220, 53, 69, 0.2) !important;
+        border: 1.5px solid #ff4d4d !important;
+        color: #ffffff !important;
     }
 }
 
 @media (max-width: 576px) {
     .main-header {
-        padding: 0 8px !important;
+        padding: 0 6px !important;
     }
     .logo-icon-img {
-        width: 32px !important;
-        height: 32px !important;
-        min-width: 32px !important;
-        min-height: 32px !important;
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
     }
     .logo-text h1 {
-        font-size: 0.88rem !important;
+        font-size: 0.82rem !important;
         max-width: none !important;
     }
     .user-name {
-        font-size: 0.74rem !important;
-        max-width: 90px !important;
+        font-size: 0.70rem !important;
+        max-width: 65px !important;
+    }
+    .user-info {
+        max-width: 65px !important;
     }
 }
 

@@ -64,6 +64,16 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors("AllowAll");
 
+// Enterprise Security Headers
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
 // 4. Root & Health Check Endpoints
 app.MapGet("/", () => Results.Ok(new
 {
