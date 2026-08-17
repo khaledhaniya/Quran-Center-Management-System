@@ -42,10 +42,17 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var hasher = scope.ServiceProvider.GetRequiredService<QuranCircles.Api.Services.PasswordHasher>();
-    db.Database.EnsureCreated();
-    DbSeeder.Seed(db, hasher);
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<QuranCircles.Api.Services.PasswordHasher>();
+        db.Database.EnsureCreated();
+        DbSeeder.Seed(db, hasher);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database initialization notice: {ex.Message}");
+    }
 }
 
 app.UseCors("AllowAll");
