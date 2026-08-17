@@ -38,7 +38,14 @@ builder.Services.AddControllers()
         opt.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+
 var app = builder.Build();
+
+app.UseResponseCompression();
 
 using (var scope = app.Services.CreateScope())
 {

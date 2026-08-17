@@ -8,6 +8,19 @@ class ApiService {
   static User? currentUser;
   static String? authToken;
 
+  // Fast In-Memory Cache for Instant UI
+  static List<Student>? _cachedStudents;
+  static List<Teacher>? _cachedTeachers;
+  static List<Circle>? _cachedCircles;
+  static DateTime? _cacheTime;
+
+  static void invalidateCache() {
+    _cachedStudents = null;
+    _cachedTeachers = null;
+    _cachedCircles = null;
+    _cacheTime = null;
+  }
+
   static void setBaseUrl(String url) {
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
@@ -71,7 +84,11 @@ class ApiService {
   }
 
   // --- Students CRUD ---
-  static Future<List<Student>> getStudents({String? search}) async {
+  static Future<List<Student>> getStudents({String? search, bool forceRefresh = false}) async {
+    if (!forceRefresh && (search == null || search.isEmpty) && _cachedStudents != null) {
+      return _cachedStudents!;
+    }
+
     String url = '$baseUrl/students';
     if (search != null && search.isNotEmpty) {
       url += '?search=${Uri.encodeComponent(search)}';
@@ -80,8 +97,13 @@ class ApiService {
       final response = await http.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
+        final list = data.map((item) => Student.fromJson(item)).toList();
+        if (search == null || search.isEmpty) {
+          _cachedStudents = list;
+          _cacheTime = DateTime.now();
+        }
         await OfflineCache.save('students_list', response.body);
-        return data.map((item) => Student.fromJson(item)).toList();
+        return list;
       }
     } catch (_) {
       final cached = await OfflineCache.load('students_list');
@@ -90,10 +112,11 @@ class ApiService {
         return data.map((item) => Student.fromJson(item)).toList();
       }
     }
-    return [];
+    return _cachedStudents ?? [];
   }
 
   static Future<bool> createStudent(Map<String, dynamic> data) async {
+    invalidateCache();
     final response = await http.post(
       Uri.parse('$baseUrl/students'),
       headers: _headers(),
@@ -103,6 +126,7 @@ class ApiService {
   }
 
   static Future<bool> updateStudent(int id, Map<String, dynamic> data) async {
+    invalidateCache();
     final response = await http.put(
       Uri.parse('$baseUrl/students/$id'),
       headers: _headers(),
@@ -112,18 +136,24 @@ class ApiService {
   }
 
   static Future<bool> deleteStudent(int id) async {
+    invalidateCache();
     final response = await http.delete(Uri.parse('$baseUrl/students/$id'), headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
   // --- Teachers CRUD ---
-  static Future<List<Teacher>> getTeachers() async {
+  static Future<List<Teacher>> getTeachers({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedTeachers != null) {
+      return _cachedTeachers!;
+    }
     try {
       final response = await http.get(Uri.parse('$baseUrl/teachers'), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
+        final list = data.map((item) => Teacher.fromJson(item)).toList();
+        _cachedTeachers = list;
         await OfflineCache.save('teachers_list', response.body);
-        return data.map((item) => Teacher.fromJson(item)).toList();
+        return list;
       }
     } catch (_) {
       final cached = await OfflineCache.load('teachers_list');
@@ -132,7 +162,7 @@ class ApiService {
         return data.map((item) => Teacher.fromJson(item)).toList();
       }
     }
-    return [];
+    return _cachedTeachers ?? [];
   }
 
   static Future<bool> createTeacher({
@@ -141,6 +171,7 @@ class ApiService {
     String? address,
     String? dateOfBirth,
   }) async {
+    invalidateCache();
     final response = await http.post(
       Uri.parse('$baseUrl/teachers'),
       headers: _headers(),
@@ -159,6 +190,7 @@ class ApiService {
     String? contact,
     String? address,
   }) async {
+    invalidateCache();
     final response = await http.put(
       Uri.parse('$baseUrl/teachers/$id'),
       headers: _headers(),
@@ -172,18 +204,24 @@ class ApiService {
   }
 
   static Future<bool> deleteTeacher(int id) async {
+    invalidateCache();
     final response = await http.delete(Uri.parse('$baseUrl/teachers/$id'), headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
   // --- Circles CRUD ---
-  static Future<List<Circle>> getCircles() async {
+  static Future<List<Circle>> getCircles({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedCircles != null) {
+      return _cachedCircles!;
+    }
     try {
       final response = await http.get(Uri.parse('$baseUrl/circles'), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
+        final list = data.map((item) => Circle.fromJson(item)).toList();
+        _cachedCircles = list;
         await OfflineCache.save('circles_list', response.body);
-        return data.map((item) => Circle.fromJson(item)).toList();
+        return list;
       }
     } catch (_) {
       final cached = await OfflineCache.load('circles_list');
@@ -192,7 +230,7 @@ class ApiService {
         return data.map((item) => Circle.fromJson(item)).toList();
       }
     }
-    return [];
+    return _cachedCircles ?? [];
   }
 
   static Future<bool> createCircle({
