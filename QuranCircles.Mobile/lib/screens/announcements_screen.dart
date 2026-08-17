@@ -353,7 +353,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
     int targetType = 1;
     int? selectedTargetId;
-    Student? selectedStudent;
+    List<Student> selectedStudents = [];
 
     final role = widget.currentUser.role;
     if (role == 'Teacher') targetType = 2;
@@ -383,9 +383,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         builder: (ctx, setModalState) {
           final query = searchController.text.trim().toLowerCase();
 
-          List<Student> filteredStudents = students;
+          List<Student> filteredStudents = students.where((s) => !selectedStudents.any((sel) => sel.id == s.id)).toList();
           if (query.isNotEmpty) {
-            filteredStudents = students.where((s) =>
+            filteredStudents = filteredStudents.where((s) =>
               s.fullName.toLowerCase().contains(query) ||
               (s.studentIdentityNumber != null && s.studentIdentityNumber!.contains(query)) ||
               (s.familyContact != null && s.familyContact!.contains(query))
@@ -397,7 +397,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               children: [
                 const Icon(Icons.sms, color: Colors.blue),
                 const SizedBox(width: 8),
-                Text('إرسال رسالة SMS (تطبيقات الجوال)', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    'إرسال رسالة SMS (تطبيقات الجوال)',
+                    style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             content: SizedBox(
@@ -409,21 +415,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   children: [
                     DropdownButtonFormField<int>(
                       value: targetType,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'فئة مستلم الرسالة النصية'),
                       items: [
                         if (role == 'Admin' || role == 'Developer') ...const [
-                          DropdownMenuItem(value: 1, child: Text('كافة منتسبي المركز (عام - أولياء الأمور والطلاب)')),
-                          DropdownMenuItem(value: 5, child: Text('جميع معلمين المركز')),
-                          DropdownMenuItem(value: 2, child: Text('طلاب حلقة معينة')),
-                          DropdownMenuItem(value: 3, child: Text('معلم معين')),
-                          DropdownMenuItem(value: 4, child: Text('طالب معين (بحث سريع)')),
+                          DropdownMenuItem(value: 1, child: Text('كافة منتسبي المركز (عام - أولياء الأمور والطلاب)', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 5, child: Text('جميع معلمين المركز', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 2, child: Text('طلاب حلقة معينة', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 3, child: Text('معلم معين', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 4, child: Text('طالب معين أو مجموعة طلاب (بحث سريع)', overflow: TextOverflow.ellipsis)),
                         ] else if (role == 'Teacher') ...const [
-                          DropdownMenuItem(value: 2, child: Text('كل طلاب حلقتي (أولياء أمورهم)')),
-                          DropdownMenuItem(value: 4, child: Text('طالب معين بالبحث في حلقتي')),
-                          DropdownMenuItem(value: 6, child: Text('إدارة المركز (أمير المركز)')),
+                          DropdownMenuItem(value: 2, child: Text('كل طلاب حلقتي (أولياء أمورهم)', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 4, child: Text('طالب معين أو مجموعة طلاب بالبحث في حلقتي', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز (أمير المركز)', overflow: TextOverflow.ellipsis)),
                         ] else if (role == 'ExamSupervisor') ...const [
-                          DropdownMenuItem(value: 7, child: Text('الطلاب المرشحون للاختبارات (من المعلمين)')),
-                          DropdownMenuItem(value: 6, child: Text('إدارة المركز والمطورين')),
+                          DropdownMenuItem(value: 7, child: Text('الطلاب المرشحون للاختبارات (من المعلمين)', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز والمطورين', overflow: TextOverflow.ellipsis)),
                         ],
                       ],
                       onChanged: (val) {
@@ -431,7 +438,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           setModalState(() {
                             targetType = val;
                             selectedTargetId = null;
-                            selectedStudent = null;
+                            selectedStudents.clear();
                             searchController.clear();
                           });
                         }
@@ -442,27 +449,65 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     if (targetType == 2) ...[
                       DropdownButtonFormField<int>(
                         value: selectedTargetId,
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر الحلقة المستهدفة'),
-                        items: circles.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))).toList(),
+                        items: circles.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
                         onChanged: (val) => setModalState(() => selectedTargetId = val),
                       ),
                       const SizedBox(height: 10),
                     ] else if (targetType == 3) ...[
                       DropdownButtonFormField<int>(
                         value: selectedTargetId,
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر المعلم المستهدف'),
-                        items: teachers.map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.fullName))).toList(),
+                        items: teachers.map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.fullName, overflow: TextOverflow.ellipsis))).toList(),
                         onChanged: (val) => setModalState(() => selectedTargetId = val),
                       ),
                       const SizedBox(height: 10),
                     ] else if (targetType == 4) ...[
-                      Text('البحث السريع عن الطالب أو ولي الأمر:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text('البحث وإضافة الطلاب المستهدفين:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 4),
+
+                      // Selected Students Chips
+                      if (selectedStudents.isNotEmpty) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade300),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('الطلاب المحددون (${selectedStudents.length}):', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green.shade900)),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: selectedStudents.map((st) => Chip(
+                                  backgroundColor: Colors.white,
+                                  avatar: const Icon(Icons.person, size: 16, color: Colors.green),
+                                  label: Text(
+                                    '${st.fullName} (${st.familyContact ?? st.studentMobile ?? "بدون هاتف"})',
+                                    style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                  deleteIcon: const Icon(Icons.close, size: 16, color: Colors.red),
+                                  onDeleted: () => setModalState(() => selectedStudents.remove(st)),
+                                )).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
                       TextField(
                         controller: searchController,
                         onChanged: (_) => setModalState(() {}),
                         decoration: InputDecoration(
-                          hintText: 'اكتب اسم الطالب... (مثال: محمد عبد)',
+                          hintText: 'اكتب اسم الطالب لإضافته للقائمة... (مثال: محمد)',
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setModalState(() => searchController.clear())) : null,
                         ),
@@ -470,64 +515,44 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       const SizedBox(height: 6),
 
                       // Instant Results Box
-                      if (selectedStudent != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.shade400),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'المحدد: ${selectedStudent!.fullName} (جوال العائلة: ${selectedStudent!.familyContact ?? selectedStudent!.studentMobile ?? "غير مدخل"})',
-                                  style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.green.shade900, fontSize: 12),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                                onPressed: () => setModalState(() {
-                                  selectedStudent = null;
-                                  selectedTargetId = null;
-                                }),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ] else if (query.isNotEmpty) ...[
+                      if (query.isNotEmpty) ...[
                         Container(
                           constraints: const BoxConstraints(maxHeight: 180),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade300),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+                            ],
                           ),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: filteredStudents.length,
-                            itemBuilder: (context, idx) {
-                              final st = filteredStudents[idx];
-                              final phone = st.familyContact ?? st.studentMobile ?? "بدون هاتف";
-                              return ListTile(
-                                dense: true,
-                                title: Text(st.fullName, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                subtitle: Text('جوال ولي الأمر: $phone | الحلقة: ${st.circleName ?? "غير مسند"}', style: AppTheme.cairoStyle(fontSize: 11)),
-                                trailing: const Icon(Icons.person_add, color: AppTheme.primary, size: 20),
-                                onTap: () {
-                                  setModalState(() {
-                                    selectedStudent = st;
-                                    selectedTargetId = st.id;
-                                    searchController.clear();
-                                  });
+                          child: filteredStudents.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text('لم يتم العثور على طلاب بهذا الاسم', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              )
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: filteredStudents.length,
+                                itemBuilder: (context, idx) {
+                                  final st = filteredStudents[idx];
+                                  final phone = st.familyContact ?? st.studentMobile ?? "بدون هاتف";
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(st.fullName, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    subtitle: Text('جوال ولي الأمر: $phone | الحلقة: ${st.circleName ?? "غير مسند"}', style: AppTheme.cairoStyle(fontSize: 11)),
+                                    trailing: const Icon(Icons.add_circle, color: Colors.green, size: 22),
+                                    onTap: () {
+                                      setModalState(() {
+                                        if (!selectedStudents.any((sel) => sel.id == st.id)) {
+                                          selectedStudents.add(st);
+                                        }
+                                        searchController.clear();
+                                      });
+                                    },
+                                  );
                                 },
-                              );
-                            },
-                          ),
+                              ),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -582,13 +607,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   } else if (targetType == 3 && selectedTargetId != null) { // Specific Teacher
                     final t = teachers.firstWhere((item) => item.id == selectedTargetId, orElse: () => Teacher(id: 0, fullName: '', contact: '', address: '', isActive: true));
                     if (t.contact != null && t.contact!.isNotEmpty) targetNumbers.add(t.contact!);
-                  } else if (targetType == 4) { // Specific Student
-                    if (selectedStudent != null) {
-                      if (selectedStudent!.familyContact != null && selectedStudent!.familyContact!.isNotEmpty) {
-                        targetNumbers.add(selectedStudent!.familyContact!);
-                      }
-                      if (selectedStudent!.studentMobile != null && selectedStudent!.studentMobile!.isNotEmpty) {
-                        targetNumbers.add(selectedStudent!.studentMobile!);
+                  } else if (targetType == 4) { // Specific Students
+                    if (selectedStudents.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('يرجى البحث واختيار طالب واحد على الأقل'), backgroundColor: Colors.orange),
+                      );
+                      return;
+                    }
+                    for (var st in selectedStudents) {
+                      if (st.familyContact != null && st.familyContact!.isNotEmpty) {
+                        targetNumbers.add(st.familyContact!);
+                      } else if (st.studentMobile != null && st.studentMobile!.isNotEmpty) {
+                        targetNumbers.add(st.studentMobile!);
                       }
                     }
                   } else if (targetType == 7) { // Exam Nominated Students

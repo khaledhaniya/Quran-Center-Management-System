@@ -279,12 +279,12 @@ public class ExamsController : ControllerBase
             var circle = await _db.Circles.FindAsync(student.CircleId.Value);
             teacherId = circle?.TeacherId;
         }
-        int? parentId = student?.ParentId;
 
         string examTypeName = nomination.NominationType == "Quran" ? "حفظ قرآن كريم" : $"دورة ({(nomination.Course != null ? nomination.Course.Name : "شرعية")})";
         string msgTitle = "إشعار موعد اختبار مجدول";
         string msgContent = $"تم تحديد وتأكيد موعد اختبار {examTypeName} للطالب ({student?.FullName}) بتاريخ: {dto.ExamDate}.";
 
+        // Single targeted announcement to Student (covers Student & Parent without duplicates)
         if (student != null)
         {
             _db.Announcements.Add(new Announcement { Title = msgTitle, Content = msgContent, TargetType = AnnouncementTarget.Student, TargetId = student.Id, DateTimeSent = DateTime.UtcNow, SenderName = "مشرف الاختبارات" });
@@ -292,10 +292,6 @@ public class ExamsController : ControllerBase
         if (teacherId.HasValue)
         {
             _db.Announcements.Add(new Announcement { Title = msgTitle, Content = msgContent, TargetType = AnnouncementTarget.Teacher, TargetId = teacherId.Value, DateTimeSent = DateTime.UtcNow, SenderName = "مشرف الاختبارات" });
-        }
-        if (parentId.HasValue)
-        {
-            _db.Announcements.Add(new Announcement { Title = msgTitle, Content = msgContent, TargetType = AnnouncementTarget.Parent, TargetId = parentId.Value, DateTimeSent = DateTime.UtcNow, SenderName = "مشرف الاختبارات" });
         }
 
         await _db.SaveChangesAsync();
@@ -322,6 +318,7 @@ public class ExamsController : ControllerBase
         var nomination = await _db.ExamNominations
             .Include(n => n.Student)
             .Include(n => n.Course)
+            .Include(n => n.Result)
             .FirstOrDefaultAsync(n => n.Id == dto.NominationId);
 
         if (nomination == null) return NotFound(new { Message = "طلب الترشيح غير موجود." });
@@ -332,19 +329,29 @@ public class ExamsController : ControllerBase
             return BadRequest(new { Message = "رمز التحقق الثنائي (2FA) غير صحيح أو مفقود. رمز التوجيه هو: 123456" });
         }
 
-        var result = new ExamResult
+        if (nomination.Result == null)
         {
-            ExamNominationId = nomination.Id,
-            MajorMistakes = dto.MajorMistakes,
-            MinorMistakes = dto.MinorMistakes,
-            Grade = dto.Grade,
-            Notes = dto.Notes,
-            ExamDate = DateTime.UtcNow
-        };
+            nomination.Result = new ExamResult
+            {
+                ExamNominationId = nomination.Id,
+                MajorMistakes = dto.MajorMistakes,
+                MinorMistakes = dto.MinorMistakes,
+                Grade = dto.Grade,
+                Notes = dto.Notes,
+                ExamDate = DateTime.UtcNow
+            };
+            _db.ExamResults.Add(nomination.Result);
+        }
+        else
+        {
+            nomination.Result.MajorMistakes = dto.MajorMistakes;
+            nomination.Result.MinorMistakes = dto.MinorMistakes;
+            nomination.Result.Grade = dto.Grade;
+            nomination.Result.Notes = dto.Notes;
+            nomination.Result.ExamDate = DateTime.UtcNow;
+        }
 
         nomination.Status = dto.Grade >= 60 ? "Completed" : "Failed";
-        nomination.Result = result;
-        _db.ExamResults.Add(result);
 
         var student = nomination.Student;
         int? teacherId = nomination.Course?.TeacherId;
@@ -353,7 +360,6 @@ public class ExamsController : ControllerBase
             var circle = await _db.Circles.FindAsync(student.CircleId.Value);
             teacherId = circle?.TeacherId;
         }
-        int? parentId = student?.ParentId;
 
         string resultText = dto.Grade >= 60 ? "مكتمـل واجتـاز بنجـاح" : "مكتمـل ولم يجتـز";
         string examTypeName = nomination.NominationType == "Quran" ? "حفظ قرآن كريم" : $"دورة ({(nomination.Course != null ? nomination.Course.Name : "شرعية")})";
@@ -367,10 +373,6 @@ public class ExamsController : ControllerBase
         if (teacherId.HasValue)
         {
             _db.Announcements.Add(new Announcement { Title = msgTitle, Content = msgContent, TargetType = AnnouncementTarget.Teacher, TargetId = teacherId.Value, DateTimeSent = DateTime.UtcNow, SenderName = "مشرف الاختبارات" });
-        }
-        if (parentId.HasValue)
-        {
-            _db.Announcements.Add(new Announcement { Title = msgTitle, Content = msgContent, TargetType = AnnouncementTarget.Parent, TargetId = parentId.Value, DateTimeSent = DateTime.UtcNow, SenderName = "مشرف الاختبارات" });
         }
 
         await _db.SaveChangesAsync();

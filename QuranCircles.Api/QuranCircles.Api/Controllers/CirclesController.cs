@@ -20,7 +20,7 @@ public class CirclesController : ControllerBase
     }
 
     [HttpGet]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.Parent, UserRole.Student)]
     public async Task<IActionResult> GetAll()
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
