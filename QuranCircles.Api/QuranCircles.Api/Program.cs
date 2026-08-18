@@ -1,7 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
 
-var builder = WebApplication.CreateBuilder(args);
+Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "true");
+
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
+
+builder.Host.ConfigureAppConfiguration((hostingContext, config) =>
+{
+    config.Sources.Clear();
+    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+          .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+          .AddEnvironmentVariables();
+});
 
 // 1. Dynamic Port binding for Cloud Providers (Render, Railway, Docker, Localhost)
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5070";
@@ -10,7 +24,7 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 // 2. Database Context with reliable file path resolution
 var dbPath = Path.Combine(AppContext.BaseDirectory, "quran.db");
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? $"Data Source={dbPath}"));
+    opt.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? $"Data Source={dbPath};Cache=Shared;"));
 
 builder.Services.AddScoped<QuranCircles.Api.Services.StudentService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.TeacherService>();
