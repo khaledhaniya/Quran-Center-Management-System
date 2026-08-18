@@ -102,7 +102,7 @@ class OfflineSyncManager {
         try {
           switch (action.actionType) {
             case 'circle_attendance':
-              success = await ApiService.saveAttendance(
+              success = await ApiService.saveCircleAttendance(
                 action.payload['circleId'],
                 action.payload['date'],
                 (action.payload['records'] as List).cast<Map<String, dynamic>>(),

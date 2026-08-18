@@ -202,7 +202,9 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                           DropdownMenuItem(value: 'شهيدة', child: Text('شهيدة', overflow: TextOverflow.ellipsis, maxLines: 1)),
                           DropdownMenuItem(value: 'متوفاة', child: Text('متوفاة', overflow: TextOverflow.ellipsis, maxLines: 1)),
                         ],
-                        onChanged: (val) => setModalState(() => motherStatus = val),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => motherStatus = val);
+                        },
                       ),
                     ),
                   ],

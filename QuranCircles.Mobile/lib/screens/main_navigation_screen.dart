@@ -537,7 +537,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                           item.title,
                           style: AppTheme.cairoStyle(
                             fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
-                            color: item.isRead ? Colors.grey.shade700 : AppTheme.textPrimary,
+                            color: item.isRead ? Colors.grey.shade700 : AppTheme.textDark,
                           ),
                         ),
                         subtitle: Column(
