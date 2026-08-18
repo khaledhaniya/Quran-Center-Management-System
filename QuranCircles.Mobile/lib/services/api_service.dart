@@ -325,6 +325,30 @@ class ApiService {
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
+  static Future<bool> enrollInCourse({
+    required int courseId,
+    int? studentId,
+    int? circleId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/courses/enroll'),
+      headers: _headers(),
+      body: jsonEncode({
+        'courseId': courseId,
+        'studentId': studentId,
+        'circleId': circleId,
+      }),
+    );
+    if (response.statusCode == 200) return true;
+    try {
+      final err = jsonDecode(response.body);
+      throw Exception(err['message'] ?? err['error'] ?? 'فشل تسجيل الطالب بالدورة');
+    } catch (e) {
+      if (e.toString().contains('Exception:')) rethrow;
+      throw Exception('فشل الاتصال بالإنترنت لتسجيل الطالب بالدورة');
+    }
+  }
+
   // --- Attendance & Sessions ---
   static Future<List<CourseAttendanceRecord>> getCourseAttendance(int courseId, String date) async {
     final enrollmentsResp = await http.get(
