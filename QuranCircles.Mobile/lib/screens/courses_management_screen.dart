@@ -22,8 +22,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   bool get _isAdminOrDev =>
       ApiService.currentUser?.role == 'Admin' || ApiService.currentUser?.role == 'Developer';
 
-  bool get _isTeacher => ApiService.currentUser?.role == 'Teacher';
-
   @override
   void initState() {
     super.initState();
@@ -71,13 +69,11 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
       selectedTeacher = _teachers.first;
     }
 
-    // Build unified supervisor candidates (ExamSupervisors + Teachers)
     final supervisors = _users.where((u) => u.role == 'ExamSupervisor' || u.role == 'Admin' || u.role == 'Developer').toList();
     
-    // Add teachers to supervisor list if not present
     for (var t in _teachers) {
       if (!supervisors.any((u) => u.id == t.id || u.fullName == t.fullName)) {
-        supervisors.add(User(id: t.id, username: 'teacher_${t.id}', role: 'Teacher', fullName: '${t.fullName} (معلم)'));
+        supervisors.add(User(id: t.id, username: 'teacher_${t.id}', role: 'Teacher', fullName: '${t.fullName} (معلم)', isActive: true));
       }
     }
 
@@ -159,8 +155,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                             final match = supervisors.firstWhere((u) => u.id == selectedTeacher!.id || u.fullName.contains(selectedTeacher!.fullName));
                             setModalState(() => selectedSupervisor = match);
                           } catch (_) {
-                            // Create temporary candidate if not found
-                            final tUser = User(id: selectedTeacher!.id, username: 't_${selectedTeacher!.id}', role: 'Teacher', fullName: '${selectedTeacher!.fullName} (معلم)');
+                            final tUser = User(id: selectedTeacher!.id, username: 't_${selectedTeacher!.id}', role: 'Teacher', fullName: '${selectedTeacher!.fullName} (معلم)', isActive: true);
                             setModalState(() {
                               supervisors.add(tUser);
                               selectedSupervisor = tUser;
@@ -261,7 +256,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   }
 
   void _showEnrollStudentModal(Course course) {
-    String enrollType = 'student'; // 'student' or 'circle'
+    String enrollType = 'student';
     Student? selectedStudent;
     Circle? selectedCircle;
     String searchQuery = '';
@@ -299,7 +294,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Mode Selector
                     Row(
                       children: [
                         Expanded(
@@ -340,7 +334,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                     const SizedBox(height: 16),
 
                     if (enrollType == 'student') ...[
-                      // Modern 2026 Student Search Box
                       TextField(
                         controller: searchController,
                         decoration: InputDecoration(
@@ -361,7 +354,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Student Candidate List
                       Container(
                         height: 200,
                         decoration: BoxDecoration(
@@ -399,7 +391,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                               ),
                       ),
                     ] else ...[
-                      // Circle Selector
                       Text('اختر الحلقة المراد إدراج جميع طلابها:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<Circle>(
@@ -530,7 +521,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
           },
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
         ],
       ),
     );
@@ -578,6 +569,8 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = ApiService.currentUser ?? User(id: 0, username: 'guest', fullName: 'زائر', role: 'Student', isActive: true);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('المساقات والدورات الأكاديمية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
@@ -797,7 +790,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const CourseAttendanceScreen(),
+                                        builder: (_) => CourseAttendanceScreen(currentUser: currentUser, initialCourseId: c.id),
                                       ),
                                     );
                                   },
