@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import 'announcements_screen.dart';
 import 'certificates_screen.dart';
@@ -143,12 +145,68 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ],
         ),
         actions: [
+          // Live Notifications Bell with Real-Time Badge
+          ValueListenableBuilder<int>(
+            valueListenable: NotificationService.unreadCount,
+            builder: (context, count, _) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    tooltip: 'مركز الإشعارات والتنبيهات',
+                    onPressed: _showNotificationsSheet,
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                        ),
+                        child: Text(
+                          count > 9 ? '9+' : '$count',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+
+          // Pending Offline Sync Indicator
+          ValueListenableBuilder<int>(
+            valueListenable: OfflineSyncManager.pendingActionsCount,
+            builder: (context, pendingCount, _) {
+              if (pendingCount == 0) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.sync, color: Colors.amber),
+                tooltip: 'عمليات معلقة بانتظار المزامنة ($pendingCount)',
+                onPressed: () async {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('جاري مزامنة العمليات المحفوظة أوفلاين مع السيرفر... ⚡')),
+                  );
+                  final synced = await OfflineSyncManager.syncPendingActions();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('تمت مزامنة $synced عملية بنجاح!'), backgroundColor: Colors.green),
+                  );
+                },
+              );
+            },
+          ),
+
           if (isAdmin)
             Stack(
               alignment: Alignment.center,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.notifications_active),
+                  icon: const Icon(Icons.edit_note),
                   tooltip: 'طلبات التعديل والمعالجة',
                   onPressed: () {
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => const ProfileRequestsScreen())).then((_) => _fetchPendingRequestsCount());
@@ -160,7 +218,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     right: 8,
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
                       child: Text(
                         '$_pendingRequestsCount',
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
@@ -334,9 +392,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               title: Text('تسجيل الخروج', style: AppTheme.cairoStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (ctx) => const LoginScreen()),
-                );
+                _handleLogout();
               },
             ),
           ],
@@ -362,4 +418,165 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     );
   }
+
+  void _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.logout, color: Colors.red),
+            const SizedBox(width: 8),
+            Text('تأكيد تسجيل الخروج', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'هل تريد تسجيل الخروج من حساب (${widget.currentUser.fullName})؟\nسيتطلب الدخول مجدداً كتابة كلمة المرور.',
+          style: AppTheme.cairoStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تسجيل الخروج', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ApiService.logout();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (ctx) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  void _showNotificationsSheet() {
+    NotificationService.fetchLiveNotifications(widget.currentUser);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withOpacity(0.06),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_active, color: AppTheme.primary),
+                  const SizedBox(width: 8),
+                  Text('مركز الإشعارات والتنبيهات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () {
+                      NotificationService.markAllAsRead();
+                    },
+                    icon: const Icon(Icons.done_all, size: 16, color: Colors.green),
+                    label: Text('تحديد الكل كمقروء', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.green)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(sheetCtx),
+                  ),
+                ],
+              ),
+            ),
+
+            // Notifications List
+            Expanded(
+              child: ValueListenableBuilder<List<CenterNotification>>(
+                valueListenable: NotificationService.notificationsList,
+                builder: (context, list, _) {
+                  if (list.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.notifications_off_outlined, size: 54, color: Colors.grey),
+                          const SizedBox(height: 10),
+                          Text('لا توجد إشعارات جديدة حالياً', style: AppTheme.cairoStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = list[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: item.isRead ? Colors.grey.shade200 : AppTheme.primary.withOpacity(0.15),
+                          child: Icon(
+                            item.category == 'profile_request' ? Icons.edit_note : Icons.campaign,
+                            color: item.isRead ? Colors.grey : AppTheme.primary,
+                          ),
+                        ),
+                        title: Text(
+                          item.title,
+                          style: AppTheme.cairoStyle(
+                            fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
+                            color: item.isRead ? Colors.grey.shade700 : AppTheme.textPrimary,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.body, style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item.timestamp.hour}:${item.timestamp.minute.toString().padLeft(2, '0')} - ${item.timestamp.year}/${item.timestamp.month}/${item.timestamp.day}',
+                              style: AppTheme.cairoStyle(fontSize: 10, color: Colors.grey.shade400),
+                            ),
+                          ],
+                        ),
+                        trailing: !item.isRead
+                            ? Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
+                              )
+                            : null,
+                        onTap: () {
+                          NotificationService.markAsRead(item.id);
+                          Navigator.pop(sheetCtx);
+                          if (item.category == 'announcement') {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(currentUser: widget.currentUser)));
+                          } else if (item.category == 'profile_request') {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileRequestsScreen()));
+                          }
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

@@ -137,7 +137,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                     items: _teachers.map((t) {
                       return DropdownMenuItem(
                         value: t,
-                        child: Text(t.fullName, style: AppTheme.cairoStyle(fontSize: 13)),
+                        child: Text(t.fullName, style: AppTheme.cairoStyle(fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 1),
                       );
                     }).toList(),
                     onChanged: (val) => setModalState(() => selectedTeacher = val),
@@ -147,7 +147,10 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('مشرف التقييم والاختبارات:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Expanded(
+                      child: Text('مشرف التقييم والاختبارات:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: () {
                         if (selectedTeacher != null) {
@@ -178,6 +181,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                           border: Border.all(color: Colors.amber),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.bolt, color: Colors.amber, size: 14),
                             const SizedBox(width: 4),
@@ -197,7 +201,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                     items: supervisors.map((u) {
                       return DropdownMenuItem(
                         value: u,
-                        child: Text(u.fullName, style: AppTheme.cairoStyle(fontSize: 13)),
+                        child: Text(u.fullName, style: AppTheme.cairoStyle(fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 1),
                       );
                     }).toList(),
                     onChanged: (val) => setModalState(() => selectedSupervisor = val),
@@ -399,7 +403,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                         items: _allCircles.where((c) => c.isActive).map((c) {
                           return DropdownMenuItem(
                             value: c,
-                            child: Text(c.name, style: AppTheme.cairoStyle(fontSize: 13)),
+                            child: Text(c.name, style: AppTheme.cairoStyle(fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 1),
                           );
                         }).toList(),
                         onChanged: (val) => setModalState(() => selectedCircle = val),

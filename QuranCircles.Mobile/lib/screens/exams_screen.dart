@@ -99,10 +99,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 children: [
                   DropdownButtonFormField<String>(
                     value: nominationType,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'نوع الاختبار *'),
                     items: const [
-                      DropdownMenuItem(value: 'Quran', child: Text('حفظ قرآن كريم (أجزاء)')),
-                      DropdownMenuItem(value: 'Course', child: Text('اختبار مساق / دورة شرعية')),
+                      DropdownMenuItem(value: 'Quran', child: Text('حفظ قرآن كريم (أجزاء)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 'Course', child: Text('اختبار مساق / دورة شرعية', overflow: TextOverflow.ellipsis, maxLines: 1)),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -119,8 +120,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   if (activeStudentsList.isNotEmpty)
                     DropdownButtonFormField<Student>(
                       value: selectedStudent,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'اختر الطالب *'),
-                      items: activeStudentsList.map((s) => DropdownMenuItem(value: s, child: Text(s.fullName))).toList(),
+                      items: activeStudentsList.map((s) => DropdownMenuItem(value: s, child: Text(s.fullName, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
                       onChanged: (val) => setModalState(() => selectedStudent = val),
                     )
                   else
@@ -135,17 +137,19 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 if (nominationType == 'Course' && courses.isNotEmpty) ...[
                   DropdownButtonFormField<Course>(
                     value: selectedCourse,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'اختر المساق/الدورة *'),
-                    items: courses.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                    items: courses.map((c) => DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
                     onChanged: (val) => setModalState(() => selectedCourse = val),
                   ),
                 ] else if (nominationType == 'Quran') ...[
                   DropdownButtonFormField<String>(
                     value: juzSelectionMode,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'طريقة تحديد الأجزاء *'),
                     items: const [
-                      DropdownMenuItem(value: 'Single', child: Text('جزء واحد فقط')),
-                      DropdownMenuItem(value: 'Range', child: Text('نطاق أجزاء (من - إلى)')),
+                      DropdownMenuItem(value: 'Single', child: Text('جزء واحد فقط', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 'Range', child: Text('نطاق أجزاء (من - إلى)', overflow: TextOverflow.ellipsis, maxLines: 1)),
                     ],
                     onChanged: (val) {
                       if (val != null) setModalState(() => juzSelectionMode = val);
@@ -156,9 +160,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   if (juzSelectionMode == 'Single')
                     DropdownButtonFormField<int>(
                       value: singleJuz,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'اختر الجزء *'),
                       items: List.generate(30, (i) => i + 1)
-                          .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j')))
+                          .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
                           .toList(),
                       onChanged: (val) {
                         if (val != null) {
@@ -176,9 +181,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             value: juzStart,
+                            isExpanded: true,
                             decoration: const InputDecoration(labelText: 'من الجزء'),
                             items: List.generate(30, (i) => i + 1)
-                                .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j')))
+                                .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
                                 .toList(),
                             onChanged: (val) {
                               if (val != null) {
@@ -194,9 +200,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             value: juzEnd,
+                            isExpanded: true,
                             decoration: const InputDecoration(labelText: 'إلى الجزء'),
                             items: List.generate(30, (i) => i + 1)
-                                .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j')))
+                                .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
                                 .toList(),
                             onChanged: (val) {
                               if (val != null) setModalState(() => juzEnd = val);

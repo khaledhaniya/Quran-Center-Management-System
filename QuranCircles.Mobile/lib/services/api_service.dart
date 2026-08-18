@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 import 'offline_cache.dart';
+import 'notification_service.dart';
+import 'offline_sync_manager.dart';
 
 class ApiService {
   static String baseUrl = 'https://albayan-quran.onrender.com/api';
@@ -50,6 +52,22 @@ class ApiService {
   }
 
   // --- Auth ---
+  static Future<User?> tryAutoLogin() async {
+    try {
+      final cached = await OfflineCache.load('user_login');
+      if (cached != null && cached.isNotEmpty) {
+        final json = jsonDecode(cached);
+        final user = User.fromJson(json['user'] ?? json);
+        currentUser = user;
+        authToken = json['token']?.toString() ?? '';
+        NotificationService.start(user);
+        OfflineSyncManager.initialize();
+        return user;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future<User> login(String username, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
@@ -63,6 +81,8 @@ class ApiService {
       currentUser = user;
       authToken = json['token']?.toString() ?? '';
       await OfflineCache.save('user_login', response.body);
+      NotificationService.start(user);
+      OfflineSyncManager.initialize();
       return user;
     } else {
       try {
@@ -75,12 +95,22 @@ class ApiService {
           final user = User.fromJson(json['user'] ?? json);
           currentUser = user;
           authToken = json['token']?.toString() ?? '';
+          NotificationService.start(user);
+          OfflineSyncManager.initialize();
           return user;
         }
         if (e.toString().contains('Exception:')) rethrow;
         throw Exception('فشل الاتصال بالسيرفر. يرجى التحقق من الاتصال بالإنترنت.');
       }
     }
+  }
+
+  static Future<void> logout() async {
+    currentUser = null;
+    authToken = null;
+    NotificationService.stop();
+    await OfflineCache.remove('user_login');
+    invalidateCache();
   }
 
   // --- Students CRUD ---

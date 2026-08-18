@@ -161,6 +161,7 @@ class _Student360ScreenState extends State<Student360Screen> {
                         ? const LinearProgressIndicator()
                         : DropdownButtonFormField<Student>(
                             initialValue: _selectedStudent,
+                            isExpanded: true,
                             decoration: const InputDecoration(
                               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             ),
@@ -170,6 +171,8 @@ class _Student360ScreenState extends State<Student360Screen> {
                                 child: Text(
                                   '${s.fullName} (${s.circleName ?? "بدون حلقة"})',
                                   style: AppTheme.cairoStyle(fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               );
                             }).toList(),

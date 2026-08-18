@@ -62,12 +62,13 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: timing,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'موعد ووقت انعقاد الحلقة'),
                   items: const [
-                    DropdownMenuItem(value: 'Fajr', child: Text('بعد الفجر')),
-                    DropdownMenuItem(value: 'Aser', child: Text('بعد العصر')),
-                    DropdownMenuItem(value: 'Maghrib', child: Text('بعد المغرب')),
-                    DropdownMenuItem(value: 'Isha', child: Text('بعد العشاء')),
+                    DropdownMenuItem(value: 'Fajr', child: Text('بعد الفجر', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 'Aser', child: Text('بعد العصر', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 'Maghrib', child: Text('بعد المغرب', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 'Isha', child: Text('بعد العشاء', overflow: TextOverflow.ellipsis, maxLines: 1)),
                   ],
                   onChanged: (val) {
                     if (val != null) setModalState(() => timing = val);
@@ -76,10 +77,11 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
                   value: selectedTeacherId,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'المعلم المحفظ المشرف'),
                   items: [
-                    const DropdownMenuItem<int>(value: null, child: Text('بدون معلم (غير مسند)')),
-                    ..._teachers.map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.fullName))),
+                    const DropdownMenuItem<int>(value: null, child: Text('بدون معلم (غير مسند)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    ..._teachers.map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.fullName, overflow: TextOverflow.ellipsis, maxLines: 1))),
                   ],
                   onChanged: (val) => setModalState(() => selectedTeacherId = val),
                 ),
@@ -418,11 +420,12 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
                 Expanded(
                   child: DropdownButtonFormField<Student>(
                     value: _studentToAssign,
-                    hint: Text('اختر طالباً لإضافته للحلقة...', style: AppTheme.cairoStyle(fontSize: 13)),
+                    isExpanded: true,
+                    hint: Text('اختر طالباً لإضافته للحلقة...', style: AppTheme.cairoStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
                     items: unassigned.map((s) {
                       return DropdownMenuItem(
                         value: s,
-                        child: Text('${s.fullName} (${s.circleName ?? "بدون حلقة"})', style: AppTheme.cairoStyle(fontSize: 12)),
+                        child: Text('${s.fullName} (${s.circleName ?? "بدون حلقة"})', style: AppTheme.cairoStyle(fontSize: 12), overflow: TextOverflow.ellipsis, maxLines: 1),
                       );
                     }).toList(),
                     onChanged: (val) => setState(() => _studentToAssign = val),

@@ -147,9 +147,10 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                           Expanded(
                             child: DropdownButtonFormField<Course>(
                               value: _selectedCourse,
+                              isExpanded: true,
                               decoration: const InputDecoration(labelText: 'اختر المساق/الدورة'),
                               items: _courses.map((c) {
-                                return DropdownMenuItem(value: c, child: Text(c.name));
+                                return DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1));
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) {

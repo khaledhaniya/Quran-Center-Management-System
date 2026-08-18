@@ -178,12 +178,13 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: ['سليم', 'شهيد', 'متوفي', 'أسير'].contains(fatherStatus) ? fatherStatus : 'سليم',
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'حالة الأب'),
                         items: const [
-                          DropdownMenuItem(value: 'سليم', child: Text('سليم (حي)')),
-                          DropdownMenuItem(value: 'شهيد', child: Text('شهيد')),
-                          DropdownMenuItem(value: 'متوفي', child: Text('متوفي')),
-                          DropdownMenuItem(value: 'أسير', child: Text('أسير')),
+                          DropdownMenuItem(value: 'سليم', child: Text('سليم (حي)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                          DropdownMenuItem(value: 'شهيد', child: Text('شهيد', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                          DropdownMenuItem(value: 'متوفي', child: Text('متوفي', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                          DropdownMenuItem(value: 'أسير', child: Text('أسير', overflow: TextOverflow.ellipsis, maxLines: 1)),
                         ],
                         onChanged: (val) {
                           if (val != null) setModalState(() => fatherStatus = val);
@@ -194,15 +195,14 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: ['سليم', 'شهيدة', 'متوفاة'].contains(motherStatus) ? motherStatus : 'سليم',
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'حالة الأم'),
                         items: const [
-                          DropdownMenuItem(value: 'سليم', child: Text('سليمة (حية)')),
-                          DropdownMenuItem(value: 'شهيدة', child: Text('شهيدة')),
-                          DropdownMenuItem(value: 'متوفاة', child: Text('متوفاة')),
+                          DropdownMenuItem(value: 'سليم', child: Text('سليمة (حية)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                          DropdownMenuItem(value: 'شهيدة', child: Text('شهيدة', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                          DropdownMenuItem(value: 'متوفاة', child: Text('متوفاة', overflow: TextOverflow.ellipsis, maxLines: 1)),
                         ],
-                        onChanged: (val) {
-                          if (val != null) setModalState(() => motherStatus = val);
-                        },
+                        onChanged: (val) => setModalState(() => motherStatus = val),
                       ),
                     ),
                   ],
@@ -210,10 +210,11 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
                   value: selectedCircleId,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الحلقة القرآنية المسندة'),
                   items: [
-                    const DropdownMenuItem<int>(value: null, child: Text('بدون حلقة (غير مسند)')),
-                    ..._circles.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))),
+                    const DropdownMenuItem<int>(value: null, child: Text('بدون حلقة (غير مسند)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    ..._circles.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1))),
                   ],
                   onChanged: (val) => setModalState(() => selectedCircleId = val),
                 ),

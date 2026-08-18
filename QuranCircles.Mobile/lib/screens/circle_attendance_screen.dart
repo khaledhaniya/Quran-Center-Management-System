@@ -186,13 +186,14 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> {
 
                 DropdownButtonFormField<int>(
                   value: assessmentLevel,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'التقييم ومستوى الحفظ *'),
                   items: const [
-                    DropdownMenuItem(value: 1, child: Text('ممتاز (1)')),
-                    DropdownMenuItem(value: 2, child: Text('جيد جداً (2)')),
-                    DropdownMenuItem(value: 3, child: Text('جيد (3)')),
-                    DropdownMenuItem(value: 4, child: Text('متوسط (4)')),
-                    DropdownMenuItem(value: 5, child: Text('مرفوض/ضعيف (5)')),
+                    DropdownMenuItem(value: 1, child: Text('ممتاز (1)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 2, child: Text('جيد جداً (2)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 3, child: Text('جيد (3)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 4, child: Text('متوسط (4)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    DropdownMenuItem(value: 5, child: Text('مرفوض/ضعيف (5)', overflow: TextOverflow.ellipsis, maxLines: 1)),
                   ],
                   onChanged: (val) {
                     if (val != null) setModalState(() => assessmentLevel = val);
@@ -337,9 +338,10 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> {
                               Expanded(
                                 child: DropdownButtonFormField<Circle>(
                                   value: _selectedCircle,
+                                  isExpanded: true,
                                   decoration: const InputDecoration(labelText: 'اختر الحلقة'),
                                   items: _circles.map((c) {
-                                    return DropdownMenuItem(value: c, child: Text(c.name));
+                                    return DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1));
                                   }).toList(),
                                   onChanged: (val) async {
                                     if (val != null) {

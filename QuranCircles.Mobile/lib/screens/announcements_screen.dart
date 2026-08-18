@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -655,33 +656,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     return;
                   }
 
-                  // 2. Launch Native Mobile Phone Messaging App with Group Numbers
-                  final numbersJoined = cleanNumbers.join(',');
-                  final Uri smsUri = Uri(
-                    scheme: 'sms',
-                    path: numbersJoined,
-                    queryParameters: <String, String>{
-                      'body': text,
-                    },
-                  );
-
-                  try {
-                    bool launched = await launchUrl(smsUri, mode: LaunchMode.externalApplication);
-                    if (!launched) {
-                      final fallbackUrl = 'sms:$numbersJoined?body=${Uri.encodeComponent(text)}';
-                      await launchUrl(Uri.parse(fallbackUrl), mode: LaunchMode.externalApplication);
-                    }
-                  } catch (_) {
-                    final fallbackUrl = 'sms:$numbersJoined?body=${Uri.encodeComponent(text)}';
-                    try {
-                      await launchUrl(Uri.parse(fallbackUrl), mode: LaunchMode.externalApplication);
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('تم فتح تطبيق الرسائل لـ ${cleanNumbers.length} مستلم'), backgroundColor: Colors.green),
-                      );
-                    }
-                  }
+                  _showSmartDispatchSheet(cleanNumbers, text);
                 },
                 icon: const Icon(Icons.send, color: Colors.white, size: 16),
                 label: const Text('فتح تطبيق الرسائل وإرسال', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -815,6 +790,130 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     );
                   },
                 ),
+    );
+  }
+
+  void _showSmartDispatchSheet(List<String> cleanNumbers, String text) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.send_rounded, color: AppTheme.primary, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'خيارات إرسال الرسالة (${cleanNumbers.length} مستلم)',
+                  style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Text(
+                text,
+                style: AppTheme.cairoStyle(fontSize: 13, color: Colors.grey.shade800),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Option 1: Direct WhatsApp / Apps Share
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.green.shade200)),
+              tileColor: Colors.green.shade50,
+              leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.share, color: Colors.white)),
+              title: Text('مشاركة وإرسال عبر واتساب والتطبيقات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.green.shade900)),
+              subtitle: Text('مشاركة فورية للمجموعة أو الأفراد بدون قيود الـ MMS', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.green.shade700)),
+              onTap: () async {
+                Navigator.pop(sheetCtx);
+                final encoded = Uri.encodeComponent(text);
+                final waUrl = 'https://wa.me/?text=$encoded';
+                try {
+                  await launchUrl(Uri.parse(waUrl), mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              },
+            ),
+            const SizedBox(height: 10),
+
+            // Option 2: Direct SMS App
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.blue.shade200)),
+              tileColor: Colors.blue.shade50,
+              leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.sms, color: Colors.white)),
+              title: Text('فتح تطبيق رسائل الجوال SMS (لكافة الأرقام)', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+              subtitle: Text('محاولة إرسال SMS قياسي لكافة أرقام المستلمين', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.blue.shade700)),
+              onTap: () async {
+                Navigator.pop(sheetCtx);
+                final numbersJoined = cleanNumbers.join(';');
+                final Uri smsUri = Uri(
+                  scheme: 'sms',
+                  path: numbersJoined,
+                  queryParameters: <String, String>{
+                    'body': text,
+                  },
+                );
+                try {
+                  bool ok = await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+                  if (!ok) {
+                    final fallback = 'sms:${cleanNumbers.join(',')}?body=${Uri.encodeComponent(text)}';
+                    await launchUrl(Uri.parse(fallback), mode: LaunchMode.externalApplication);
+                  }
+                } catch (_) {
+                  final fallback = 'sms:${cleanNumbers.join(',')}?body=${Uri.encodeComponent(text)}';
+                  try {
+                    await launchUrl(Uri.parse(fallback), mode: LaunchMode.externalApplication);
+                  } catch (_) {}
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+
+            // Option 3: Copy Numbers & Message
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
+              tileColor: Colors.grey.shade50,
+              leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.copy, color: Colors.white)),
+              title: Text('نسخ الأرقام ونص الرسالة إلى الحافظة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('نسخ فوري للالتصاق في أي برنامج مراسلة تفضله', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                final clipboardContent = 'أرقام المستلمين:\n${cleanNumbers.join('\n')}\n\nنص الرسالة:\n$text';
+                Clipboard.setData(ClipboardData(text: clipboardContent));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تم نسخ الأرقام ونص الرسالة بنجاح 📋'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

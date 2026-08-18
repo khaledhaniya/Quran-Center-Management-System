@@ -355,8 +355,8 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                                   ),
                                   isExpanded: true,
                                   items: [
-                                    const DropdownMenuItem(value: 'all', child: Text('كافة الحلقات')),
-                                    ..._circles.map((c) => DropdownMenuItem(value: c.id.toString(), child: Text(c.name))),
+                                    const DropdownMenuItem(value: 'all', child: Text('كافة الحلقات', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                                    ..._circles.map((c) => DropdownMenuItem(value: c.id.toString(), child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1))),
                                   ],
                                   onChanged: (val) {
                                     if (val != null) {
