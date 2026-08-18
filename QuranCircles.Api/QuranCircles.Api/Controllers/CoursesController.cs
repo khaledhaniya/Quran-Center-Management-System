@@ -88,6 +88,66 @@ public class CoursesController : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id = course.Id }, course);
     }
 
+    [HttpPut("{id:int}")]
+    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    public async Task<IActionResult> Update(int id, [FromBody] CreateCourseDto dto)
+    {
+        var course = await _db.Courses.FindAsync(id);
+        if (course == null) return NotFound(new { Message = "الدورة غير موجودة." });
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { Message = "اسم الدورة مطلوب." });
+
+        course.Name = dto.Name;
+        course.Description = dto.Description ?? string.Empty;
+        course.TeacherId = dto.TeacherId;
+        course.ExamSupervisorId = dto.ExamSupervisorId;
+
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        _db.AuditLogs.Add(new AuditLog
+        {
+            Username = currentUser?.Username ?? "Unknown",
+            Action = "UpdateCourse",
+            Details = $"تعديل الدورة الأكاديمية والمشرف والمعلم: {course.Name} (ID: {course.Id})",
+            Timestamp = DateTime.UtcNow,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "::1"
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new { Message = "تم تحديث بيانات الدورة والمشرف بنجاح.", Course = course });
+    }
+
+    [HttpDelete("{id:int}")]
+    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var course = await _db.Courses
+            .Include(c => c.Enrollments)
+            .Include(c => c.Attendances)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (course == null) return NotFound(new { Message = "الدورة غير موجودة." });
+
+        _db.CourseAttendances.RemoveRange(course.Attendances);
+        _db.CourseEnrollments.RemoveRange(course.Enrollments);
+        _db.Courses.Remove(course);
+
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        _db.AuditLogs.Add(new AuditLog
+        {
+            Username = currentUser?.Username ?? "Unknown",
+            Action = "DeleteCourse",
+            Details = $"حذف الدورة الأكاديمية: {course.Name} (ID: {course.Id})",
+            Timestamp = DateTime.UtcNow,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "::1"
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new { Message = "تم حذف الدورة الأكاديمية وجميع سجلاتها بنجاح." });
+    }
+
     [HttpPost("enroll")]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> Enroll([FromBody] EnrollDto dto)

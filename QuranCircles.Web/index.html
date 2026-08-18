@@ -1106,28 +1106,18 @@
 
                     <!-- TAB 1: Courses List & Management -->
                     <div id="course-tab-list-view">
-                        <div class="admin-only developer-only mb-3" style="text-align: left;">
-                            <button class="btn btn-success" id="btn-create-course-modal" style="display:none;"><i class="fa-solid fa-plus"></i> إضافة دورة أكاديمي جديد</button>
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h4 class="fw-bold text-success m-0" style="font-size: 1.15rem;"><i class="fa-solid fa-graduation-cap text-warning"></i> المساقات والدورات الأكاديمية</h4>
+                            <div class="admin-only developer-only">
+                                <button class="btn btn-success rounded-pill shadow-sm px-4 fw-bold" id="btn-create-course-modal" style="display:none; background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%); border:none;"><i class="fa-solid fa-plus me-1"></i> إضافة دورة أكاديمية جديدة</button>
+                            </div>
                         </div>
 
-                        <div class="card shadow-sm">
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>رقم الدورة</th>
-                                            <th>اسم الدورة</th>
-                                            <th>الوصف</th>
-                                            <th>المعلم / مشرف التقييم</th>
-                                            <th>الطلاب المسجلين</th>
-                                            <th>الحالة</th>
-                                            <th>الإجراءات</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="courses-table-body">
-                                        <!-- Loaded dynamically -->
-                                    </tbody>
-                                </table>
+                        <!-- 2026 Responsive Course Cards Container -->
+                        <div id="courses-cards-container" class="courses-cards-grid">
+                            <div class="text-center p-5 text-muted w-100" style="grid-column: 1/-1;">
+                                <i class="fa-solid fa-circle-notch fa-spin fs-3 text-success mb-2"></i>
+                                <p class="m-0 fw-bold">جاري تحميل الدورات الأكاديمية...</p>
                             </div>
                         </div>
                     </div>

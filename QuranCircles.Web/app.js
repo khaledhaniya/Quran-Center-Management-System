@@ -4738,47 +4738,94 @@ async function loadCourses() {
 async function loadCoursesList() {
     try {
         const courses = await apiRequest("/courses");
-        const tbody = document.getElementById("courses-table-body");
-        tbody.innerHTML = "";
+        const container = document.getElementById("courses-cards-container");
+        if (!container) return;
+        container.innerHTML = "";
 
         if (courses.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">لا يوجد دورات مسجلة حالياً.</td></tr>`;
+            container.innerHTML = `
+                <div class="card shadow-sm p-5 text-center text-muted w-100" style="grid-column: 1/-1;">
+                    <i class="fa-solid fa-graduation-cap mb-3 text-success" style="font-size: 3.5rem;"></i>
+                    <h4 class="fw-bold">لا يوجد دورات مسجلة حالياً في النظام</h4>
+                    <p class="small text-muted">يمكن للمدير والمطور إضافة وتصميم دورات مساقات جديدة بالضغط على زر إضافة دورة أعلاه.</p>
+                </div>
+            `;
             return;
         }
 
-        const isManage = (currentRole === "Admin" || currentRole === "Developer" || currentRole === "Teacher");
+        const isAdminOrDev = (currentRole === "Admin" || currentRole === "Developer");
 
         courses.forEach(c => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${c.id}</td>
-                <td><strong style="color:var(--primary-color); cursor:pointer;" onclick="showCourseEnrollmentsModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')">${c.name}</strong></td>
-                <td>${c.description}</td>
-                <td>الشيخ: ${c.teacherName} <br><small class="text-muted">المشرف: ${c.examSupervisorName || 'بدون مشرف'}</small></td>
-                <td><span class="badge badge-info">${c.enrollmentCount} طلاب</span></td>
-                <td><span class="badge ${c.isActive ? 'badge-success' : 'badge-danger'}">${c.isActive ? 'نشطة' : 'ملغاة'}</span></td>
-                ${isManage ? `
-                <td>
-                    <div class="d-flex gap-2" style="flex-wrap: wrap;">
-                        <button class="btn btn-outline-primary btn-sm btn-enroll-student" data-id="${c.id}"><i class="fa-solid fa-user-plus"></i> تسجيل طلاب</button>
-                        <button class="btn btn-outline-success btn-sm" onclick="showCourseAttendanceModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')"><i class="fa-solid fa-clipboard-user"></i> التحضير</button>
-                        <button class="btn btn-light btn-sm btn-grade-students" onclick="showCourseEnrollmentsModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')"><i class="fa-solid fa-marker"></i> الدرجات</button>
+            const card = document.createElement("div");
+            card.className = "course-card-2026";
+            
+            const isSameSupervisor = c.teacherId && c.examSupervisorId && (c.teacherId === c.examSupervisorId);
+
+            card.innerHTML = `
+                <div class="course-card-header-2026">
+                    <span class="course-id-badge"><i class="fa-solid fa-hashtag"></i> ${c.id}</span>
+                    <span class="badge ${c.isActive ? 'badge-success' : 'badge-danger'} px-3 py-2 rounded-pill fw-bold" style="font-size: 0.78rem;">
+                        <i class="fa-solid ${c.isActive ? 'fa-circle-check' : 'fa-circle-xmark'} me-1"></i> ${c.isActive ? 'نشطة ومتاحة' : 'غير نشطة'}
+                    </span>
+                </div>
+                <div class="course-card-body-2026">
+                    <h3 class="course-card-title-2026" style="cursor:pointer;" onclick="showCourseEnrollmentsModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                        <i class="fa-solid fa-book-bookmark text-warning"></i> ${c.name}
+                    </h3>
+                    <p class="course-card-desc-2026">${c.description || 'لا يوجد وصف تفصيلي مسجل لهذه الدورة.'}</p>
+                    
+                    <div class="course-info-grid-2026">
+                        <div class="course-info-box">
+                            <i class="fa-solid fa-chalkboard-user"></i>
+                            <div>
+                                <div class="info-label">المعلم المحفّظ</div>
+                                <div class="info-value">${c.teacherName || 'غير محدد'}</div>
+                            </div>
+                        </div>
+                        <div class="course-info-box">
+                            <i class="fa-solid fa-user-shield text-warning"></i>
+                            <div>
+                                <div class="info-label">مشرف التقييم</div>
+                                <div class="info-value">${c.examSupervisorName || 'غير محدد'} ${isSameSupervisor ? '<span class="badge bg-warning-subtle text-dark ms-1" style="font-size:0.65rem">(نفس المعلم)</span>' : ''}</div>
+                            </div>
+                        </div>
+                        <div class="course-info-box" style="grid-column: 1/-1;">
+                            <i class="fa-solid fa-users text-info"></i>
+                            <div>
+                                <div class="info-label">الطلاب المسجلين بالدورة</div>
+                                <div class="info-value text-success">${c.enrollmentCount} طالب ملتحق</div>
+                            </div>
+                        </div>
                     </div>
-                </td>
-                ` : ''}
+                </div>
+                <div class="course-card-footer-2026">
+                    ${isAdminOrDev ? `
+                        <button class="btn btn-outline-primary btn-sm rounded-pill px-3 btn-enroll-student-card" data-id="${c.id}" title="تسجيل طلاب بالدورة"><i class="fa-solid fa-user-plus me-1"></i> تسجيل طلاب</button>
+                    ` : ''}
+                    
+                    <button class="btn btn-outline-success btn-sm rounded-pill px-3" onclick="showCourseAttendanceModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="تحضير وتفقد الدورة"><i class="fa-solid fa-clipboard-user me-1"></i> التحضير</button>
+                    
+                    <button class="btn btn-light btn-sm rounded-pill px-3 border shadow-xs" onclick="showCourseEnrollmentsModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="رصد وعرض الدرجات والشهادات"><i class="fa-solid fa-marker text-warning me-1"></i> الدرجات</button>
+
+                    ${isAdminOrDev ? `
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 ms-auto" onclick="showEditCourseSupervisorModal(${c.id}, '${c.name.replace(/'/g, "\\'")}', '${(c.description || '').replace(/'/g, "\\'")}', ${c.teacherId || 'null'}, ${c.examSupervisorId || 'null'})" title="تعديل وتحديد المشرف والمعلم"><i class="fa-solid fa-user-gear me-1"></i> المشرف والمعلم</button>
+
+                        <button class="btn btn-outline-danger btn-sm rounded-pill px-3" onclick="confirmDeleteCourse(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="حذف الدورة نهائياً"><i class="fa-solid fa-trash-can me-1"></i> حذف الدورة</button>
+                    ` : ''}
+                </div>
             `;
-            tbody.appendChild(tr);
+            container.appendChild(card);
         });
 
-        // Bind Enroll
-        tbody.querySelectorAll(".btn-enroll-student").forEach(btn => {
+        // Bind Enroll Buttons (Admin / Dev only)
+        container.querySelectorAll(".btn-enroll-student-card").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 const id = e.target.closest("button").dataset.id;
                 showEnrollModal(id);
             });
         });
 
-        // Bind Create modal trigger (static)
+        // Bind Create modal trigger
         const createBtn = document.getElementById("btn-create-course-modal");
         if (createBtn) {
             const newBtn = createBtn.cloneNode(true);
@@ -5052,51 +5099,44 @@ function printCertificate(elementId, studentName) {
 }
 
 function showCreateCourseModal() {
-    openModal("إضافة دورة أكاديمي جديد");
+    openModal("إضافة دورة أكاديمية جديدة");
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="create-course-form">
-            <div class="form-group">
-                <label for="course-name-input">اسم الدورة / الدورة:</label>
-                <input type="text" id="course-name-input" class="form-control" placeholder="مثل: دورة السراج الوهّاج في التجويد..." required>
+            <div class="form-group mb-3">
+                <label for="course-name-input" class="fw-bold"><i class="fa-solid fa-book-bookmark text-success me-1"></i> اسم الدورة الأكاديمية:</label>
+                <input type="text" id="course-name-input" class="form-control" placeholder="مثل: دورة السراج الوهّاج في أحكام التجويد..." required>
             </div>
-            <div class="form-group">
-                <label for="course-desc-input">وصف المقرر ومحاوره:</label>
+            <div class="form-group mb-3">
+                <label for="course-desc-input" class="fw-bold"><i class="fa-solid fa-align-right text-primary me-1"></i> وصف المقرر ومحاوره التعليمية:</label>
                 <textarea id="course-desc-input" class="form-control" rows="3" placeholder="توضيح محاور الدورة والمخرجات المتوقعة..."></textarea>
             </div>
-            <div class="form-group">
-                <label for="course-teacher-input">المعلم المشرّف:</label>
+            <div class="form-group mb-3">
+                <label for="course-teacher-input" class="fw-bold"><i class="fa-solid fa-chalkboard-user text-success me-1"></i> الشيخ المعلم المحفّظ للدورة:</label>
                 <select id="course-teacher-input" class="form-control" required>
                     <option value="">-- اختر الشيخ المعلم --</option>
                     ${cachedTeachers.filter(t => t.isActive).map(t => `<option value="${t.id}">${t.fullName}</option>`).join('')}
                 </select>
             </div>
-            <div class="form-group">
-                <label for="course-supervisor-input">مشرف الاختبارات والتقييم للدورة:</label>
+
+            <div class="form-group mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                    <label for="course-supervisor-input" class="fw-bold"><i class="fa-solid fa-user-shield text-warning me-1"></i> مشرف التقييم والاختبارات للدورة:</label>
+                    <button type="button" class="btn btn-sm btn-outline-warning rounded-pill py-1 px-3 fw-bold" onclick="setSameSupervisorForCourse()"><i class="fa-solid fa-bolt me-1"></i> اجعل المعلم هو المشرف ذاته</button>
+                </div>
                 <select id="course-supervisor-input" class="form-control" required>
-                    <option value="">-- جاري تحميل المشرفين... --</option>
+                    <option value="">-- جاري تحميل المشرفين والمدرسين... --</option>
                 </select>
             </div>
+
             <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ الدورة</button>
-                <button type="button" class="btn btn-light" onclick="closeModal()">إلغاء</button>
+                <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="fa-solid fa-save me-1"></i> حفظ الدورة الأكاديمية</button>
+                <button type="button" class="btn btn-light rounded-pill px-4" onclick="closeModal()">إلغاء</button>
             </div>
         </form>
     `;
 
-    // Populate supervisors dropdown
-    const supervisorSelect = document.getElementById("course-supervisor-input");
-    apiRequest("/users/supervisors").then(list => {
-        supervisorSelect.innerHTML = '<option value="">-- اختر مشرف الاختبارات --</option>';
-        list.forEach(sv => {
-            const opt = document.createElement("option");
-            opt.value = sv.id;
-            opt.textContent = sv.fullName;
-            supervisorSelect.appendChild(opt);
-        });
-    }).catch(() => {
-        supervisorSelect.innerHTML = '<option value="">فشل تحميل المشرفين</option>';
-    });
+    populateCourseSupervisorsDropdown("course-supervisor-input");
 
     document.getElementById("create-course-form").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -5112,52 +5152,191 @@ function showCreateCourseModal() {
                 teacherId: parseInt(teacherId),
                 examSupervisorId: parseInt(supervisorId)
             });
-            showAlert("تم إنشاء الدورة التعليمي بنجاح.", "success");
+            showAlert("تم إنشاء الدورة التعليمية بنجاح.", "success");
             closeModal();
             loadCoursesList();
         } catch(e) {}
     });
 }
 
+function showEditCourseSupervisorModal(courseId, courseName, courseDesc, currentTeacherId, currentSupervisorId) {
+    openModal(`تحديد وتعديل مشرف ومعلم دورة: ${courseName}`);
+    const content = document.getElementById("modal-body-content");
+    content.innerHTML = `
+        <form id="edit-course-form">
+            <div class="form-group mb-3">
+                <label for="edit-course-name-input" class="fw-bold"><i class="fa-solid fa-book-bookmark text-success me-1"></i> اسم الدورة الأكاديمية:</label>
+                <input type="text" id="edit-course-name-input" class="form-control" value="${courseName}" required>
+            </div>
+            <div class="form-group mb-3">
+                <label for="edit-course-desc-input" class="fw-bold"><i class="fa-solid fa-align-right text-primary me-1"></i> وصف المقرر:</label>
+                <textarea id="edit-course-desc-input" class="form-control" rows="3">${courseDesc}</textarea>
+            </div>
+            <div class="form-group mb-3">
+                <label for="edit-course-teacher-input" class="fw-bold"><i class="fa-solid fa-chalkboard-user text-success me-1"></i> الشيخ المعلم المحفّظ للدورة:</label>
+                <select id="edit-course-teacher-input" class="form-control" required>
+                    <option value="">-- اختر الشيخ المعلم --</option>
+                    ${cachedTeachers.filter(t => t.isActive).map(t => `<option value="${t.id}" ${currentTeacherId == t.id ? 'selected' : ''}>${t.fullName}</option>`).join('')}
+                </select>
+            </div>
+
+            <div class="form-group mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                    <label for="edit-course-supervisor-input" class="fw-bold"><i class="fa-solid fa-user-shield text-warning me-1"></i> مشرف التقييم والاختبارات للدورة:</label>
+                    <button type="button" class="btn btn-sm btn-outline-warning rounded-pill py-1 px-3 fw-bold" onclick="setSameSupervisorForEditCourse()"><i class="fa-solid fa-bolt me-1"></i> اجعل المعلم هو المشرف ذاته</button>
+                </div>
+                <select id="edit-course-supervisor-input" class="form-control" required>
+                    <option value="">-- جاري تحميل المشرفين والمدرسين... --</option>
+                </select>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-between">
+                <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="fa-solid fa-check me-1"></i> حفظ التحديثات والتعديلات</button>
+                <button type="button" class="btn btn-light rounded-pill px-4" onclick="closeModal()">إلغاء</button>
+            </div>
+        </form>
+    `;
+
+    populateCourseSupervisorsDropdown("edit-course-supervisor-input", currentSupervisorId);
+
+    document.getElementById("edit-course-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("edit-course-name-input").value;
+        const desc = document.getElementById("edit-course-desc-input").value;
+        const teacherId = document.getElementById("edit-course-teacher-input").value;
+        const supervisorId = document.getElementById("edit-course-supervisor-input").value;
+
+        try {
+            await apiRequest(`/courses/${courseId}`, "PUT", { 
+                name, 
+                description: desc, 
+                teacherId: parseInt(teacherId),
+                examSupervisorId: parseInt(supervisorId)
+            });
+            showAlert("تم تحديث الدورة الأكاديمية وتحديد المشرف والمعلم بنجاح.", "success");
+            closeModal();
+            loadCoursesList();
+        } catch(e) {}
+    });
+}
+
+function setSameSupervisorForCourse() {
+    const teacherSelect = document.getElementById("course-teacher-input");
+    const supervisorSelect = document.getElementById("course-supervisor-input");
+    if (teacherSelect && supervisorSelect) {
+        if (!teacherSelect.value) {
+            showAlert("يرجى اختيار المعلم أولاً.", "warning");
+            return;
+        }
+        supervisorSelect.value = teacherSelect.value;
+        showAlert("تم تعيين معلم الدورة كمشرف للتقييم ذاته بنجاح.", "success");
+    }
+}
+
+function setSameSupervisorForEditCourse() {
+    const teacherSelect = document.getElementById("edit-course-teacher-input");
+    const supervisorSelect = document.getElementById("edit-course-supervisor-input");
+    if (teacherSelect && supervisorSelect) {
+        if (!teacherSelect.value) {
+            showAlert("يرجى اختيار المعلم أولاً.", "warning");
+            return;
+        }
+        supervisorSelect.value = teacherSelect.value;
+        showAlert("تم تعيين معلم الدورة كمشرف للتقييم ذاته بنجاح.", "success");
+    }
+}
+
+async function populateCourseSupervisorsDropdown(selectId = "course-supervisor-input", selectedVal = null) {
+    const supervisorSelect = document.getElementById(selectId);
+    if (!supervisorSelect) return;
+
+    try {
+        const supervisorsList = await apiRequest("/users/supervisors").catch(() => []);
+        supervisorSelect.innerHTML = '<option value="">-- اختر مشرف التقييم --</option>';
+
+        if (supervisorsList.length > 0) {
+            const grpSv = document.createElement("optgroup");
+            grpSv.label = "مشرفو الاختبارات المعتمدون";
+            supervisorsList.forEach(sv => {
+                const opt = document.createElement("option");
+                opt.value = sv.id;
+                opt.textContent = sv.fullName;
+                if (selectedVal && selectedVal == sv.id) opt.selected = true;
+                grpSv.appendChild(opt);
+            });
+            supervisorSelect.appendChild(grpSv);
+        }
+
+        if (cachedTeachers && cachedTeachers.length > 0) {
+            const grpTc = document.createElement("optgroup");
+            grpTc.label = "مشايخ ومعلمو المركز";
+            cachedTeachers.filter(t => t.isActive).forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.id;
+                opt.textContent = `${t.fullName} (معلم)`;
+                if (selectedVal && selectedVal == t.id) opt.selected = true;
+                grpTc.appendChild(opt);
+            });
+            supervisorSelect.appendChild(grpTc);
+        }
+    } catch(e) {
+        supervisorSelect.innerHTML = '<option value="">فشل تحميل المشرفين</option>';
+    }
+}
+
 function showEnrollModal(courseId) {
-    openModal("تسجيل الطلاب في الدورة");
+    openModal("تسجيل الطلاب في الدورة التعليمية");
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="enroll-form">
             <div class="form-group mb-3">
-                <label>نوع التسجيل:</label>
-                <div class="d-flex gap-4 mt-2">
-                    <label style="cursor:pointer;"><input type="radio" name="enroll-type" value="student" checked onclick="toggleEnrollInputs('student')"> تسجيل طالب مفرد</label>
-                    <label style="cursor:pointer;"><input type="radio" name="enroll-type" value="circle" onclick="toggleEnrollInputs('circle')"> تسجيل حلقة كاملة</label>
+                <label class="fw-bold mb-2">طريقة إضافة وتسجيل الطلاب:</label>
+                <div class="d-flex gap-3 p-2 bg-light rounded-3 border">
+                    <label style="cursor:pointer;" class="fw-bold text-success mb-0 d-flex align-items-center gap-2">
+                        <input type="radio" name="enroll-type" value="student" checked onclick="toggleEnrollInputs('student')">
+                        <i class="fa-solid fa-user"></i> تسجيل طالب محدد
+                    </label>
+                    <label style="cursor:pointer;" class="fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                        <input type="radio" name="enroll-type" value="circle" onclick="toggleEnrollInputs('circle')">
+                        <i class="fa-solid fa-users"></i> تسجيل حلقة كاملة
+                    </label>
                 </div>
             </div>
 
-            <div class="form-group" id="enroll-student-wrapper">
-                <label for="enroll-student-select">اختر الطالب:</label>
-                <select id="enroll-student-select" class="form-control">
-                    <option value="">-- جاري تحميل الطلاب... --</option>
-                </select>
+            <!-- Single Student Enrollment with 2026 Search Box -->
+            <div class="form-group mb-3" id="enroll-student-wrapper">
+                <label for="enroll-student-search-input" class="fw-bold mb-1"><i class="fa-solid fa-magnifying-glass text-success me-1"></i> ابحث عن اسم الطالب المراد تسجيله:</label>
+                <input type="text" id="enroll-student-search-input" class="form-control mb-2" placeholder="اكتب اسم الطالب، الحلقة، أو معرفه للفلترة السريعة..." autocomplete="off">
+                <input type="hidden" id="enroll-selected-student-id" value="">
+
+                <div class="student-search-results-box" id="enroll-student-results-list">
+                    <div class="text-center p-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل قائمة الطلاب...</div>
+                </div>
             </div>
 
-            <div class="form-group hidden" id="enroll-circle-wrapper">
-                <label for="enroll-circle-select">اختر الحلقة:</label>
+            <!-- Whole Circle Enrollment -->
+            <div class="form-group mb-3 hidden" id="enroll-circle-wrapper">
+                <label for="enroll-circle-select" class="fw-bold mb-1"><i class="fa-solid fa-people-roof text-primary me-1"></i> اختر الحلقة الإقرائية بالكامل:</label>
                 <select id="enroll-circle-select" class="form-control">
                     <option value="">-- جاري تحميل الحلقات... --</option>
                 </select>
             </div>
 
             <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إتمام التسجيل</button>
-                <button type="button" class="btn btn-light" onclick="closeModal()">إلغاء</button>
+                <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="fa-solid fa-plus me-1"></i> إتمام وتسجيل الطالب بالدورة</button>
+                <button type="button" class="btn btn-light rounded-pill px-4" onclick="closeModal()">إلغاء</button>
             </div>
         </form>
     `;
 
-    // Populate circles and students dropdowns
     const circleSelect = document.getElementById("enroll-circle-select");
-    const studentSelect = document.getElementById("enroll-student-select");
+    const resultsContainer = document.getElementById("enroll-student-results-list");
+    const searchInput = document.getElementById("enroll-student-search-input");
+    const hiddenStudentId = document.getElementById("enroll-selected-student-id");
 
-    apiRequest("/circles").then(circlesList => {
+    let allAvailableStudents = [];
+
+    Promise.all([apiRequest("/circles"), apiRequest("/students")]).then(([circlesList, studentsList]) => {
         let myCircles = circlesList.filter(c => c.isActive);
         if (currentRole === "Teacher") {
             myCircles = myCircles.filter(c => c.teacherId == currentUserId);
@@ -5171,37 +5350,75 @@ function showEnrollModal(courseId) {
             circleSelect.appendChild(opt);
         });
 
-        apiRequest("/students").then(studentsList => {
-            studentSelect.innerHTML = '<option value="">-- اختر طالباً --</option>';
-            let filteredStudents = studentsList.filter(s => s.isActive);
-            if (currentRole === "Teacher") {
-                const myCircleIds = myCircles.map(c => c.id);
-                filteredStudents = filteredStudents.filter(s => s.circleId && myCircleIds.includes(s.circleId));
-            }
+        allAvailableStudents = studentsList.filter(s => s.isActive);
+        if (currentRole === "Teacher") {
+            const myCircleIds = myCircles.map(c => c.id);
+            allAvailableStudents = allAvailableStudents.filter(s => s.circleId && myCircleIds.includes(s.circleId));
+        }
 
-            filteredStudents.forEach(s => {
-                const opt = document.createElement("option");
-                opt.value = s.id;
-                opt.textContent = `${s.fullName} (${s.circleName || 'بدون حلقة'})`;
-                studentSelect.appendChild(opt);
-            });
-        }).catch(err => {
-            studentSelect.innerHTML = '<option value="">فشل تحميل الطلاب</option>';
+        renderEnrollStudentResults(allAvailableStudents);
+
+        searchInput.addEventListener("input", (e) => {
+            const query = e.target.value.trim().toLowerCase();
+            if (!query) {
+                renderEnrollStudentResults(allAvailableStudents);
+                return;
+            }
+            const filtered = allAvailableStudents.filter(s => 
+                (s.fullName && s.fullName.toLowerCase().includes(query)) ||
+                (s.circleName && s.circleName.toLowerCase().includes(query)) ||
+                (s.id && s.id.toString().includes(query))
+            );
+            renderEnrollStudentResults(filtered);
         });
+
     }).catch(err => {
-        circleSelect.innerHTML = '<option value="">فشل تحميل الحلقات</option>';
-        studentSelect.innerHTML = '<option value="">فشل تحميل الطلاب</option>';
+        resultsContainer.innerHTML = '<div class="text-center text-danger p-3">فشل تحميل قائمة الطلاب.</div>';
     });
+
+    function renderEnrollStudentResults(list) {
+        resultsContainer.innerHTML = "";
+        if (list.length === 0) {
+            resultsContainer.innerHTML = '<div class="text-center text-muted p-3">لا يوجد طلاب مطابقين لنتيجة البحث.</div>';
+            return;
+        }
+
+        list.forEach(s => {
+            const item = document.createElement("div");
+            const isSel = hiddenStudentId.value == s.id;
+            item.className = `student-search-item-2026 ${isSel ? 'active-selected' : ''}`;
+            item.dataset.id = s.id;
+            item.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-user-graduate fs-5 text-success"></i>
+                    <div>
+                        <div class="fw-bold student-name">${s.fullName}</div>
+                        <div class="small text-muted student-circle"><i class="fa-solid fa-circle-nodes me-1"></i> ${s.circleName || 'بدون حلقة'}</div>
+                    </div>
+                </div>
+                <span class="badge ${isSel ? 'bg-light text-dark' : 'bg-success-subtle text-success'} rounded-pill px-3 py-1">
+                    ${isSel ? 'محدد حالياً' : 'اختر الطالب'}
+                </span>
+            `;
+            item.addEventListener("click", () => {
+                hiddenStudentId.value = s.id;
+                searchInput.value = s.fullName;
+                resultsContainer.querySelectorAll(".student-search-item-2026").forEach(el => el.classList.remove("active-selected"));
+                item.classList.add("active-selected");
+            });
+            resultsContainer.appendChild(item);
+        });
+    }
 
     document.getElementById("enroll-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const type = document.querySelector('input[name="enroll-type"]:checked').value;
-        const studentId = document.getElementById("enroll-student-select").value;
-        const circleId = document.getElementById("enroll-circle-select").value;
+        const studentId = hiddenStudentId.value;
+        const circleId = circleSelect.value;
 
         const body = { courseId: parseInt(courseId) };
         if (type === "student") {
-            if (!studentId) return showAlert("يرجى اختيار طالب أولاً.", "danger");
+            if (!studentId) return showAlert("يرجى اختيار طالب من القائمة أولاً.", "danger");
             body.studentId = parseInt(studentId);
         } else {
             if (!circleId) return showAlert("يرجى اختيار حلقة أولاً.", "danger");
@@ -5210,7 +5427,7 @@ function showEnrollModal(courseId) {
 
         try {
             await apiRequest("/courses/enroll", "POST", body);
-            showAlert("تم تسجيل الطلاب في الدورة بنجاح.", "success");
+            showAlert("تم تسجيل الطالب/الحلقة في الدورة التعليمية بنجاح.", "success");
             closeModal();
             loadCoursesList();
         } catch(e) {}
@@ -5227,6 +5444,31 @@ function toggleEnrollInputs(type) {
         sw.classList.add("hidden");
         cw.classList.remove("hidden");
     }
+}
+
+function confirmDeleteCourse(courseId, courseName) {
+    openModal(`تأكيد حذف الدورة: ${courseName}`);
+    const content = document.getElementById("modal-body-content");
+    content.innerHTML = `
+        <div class="text-center p-3">
+            <i class="fa-solid fa-triangle-exclamation text-danger mb-3" style="font-size: 3rem;"></i>
+            <h4 class="fw-bold text-danger mb-2">تأكيد إزالة وحذف الدورة</h4>
+            <p class="text-muted small mb-4">هل أنت متأكد من رغبتك في حذف الدورة الأكاديمية <strong>(${courseName})</strong> نهائياً؟<br>سيترتب على ذلك حذف كافة سجلات التسجيل والتحضير والشهادات المرتبطة بهذه الدورة.</p>
+            <div class="d-flex justify-content-center gap-3">
+                <button id="btn-confirm-delete-course-btn" class="btn btn-danger rounded-pill px-4 fw-bold"><i class="fa-solid fa-trash-can me-1"></i> نعم، تأكيد الحذف النهائي</button>
+                <button class="btn btn-light rounded-pill px-4" onclick="closeModal()">إلغاء</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById("btn-confirm-delete-course-btn").addEventListener("click", async () => {
+        try {
+            await apiRequest(`/courses/${courseId}`, "DELETE");
+            showAlert(`تم حذف الدورة الأكاديمية (${courseName}) وجميع سجلاتها المرتبطة بنجاح.`, "success");
+            closeModal();
+            loadCoursesList();
+        } catch(e) {}
+    });
 }
 
 async function showCourseEnrollmentsModal(courseId, courseName) {
