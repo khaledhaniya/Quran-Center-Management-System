@@ -124,12 +124,12 @@ public class CoursesController : ControllerBase
     {
         var course = await _db.Courses
             .Include(c => c.Enrollments)
-            .Include(c => c.Attendances)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (course == null) return NotFound(new { Message = "الدورة غير موجودة." });
 
-        _db.CourseAttendances.RemoveRange(course.Attendances);
+        var attendances = await _db.CourseAttendances.Where(ca => ca.CourseId == id).ToListAsync();
+        _db.CourseAttendances.RemoveRange(attendances);
         _db.CourseEnrollments.RemoveRange(course.Enrollments);
         _db.Courses.Remove(course);
 
