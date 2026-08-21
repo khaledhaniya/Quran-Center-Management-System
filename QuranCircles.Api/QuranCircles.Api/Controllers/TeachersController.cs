@@ -100,16 +100,36 @@ public class TeachersController : ControllerBase
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
-        if (currentUser?.Role == UserRole.Teacher && currentUser.TeacherId != id)
+        
+        Teacher? teacher = null;
+        if (currentUser?.Role == UserRole.Teacher)
         {
-            return Forbid();
+            if (currentUser.TeacherId.HasValue && currentUser.TeacherId.Value > 0)
+            {
+                teacher = await _db.Teachers.FindAsync(currentUser.TeacherId.Value);
+            }
+            if (teacher == null)
+            {
+                teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.FullName == currentUser.FullName || t.Id == id || t.Id == currentUser.Id);
+            }
+        }
+        else
+        {
+            teacher = await _db.Teachers.FindAsync(id);
+            if (teacher == null && id > 0)
+            {
+                var userT = await _db.Users.FindAsync(id);
+                if (userT != null && userT.TeacherId.HasValue)
+                {
+                    teacher = await _db.Teachers.FindAsync(userT.TeacherId.Value);
+                }
+            }
         }
 
-        var teacher = await _db.Teachers.FindAsync(id);
         if (teacher == null) return NotFound(new { error = "المعلم غير موجود." });
 
         var circles = await _db.Circles
-            .Where(c => c.TeacherId == id)
+            .Where(c => c.TeacherId == teacher.Id)
             .Select(c => c.Id)
             .ToListAsync();
 
@@ -132,61 +152,76 @@ public class TeachersController : ControllerBase
             .Where(ca => studentIds.Contains(ca.StudentId))
             .ToListAsync();
 
-        var report = students.Select(s => new
+        var report = students.Select(s =>
         {
-            s.Id,
-            s.FullName,
-            s.StudentIdentityNumber,
-            s.FamilyContact,
-            s.StudentMobile,
-            s.IsActive,
-            CircleName = s.Circle != null ? s.Circle.Name : "بدون حلقة",
-            s.TargetAjzaaCount,
-            s.PlanType,
-            s.DailyPacePages,
-            s.CompletedAjzaa,
-            // Attendance Summary
-            TotalAttendanceDays = s.AttendanceRecords.Count,
-            PresentDays = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Present),
-            AbsentDays = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Absent),
-            LateDays = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Late),
-            AttendanceRecords = s.AttendanceRecords.OrderByDescending(a => a.SessionDate).Select(a => new
+            var totalAtt = s.AttendanceRecords.Count;
+            var presentCount = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Present);
+            var absentCount = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Absent);
+            var lateCount = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Late);
+            var attRate = totalAtt > 0 ? (int)Math.Round((double)presentCount / totalAtt * 100) : 100;
+
+            return new
             {
-                a.Id,
-                Date = a.SessionDate.ToString("yyyy-MM-dd"),
-                Status = (int)a.Status,
-                StatusText = a.Status == AttendanceStatus.Present ? "حاضر" : (a.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
-            }),
-            // Recitation Sessions
-            SessionsCount = s.Sessions.Count,
-            Sessions = s.Sessions.OrderByDescending(rs => rs.SessionDate).Select(rs => new
-            {
-                rs.Id,
-                Date = rs.SessionDate.ToString("yyyy-MM-dd"),
-                rs.SurahName,
-                rs.FromVerse,
-                rs.ToVerse,
-                Assessment = (int)rs.Assessment,
-                AssessmentText = rs.Assessment == AssessmentLevel.Excellent ? "ممتاز" : (rs.Assessment == AssessmentLevel.VeryGood ? "جيد جداً" : (rs.Assessment == AssessmentLevel.Good ? "جيد" : (rs.Assessment == AssessmentLevel.Medium ? "متوسط" : "مرفوض"))),
-                rs.Notes,
-                rs.ViaLottery
-            }),
-            // Courses & Course Attendance
-            Courses = courseEnrollments.Where(ce => ce.StudentId == s.Id).Select(ce => new
-            {
-                ce.CourseId,
-                CourseName = ce.Course != null ? ce.Course.Name : "",
-                ce.Status,
-                ce.Grade,
-                ce.CertificateCode,
-                Attendances = courseAttendances.Where(ca => ca.StudentId == s.Id && ca.CourseId == ce.CourseId).Select(ca => new
+                s.Id,
+                s.FullName,
+                s.StudentIdentityNumber,
+                s.FamilyContact,
+                s.StudentMobile,
+                s.Address,
+                s.IsActive,
+                CircleName = s.Circle != null ? s.Circle.Name : "بدون حلقة",
+                s.TargetAjzaaCount,
+                s.PlanType,
+                s.DailyPacePages,
+                s.CompletedAjzaa,
+                // Attendance Summary
+                TotalAttendanceDays = totalAtt,
+                PresentDaysCount = presentCount,
+                AbsentDaysCount = absentCount,
+                LateDaysCount = lateCount,
+                AttendanceRatePercentage = attRate,
+                AttendanceRecords = s.AttendanceRecords.OrderByDescending(a => a.SessionDate).Select(a => new
                 {
-                    Date = ca.SessionDate.ToString("yyyy-MM-dd"),
-                    Status = (int)ca.Status,
-                    StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+                    a.Id,
+                    Date = a.SessionDate.ToString("yyyy-MM-dd"),
+                    SessionDate = a.SessionDate.ToString("yyyy-MM-dd"),
+                    Status = (int)a.Status,
+                    StatusText = a.Status == AttendanceStatus.Present ? "حاضر" : (a.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+                }),
+                // Recitation Sessions
+                TotalRecitationSessions = s.Sessions.Count,
+                RecitationSessions = s.Sessions.OrderByDescending(rs => rs.SessionDate).Select(rs => new
+                {
+                    rs.Id,
+                    Date = rs.SessionDate.ToString("yyyy-MM-dd"),
+                    SessionDate = rs.SessionDate.ToString("yyyy-MM-dd"),
+                    rs.SurahName,
+                    rs.FromVerse,
+                    rs.ToVerse,
+                    Assessment = rs.Assessment.ToString(),
+                    AssessmentText = rs.Assessment == AssessmentLevel.Excellent ? "ممتاز" : (rs.Assessment == AssessmentLevel.VeryGood ? "جيد جداً" : (rs.Assessment == AssessmentLevel.Good ? "جيد" : (rs.Assessment == AssessmentLevel.Medium ? "متوسط" : "مرفوض"))),
+                    rs.Notes,
+                    rs.ViaLottery
+                }),
+                // Courses & Course Attendance
+                Courses = courseEnrollments.Where(ce => ce.StudentId == s.Id).Select(ce => new
+                {
+                    ce.CourseId,
+                    CourseName = ce.Course != null ? ce.Course.Name : "",
+                    ce.Status,
+                    ce.Grade,
+                    ce.CertificateCode,
+                    PresentCount = courseAttendances.Count(ca => ca.StudentId == s.Id && ca.CourseId == ce.CourseId && ca.Status == AttendanceStatus.Present),
+                    AbsentCount = courseAttendances.Count(ca => ca.StudentId == s.Id && ca.CourseId == ce.CourseId && ca.Status == AttendanceStatus.Absent),
+                    Attendances = courseAttendances.Where(ca => ca.StudentId == s.Id && ca.CourseId == ce.CourseId).Select(ca => new
+                    {
+                        Date = ca.SessionDate.ToString("yyyy-MM-dd"),
+                        Status = (int)ca.Status,
+                        StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+                    })
                 })
-            })
-        });
+            };
+        }).ToList();
 
         return Ok(new
         {

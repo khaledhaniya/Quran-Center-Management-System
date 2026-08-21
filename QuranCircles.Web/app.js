@@ -81,7 +81,7 @@ function setAuthStorage(key, value, rememberMe) {
 }
 
 function clearAllAuthStorage() {
-    ['token', 'role', 'userId', 'fullName', 'username', 'loginTime'].forEach(k => {
+    ['token', 'role', 'userId', 'teacherId', 'studentId', 'parentId', 'fullName', 'username', 'loginTime'].forEach(k => {
         sessionStorage.removeItem(k);
         localStorage.removeItem(k);
     });
@@ -228,6 +228,9 @@ async function handleLogin(e) {
         setAuthStorage("token", data.token, rememberMe);
         setAuthStorage("role", data.role, rememberMe);
         setAuthStorage("userId", data.userId.toString(), rememberMe);
+        if (data.teacherId) setAuthStorage("teacherId", data.teacherId.toString(), rememberMe);
+        if (data.studentId) setAuthStorage("studentId", data.studentId.toString(), rememberMe);
+        if (data.parentId) setAuthStorage("parentId", data.parentId.toString(), rememberMe);
         setAuthStorage("fullName", data.fullName, rememberMe);
         setAuthStorage("username", data.username, rememberMe);
         setAuthStorage("loginTime", Date.now().toString(), rememberMe);
@@ -497,7 +500,7 @@ function handleRouting() {
         document.getElementById("teacher-sessions-section").classList.remove("hidden");
         loadTeacherSessionsSetup();
     } 
-    else if (hash === "#teacher-comprehensive-report" && currentRole === "Teacher") {
+    else if (hash === "#teacher-comprehensive-report" && (currentRole === "Teacher" || isAdminOrDev)) {
         document.getElementById("btn-teacher-comprehensive-report")?.classList.add("active");
         document.getElementById("teacher-comprehensive-report-section")?.classList.remove("hidden");
         loadTeacherComprehensiveReport();
@@ -509,7 +512,6 @@ function handleRouting() {
     } 
     else if (hash === "#system-settings" && isAdminOrDev) {
         document.getElementById("btn-admin-system-settings")?.classList.add("active");
-        document.getElementById("btn-developer-system-settings")?.classList.add("active");
         document.getElementById("system-settings-section")?.classList.remove("hidden");
         loadSystemSettingsForm();
     } 
@@ -7763,11 +7765,11 @@ async function showManageStudentsModal(circleId) {
 let currentTeacherComprehensiveData = null;
 
 async function loadTeacherComprehensiveReport() {
-    const tId = currentUser.teacherId || parseInt(currentUserId);
-    const content = document.getElementById("teacher-comprehensive-report-content");
-    if (!content) return;
+    let tId = getAuthStorage("teacherId") || currentUserId || "0";
+    const container = document.getElementById("teacher-roster-cards-container");
+    if (!container) return;
 
-    content.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i><p class="mt-3 fs-6">جاري إعداد الكشف الشامل لتسميع وحضور طلاب الحلقة...</p></div>`;
+    container.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i><p class="mt-3 fs-6">جاري إعداد الكشف الشامل لتسميع وحضور طلاب الحلقة...</p></div>`;
 
     try {
         const data = await apiRequest(`/teachers/${tId}/comprehensive-report`);
@@ -7775,195 +7777,187 @@ async function loadTeacherComprehensiveReport() {
 
         const teacherName = data.teacherName || localStorage.getItem("fullName") || "المعلم";
         const students = data.students || [];
-        const courses = data.courses || [];
         const totalStudents = students.length;
-        const totalSessions = students.reduce((acc, s) => acc + (s.totalRecitationSessions || 0), 0);
+        const totalSessions = students.reduce((acc, s) => acc + (s.totalRecitationSessions || s.sessionsCount || (s.recitationSessions || []).length || 0), 0);
+        
+        let totalPresent = 0;
+        let totalAttRecords = 0;
+        let totalCoursesCount = 0;
 
-        let studentsCardsHtml = "";
+        students.forEach(s => {
+            totalPresent += (s.presentDaysCount || s.presentDays || 0);
+            totalAttRecords += (s.totalAttendanceDays || (s.attendanceRecords || []).length || 0);
+            if (s.courses && s.courses.length > 0) totalCoursesCount += s.courses.length;
+        });
+
+        const avgAtt = totalAttRecords > 0 ? Math.round((totalPresent / totalAttRecords) * 100) : 100;
+
+        // Update Top KPI Cards
+        const elTotalStudents = document.getElementById("teacher-roster-total-students");
+        if (elTotalStudents) elTotalStudents.textContent = totalStudents;
+
+        const elTotalSessions = document.getElementById("teacher-roster-total-sessions");
+        if (elTotalSessions) elTotalSessions.textContent = totalSessions;
+
+        const elAvgAtt = document.getElementById("teacher-roster-avg-attendance");
+        if (elAvgAtt) elAvgAtt.textContent = `${avgAtt}%`;
+
+        const elTotalCourses = document.getElementById("teacher-roster-total-courses");
+        if (elTotalCourses) elTotalCourses.textContent = totalCoursesCount;
+
         if (students.length === 0) {
-            studentsCardsHtml = `<div class="alert alert-info text-center p-4">لا يوجد طلاب مسندين لحلقتك حالياً لإعداد الكشف.</div>`;
-        } else {
-            studentsCardsHtml = students.map((s, idx) => {
-                const planMap = {
-                    "Intensive": "🌟 المكثفة (جزء / أسبوعين)",
-                    "Standard": "📘 المعتدلة (جزء / شهر)",
-                    "Gradual": "🌱 الميسرة (نصف جزء / شهر)",
-                    "Custom": "🎯 مخصصة"
-                };
-                const planText = planMap[s.planType] || (s.planType ? s.planType : "📘 المعتدلة");
-                const completedSet = new Set((s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x)));
-                const completedCount = completedSet.size;
-                const targetAjzaa = s.targetAjzaaCount || 30;
-                const progressPct = Math.min(100, Math.round((completedCount / targetAjzaa) * 100));
-
-                let recitationsTable = "<p class='text-muted small p-2 mb-0'>لا يوجد تسميعات مسجلة.</p>";
-                if (s.recitationSessions && s.recitationSessions.length > 0) {
-                    recitationsTable = `
-                        <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-                            <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>التاريخ</th>
-                                        <th>السورة والآيات</th>
-                                        <th>التقييم</th>
-                                        <th>ملاحظة المعلم</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${s.recitationSessions.map(r => `
-                                        <tr>
-                                            <td><b>${r.sessionDate}</b></td>
-                                            <td class="text-success fw-bold">سورة ${r.surahName} (${r.fromVerse} - ${r.toVerse})</td>
-                                            <td><span class="badge ${getAssessmentBadgeClass(r.assessment)}">${r.assessmentText || r.assessment}</span></td>
-                                            <td class="text-muted small">${r.notes || '-'}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-
-                let coursesTable = "<p class='text-muted small p-2 mb-0'>غير مسجل في دورات مساقية.</p>";
-                if (s.courses && s.courses.length > 0) {
-                    coursesTable = `
-                        <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
-                            <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>الدورة / المساق</th>
-                                        <th>حضور الدورة</th>
-                                        <th>غياب الدورة</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${s.courses.map(c => `
-                                        <tr>
-                                            <td class="fw-bold">${c.courseName}</td>
-                                            <td class="text-success fw-bold">${c.presentCount} يوم</td>
-                                            <td class="text-danger fw-bold">${c.absentCount} يوم</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div class="card shadow-sm mb-4" style="border-radius: 14px; border-right: 5px solid #0d5c3a;">
-                        <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">${idx + 1}</div>
-                                <div>
-                                    <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${s.fullName}</h5>
-                                    <small class="text-muted">هوية: <b>${s.studentIdentityNumber || '-'}</b> | جوال: <b>${s.familyContact || '-'}</b> | السكن: <b>${s.address || '-'}</b></small>
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge badge-primary p-2">${planText}</span>
-                                <span class="badge bg-success p-2">أنجز ${completedCount} / ${targetAjzaa} جزء</span>
-                                <button class="btn btn-sm btn-outline-primary" onclick="showStudent360Modal(${s.id})"><i class="fa-solid fa-eye me-1"></i> الملف الموحد</button>
-                            </div>
-                        </div>
-                        <div class="card-body p-3">
-                            <div class="row g-3 mb-3">
-                                <!-- Attendance KPI -->
-                                <div class="col-md-3">
-                                    <div class="p-2 bg-light rounded text-center">
-                                        <span class="text-muted small d-block">نسبة الحضور بالحلقة</span>
-                                        <h4 class="fw-bold text-success mb-0">${s.attendanceRatePercentage}%</h4>
-                                        <small class="text-muted">حضور: ${s.presentDaysCount} | غياب: ${s.absentDaysCount} | تأخير: ${s.lateDaysCount}</small>
-                                    </div>
-                                </div>
-                                <!-- Progress KPI -->
-                                <div class="col-md-3">
-                                    <div class="p-2 bg-light rounded text-center">
-                                        <span class="text-muted small d-block">إنجاز خطة الحفظ</span>
-                                        <h4 class="fw-bold text-primary mb-0">${progressPct}%</h4>
-                                        <small class="text-muted">المعدل اليومي: ${s.dailyPacePages || 1.0} صفحة</small>
-                                    </div>
-                                </div>
-                                <!-- Recitation Sessions Count -->
-                                <div class="col-md-3">
-                                    <div class="p-2 bg-light rounded text-center">
-                                        <span class="text-muted small d-block">جلسات التسميع الموثقة</span>
-                                        <h4 class="fw-bold text-dark mb-0">${s.totalRecitationSessions || 0}</h4>
-                                        <small class="text-muted">جلسة تسميع فردية</small>
-                                    </div>
-                                </div>
-                                <!-- Completed Ajzaa Chips -->
-                                <div class="col-md-3">
-                                    <div class="p-2 bg-light rounded text-center">
-                                        <span class="text-muted small d-block">الأجزاء المكتملة</span>
-                                        <div class="fw-bold text-success small" style="max-height: 48px; overflow-y: auto;">
-                                            ${completedCount > 0 ? Array.from(completedSet).sort((a,b)=>a-b).map(j => `جزء ${j}`).join('، ') : 'لم يوثق أجزاء بعد'}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row g-3">
-                                <div class="col-md-7">
-                                    <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-book-open-reader text-success me-1"></i> سجل التسميع طوال المدة:</h6>
-                                    ${recitationsTable}
-                                </div>
-                                <div class="col-md-5">
-                                    <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-graduation-cap text-primary me-1"></i> الحضور في المساقات والدورات:</h6>
-                                    ${coursesTable}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            container.innerHTML = `
+                <div class="alert alert-info text-center p-5 rounded-4 shadow-sm">
+                    <i class="fa-solid fa-users-slash fa-3x mb-3 text-info"></i>
+                    <h4 class="fw-bold">لا يوجد طلاب مسجلين في حلقتك حالياً</h4>
+                    <p class="mb-0 text-muted">يمكنك تنسيب الطلاب لحلقتك من خلال لوحة إدارة الحلقات أو مراجعة إدارة المركز.</p>
+                </div>
+            `;
+            return;
         }
 
-        content.innerHTML = `
-            <div class="comprehensive-report-view">
-                <!-- Header Controls & KPI -->
-                <div class="card shadow-sm p-4 mb-4" style="border-radius: 14px; background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%); color: white;">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div>
-                            <h3 class="fw-bold mb-1"><i class="fa-solid fa-file-invoice me-2"></i> الكشف الشامل لتسميع وحضور طلاب الحلقة</h3>
-                            <p class="mb-0 text-white-50">عرض تفصيلي لتسميع الطلاب طوال المدة وسجل الغياب والحضور والدورات وخطط الحفظ.</p>
+        const studentsCardsHtml = students.map((s, idx) => {
+            const planMap = {
+                "Intensive": "🌟 المكثفة (جزء / أسبوعين)",
+                "Standard": "📘 المعتدلة (جزء / شهر)",
+                "Gradual": "🌱 الميسرة (نصف جزء / شهر)",
+                "Custom": "🎯 مخصصة"
+            };
+            const planText = planMap[s.planType] || (s.planType ? s.planType : "📘 المعتدلة");
+            const completedSet = new Set((s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x)));
+            const completedCount = completedSet.size;
+            const targetAjzaa = s.targetAjzaaCount || 30;
+            const progressPct = Math.min(100, Math.round((completedCount / targetAjzaa) * 100));
+
+            const sessionsList = s.recitationSessions || s.sessions || [];
+            let recitationsTable = "<p class='text-muted small p-2 mb-0'>لا يوجد تسميعات مسجلة.</p>";
+            if (sessionsList.length > 0) {
+                recitationsTable = `
+                    <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>السورة والآيات</th>
+                                    <th>التقييم</th>
+                                    <th>ملاحظة الشيخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sessionsList.map(r => `
+                                    <tr>
+                                        <td><b>${r.sessionDate || r.date}</b></td>
+                                        <td class="text-success fw-bold">سورة ${r.surahName} (${r.fromVerse} - ${r.toVerse})</td>
+                                        <td><span class="badge ${getAssessmentBadgeClass(r.assessment)}">${r.assessmentText || r.assessment}</span></td>
+                                        <td class="text-muted small">${r.notes || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            const coursesList = s.courses || [];
+            let coursesTable = "<p class='text-muted small p-2 mb-0'>غير مسجل في دورات مساقية.</p>";
+            if (coursesList.length > 0) {
+                coursesTable = `
+                    <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>الدورة / المساق</th>
+                                    <th>حضور الدورة</th>
+                                    <th>غياب الدورة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${coursesList.map(c => `
+                                    <tr>
+                                        <td class="fw-bold">${c.courseName}</td>
+                                        <td class="text-success fw-bold">${c.presentCount || 0} يوم</td>
+                                        <td class="text-danger fw-bold">${c.absentCount || 0} يوم</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="card shadow-sm mb-4" style="border-radius: 14px; border-right: 5px solid #0d5c3a;">
+                    <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">${idx + 1}</div>
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${s.fullName}</h5>
+                                <small class="text-muted">هوية: <b>${s.studentIdentityNumber || '-'}</b> | جوال: <b>${s.familyContact || s.studentMobile || '-'}</b> | السكن: <b>${s.address || '-'}</b></small>
+                            </div>
                         </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-warning text-dark fw-bold px-3 shadow" onclick="printTeacherRoster()"><i class="fa-solid fa-print me-1"></i> طباعة الكشف الشامل (PDF)</button>
-                            <button class="btn btn-outline-light px-3" onclick="loadTeacherComprehensiveReport()"><i class="fa-solid fa-arrows-rotate me-1"></i> تحديث</button>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary bg-opacity-10 text-primary p-2">${planText}</span>
+                            <span class="badge bg-success p-2">أنجز ${completedCount} / ${targetAjzaa} جزء</span>
+                            <button class="btn btn-sm btn-outline-primary" onclick="showStudent360Modal(${s.id})"><i class="fa-solid fa-eye me-1"></i> الملف الموحد</button>
                         </div>
                     </div>
+                    <div class="card-body p-3">
+                        <div class="row g-3 mb-3">
+                            <!-- Attendance KPI -->
+                            <div class="col-md-3">
+                                <div class="p-2 bg-light rounded text-center">
+                                    <span class="text-muted small d-block">نسبة الحضور بالحلقة</span>
+                                    <h4 class="fw-bold text-success mb-0">${s.attendanceRatePercentage || 100}%</h4>
+                                    <small class="text-muted">حضور: ${s.presentDaysCount || s.presentDays || 0} | غياب: ${s.absentDaysCount || s.absentDays || 0} | تأخير: ${s.lateDaysCount || s.lateDays || 0}</small>
+                                </div>
+                            </div>
+                            <!-- Progress KPI -->
+                            <div class="col-md-3">
+                                <div class="p-2 bg-light rounded text-center">
+                                    <span class="text-muted small d-block">إنجاز خطة الحفظ</span>
+                                    <h4 class="fw-bold text-primary mb-0">${progressPct}%</h4>
+                                    <small class="text-muted">المعدل اليومي: ${s.dailyPacePages || 1.0} صفحة</small>
+                                </div>
+                            </div>
+                            <!-- Recitation Sessions Count -->
+                            <div class="col-md-3">
+                                <div class="p-2 bg-light rounded text-center">
+                                    <span class="text-muted small d-block">جلسات التسميع الموثقة</span>
+                                    <h4 class="fw-bold text-dark mb-0">${s.totalRecitationSessions || sessionsList.length}</h4>
+                                    <small class="text-muted">جلسة تسميع فردية</small>
+                                </div>
+                            </div>
+                            <!-- Completed Ajzaa Chips -->
+                            <div class="col-md-3">
+                                <div class="p-2 bg-light rounded text-center">
+                                    <span class="text-muted small d-block">الأجزاء المكتملة</span>
+                                    <div class="fw-bold text-success small" style="max-height: 48px; overflow-y: auto;">
+                                        ${completedCount > 0 ? Array.from(completedSet).sort((a,b)=>a-b).map(j => `جزء ${j}`).join('، ') : 'لم يوثق أجزاء بعد'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                    <hr style="border-color: rgba(255,255,255,0.2); margin: 15px 0;">
-
-                    <div class="row g-3 text-center">
-                        <div class="col-md-3">
-                            <span class="text-white-50 small d-block">إجمالي طلاب الحلقة</span>
-                            <h2 class="fw-bold mb-0">${totalStudents}</h2>
-                        </div>
-                        <div class="col-md-3">
-                            <span class="text-white-50 small d-block">إجمالي جلسات التسميع</span>
-                            <h2 class="fw-bold mb-0">${totalSessions}</h2>
-                        </div>
-                        <div class="col-md-3">
-                            <span class="text-white-50 small d-block">المعلم المشرف</span>
-                            <h4 class="fw-bold mb-0">${teacherName}</h4>
-                        </div>
-                        <div class="col-md-3">
-                            <span class="text-white-50 small d-block">تاريخ التقرير</span>
-                            <h5 class="fw-bold mb-0">${new Date().toISOString().substring(0, 10)}</h5>
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-book-open-reader text-success me-1"></i> سجل التسميع طوال المدة:</h6>
+                                ${recitationsTable}
+                            </div>
+                            <div class="col-md-5">
+                                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-graduation-cap text-primary me-1"></i> الحضور في المساقات والدورات:</h6>
+                                ${coursesTable}
+                            </div>
                         </div>
                     </div>
                 </div>
+            `;
+        }).join('');
 
-                <!-- Students Detailed Cards List -->
-                ${studentsCardsHtml}
-            </div>
-        `;
+        container.innerHTML = studentsCardsHtml;
 
     } catch(err) {
         console.error(err);
-        content.innerHTML = `<div class="alert alert-danger p-4">تعذر تحميل الكشف الشامل: ${err.message}</div>`;
+        container.innerHTML = `<div class="alert alert-danger p-4">تعذر تحميل الكشف الشامل: ${err.message}</div>`;
     }
 }
 
@@ -7979,19 +7973,20 @@ function printTeacherRoster() {
 
     const rowsHtml = students.map((s, idx) => {
         const completedSet = (s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x));
-        const lastRecitations = (s.recitationSessions || []).slice(0, 3).map(r => `سورة ${r.surahName} (${r.fromVerse}-${r.toVerse}): ${r.assessmentText || r.assessment}`).join(' | ');
+        const sessionsList = s.recitationSessions || s.sessions || [];
+        const lastRecitations = sessionsList.slice(0, 3).map(r => `سورة ${r.surahName} (${r.fromVerse}-${r.toVerse}): ${r.assessmentText || r.assessment}`).join(' | ');
 
         return `
             <tr>
                 <td>${idx + 1}</td>
                 <td><b>${s.fullName}</b></td>
                 <td>${s.studentIdentityNumber || '-'}</td>
-                <td>${s.presentDaysCount || 0} يوم (${s.attendanceRatePercentage || 100}%)</td>
-                <td>${s.absentDaysCount || 0} يوم</td>
+                <td>${s.presentDaysCount || s.presentDays || 0} يوم (${s.attendanceRatePercentage || 100}%)</td>
+                <td>${s.absentDaysCount || s.absentDays || 0} يوم</td>
                 <td>${completedSet.length > 0 ? completedSet.join('، ') : 'لا يوجد'}</td>
                 <td>${s.planType || 'المعتدلة'}</td>
                 <td>${lastRecitations || 'لا يوجد'}</td>
-                <td>${s.courses && s.courses.length > 0 ? s.courses.map(c => `${c.courseName}: ${c.presentCount}ح/${c.absentCount}غ`).join(' | ') : '-'}</td>
+                <td>${s.courses && s.courses.length > 0 ? s.courses.map(c => `${c.courseName}: ${c.presentCount || 0}ح/${c.absentCount || 0}غ`).join(' | ') : '-'}</td>
             </tr>
         `;
     }).join('');

@@ -118,10 +118,6 @@
                             <i class="fa-solid fa-shield-halved"></i>
                             <span>سجل الرقابة الأمنية</span>
                         </a>
-                        <a href="#system-settings" class="nav-item" id="btn-developer-system-settings">
-                            <i class="fa-solid fa-sliders text-warning"></i>
-                            <span>لوحة التحكم والإعدادات المتقدمة</span>
-                        </a>
                     </div>
 
                     <!-- Teacher Links -->
@@ -1278,91 +1274,8 @@
                         <button class="btn btn-outline-primary" onclick="loadSystemSettingsForm()"><i class="fa-solid fa-rotate me-1"></i> إعادة تحميل الإعدادات</button>
                     </div>
 
-                    <div class="row g-4">
-                        <!-- General Identity Settings Card -->
-                        <div class="col-lg-6">
-                            <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
-                                <div class="card-header bg-success text-white p-3 fw-bold d-flex align-items-center gap-2" style="border-radius: 14px 14px 0 0;">
-                                    <i class="fa-solid fa-mosque"></i> هوية المركز والمسجد ورسائل الترحيب
-                                </div>
-                                <div class="card-body p-4">
-                                    <form id="settings-general-form">
-                                        <div class="mb-3">
-                                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-signature text-primary me-1"></i> اسم المركز القرآني الرسمي:</label>
-                                            <input type="text" id="setting-center-name" class="form-control border-primary" placeholder="اسم المركز..." required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-landmark-dome text-success me-1"></i> اسم المسجد / المقر التابع له:</label>
-                                            <input type="text" id="setting-mosque-name" class="form-control" placeholder="اسم المسجد..." required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label fw-bold text-dark"><i class="fa-brands fa-whatsapp text-success me-1"></i> رقم هاتف / واتساب الدعم الفني والإدارة:</label>
-                                            <input type="text" id="setting-support-phone" class="form-control" placeholder="0599000000">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-comment-dots text-info me-1"></i> نص رسالة الترحيب الرئيسية:</label>
-                                            <textarea id="setting-welcome-msg" class="form-control" rows="3" placeholder="أدخل نص الترحيب..."></textarea>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Feature Toggles & Privacy Card -->
-                        <div class="col-lg-6">
-                            <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
-                                <div class="card-header bg-primary text-white p-3 fw-bold d-flex align-items-center gap-2" style="border-radius: 14px 14px 0 0;">
-                                    <i class="fa-solid fa-toggle-on"></i> مفاتيح التحكم بالخصائص والظهور (Feature Flags)
-                                </div>
-                                <div class="card-body p-4">
-                                    <div class="d-flex flex-column gap-3">
-                                        <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark" for="setting-toggle-teacher-student-count">إظهار بطاقة عدد الطلاب في صفحة المعلم</label>
-                                                <div class="small text-muted">التحكم في إمكانية رؤية المعلم لإحصائية إجمالي عدد طلاب حلقته.</div>
-                                            </div>
-                                            <input class="form-check-input ms-0" type="checkbox" id="setting-toggle-teacher-student-count" style="cursor: pointer; width: 2.5em; height: 1.3em;">
-                                        </div>
-
-                                        <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark" for="setting-toggle-cumulative-attendance">إظهار بطاقة الحضور التراكمي ونسب الالتزام</label>
-                                                <div class="small text-muted">عرض نسب التزام الطلاب بالحضور في لوحة الطالب وولي الأمر.</div>
-                                            </div>
-                                            <input class="form-check-input ms-0" type="checkbox" id="setting-toggle-cumulative-attendance" style="cursor: pointer; width: 2.5em; height: 1.3em;">
-                                        </div>
-
-                                        <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark" for="setting-toggle-teacher-enrollment">السماح للمعلم بتسجيل الطلاب ذاتياً</label>
-                                                <div class="small text-muted">تفعيل/تعطيل زر تسجيل الطلاب في الدورات والحلقات من حساب المعلم.</div>
-                                            </div>
-                                            <input class="form-check-input ms-0" type="checkbox" id="setting-toggle-teacher-enrollment" style="cursor: pointer; width: 2.5em; height: 1.3em;">
-                                        </div>
-
-                                        <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark" for="setting-toggle-public-announcements">تفعيل التعاميم والإعلانات العامة</label>
-                                                <div class="small text-muted">السماح بإرسال إعلانات موجهة لأولياء الأمور والطلاب.</div>
-                                            </div>
-                                            <input class="form-check-input ms-0" type="checkbox" id="setting-toggle-public-announcements" style="cursor: pointer; width: 2.5em; height: 1.3em;">
-                                        </div>
-
-                                        <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark" for="setting-toggle-certificates">تفعيل نظام الشهادات الرقمية التلقائي</label>
-                                                <div class="small text-muted">إتاحة استخراج وتنزيل الشهادات والاعتمادات للطلاب الناجحين.</div>
-                                            </div>
-                                            <input class="form-check-input ms-0" type="checkbox" id="setting-toggle-certificates" style="cursor: pointer; width: 2.5em; height: 1.3em;">
-                                        </div>
-                                    </div>
-
-                                    <div class="mt-4 pt-3 border-top text-end">
-                                        <button type="button" class="btn btn-success btn-lg fw-bold px-4 shadow-sm" onclick="saveSystemSettings()"><i class="fa-solid fa-cloud-arrow-up me-2"></i> حفظ وتطبيق الإعدادات فورياً</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div id="system-settings-content">
+                        <!-- Dynamically rendered and populated by loadSystemSettingsForm() -->
                     </div>
                 </section>
                 
