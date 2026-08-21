@@ -69,6 +69,7 @@ using (var scope = app.Services.CreateScope())
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<QuranCircles.Api.Services.PasswordHasher>();
         db.Database.EnsureCreated();
+        DbSeeder.MigrateSchema(db);
         DbSeeder.Seed(db, hasher);
     }
     catch (Exception ex)

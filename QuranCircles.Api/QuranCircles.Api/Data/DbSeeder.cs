@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Entities;
 using QuranCircles.Api.Services;
 
@@ -226,4 +227,100 @@ public static class DbSeeder
         );
         db.SaveChanges();
     }
+
+    public static void MigrateSchema(AppDbContext db)
+    {
+        try
+        {
+            // 1. Add missing columns to Students table safely
+            var studentColumns = new[]
+            {
+                ("TargetAjzaaCount", "INTEGER NOT NULL DEFAULT 30"),
+                ("PlanType", "TEXT"),
+                ("PlanStartDate", "TEXT"),
+                ("PlanTargetDate", "TEXT"),
+                ("DailyPacePages", "REAL NOT NULL DEFAULT 1.0"),
+                ("CompletedAjzaa", "TEXT"),
+                ("StudentIdentityNumber", "TEXT"),
+                ("PreviousQuranMemorization", "TEXT"),
+                ("StudentMobile", "TEXT"),
+                ("StudentWhatsapp", "TEXT"),
+                ("HealthStatus", "TEXT"),
+                ("FatherStatus", "TEXT"),
+                ("MotherStatus", "TEXT"),
+                ("Kinship", "TEXT"),
+                ("ParentIdentityNumber", "TEXT"),
+                ("WhatsappNumber", "TEXT"),
+                ("WalletNumber", "TEXT"),
+                ("BankAccountNumber", "TEXT"),
+                ("BankName", "TEXT"),
+                ("OriginalAddress", "TEXT"),
+                ("OriginalHousingType", "TEXT"),
+                ("OriginalHousingStatus", "TEXT"),
+                ("CurrentAddress", "TEXT"),
+                ("CurrentHousingType", "TEXT"),
+                ("Notes", "TEXT")
+            };
+
+            foreach (var (colName, colType) in studentColumns)
+            {
+                try
+                {
+                    db.Database.ExecuteSqlRaw($"ALTER TABLE Students ADD COLUMN {colName} {colType};");
+                }
+                catch { /* Column already exists */ }
+            }
+
+            // 2. Ensure SystemSettings table exists
+            try
+            {
+                db.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE IF NOT EXISTS SystemSettings (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        CenterName TEXT,
+                        MosqueName TEXT,
+                        SupportPhone TEXT,
+                        WelcomeMessage TEXT,
+                        ThemeStyle TEXT,
+                        ShowStudentCountToTeacher INTEGER NOT NULL DEFAULT 1,
+                        ShowCumulativeAttendance INTEGER NOT NULL DEFAULT 1,
+                        AllowTeacherSelfEnrollment INTEGER NOT NULL DEFAULT 1,
+                        AllowPublicAnnouncements INTEGER NOT NULL DEFAULT 1,
+                        EnableCertificates INTEGER NOT NULL DEFAULT 1,
+                        UpdatedAt TEXT NOT NULL
+                    );
+                ");
+            }
+            catch { }
+
+            // 3. Ensure default SystemSettings row exists
+            try
+            {
+                if (!db.SystemSettings.Any())
+                {
+                    db.SystemSettings.Add(new SystemSettings
+                    {
+                        CenterName = "مركز البيان لتعليم القرآن الكريم",
+                        MosqueName = "مسجد علي بن أبي طالب",
+                        SupportPhone = "+970599000000",
+                        WelcomeMessage = "مرحباً بكم في منصة تحفيظ القرآن الكريم والعلوم الشرعية",
+                        ThemeStyle = "Classic",
+                        ShowStudentCountToTeacher = true,
+                        ShowCumulativeAttendance = true,
+                        AllowTeacherSelfEnrollment = true,
+                        AllowPublicAnnouncements = true,
+                        EnableCertificates = true,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                    db.SaveChanges();
+                }
+            }
+            catch { }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Schema migration notice: {ex.Message}");
+        }
+    }
 }
+
