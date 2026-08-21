@@ -309,8 +309,8 @@ function updateSidebarMenu() {
     }
 }
 
-// ----------------- API request dispatcher -----------------
-async function apiRequest(path, method = "GET", body = null) {
+// ----------------- API request dispatcher with Auto-Retry & Wakeup Resilience -----------------
+async function apiRequest(path, method = "GET", body = null, retries = 2) {
     const headers = {
         "Authorization": `Bearer ${authToken}`
     };
@@ -325,32 +325,45 @@ async function apiRequest(path, method = "GET", body = null) {
         body: body ? JSON.stringify(body) : null
     };
     
-    try {
-        const response = await fetch(`${API_BASE}${path}`, options);
-        
-        if (response.status === 401 || response.status === 403) {
-            handleLogout();
-            throw new Error("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch(`${API_BASE}${path}`, options);
+            
+            if (response.status === 401 || response.status === 403) {
+                handleLogout();
+                throw new Error("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
+            }
+            
+            if (!response.ok) {
+                let errorMsg = "حدث خطأ أثناء الاتصال بالخادم.";
+                try {
+                    const errJson = await response.json();
+                    errorMsg = errJson.error || errJson.detail || errorMsg;
+                } catch (e) {}
+                throw new Error(errorMsg);
+            }
+            
+            if (response.status === 204) {
+                return null;
+            }
+            
+            return await response.json();
+        } catch (error) {
+            const isNetworkError = (error.name === "TypeError" || (error.message && (error.message.includes("fetch") || error.message.includes("network") || error.message.includes("Failed to fetch"))));
+            
+            if (isNetworkError && attempt < retries && method === "GET") {
+                console.warn(`[Auto-Retry ${attempt + 1}/${retries}] Retrying ${path}...`);
+                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                continue;
+            }
+            
+            console.error(`API Error on ${path}:`, error);
+            const userFriendlyMsg = isNetworkError 
+                ? "⚠️ جاري استيقاظ الخادم السحابي أو تحديث البيانات. يرجى الانتظار ثوانٍ معدودة والضغط على إعادة المحاولة."
+                : error.message;
+            showAlert(userFriendlyMsg, "danger");
+            throw error;
         }
-        
-        if (!response.ok) {
-            let errorMsg = "حدث خطأ أثناء الاتصال بالخادم.";
-            try {
-                const errJson = await response.json();
-                errorMsg = errJson.error || errJson.detail || errorMsg;
-            } catch (e) {}
-            throw new Error(errorMsg);
-        }
-        
-        if (response.status === 204) {
-            return null;
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error(`API Error on ${path}:`, error);
-        showAlert(error.message, "danger");
-        throw error;
     }
 }
 
@@ -1282,15 +1295,19 @@ function getOrphanBadgeHtml(fatherStatus, motherStatus) {
 
 // ----------------- Admin: Students Management -----------------
 async function loadAdminStudents(search = "") {
+    const tbody = document.getElementById("students-table-body");
+    if (tbody && (!cachedStudents || cachedStudents.length === 0)) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 mb-0">جاري تحميل بيانات الطلاب من الخادم...</p></td></tr>`;
+    }
+    
     try {
         const students = await apiRequest(`/students?search=${search}`);
         cachedStudents = students;
         
-        const tbody = document.getElementById("students-table-body");
-        tbody.innerHTML = "";
+        if (tbody) tbody.innerHTML = "";
         
         if (students.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">لا يوجد طلاب يطابقون البحث.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">لا يوجد طلاب يطابقون البحث.</td></tr>`;
             return;
         }
         
@@ -1348,6 +1365,17 @@ async function loadAdminStudents(search = "") {
         
     } catch(e) {
         console.error(e);
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <div class="text-danger mb-2"><i class="fa-solid fa-circle-exclamation fa-2x"></i></div>
+                        <p class="text-danger fw-bold mb-2">تعذر جلب بيانات الطلاب (قد يكون الخادم السحابي في طور الاستيقاظ).</p>
+                        <button class="btn btn-sm btn-primary shadow-sm" onclick="loadAdminStudents()"><i class="fa-solid fa-rotate-right me-1"></i> إعادة المحاولة الآن</button>
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
 
