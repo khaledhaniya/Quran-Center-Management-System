@@ -472,10 +472,21 @@ function handleRouting() {
         document.getElementById("teacher-sessions-section").classList.remove("hidden");
         loadTeacherSessionsSetup();
     } 
+    else if (hash === "#teacher-comprehensive-report" && currentRole === "Teacher") {
+        document.getElementById("btn-teacher-comprehensive-report")?.classList.add("active");
+        document.getElementById("teacher-comprehensive-report-section")?.classList.remove("hidden");
+        loadTeacherComprehensiveReport();
+    }
     else if (hash === "#teacher-lottery" && currentRole === "Teacher") {
         document.getElementById("btn-teacher-lottery").classList.add("active");
         document.getElementById("teacher-lottery-section").classList.remove("hidden");
         loadTeacherLotterySetup();
+    } 
+    else if (hash === "#system-settings" && isAdminOrDev) {
+        document.getElementById("btn-admin-system-settings")?.classList.add("active");
+        document.getElementById("btn-developer-system-settings")?.classList.add("active");
+        document.getElementById("system-settings-section")?.classList.remove("hidden");
+        loadSystemSettingsForm();
     } 
     else if (hash === "#parent-progress" && currentRole === "Parent") {
         document.getElementById("btn-parent-progress").classList.add("active");
@@ -3910,8 +3921,12 @@ async function showAnnouncementFormModal() {
             `;
 
             try {
+                if (!cachedCircles || cachedCircles.length === 0) {
+                    try { cachedCircles = await apiRequest("/circles"); } catch(err) { cachedCircles = []; }
+                }
+
                 const allStudents = await apiRequest("/students");
-                let availableCircles = cachedCircles.filter(c => c.isActive);
+                let availableCircles = (cachedCircles || []).filter(c => c.isActive);
                 let filterStudents = allStudents;
 
                 if (currentRole === "Teacher") {
@@ -3926,7 +3941,7 @@ async function showAnnouncementFormModal() {
                         <div class="col-md-6">
                             <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-warning me-1"></i> فلترة بالحلقة القرآنية:</label>
                             <select id="announcement-student-circle-filter" class="form-select border-warning shadow-xs">
-                                <option value="ALL">-- جميع الطلاب (كافة الحلقات) --</option>
+                                <option value="ALL">-- جميع الطلاب (${filterStudents.length}) --</option>
                                 <option value="UNASSIGNED">⚠️ طلاب غير مسندين لحلقة</option>
                                 ${availableCircles.map(c => `<option value="${c.id}">🕌 ${c.name}</option>`).join('')}
                             </select>
@@ -3977,7 +3992,8 @@ async function showAnnouncementFormModal() {
                 circleFilter.addEventListener("change", updateStudentList);
                 searchInput.addEventListener("input", updateStudentList);
             } catch (e) {
-                selectionsContainer.innerHTML = `<div class="alert alert-danger">خطأ في جلب قائمة الطلاب.</div>`;
+                console.error(e);
+                selectionsContainer.innerHTML = `<div class="alert alert-danger">خطأ في جلب قائمة الطلاب: ${e.message}</div>`;
             }
         }
         else if (type === "Parent") {
@@ -3986,15 +4002,19 @@ async function showAnnouncementFormModal() {
             `;
 
             try {
+                if (!cachedCircles || cachedCircles.length === 0) {
+                    try { cachedCircles = await apiRequest("/circles"); } catch(err) { cachedCircles = []; }
+                }
+
                 const parentsList = await apiRequest("/parent/audit");
-                let availableCircles = cachedCircles.filter(c => c.isActive);
+                let availableCircles = (cachedCircles || []).filter(c => c.isActive);
 
                 selectionsContainer.innerHTML = `
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
                             <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-warning me-1"></i> فلترة بحلقة الأبناء:</label>
                             <select id="announcement-parent-circle-filter" class="form-select border-warning shadow-xs">
-                                <option value="ALL">-- جميع أولياء الأمور --</option>
+                                <option value="ALL">-- جميع أولياء الأمور (${parentsList.length}) --</option>
                                 ${availableCircles.map(c => `<option value="${c.id}">🕌 ${c.name}</option>`).join('')}
                             </select>
                         </div>
@@ -4042,7 +4062,8 @@ async function showAnnouncementFormModal() {
                 circleFilter.addEventListener("change", updateParentList);
                 searchInput.addEventListener("input", updateParentList);
             } catch (e) {
-                selectionsContainer.innerHTML = `<div class="alert alert-danger">خطأ في جلب بيانات أولياء الأمور.</div>`;
+                console.error(e);
+                selectionsContainer.innerHTML = `<div class="alert alert-danger">خطأ في جلب بيانات أولياء الأمور: ${e.message}</div>`;
             }
         }
     }
@@ -6558,23 +6579,54 @@ async function showStudent360View(studentId) {
         const totalAttendance = progress.totalDays || (absentCount + lateCount + presentCount);
         const attendanceRate = progress.attendanceRatePercentage ?? progress.attendanceRate ?? (totalAttendance === 0 ? 100 : Math.round((presentCount / totalAttendance) * 100));
 
+        // C. Study Plan & Completed Ajzaa Calculations
+        const targetAjzaa = student.targetAjzaaCount || 30;
+        const completedAjzaaSet = new Set();
+        if (student.completedAjzaa) {
+            student.completedAjzaa.split(',').map(x => x.trim()).forEach(x => {
+                const num = parseInt(x);
+                if (!isNaN(num) && num >= 1 && num <= 30) completedAjzaaSet.add(num);
+            });
+        }
+        const completedCount = completedAjzaaSet.size;
+        const planPercentage = Math.min(100, Math.round((completedCount / targetAjzaa) * 100));
+
+        const planTypeMap = {
+            "Intensive": { name: "🌟 الخطة المكثفة", desc: "جزء كل أسبوعين (حفظ صفحتين يومياً)", badge: "badge-warning text-dark" },
+            "Standard": { name: "📘 الخطة المعتدلة", desc: "جزء شهرياً (حفظ صفحة يومياً)", badge: "badge-primary" },
+            "Gradual": { name: "🌱 الخطة الميسرة", desc: "نصف جزء شهرياً (نصف صفحة يومياً)", badge: "badge-success" },
+            "Custom": { name: "🎯 خطة مخصصة", desc: "خطة مخصصة بحسب وتيرة الطالب", badge: "badge-info" }
+        };
+        const currentPlanInfo = planTypeMap[student.planType || "Standard"] || planTypeMap["Standard"];
+
+        const canEditPlan = (currentRole === "Admin" || currentRole === "Developer" || currentRole === "Teacher");
+
         openModal(`الملف الموحد للطالب: ${student.fullName}`, true);
 
-        // Generate cells html
-        let cellsHtml = "";
+        // Interactive 30 Ajzaa Chips
+        let ajzaaChipsHtml = "";
         for (let i = 1; i <= 30; i++) {
-            const lvlClass = juzLevels[i - 1];
-            let juzLabel = "غير محفوظ";
-            if (lvlClass === "excellent") juzLabel = "حفظ متقن";
-            else if (lvlClass === "good") juzLabel = "حفظ جيد";
-            else if (lvlClass === "weak") juzLabel = "ضعيف مكرر";
-
-            cellsHtml += `
-                <div class="heatmap-cell level-${lvlClass}" title="الجزء ${i}: ${juzLabel}">
-                    <span class="juz-number">${i.toLocaleString('ar-EG')}</span>
-                    <span class="juz-label">${getJuzName(i)}</span>
-                </div>
-            `;
+            const isDone = completedAjzaaSet.has(i);
+            const juzName = getJuzName(i);
+            const clickAttr = canEditPlan ? `onclick="toggleCompleteJuz(${student.id}, ${i}, ${!isDone})" style="cursor: pointer; transition: all 0.2s ease;"` : `style="cursor: default;"`;
+            
+            if (isDone) {
+                ajzaaChipsHtml += `
+                    <div class="badge bg-success text-white p-2 d-flex align-items-center gap-1 shadow-xs" ${clickAttr} title="${canEditPlan ? 'انقر لتغيير حالة الجزء' : ''}">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>جزء ${i} (${juzName})</span>
+                        ${canEditPlan ? '<i class="fa-solid fa-pen-to-square ms-1 opacity-75" style="font-size:0.7rem;"></i>' : ''}
+                    </div>
+                `;
+            } else {
+                ajzaaChipsHtml += `
+                    <div class="badge bg-light text-muted border p-2 d-flex align-items-center gap-1 shadow-xs" ${clickAttr} title="${canEditPlan ? 'انقر لتوثيق إتمام هذا الجزء' : ''}">
+                        <i class="fa-regular fa-circle text-muted"></i>
+                        <span>جزء ${i} (${juzName})</span>
+                        ${canEditPlan ? '<i class="fa-solid fa-plus ms-1 text-success" style="font-size:0.7rem;"></i>' : ''}
+                    </div>
+                `;
+            }
         }
         
         let achievementsHtml = "<p class='text-muted'>لا توجد إنجازات مسجلة حالياً.</p>";
@@ -6669,7 +6721,42 @@ async function showStudent360View(studentId) {
             achievementsHtml += `</tbody></table></div>`;
         }
 
-        let attendanceHtml = "<p class='text-muted'>لا توجد سجلات حضور مسجلة حالياً.</p>";
+        // Real Live Recitation Log Table
+        let sessionsHtml = "<p class='text-muted p-3 text-center'>لا يوجد جلسات تسميع مسجلة لهذا الطالب حتى الآن.</p>";
+        if (sessions.length > 0) {
+            sessions.sort((a,b) => (b.sessionDate || '').localeCompare(a.sessionDate || ''));
+            sessionsHtml = `
+                <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                    <table class="data-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>السورة والآيات المسردة</th>
+                                <th>درجة الإتقان والتقييم</th>
+                                <th>ملاحظات الشيخ المحفظ</th>
+                                <th>طريقة التسميع</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sessions.map(s => {
+                                const bClass = getAssessmentBadgeClass(s.assessment);
+                                return `
+                                    <tr>
+                                        <td><strong>${s.sessionDate}</strong></td>
+                                        <td class="fw-bold text-success"><i class="fa-solid fa-book-quran me-1"></i> سورة ${s.surahName} (الآيات: ${s.fromVerse} - ${s.toVerse})</td>
+                                        <td><span class="badge ${bClass}">${s.assessmentText || s.assessment}</span></td>
+                                        <td>${s.notes ? `<span class="text-dark small">${s.notes}</span>` : '<span class="text-muted small">-</span>'}</td>
+                                        <td>${s.viaLottery ? '<span class="badge badge-info"><i class="fa-solid fa-dice me-1"></i> قرعة</span>' : '<span class="badge badge-light border">تسميع مباشر</span>'}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        let attendanceHtml = "<p class='text-muted p-3 text-center'>لا توجد سجلات حضور مسجلة حالياً.</p>";
         if (attendanceList.length > 0) {
             attendanceHtml = `
                 <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
@@ -6701,7 +6788,7 @@ async function showStudent360View(studentId) {
             `;
         }
 
-        let courseAttendanceHtml = "<p class='text-muted'>لا توجد سجلات حضور دورةات مسجلة حالياً.</p>";
+        let courseAttendanceHtml = "<p class='text-muted p-3 text-center'>لا توجد سجلات حضور دورات مسجلة حالياً.</p>";
         if (courseAttendanceList.length > 0) {
             courseAttendanceHtml = `
                 <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
@@ -6736,22 +6823,90 @@ async function showStudent360View(studentId) {
         content.innerHTML = `
             <div class="student-360-profile">
                 <!-- Personal Info Box -->
-                <div class="card p-3 mb-4" style="background:#f7faf8;">
+                <div class="card p-3 mb-4" style="background:#f7faf8; border-radius: 12px;">
                     <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <h3 style="margin:0 0 5px 0; font-weight:800; color:var(--primary-color);"><i class="fa-solid fa-id-card"></i> ${student.fullName}</h3>
-                            <p style="margin:0; font-size:0.85rem;" class="text-muted">العنوان: ${student.address || '-'} | تاريخ الميلاد: ${student.dateOfBirth}</p>
+                            <p style="margin:0; font-size:0.85rem;" class="text-muted">الهوية: <b>${student.studentIdentityNumber || '-'}</b> | العنوان: ${student.address || '-'} | تاريخ الميلاد: ${student.dateOfBirth || '-'}</p>
                         </div>
                         <div class="text-start">
                             <span class="badge badge-success">حساب نشط</span>
-                            <div style="font-size:0.8rem; margin-top:5px; color:var(--text-muted);">رقم العائلة: <strong>${student.familyContact}</strong></div>
+                            <div style="font-size:0.8rem; margin-top:5px; color:var(--text-muted);">رقم العائلة: <strong>${student.familyContact || '-'}</strong></div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Study Plan & Goal Card (Replaces Juz Heatmap) -->
+                <div class="card shadow-sm p-4 mb-4" style="border-radius: 14px; border-right: 5px solid #0d5c3a; background: #ffffff;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <div>
+                            <h4 style="margin:0; color:var(--primary-color); font-weight:800;"><i class="fa-solid fa-bullseye text-success me-2"></i> خطة الحفظ والهدف القرآني للطالب</h4>
+                            <p style="margin:2px 0 0 0; font-size:0.85rem; color:var(--text-muted);">متابعة خطة الإنجاز المعتمدة من الشيخ المحفظ وإدارة المركز.</p>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge ${currentPlanInfo.badge} fs-6 p-2">${currentPlanInfo.name}</span>
+                            ${canEditPlan ? `<button class="btn btn-sm btn-outline-success fw-bold" onclick="showStudyPlanModal(${student.id}, '${escapeXml(student.fullName)}', '${student.planType || 'Standard'}', ${targetAjzaa}, ${student.dailyPacePages || 1.0})"><i class="fa-solid fa-pen-to-square me-1"></i> تعديل / تعيين الخطة</button>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 align-items-center mb-3">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded-3 text-center">
+                                <span class="text-muted small d-block mb-1">الأجزاء المنجزة والمتقنة</span>
+                                <h3 class="fw-bold text-success mb-0">${completedCount} / ${targetAjzaa} جزء</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded-3 text-center">
+                                <span class="text-muted small d-block mb-1">المقدار اليومي المستهدف</span>
+                                <h4 class="fw-bold text-primary mb-0">${student.dailyPacePages || 1.0} صفحة / يوم</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded-3 text-center">
+                                <span class="text-muted small d-block mb-1">تفاصيل الخطة المعتمدة</span>
+                                <span class="small fw-bold text-dark d-block">${currentPlanInfo.desc}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between text-muted small fw-bold mb-1">
+                            <span>نسبة إنجاز خطة الحفظ</span>
+                            <span>${planPercentage}%</span>
+                        </div>
+                        <div class="progress" style="height: 14px; border-radius: 10px; background: #e2e8f0;">
+                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: ${planPercentage}%;" aria-valuenow="${planPercentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 30 Ajzaa Interactive Completion Grid -->
+                <div class="card shadow-sm p-4 mb-4" style="border-radius: 14px; background: #ffffff;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <div>
+                            <h4 style="margin:0; color:var(--primary-color); font-weight:800;"><i class="fa-solid fa-list-check text-primary me-2"></i> سجل توثيق إتمام وحفظ أجزاء القرآن الكريم (30 جزء)</h4>
+                            <p style="margin:2px 0 0 0; font-size:0.85rem; color:var(--text-muted);">${canEditPlan ? 'اضغط على أي جزء لتوثيق إتمامه أو إلغاء إتمامه بنقرة واحدة.' : 'قائمة الأجزاء المتقنة والمحفوظة من قبل الطالب.'}</p>
+                        </div>
+                        <span class="badge bg-success fs-6 p-2">المكتمل: ${completedCount} جزء</span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2" style="line-height: 2;">
+                        ${ajzaaChipsHtml}
+                    </div>
+                </div>
+
+                <!-- Real Recitation Sessions Log -->
+                <div class="card shadow-sm p-4 mb-4" style="border-radius: 14px; background: #ffffff;">
+                    <h4 style="margin:0 0 10px 0; color:var(--primary-color); font-weight:800;"><i class="fa-solid fa-book-open-reader text-success me-2"></i> سجل التسميع الفعلي والمباشر مع الشيخ</h4>
+                    <p style="margin:0 0 15px 0; font-size:0.85rem; color:var(--text-muted);">كافة المقاطع والآيات التي استمع إليها المحفظ وسجل تقييماتها وملاحظاته.</p>
+                    ${sessionsHtml}
+                </div>
+
                 <div class="grid-split-symmetric mb-4">
                     <!-- Attendance Summary -->
-                    <div class="card shadow-sm p-3">
+                    <div class="card shadow-sm p-3" style="border-radius: 12px;">
                         <h4 style="margin:0 0 10px 0; color:var(--primary-color); font-weight:700;"><i class="fa-solid fa-clipboard-user"></i> نسبة الالتزام والانتظام</h4>
                         <div style="display:flex; justify-content:space-around; align-items:center; text-align:center; padding:10px 0;">
                             <div>
@@ -6772,40 +6927,23 @@ async function showStudent360View(studentId) {
                     </div>
                     
                     <!-- Achievements Summary -->
-                    <div class="card shadow-sm p-3">
+                    <div class="card shadow-sm p-3" style="border-radius: 12px;">
                         <h4 style="margin:0 0 10px 0; color:var(--primary-color); font-weight:700;"><i class="fa-solid fa-award"></i> الإنجازات والشهادات</h4>
                         ${achievementsHtml}
                     </div>
                 </div>
 
-                <!-- Quran Brain Heatmap -->
-                <div class="card shadow-sm p-3 mb-4">
-                    <h4 style="margin:0; color:var(--primary-color); font-weight:700;"><i class="fa-solid fa-brain"></i> خريطة الحفظ الذهنية للقرآن الكريم (Juz Heatmap)</h4>
-                    <p style="margin:2px 0 15px 0; font-size:0.8rem; color:var(--text-muted);">تمثيل مرئي للأجزاء الـ 30، ملونة بالاعتماد على درجات تقييم التسميع الأخيرة للآيات.</p>
-                    
-                    <div class="heatmap-grid">
-                        ${cellsHtml}
-                    </div>
-
-                    <div class="heatmap-legend">
-                        <div class="legend-item"><div class="legend-color level-none"></div> غير محفوظ</div>
-                        <div class="legend-item"><div class="legend-color level-weak"></div> يحتاج مراجعة (ضعيف)</div>
-                        <div class="legend-item"><div class="legend-color level-good"></div> حفظ جيد</div>
-                        <div class="legend-item"><div class="legend-color level-excellent"></div> حفظ متقن (ممتاز)</div>
-                    </div>
-                </div>
-
                 <!-- Detailed Circle Attendance Logs -->
-                <div class="card shadow-sm p-3 mb-4">
+                <div class="card shadow-sm p-3 mb-4" style="border-radius: 12px;">
                     <h4 style="margin:0 0 10px 0; color:var(--primary-color); font-weight:700;"><i class="fa-solid fa-calendar-days"></i> سجل حضور وغياب حلقات القرآن الكريم (المركز)</h4>
                     <p style="margin:0 0 15px 0; font-size:0.8rem; color:var(--text-muted);">تواريخ وأيام الحضور والغياب اليومي للولد في حلقات التسميع العامة بالمركز.</p>
                     ${attendanceHtml}
                 </div>
 
                 <!-- Detailed Course Attendance Logs -->
-                <div class="card shadow-sm p-3 mb-4">
+                <div class="card shadow-sm p-3 mb-4" style="border-radius: 12px;">
                     <h4 style="margin:0 0 10px 0; color:var(--accent-color); font-weight:700;"><i class="fa-solid fa-graduation-cap"></i> سجل حضور وغياب الدورات والمسارات العلمية</h4>
-                    <p style="margin:0 0 15px 0; font-size:0.8rem; color:var(--text-muted);">تواريخ التحضير وأيام الحضور والغياب المسجلة للولد في دورةات العلوم والتجويد.</p>
+                    <p style="margin:0 0 15px 0; font-size:0.8rem; color:var(--text-muted);">تواريخ التحضير وأيام الحضور والغياب المسجلة للولد في دورات العلوم والتجويد.</p>
                     ${courseAttendanceHtml}
                 </div>
 
@@ -6820,6 +6958,104 @@ async function showStudent360View(studentId) {
         showAlert("فشل في تحميل الملف الموحد للطالب.", "danger");
         closeModal();
     }
+}
+
+// ------ Study Plan & Juz Completion Functions ------
+async function toggleCompleteJuz(studentId, juzNumber, isCompleted) {
+    try {
+        const res = await apiRequest(`/students/${studentId}/complete-juz`, "POST", {
+            juzNumber: juzNumber,
+            isCompleted: isCompleted
+        });
+        showAlert(res.message || "تم تحديث سجل الأجزاء المكتملة بنجاح.", "success");
+        // Re-open Student 360 to refresh view seamlessly
+        showStudent360Modal(studentId);
+    } catch(e) {
+        console.error(e);
+        showAlert("تعذر تحديث حالة الجزء: " + e.message, "danger");
+    }
+}
+
+function showStudyPlanModal(studentId, studentName, currentPlanType, currentTargetAjzaa, currentDailyPace) {
+    const prevModalTitle = document.getElementById("modal-title").textContent;
+    openModal(`اعتماد خطة حفظ للطالب: ${studentName}`);
+    
+    const content = document.getElementById("modal-body-content");
+    content.innerHTML = `
+        <form id="study-plan-form" class="p-2">
+            <div class="alert alert-info border-info mb-3">
+                <i class="fa-solid fa-circle-info"></i> اختر إحدى الخطط المعتمدة في مراكز القرآن الكريم لتنظيم حفظ الطالب ومتابعة وتيرته اليومية.
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-dark">اختر نوع الخطة المعتمدة:</label>
+                <select id="plan-type-select" class="form-select border-success" onchange="onPlanTypeChange()">
+                    <option value="Intensive" ${currentPlanType === 'Intensive' ? 'selected' : ''}>🌟 الخطة المكثفة - جزء كل أسبوعين (صفحتين يومياً)</option>
+                    <option value="Standard" ${currentPlanType === 'Standard' ? 'selected' : ''}>📘 الخطة المعتدلة - جزء شهرياً (صفحة يومياً - الخطة القياسية)</option>
+                    <option value="Gradual" ${currentPlanType === 'Gradual' ? 'selected' : ''}>🌱 الخطة الميسرة - نصف جزء شهرياً (نصف صفحة يومياً للمبتدئين)</option>
+                    <option value="Custom" ${currentPlanType === 'Custom' ? 'selected' : ''}>🎯 خطة مخصصة - تحديد يدوي للمقدار والمدة</option>
+                </select>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold text-dark">عدد الأجزاء المستهدفة (من 1 إلى 30):</label>
+                    <input type="number" id="plan-target-ajzaa" class="form-control" min="1" max="30" value="${currentTargetAjzaa || 30}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold text-dark">المقدار اليومي المستهدف (بالصفحات):</label>
+                    <input type="number" id="plan-daily-pace" class="form-control" step="0.5" min="0.5" max="10" value="${currentDailyPace || 1.0}" required>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold text-dark">تاريخ بدء الخطة:</label>
+                    <input type="date" id="plan-start-date" class="form-control" value="${new Date().toISOString().substring(0, 10)}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold text-dark">تاريخ الانتهاء المتوقع (اختياري):</label>
+                    <input type="date" id="plan-target-date" class="form-control">
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between pt-3 border-top">
+                <button type="submit" class="btn btn-success fw-bold px-4"><i class="fa-solid fa-floppy-disk me-1"></i> اعتماد وحفظ الخطة</button>
+                <button type="button" class="btn btn-light" onclick="showStudent360Modal(${studentId})">رجوع للملف</button>
+            </div>
+        </form>
+    `;
+
+    window.onPlanTypeChange = function() {
+        const pType = document.getElementById("plan-type-select").value;
+        const paceInput = document.getElementById("plan-daily-pace");
+        if (pType === "Intensive") paceInput.value = 2.0;
+        else if (pType === "Standard") paceInput.value = 1.0;
+        else if (pType === "Gradual") paceInput.value = 0.5;
+    };
+
+    document.getElementById("study-plan-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pType = document.getElementById("plan-type-select").value;
+        const targetAjzaa = parseInt(document.getElementById("plan-target-ajzaa").value) || 30;
+        const dailyPace = parseFloat(document.getElementById("plan-daily-pace").value) || 1.0;
+        const startDate = document.getElementById("plan-start-date").value || null;
+        const targetDate = document.getElementById("plan-target-date").value || null;
+
+        try {
+            await apiRequest(`/students/${studentId}/plan`, "PUT", {
+                targetAjzaaCount: targetAjzaa,
+                planType: pType,
+                planStartDate: startDate,
+                planTargetDate: targetDate,
+                dailyPacePages: dailyPace
+            });
+            showAlert("تم اعتماد وتحديث خطة الحفظ للطالب بنجاح.", "success");
+            showStudent360Modal(studentId);
+        } catch(err) {
+            console.error(err);
+            showAlert("فشل حفظ الخطة: " + err.message, "danger");
+        }
 }
 
 function getJuzName(i) {
@@ -7304,4 +7540,638 @@ function printDynamicReport() {
 function exportDynamicReportToPdf() {
     printDynamicReport();
 }
+
+// ==========================================
+// 1. CIRCLE STUDENT MANAGEMENT & SMART SEARCH
+// ==========================================
+async function showManageStudentsModal(circleId) {
+    openModal("إدارة وتعيين طلاب الحلقة القرآنية", true);
+    const content = document.getElementById("modal-body-content");
+    content.innerHTML = `<div class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><p class="mt-2">جاري جلب بيانات الحلقة والطلاب...</p></div>`;
+
+    try {
+        const [circle, allStudents] = await Promise.all([
+            apiRequest(`/circles/${circleId}`),
+            apiRequest(`/students`)
+        ]);
+
+        const currentStudents = allStudents.filter(s => s.circleId == circleId);
+        const availableStudents = allStudents.filter(s => s.circleId != circleId);
+
+        function renderManageStudentsModalContent() {
+            content.innerHTML = `
+                <div class="p-2">
+                    <div class="alert alert-success d-flex align-items-center justify-content-between mb-3" style="background:#e8f5e9; border: 1px solid #c8e6c9;">
+                        <div>
+                            <h5 class="fw-bold mb-1" style="color: #1b5e20;"><i class="fa-solid fa-mosque me-2"></i> ${circle.name} (${getTimingArabic(circle.timing)})</h5>
+                            <span class="text-muted small">المحفظ المشرف: <b>${circle.teacherName || 'غير معين'}</b> | عدد الطلاب الحالي: <b>${currentStudents.length}</b></span>
+                        </div>
+                        <span class="badge bg-success fs-6">${currentStudents.length} طلاب مسجلين</span>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- Left: Current Enrolled Students -->
+                        <div class="col-md-6">
+                            <div class="card shadow-sm h-100" style="border-radius: 12px;">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <h6 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-users-viewfinder text-primary me-2"></i> طلاب الحلقة الحاليين (<span id="cur-count">${currentStudents.length}</span>)</h6>
+                                </div>
+                                <div class="card-body p-2" style="max-height: 380px; overflow-y: auto;">
+                                    ${currentStudents.length === 0 ? '<p class="text-muted p-4 text-center">لا يوجد طلاب مسجلين في هذه الحلقة بعد.</p>' : `
+                                        <div class="list-group list-group-flush">
+                                            ${currentStudents.map(s => `
+                                                <div class="list-group-item d-flex justify-content-between align-items-center p-2 border-bottom">
+                                                    <div>
+                                                        <div class="fw-bold text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${s.fullName}</div>
+                                                        <small class="text-muted">هوية: ${s.studentIdentityNumber || '-'} | جوال: ${s.familyContact || '-'}</small>
+                                                    </div>
+                                                    <button class="btn btn-sm btn-outline-danger btn-remove-student-circle" data-id="${s.id}" data-name="${escapeXml(s.fullName)}" title="إلغاء التنسيب من الحلقة">
+                                                        <i class="fa-solid fa-user-minus"></i> إزالة
+                                                    </button>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Smart Search & Add Students -->
+                        <div class="col-md-6">
+                            <div class="card shadow-sm h-100" style="border-radius: 12px; border: 1px solid #c8e6c9;">
+                                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                                    <h6 class="fw-bold mb-0"><i class="fa-solid fa-user-plus me-2"></i> إضافة وتنسيب طلاب جدد</h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-primary me-1"></i> بحث فوري متقدم بالاسم أو رقم الهوية:</label>
+                                        <input type="text" id="circle-student-search-input" class="form-control border-success" placeholder="🔍 اكتب اسم الطالب أو رقم هويته..." autocomplete="off">
+                                    </div>
+                                    <div class="d-flex gap-2 mb-3">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="circle-student-filter-type" id="filter-unassigned" value="unassigned" checked>
+                                            <label class="form-check-label small fw-bold" for="filter-unassigned">غير مسندين فقط</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="circle-student-filter-type" id="filter-all" value="all">
+                                            <label class="form-check-label small fw-bold" for="filter-all">جميع طلاب المركز</label>
+                                        </div>
+                                    </div>
+
+                                    <div id="circle-search-results-list" style="max-height: 280px; overflow-y: auto;">
+                                        <!-- Populated dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                        <button class="btn btn-light" onclick="closeModal()">إغلاق</button>
+                    </div>
+                </div>
+            `;
+
+            // Bind Remove buttons
+            content.querySelectorAll(".btn-remove-student-circle").forEach(btn => {
+                btn.addEventListener("click", async (e) => {
+                    const stId = e.currentTarget.dataset.id;
+                    const stName = e.currentTarget.dataset.name;
+                    if (!confirm(`هل أنت متأكد من إزالة الطالب (${stName}) من هذه الحلقة؟`)) return;
+
+                    try {
+                        await apiRequest(`/students/${stId}`, "PUT", { circleId: null });
+                        showAlert(`تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`, "success");
+                        showManageStudentsModal(circleId);
+                        loadAdminCircles();
+                    } catch(err) {
+                        showAlert("حدث خطأ أثناء إزالة الطالب: " + err.message, "danger");
+                    }
+                });
+            });
+
+            // Bind live search
+            const searchInput = document.getElementById("circle-student-search-input");
+            const filterRadios = document.querySelectorAll("input[name='circle-student-filter-type']");
+
+            function updateSearchResults() {
+                const query = (searchInput.value || '').trim().toLowerCase();
+                const onlyUnassigned = document.getElementById("filter-unassigned").checked;
+                const resultsContainer = document.getElementById("circle-search-results-list");
+
+                let list = availableStudents;
+                if (onlyUnassigned) {
+                    list = list.filter(s => !s.circleId);
+                }
+
+                if (query) {
+                    list = list.filter(s => 
+                        s.fullName.toLowerCase().includes(query) || 
+                        (s.studentIdentityNumber && s.studentIdentityNumber.includes(query)) ||
+                        (s.circleName && s.circleName.toLowerCase().includes(query))
+                    );
+                }
+
+                if (list.length === 0) {
+                    resultsContainer.innerHTML = `<p class="text-muted p-3 text-center small">لا يوجد طلاب مطابقين للبحث.</p>`;
+                    return;
+                }
+
+                resultsContainer.innerHTML = `
+                    <div class="list-group list-group-flush">
+                        ${list.slice(0, 20).map(s => `
+                            <div class="list-group-item d-flex justify-content-between align-items-center p-2 border-bottom">
+                                <div>
+                                    <div class="fw-bold text-dark">${s.fullName}</div>
+                                    <small class="text-muted">${s.circleName ? ('حلقة: ' + s.circleName) : '⚠️ غير مسند لحلقة'} | هوية: ${s.studentIdentityNumber || '-'}</small>
+                                </div>
+                                <button class="btn btn-sm btn-success btn-add-student-to-circle" data-id="${s.id}" data-name="${escapeXml(s.fullName)}">
+                                    <i class="fa-solid fa-plus me-1"></i> تنسيب
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                resultsContainer.querySelectorAll(".btn-add-student-to-circle").forEach(btn => {
+                    btn.addEventListener("click", async (e) => {
+                        const stId = e.currentTarget.dataset.id;
+                        const stName = e.currentTarget.dataset.name;
+                        try {
+                            await apiRequest(`/students/${stId}`, "PUT", { circleId: parseInt(circleId) });
+                            showAlert(`تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`, "success");
+                            showManageStudentsModal(circleId);
+                            loadAdminCircles();
+                        } catch(err) {
+                            showAlert("حدث خطأ أثناء تنسيب الطالب: " + err.message, "danger");
+                        }
+                    });
+                });
+            }
+
+            searchInput.addEventListener("input", updateSearchResults);
+            filterRadios.forEach(r => r.addEventListener("change", updateSearchResults));
+            updateSearchResults();
+        }
+
+        renderManageStudentsModalContent();
+    } catch(e) {
+        console.error(e);
+        content.innerHTML = `<div class="alert alert-danger">حدث خطأ أثناء تحميل بيانات الحلقة: ${e.message}</div>`;
+    }
+}
+
+// ==========================================
+// 2. TEACHER COMPREHENSIVE REPORT & PRINT
+// ==========================================
+let currentTeacherComprehensiveData = null;
+
+async function loadTeacherComprehensiveReport() {
+    const tId = currentUser.teacherId || parseInt(currentUserId);
+    const content = document.getElementById("teacher-comprehensive-report-content");
+    if (!content) return;
+
+    content.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i><p class="mt-3 fs-6">جاري إعداد الكشف الشامل لتسميع وحضور طلاب الحلقة...</p></div>`;
+
+    try {
+        const data = await apiRequest(`/teachers/${tId}/comprehensive-report`);
+        currentTeacherComprehensiveData = data;
+
+        const teacherName = data.teacherName || localStorage.getItem("fullName") || "المعلم";
+        const students = data.students || [];
+        const courses = data.courses || [];
+        const totalStudents = students.length;
+        const totalSessions = students.reduce((acc, s) => acc + (s.totalRecitationSessions || 0), 0);
+
+        let studentsCardsHtml = "";
+        if (students.length === 0) {
+            studentsCardsHtml = `<div class="alert alert-info text-center p-4">لا يوجد طلاب مسندين لحلقتك حالياً لإعداد الكشف.</div>`;
+        } else {
+            studentsCardsHtml = students.map((s, idx) => {
+                const planMap = {
+                    "Intensive": "🌟 المكثفة (جزء / أسبوعين)",
+                    "Standard": "📘 المعتدلة (جزء / شهر)",
+                    "Gradual": "🌱 الميسرة (نصف جزء / شهر)",
+                    "Custom": "🎯 مخصصة"
+                };
+                const planText = planMap[s.planType] || (s.planType ? s.planType : "📘 المعتدلة");
+                const completedSet = new Set((s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x)));
+                const completedCount = completedSet.size;
+                const targetAjzaa = s.targetAjzaaCount || 30;
+                const progressPct = Math.min(100, Math.round((completedCount / targetAjzaa) * 100));
+
+                let recitationsTable = "<p class='text-muted small p-2 mb-0'>لا يوجد تسميعات مسجلة.</p>";
+                if (s.recitationSessions && s.recitationSessions.length > 0) {
+                    recitationsTable = `
+                        <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>السورة والآيات</th>
+                                        <th>التقييم</th>
+                                        <th>ملاحظة المعلم</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${s.recitationSessions.map(r => `
+                                        <tr>
+                                            <td><b>${r.sessionDate}</b></td>
+                                            <td class="text-success fw-bold">سورة ${r.surahName} (${r.fromVerse} - ${r.toVerse})</td>
+                                            <td><span class="badge ${getAssessmentBadgeClass(r.assessment)}">${r.assessmentText || r.assessment}</span></td>
+                                            <td class="text-muted small">${r.notes || '-'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
+                let coursesTable = "<p class='text-muted small p-2 mb-0'>غير مسجل في دورات مساقية.</p>";
+                if (s.courses && s.courses.length > 0) {
+                    coursesTable = `
+                        <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>الدورة / المساق</th>
+                                        <th>حضور الدورة</th>
+                                        <th>غياب الدورة</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${s.courses.map(c => `
+                                        <tr>
+                                            <td class="fw-bold">${c.courseName}</td>
+                                            <td class="text-success fw-bold">${c.presentCount} يوم</td>
+                                            <td class="text-danger fw-bold">${c.absentCount} يوم</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="card shadow-sm mb-4" style="border-radius: 14px; border-right: 5px solid #0d5c3a;">
+                        <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">${idx + 1}</div>
+                                <div>
+                                    <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${s.fullName}</h5>
+                                    <small class="text-muted">هوية: <b>${s.studentIdentityNumber || '-'}</b> | جوال: <b>${s.familyContact || '-'}</b> | السكن: <b>${s.address || '-'}</b></small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge badge-primary p-2">${planText}</span>
+                                <span class="badge bg-success p-2">أنجز ${completedCount} / ${targetAjzaa} جزء</span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="showStudent360Modal(${s.id})"><i class="fa-solid fa-eye me-1"></i> الملف الموحد</button>
+                            </div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3 mb-3">
+                                <!-- Attendance KPI -->
+                                <div class="col-md-3">
+                                    <div class="p-2 bg-light rounded text-center">
+                                        <span class="text-muted small d-block">نسبة الحضور بالحلقة</span>
+                                        <h4 class="fw-bold text-success mb-0">${s.attendanceRatePercentage}%</h4>
+                                        <small class="text-muted">حضور: ${s.presentDaysCount} | غياب: ${s.absentDaysCount} | تأخير: ${s.lateDaysCount}</small>
+                                    </div>
+                                </div>
+                                <!-- Progress KPI -->
+                                <div class="col-md-3">
+                                    <div class="p-2 bg-light rounded text-center">
+                                        <span class="text-muted small d-block">إنجاز خطة الحفظ</span>
+                                        <h4 class="fw-bold text-primary mb-0">${progressPct}%</h4>
+                                        <small class="text-muted">المعدل اليومي: ${s.dailyPacePages || 1.0} صفحة</small>
+                                    </div>
+                                </div>
+                                <!-- Recitation Sessions Count -->
+                                <div class="col-md-3">
+                                    <div class="p-2 bg-light rounded text-center">
+                                        <span class="text-muted small d-block">جلسات التسميع الموثقة</span>
+                                        <h4 class="fw-bold text-dark mb-0">${s.totalRecitationSessions || 0}</h4>
+                                        <small class="text-muted">جلسة تسميع فردية</small>
+                                    </div>
+                                </div>
+                                <!-- Completed Ajzaa Chips -->
+                                <div class="col-md-3">
+                                    <div class="p-2 bg-light rounded text-center">
+                                        <span class="text-muted small d-block">الأجزاء المكتملة</span>
+                                        <div class="fw-bold text-success small" style="max-height: 48px; overflow-y: auto;">
+                                            ${completedCount > 0 ? Array.from(completedSet).sort((a,b)=>a-b).map(j => `جزء ${j}`).join('، ') : 'لم يوثق أجزاء بعد'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-7">
+                                    <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-book-open-reader text-success me-1"></i> سجل التسميع طوال المدة:</h6>
+                                    ${recitationsTable}
+                                </div>
+                                <div class="col-md-5">
+                                    <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-graduation-cap text-primary me-1"></i> الحضور في المساقات والدورات:</h6>
+                                    ${coursesTable}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        content.innerHTML = `
+            <div class="comprehensive-report-view">
+                <!-- Header Controls & KPI -->
+                <div class="card shadow-sm p-4 mb-4" style="border-radius: 14px; background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%); color: white;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h3 class="fw-bold mb-1"><i class="fa-solid fa-file-invoice me-2"></i> الكشف الشامل لتسميع وحضور طلاب الحلقة</h3>
+                            <p class="mb-0 text-white-50">عرض تفصيلي لتسميع الطلاب طوال المدة وسجل الغياب والحضور والدورات وخطط الحفظ.</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-warning text-dark fw-bold px-3 shadow" onclick="printTeacherRoster()"><i class="fa-solid fa-print me-1"></i> طباعة الكشف الشامل (PDF)</button>
+                            <button class="btn btn-outline-light px-3" onclick="loadTeacherComprehensiveReport()"><i class="fa-solid fa-arrows-rotate me-1"></i> تحديث</button>
+                        </div>
+                    </div>
+
+                    <hr style="border-color: rgba(255,255,255,0.2); margin: 15px 0;">
+
+                    <div class="row g-3 text-center">
+                        <div class="col-md-3">
+                            <span class="text-white-50 small d-block">إجمالي طلاب الحلقة</span>
+                            <h2 class="fw-bold mb-0">${totalStudents}</h2>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-white-50 small d-block">إجمالي جلسات التسميع</span>
+                            <h2 class="fw-bold mb-0">${totalSessions}</h2>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-white-50 small d-block">المعلم المشرف</span>
+                            <h4 class="fw-bold mb-0">${teacherName}</h4>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-white-50 small d-block">تاريخ التقرير</span>
+                            <h5 class="fw-bold mb-0">${new Date().toISOString().substring(0, 10)}</h5>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Students Detailed Cards List -->
+                ${studentsCardsHtml}
+            </div>
+        `;
+
+    } catch(err) {
+        console.error(err);
+        content.innerHTML = `<div class="alert alert-danger p-4">تعذر تحميل الكشف الشامل: ${err.message}</div>`;
+    }
+}
+
+function printTeacherRoster() {
+    if (!currentTeacherComprehensiveData) {
+        showAlert("يرجى تحميل الكشف الشامل أولاً.", "warning");
+        return;
+    }
+
+    const data = currentTeacherComprehensiveData;
+    const students = data.students || [];
+    const nowStr = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const rowsHtml = students.map((s, idx) => {
+        const completedSet = (s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x));
+        const lastRecitations = (s.recitationSessions || []).slice(0, 3).map(r => `سورة ${r.surahName} (${r.fromVerse}-${r.toVerse}): ${r.assessmentText || r.assessment}`).join(' | ');
+
+        return `
+            <tr>
+                <td>${idx + 1}</td>
+                <td><b>${s.fullName}</b></td>
+                <td>${s.studentIdentityNumber || '-'}</td>
+                <td>${s.presentDaysCount || 0} يوم (${s.attendanceRatePercentage || 100}%)</td>
+                <td>${s.absentDaysCount || 0} يوم</td>
+                <td>${completedSet.length > 0 ? completedSet.join('، ') : 'لا يوجد'}</td>
+                <td>${s.planType || 'المعتدلة'}</td>
+                <td>${lastRecitations || 'لا يوجد'}</td>
+                <td>${s.courses && s.courses.length > 0 ? s.courses.map(c => `${c.courseName}: ${c.presentCount}ح/${c.absentCount}غ`).join(' | ') : '-'}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <title>كشف تسميع وحضور طلاب الحلقة - ${data.teacherName}</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+                body { font-family: 'Cairo', sans-serif; padding: 20px; color: #111; direction: rtl; }
+                .header { text-align: center; border-bottom: 2px solid #0d5c3a; padding-bottom: 10px; margin-bottom: 20px; }
+                .header h2 { color: #0d5c3a; margin: 0 0 5px 0; }
+                .meta { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 0.9rem; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem; }
+                th, td { border: 1px solid #999; padding: 6px 8px; text-align: center; }
+                th { background-color: #e8f5e9; color: #0d5c3a; font-weight: bold; }
+                .footer-sig { display: flex; justify-content: space-between; margin-top: 40px; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>مركز البيان لتعليم القرآن الكريم والعلوم الشرعية</h2>
+                <h3>كشف متابعة التسميع والحضور الشامل لطلاب الحلقة</h3>
+            </div>
+            <div class="meta">
+                <span>المعلم المحفظ: <b>${data.teacherName}</b></span>
+                <span>إجمالي الطلاب: <b>${students.length} طالب</b></span>
+                <span>تاريخ التقرير: <b>${nowStr}</b></span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>اسم الطالب الكامل</th>
+                        <th>الهوية</th>
+                        <th>الحضور</th>
+                        <th>الغياب</th>
+                        <th>الأجزاء المكتملة</th>
+                        <th>الخطة</th>
+                        <th>آخر التسميعات</th>
+                        <th>الدورات والمساقات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+            <div class="footer-sig">
+                <div>توقيع المعلم المحفظ: ....................</div>
+                <div>اعتماد مدير المركز: ....................</div>
+            </div>
+            <script>window.onload = function() { window.print(); }</script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+// ==========================================
+// 3. DYNAMIC SYSTEM SETTINGS CMS
+// ==========================================
+let cachedSystemSettings = null;
+
+async function loadSystemSettingsForm() {
+    const container = document.getElementById("system-settings-content");
+    if (!container) return;
+
+    container.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2">جاري جلب إعدادات المنظومة من الخادم...</p></div>`;
+
+    try {
+        const settings = await apiRequest("/settings");
+        cachedSystemSettings = settings;
+
+        container.innerHTML = `
+            <div class="card shadow-sm p-4" style="border-radius: 14px; background: #ffffff;">
+                <div class="alert alert-info border-info d-flex align-items-center gap-3 mb-4">
+                    <div class="bg-primary text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                        <i class="fa-solid fa-sliders fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-1 text-primary">لوحة تحكم إعدادات المنظومة الشاملة (Web & Mobile Dynamic CMS)</h6>
+                        <small class="text-muted">يمكنك تعديل أي خاصية أو نص أو ميزة للمركز بدون الرجوع للمطور أو تعديل الكود البرمجي، وسيتم تطبيق التعديلات فورياً على الويب والموبايل.</small>
+                    </div>
+                </div>
+
+                <form id="system-settings-form">
+                    <div class="row g-4">
+                        <!-- Section 1: الهوية والعناوين -->
+                        <div class="col-12"><h5 class="fw-bold text-success border-bottom pb-2 mb-2"><i class="fa-solid fa-mosque me-2"></i> 1. الهوية والبيانات الرسمية للمركز</h5></div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark">اسم مركز التحفيظ الرسمي:</label>
+                            <input type="text" id="setting-center-name" class="form-control border-success" value="${escapeXml(settings.centerName || 'مركز البيان لتعليم القرآن الكريم')}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark">اسم المسجد / المقر:</label>
+                            <input type="text" id="setting-mosque-name" class="form-control" value="${escapeXml(settings.mosqueName || 'مسجد التقوى')}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark">رقم هاتف الدعم الفني / الإدارة:</label>
+                            <input type="text" id="setting-support-phone" class="form-control" value="${escapeXml(settings.supportPhone || '+970599000000')}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark">نمط التصميم المعتمد:</label>
+                            <select id="setting-theme-style" class="form-select border-primary">
+                                <option value="Classic" ${settings.themeStyle === 'Classic' ? 'selected' : ''}>🕌 النمط التراثي الإسلامي الكلاسيكي (Heritage Classic)</option>
+                                <option value="Modern" ${settings.themeStyle === 'Modern' ? 'selected' : ''}>🌟 النمط العصري الحديث</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-dark">رسالة الترحيب والشعار العام:</label>
+                            <input type="text" id="setting-welcome-msg" class="form-control" value="${escapeXml(settings.welcomeMessage || 'مرحباً بكم في منصة تحفيظ القرآن الكريم')}">
+                        </div>
+
+                        <!-- Section 2: مفاتيح الميزات والتحكم بالصلاحيات (Feature Flags) -->
+                        <div class="col-12 mt-4"><h5 class="fw-bold text-success border-bottom pb-2 mb-2"><i class="fa-solid fa-toggle-on me-2"></i> 2. مفاتيح الميزات والتحكم بالعرض (Feature Flags)</h5></div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-show-student-count">إظهار عدد الطلاب في لوحة المعلم</label>
+                                    <small class="text-muted">عند التعطيل، يتم إخفاء إجمالي الطلاب من لوحة تحكم المعلم.</small>
+                                </div>
+                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-show-student-count" ${settings.showStudentCountToTeacher ? 'checked' : ''}>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-show-cumulative-attendance">إظهار الحضور التراكمي في كشف التسميع</label>
+                                    <small class="text-muted">عرض نسب الحضور والغياب التراكمية في شاشات التسميع اليومية.</small>
+                                </div>
+                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance ? 'checked' : ''}>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-allow-teacher-enrollment">السماح للمعلم بتنسيب طلاب جدد لحلقته</label>
+                                    <small class="text-muted">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته مباشرة.</small>
+                                </div>
+                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment ? 'checked' : ''}>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-allow-public-announcements">تفعيل التعاميم والاعلانات العامة</label>
+                                    <small class="text-muted">إتاحة لوحة التعاميم والإعلانات لكافة حسابات المركز.</small>
+                                </div>
+                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements ? 'checked' : ''}>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-enable-certificates">تفعيل إصدار وطباعة الشهادات المعتمدة</label>
+                                    <small class="text-muted">إصدار الشهادات الرسمية للطلاب الناجحين في المساقات واختبارات الأجزاء.</small>
+                                </div>
+                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates ? 'checked' : ''}>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                        <button type="submit" class="btn btn-success fw-bold px-4 py-2 fs-6 shadow"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتطبيق الإعدادات للمنظومة</button>
+                        <button type="button" class="btn btn-light px-4" onclick="loadSystemSettingsForm()"><i class="fa-solid fa-rotate-left me-1"></i> إعادة ضبط</button>
+                    </div>
+                </form>
+            </div>
+        `;
+
+        document.getElementById("system-settings-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const dto = {
+                centerName: document.getElementById("setting-center-name").value,
+                mosqueName: document.getElementById("setting-mosque-name").value,
+                supportPhone: document.getElementById("setting-support-phone").value,
+                welcomeMessage: document.getElementById("setting-welcome-msg").value,
+                themeStyle: document.getElementById("setting-theme-style").value,
+                showStudentCountToTeacher: document.getElementById("setting-show-student-count").checked,
+                showCumulativeAttendance: document.getElementById("setting-show-cumulative-attendance").checked,
+                allowTeacherSelfEnrollment: document.getElementById("setting-allow-teacher-enrollment").checked,
+                allowPublicAnnouncements: document.getElementById("setting-allow-public-announcements").checked,
+                enableCertificates: document.getElementById("setting-enable-certificates").checked
+            };
+
+            try {
+                const res = await apiRequest("/settings", "PUT", dto);
+                showAlert("تم تحديث وحفظ إعدادات المنظومة وتطبيقها على الويب والموبايل بنجاح! 🎉", "success");
+                cachedSystemSettings = res;
+                applySystemSettingsToUI(res);
+            } catch(err) {
+                console.error(err);
+                showAlert("فشل حفظ الإعدادات: " + err.message, "danger");
+            }
+        });
+
+    } catch(err) {
+        console.error(err);
+        container.innerHTML = `<div class="alert alert-danger p-4">تعذر جلب إعدادات المنظومة: ${err.message}</div>`;
+    }
+}
+
+function applySystemSettingsToUI(settings) {
+    if (!settings) return;
+    // Update app title / header brand if present
+    const brandElements = document.querySelectorAll(".app-brand-name, .navbar-brand-title");
+    brandElements.forEach(el => el.textContent = settings.centerName);
+}
+
 

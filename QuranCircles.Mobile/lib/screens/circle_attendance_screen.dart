@@ -316,6 +316,141 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> {
     );
   }
 
+  void _showComprehensiveReportModal() async {
+    final tId = widget.currentUser.teacherId ?? widget.currentUser.id;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: ApiService.getTeacherComprehensiveReport(tId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Center(child: Text('تعذر تحميل الكشف الشامل', style: AppTheme.cairoStyle(color: Colors.red)));
+              }
+
+              final data = snapshot.data!;
+              final students = (data['students'] as List? ?? []);
+
+              return ListView(
+                controller: scrollController,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.description, color: AppTheme.primary, size: 24),
+                          const SizedBox(width: 8),
+                          Text('الكشف الشامل لطلاب الحلقة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ],
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  const Divider(),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            Text('${students.length}', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primary)),
+                            Text('إجمالي الطلاب', style: AppTheme.cairoStyle(fontSize: 11)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            Text('${data['teacherName'] ?? widget.currentUser.fullName}', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('المعلم المشرف', style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textMuted)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (students.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Center(child: Text('لا يوجد طلاب مسجلون بحلقتك حالياً', style: AppTheme.cairoStyle(color: AppTheme.textMuted))),
+                    )
+                  else
+                    ...students.map((st) {
+                      final recitations = (st['recitationSessions'] as List? ?? []);
+                      final completedSet = (st['completedAjzaa']?.toString() ?? '').split(',').where((x) => x.isNotEmpty).toList();
+                      final plan = st['planType'] ?? 'المعتدلة';
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(st['fullName'] ?? '', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primary)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text('حضور: ${st['attendanceRatePercentage'] ?? 100}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text('الهاتف: ${st['familyContact'] ?? "-"} | الخطة: $plan | الأجزاء المكتملة: ${completedSet.length}', style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textMuted)),
+                              const Divider(),
+                              Text('آخر التسميعات:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              if (recitations.isEmpty)
+                                Text('لا يوجد تسميعات مسجلة بعد.', style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textMuted))
+                              else
+                                ...recitations.take(3).map((r) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('سورة ${r['surahName']} (${r['fromVerse']}-${r['toVerse']})', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                          Text('${r['assessmentText'] ?? r['assessment']}', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.green.shade800)),
+                                        ],
+                                      ),
+                                    )),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -371,14 +506,32 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.accent,
-                              minimumSize: const Size.fromHeight(42),
-                            ),
-                            onPressed: _spinRandomLottery,
-                            icon: const Icon(Icons.casino, color: Colors.white),
-                            label: Text('سحب قرعة التسميع العشوائية 🎲', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.accent,
+                                    minimumSize: const Size.fromHeight(42),
+                                  ),
+                                  onPressed: _spinRandomLottery,
+                                  icon: const Icon(Icons.casino, color: Colors.white),
+                                  label: const Text('إجراء قرعة تسميع عشوائية 🎲'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primary,
+                                    minimumSize: const Size.fromHeight(42),
+                                  ),
+                                  onPressed: _showComprehensiveReportModal,
+                                  icon: const Icon(Icons.description, color: Colors.white),
+                                  label: const Text('الكشف الشامل 📋'),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

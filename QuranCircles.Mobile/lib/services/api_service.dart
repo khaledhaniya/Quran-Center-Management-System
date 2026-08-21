@@ -760,4 +760,68 @@ class ApiService {
     }
     return {'error': 'فشل إرسال رسالة SMS'};
   }
+
+  // --- Student Plan & Juz Completion ---
+  static Future<bool> updateStudentPlan(int studentId, Map<String, dynamic> planData) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/students/$studentId/plan'),
+      headers: _headers(),
+      body: jsonEncode(planData),
+    );
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> completeJuz(int studentId, int juzNumber, bool isCompleted) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/students/$studentId/complete-juz'),
+      headers: _headers(),
+      body: jsonEncode({
+        'juzNumber': juzNumber,
+        'isCompleted': isCompleted,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  // --- System Settings CMS ---
+  static Future<Map<String, dynamic>> getSystemSettings() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/settings'), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {
+      'centerName': 'مركز البيان لتعليم القرآن الكريم',
+      'mosqueName': 'مسجد التقوى',
+      'showStudentCountToTeacher': true,
+      'showCumulativeAttendance': true,
+      'allowTeacherSelfEnrollment': true,
+      'allowPublicAnnouncements': true,
+      'enableCertificates': true,
+      'themeStyle': 'Classic',
+    };
+  }
+
+  static Future<bool> updateSystemSettings(Map<String, dynamic> settingsData) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/settings'),
+      headers: _headers(),
+      body: jsonEncode(settingsData),
+    );
+    return response.statusCode == 200;
+  }
+
+  // --- Teacher Comprehensive Report ---
+  static Future<Map<String, dynamic>> getTeacherComprehensiveReport(int teacherId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/teachers/$teacherId/comprehensive-report'),
+      headers: _headers(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return {};
+  }
 }
+

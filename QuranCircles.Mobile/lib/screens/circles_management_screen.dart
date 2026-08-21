@@ -328,10 +328,11 @@ class _CircleStudentsModal extends StatefulWidget {
 }
 
 class _CircleStudentsModalState extends State<_CircleStudentsModal> {
-  bool _isLoading = true;
   List<Student> _allStudents = [];
   List<Student> _assignedStudents = [];
-  Student? _studentToAssign;
+  bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
+  bool _onlyUnassigned = true;
 
   @override
   void initState() {
@@ -340,17 +341,16 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
   }
 
   void _loadStudents() async {
+    setState(() => _isLoading = true);
     try {
       final list = await ApiService.getStudents();
-      if (mounted) {
-        setState(() {
-          _allStudents = list;
-          _assignedStudents = list.where((s) => s.circleId == widget.circle.id).toList();
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _allStudents = list;
+        _assignedStudents = list.where((s) => s.circleId == widget.circle.id).toList();
+        _isLoading = false;
+      });
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
   }
 
@@ -382,7 +382,18 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
 
   @override
   Widget build(BuildContext context) {
-    final unassigned = _allStudents.where((s) => s.circleId != widget.circle.id).toList();
+    final query = _searchController.text.trim().toLowerCase();
+    List<Student> available = _allStudents.where((s) => s.circleId != widget.circle.id).toList();
+    if (_onlyUnassigned) {
+      available = available.where((s) => s.circleId == null).toList();
+    }
+    if (query.isNotEmpty) {
+      available = available.where((s) => 
+        s.fullName.toLowerCase().contains(query) ||
+        (s.studentIdentityNumber != null && s.studentIdentityNumber!.contains(query)) ||
+        (s.circleName != null && s.circleName!.toLowerCase().contains(query))
+      ).toList();
+    }
 
     return Padding(
       padding: EdgeInsets.only(
@@ -390,7 +401,7 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +412,7 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'إدارة طلاب حلقة: ${widget.circle.name}',
+                    'إدارة وتعيين طلاب: ${widget.circle.name}',
                     style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
@@ -412,40 +423,102 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
               ],
             ),
             const Divider(),
-            const SizedBox(height: 8),
 
-            // Dropdown to assign a student
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<Student>(
-                    value: _studentToAssign,
-                    isExpanded: true,
-                    hint: Text('اختر طالباً لإضافته للحلقة...', style: AppTheme.cairoStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
-                    items: unassigned.map((s) {
-                      return DropdownMenuItem(
-                        value: s,
-                        child: Text('${s.fullName} (${s.circleName ?? "بدون حلقة"})', style: AppTheme.cairoStyle(fontSize: 12), overflow: TextOverflow.ellipsis, maxLines: 1),
-                      );
-                    }).toList(),
-                    onChanged: (val) => setState(() => _studentToAssign = val),
+            // Search & Filter Box
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.person_add_alt_1, size: 18, color: AppTheme.primary),
+                      const SizedBox(width: 6),
+                      Text('إضافة وتنسيب طلاب جدد (بحث فوري ذكي):', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primary)),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-                  onPressed: _studentToAssign == null
-                      ? null
-                      : () {
-                          _assignStudent(_studentToAssign!);
-                          setState(() => _studentToAssign = null);
-                        },
-                  icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                  label: Text('إضافة', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: '🔍 ابحث بالاسم الرباعي أو رقم الهوية...',
+                      hintStyle: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted),
+                      prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.primary),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.green.shade300)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: Text('غير مسندين فقط', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        selected: _onlyUnassigned,
+                        selectedColor: Colors.green.shade200,
+                        onSelected: (sel) => setState(() => _onlyUnassigned = true),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: Text('جميع طلاب المركز', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        selected: !_onlyUnassigned,
+                        selectedColor: Colors.green.shade200,
+                        onSelected: (sel) => setState(() => _onlyUnassigned = false),
+                      ),
+                    ],
+                  ),
+                  if (query.isNotEmpty || available.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 140),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: available.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text('لا يوجد طلاب مطابقين للبحث', style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textMuted)),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: available.length > 10 ? 10 : available.length,
+                              itemBuilder: (ctx, i) {
+                                final st = available[i];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(st.fullName, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  subtitle: Text(st.circleName != null ? 'حلقة: ${st.circleName}' : 'غير مسند لحلقة', style: AppTheme.cairoStyle(fontSize: 10, color: AppTheme.textMuted)),
+                                  trailing: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    ),
+                                    icon: const Icon(Icons.add, size: 14),
+                                    label: Text('تنسيب', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () {
+                                      _assignStudent(st);
+                                      _searchController.clear();
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             Text(
               'الطلاب المسجلون حالياً بالحلقة (${_assignedStudents.length}):',

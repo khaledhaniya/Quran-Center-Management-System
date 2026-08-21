@@ -200,7 +200,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       Builder(builder: (c) {
                         final filtered = circles.where((item) => item.name.toLowerCase().contains(query)).toList();
                         return DropdownButtonFormField<int>(
-                          value: selectedTargetId,
+                          value: filtered.any((item) => item.id == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(labelText: 'اختر الحلقة (${filtered.length}) *'),
                           items: filtered
@@ -216,7 +216,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       Builder(builder: (c) {
                         final filtered = teachers.where((item) => item.fullName.toLowerCase().contains(query)).toList();
                         return DropdownButtonFormField<int>(
-                          value: selectedTargetId,
+                          value: filtered.any((item) => item.id == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(labelText: 'اختر المعلم (${filtered.length}) *'),
                           items: filtered
@@ -449,7 +449,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
                     if (targetType == 2) ...[
                       DropdownButtonFormField<int>(
-                        value: selectedTargetId,
+                        value: circles.any((c) => c.id == selectedTargetId) ? selectedTargetId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر الحلقة المستهدفة'),
                         items: circles.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
@@ -458,7 +458,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       const SizedBox(height: 10),
                     ] else if (targetType == 3) ...[
                       DropdownButtonFormField<int>(
-                        value: selectedTargetId,
+                        value: teachers.any((t) => t.id == selectedTargetId) ? selectedTargetId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر المعلم المستهدف'),
                         items: teachers.map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.fullName, overflow: TextOverflow.ellipsis))).toList(),

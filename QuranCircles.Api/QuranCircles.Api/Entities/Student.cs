@@ -36,6 +36,14 @@ public class Student
     public string? CurrentHousingType { get; set; }
     public string? Notes { get; set; }
 
+    // Study Plan & Completed Ajzaa
+    public int TargetAjzaaCount { get; set; } = 30;
+    public string? PlanType { get; set; } // "Intensive", "Standard", "Gradual", "Custom"
+    public DateOnly? PlanStartDate { get; set; }
+    public DateOnly? PlanTargetDate { get; set; }
+    public double DailyPacePages { get; set; } = 1.0;
+    public string? CompletedAjzaa { get; set; } // Comma separated e.g. "30,29,28"
+
     // العلاقات
     public ICollection<RecitationSession> Sessions { get; set; } = new List<RecitationSession>();
     public ICollection<Attendance> AttendanceRecords { get; set; } = new List<Attendance>();

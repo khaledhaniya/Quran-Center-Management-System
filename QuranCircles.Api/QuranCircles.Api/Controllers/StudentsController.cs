@@ -222,4 +222,92 @@ public class StudentsController : ControllerBase
 
         return Ok(new { Message = newStatus ? "تم تنشيط الطالب بنجاح." : "تم تعطيل الطالب بنجاح.", IsActive = newStatus });
     }
+
+    [HttpPut("{id:int}/plan")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
+    public async Task<IActionResult> UpdatePlan(int id, [FromBody] UpdateStudentPlanDto dto)
+    {
+        var student = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { error = "الطالب غير موجود." });
+
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        if (currentUser?.Role == UserRole.Teacher)
+        {
+            if (student.Circle == null || student.Circle.TeacherId != currentUser.TeacherId)
+            {
+                return Forbid();
+            }
+        }
+
+        student.TargetAjzaaCount = dto.TargetAjzaaCount > 0 ? dto.TargetAjzaaCount : 30;
+        student.PlanType = dto.PlanType ?? "Standard";
+        student.PlanStartDate = dto.PlanStartDate ?? DateOnly.FromDateTime(DateTime.Today);
+        student.PlanTargetDate = dto.PlanTargetDate;
+        student.DailyPacePages = dto.DailyPacePages > 0 ? dto.DailyPacePages : 1.0;
+        if (dto.CompletedAjzaa != null)
+        {
+            student.CompletedAjzaa = dto.CompletedAjzaa;
+        }
+
+        await _db.SaveChangesAsync();
+        await AuditLogger.LogAsync(_db, HttpContext, "UpdateStudentPlan", $"تحديث خطة حفظ الطالب: {student.FullName} (نوع الخطة: {student.PlanType}، المستهدف: {student.TargetAjzaaCount} أجزاء)");
+
+        return Ok(new { Message = "تم حفظ خطة الحفظ للطالب بنجاح.", Student = student });
+    }
+
+    [HttpPost("{id:int}/complete-juz")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
+    public async Task<IActionResult> CompleteJuz(int id, [FromBody] CompleteJuzDto dto)
+    {
+        var student = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
+        if (student == null) return NotFound(new { error = "الطالب غير موجود." });
+
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        if (currentUser?.Role == UserRole.Teacher)
+        {
+            if (student.Circle == null || student.Circle.TeacherId != currentUser.TeacherId)
+            {
+                return Forbid();
+            }
+        }
+
+        var completedSet = new HashSet<int>();
+        if (!string.IsNullOrWhiteSpace(student.CompletedAjzaa))
+        {
+            foreach (var part in student.CompletedAjzaa.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (int.TryParse(part, out int j)) completedSet.Add(j);
+            }
+        }
+
+        if (dto.IsCompleted)
+        {
+            completedSet.Add(dto.JuzNumber);
+        }
+        else
+        {
+            completedSet.Remove(dto.JuzNumber);
+        }
+
+        student.CompletedAjzaa = string.Join(",", completedSet.OrderBy(x => x));
+        await _db.SaveChangesAsync();
+
+        await AuditLogger.LogAsync(_db, HttpContext, "CompleteJuz", $"{(dto.IsCompleted ? "توثيق إتمام" : "إلغاء إتمام")} الجزء {dto.JuzNumber} للطالب: {student.FullName}");
+
+        return Ok(new { Message = "تم تحديث سجل الأجزاء المنجزة بنجاح.", CompletedAjzaa = student.CompletedAjzaa, CompletedCount = completedSet.Count });
+    }
 }
+
+public record UpdateStudentPlanDto(
+    int TargetAjzaaCount,
+    string? PlanType,
+    DateOnly? PlanStartDate,
+    DateOnly? PlanTargetDate,
+    double DailyPacePages,
+    string? CompletedAjzaa
+);
+
+public record CompleteJuzDto(int JuzNumber, bool IsCompleted);
+
