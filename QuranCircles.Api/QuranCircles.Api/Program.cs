@@ -59,6 +59,7 @@ builder.Services.AddResponseCompression(options =>
 
 var app = builder.Build();
 
+app.UseCors("AllowAll");
 app.UseResponseCompression();
 
 using (var scope = app.Services.CreateScope())
@@ -75,8 +76,6 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"Database initialization notice: {ex.Message}");
     }
 }
-
-app.UseCors("AllowAll");
 
 // Enterprise Security Headers
 app.Use(async (context, next) =>

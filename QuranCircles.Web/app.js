@@ -55,6 +55,18 @@ function formatDateString(date) {
     return `${year}-${month}-${day}`;
 }
 
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+const escapeXml = escapeHtml;
+
 // ----------------- High-Grade Security & Authentication Management -----------------
 function getAuthStorage(key) {
     return sessionStorage.getItem(key) || localStorage.getItem(key);
