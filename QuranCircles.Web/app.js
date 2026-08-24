@@ -4200,9 +4200,9 @@ async function loadDeveloperUsers() {
                 <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
                 <td><code>${escapeXml(u.username)}</code></td>
                 <td><span class="small text-muted">${refIdStr}</span></td>
-                <td>
-                    <div class="d-inline-flex align-items-center gap-2 bg-light px-2 py-1 rounded border shadow-xs">
-                        <code class="fw-bold text-dark font-monospace" style="font-size: 0.95rem;">${escapeXml(pw)}</code>
+                <td style="white-space: nowrap;">
+                    <div class="d-inline-flex align-items-center gap-2 bg-light px-2.5 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
+                        <code class="fw-bold text-dark font-monospace" style="font-size: 0.92rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
                         <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
                             <i class="fa-solid fa-copy"></i>
                         </button>
@@ -4270,9 +4270,9 @@ function filterUsersTable(query) {
             <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
             <td><code>${escapeXml(u.username)}</code></td>
             <td><span class="small text-muted">${refIdStr}</span></td>
-            <td>
-                <div class="d-inline-flex align-items-center gap-2 bg-light px-2 py-1 rounded border shadow-xs">
-                    <code class="fw-bold text-dark font-monospace" style="font-size: 0.95rem;">${escapeXml(pw)}</code>
+            <td style="white-space: nowrap;">
+                <div class="d-inline-flex align-items-center gap-2 bg-light px-2.5 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
+                    <code class="fw-bold text-dark font-monospace" style="font-size: 0.92rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
                     <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
                         <i class="fa-solid fa-copy"></i>
                     </button>

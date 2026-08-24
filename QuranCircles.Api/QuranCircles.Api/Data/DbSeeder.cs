@@ -58,8 +58,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "ahmad", 
-                PasswordHash = hasher.HashPassword("teacher123"), 
-                PlainPassword = "teacher123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Teacher, 
                 FullName = "الشيخ أحمد", 
                 TeacherId = t1.Id, 
@@ -69,8 +69,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "khaled", 
-                PasswordHash = hasher.HashPassword("teacher123"), 
-                PlainPassword = "teacher123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Teacher, 
                 FullName = "الشيخ خالد", 
                 TeacherId = t2.Id, 
@@ -80,8 +80,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "mohammad", 
-                PasswordHash = hasher.HashPassword("student123"), 
-                PlainPassword = "student123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Student, 
                 FullName = "محمد علي", 
                 StudentId = s1.Id, 
@@ -91,8 +91,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "abdullah", 
-                PasswordHash = hasher.HashPassword("student123"), 
-                PlainPassword = "student123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Student, 
                 FullName = "عبدالله سامي", 
                 StudentId = s2.Id, 
@@ -102,8 +102,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "yousef", 
-                PasswordHash = hasher.HashPassword("student123"), 
-                PlainPassword = "student123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Student, 
                 FullName = "يوسف ماهر", 
                 StudentId = s3.Id, 
@@ -113,8 +113,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "parent100", 
-                PasswordHash = hasher.HashPassword("parent123"), 
-                PlainPassword = "parent123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Parent, 
                 FullName = "أبو محمد (ولي أمر محمد وعبد الله)", 
                 ParentId = 100, // يمثل ParentId المستهدف في الكنترولر
@@ -124,8 +124,8 @@ public static class DbSeeder
             new User 
             { 
                 Username = "parent101", 
-                PasswordHash = hasher.HashPassword("parent123"), 
-                PlainPassword = "parent123",
+                PasswordHash = hasher.HashPassword("123456"), 
+                PlainPassword = "123456",
                 Role = UserRole.Parent, 
                 FullName = "أبو يوسف (ولي أمر يوسف)", 
                 ParentId = 101, // يمثل ParentId المستهدف في الكنترولر

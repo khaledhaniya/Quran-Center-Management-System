@@ -40,7 +40,7 @@ public class TeacherService
             : dto.Username.Trim();
 
         var password = string.IsNullOrWhiteSpace(dto.Password) 
-            ? "teacher123" 
+            ? "123456" 
             : dto.Password.Trim();
 
         var userExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower());
