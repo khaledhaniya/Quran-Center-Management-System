@@ -135,8 +135,8 @@ public static class DbSeeder
             new User
             {
                 Username = "wael",
-                PasswordHash = hasher.HashPassword("exam123"),
-                PlainPassword = "exam123",
+                PasswordHash = hasher.HashPassword("wael123"),
+                PlainPassword = "wael123",
                 Role = UserRole.ExamSupervisor,
                 FullName = "المشرف وائل هلية",
                 IsActive = true
@@ -340,10 +340,7 @@ public static class DbSeeder
                     {
                         if (u.Username == "dev") u.PlainPassword = "dev123";
                         else if (u.Username == "admin") u.PlainPassword = "admin123";
-                        else if (u.Role == UserRole.Teacher || u.Username == "ahmad" || u.Username == "khaled") u.PlainPassword = "teacher123";
-                        else if (u.Role == UserRole.ExamSupervisor || u.Username == "wael") u.PlainPassword = "exam123";
-                        else if (u.Role == UserRole.Parent) u.PlainPassword = "parent123";
-                        else if (u.Role == UserRole.Student) u.PlainPassword = "student123";
+                        else if (u.Username == "wael") u.PlainPassword = "wael123";
                         else u.PlainPassword = "123456";
                         changed = true;
                     }

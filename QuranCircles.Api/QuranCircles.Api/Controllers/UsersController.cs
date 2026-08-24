@@ -39,7 +39,7 @@ public class UsersController : ControllerBase
                 u.ParentId,
                 PlainPassword = !string.IsNullOrEmpty(u.PlainPassword) 
                     ? u.PlainPassword 
-                    : (u.Username == "dev" ? "dev123" : (u.Username == "admin" ? "admin123" : (u.Username == "wael" ? "exam123" : "123456")))
+                    : (u.Username == "dev" ? "dev123" : (u.Username == "admin" ? "admin123" : (u.Username == "wael" ? "wael123" : "123456")))
             })
             .ToListAsync();
         return Ok(users);
@@ -65,7 +65,7 @@ public class UsersController : ControllerBase
             Role = roleVal,
             TeacherId = dto.TeacherId,
             IsActive = true,
-            PasswordHash = _hasher.HashPassword(dto.Password),
+            PasswordHash = _hasher.HashPassword(dto.Password.Trim()),
             PlainPassword = dto.Password.Trim()
         };
 
@@ -86,7 +86,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [RequireRole(UserRole.Developer)]
+    [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
     {
         var user = await _db.Users.FindAsync(id);
@@ -109,7 +109,7 @@ public class UsersController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
-            user.PasswordHash = _hasher.HashPassword(dto.Password);
+            user.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
             user.PlainPassword = dto.Password.Trim();
         }
 
@@ -117,11 +117,17 @@ public class UsersController : ControllerBase
 
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateUser", $"تعديل حساب المستخدم: {user.Username} ({user.FullName}) - الصفة: {user.Role}");
 
-        return NoContent();
+        return Ok(new { 
+            message = "تم تحديث الحساب وكلمة المرور بنجاح.",
+            user.Id,
+            user.Username,
+            user.FullName,
+            user.PlainPassword
+        });
     }
 
     [HttpDelete("{id:int}")]
-    [RequireRole(UserRole.Developer)]
+    [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
         var user = await _db.Users.FindAsync(id);

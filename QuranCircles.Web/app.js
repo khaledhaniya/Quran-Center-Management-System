@@ -4153,7 +4153,7 @@ function getUserDisplayPassword(u) {
     if (u.plainPassword && u.plainPassword.trim() !== "") return u.plainPassword;
     if (u.username === "dev") return "dev123";
     if (u.username === "admin") return "admin123";
-    if (u.username === "wael") return "exam123";
+    if (u.username === "wael") return "wael123";
     return "123456";
 }
 
@@ -4454,15 +4454,26 @@ function showEditUserModal(user) {
             username: username,
             fullName: fullName,
             role: role,
-            password: password || null,
+            password: password ? password.trim() : null,
             teacherId: teacherVal ? parseInt(teacherVal) : null
         };
         
         try {
-            await apiRequest(`/users/${user.id}`, "PUT", dto);
-            showAlert("تم تحديث حساب المستخدم بنجاح.", "success");
+            const res = await apiRequest(`/users/${user.id}`, "PUT", dto);
+            showAlert("تم تحديث حساب المستخدم وكلمة المرور بنجاح.", "success");
             closeModal();
-            loadDeveloperUsers();
+            
+            // Immediately update local cache so change reflects without page reload
+            const targetUser = cachedUsers.find(x => x.id == user.id);
+            if (targetUser) {
+                targetUser.fullName = fullName;
+                targetUser.username = username;
+                targetUser.role = role;
+                if (password && password.trim() !== "") {
+                    targetUser.plainPassword = password.trim();
+                }
+            }
+            await loadDeveloperUsers();
         } catch(e) {
             console.error(e);
         }
