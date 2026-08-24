@@ -1,29 +1,30 @@
 @echo off
-cd /d "%~dp0"
-title Quran Center Launcher
+setlocal enableextensions
+chcp 65001 > nul
+set "BASE_DIR=%~dp0"
+
+title تشغيل نظام مركز البيان القرآني
 
 echo ========================================================
-echo   Starting Quran Center System (Localhost:8000)...
+echo   [مركز البيان القرآني] - تشغيل المنظومة الكاملة
 echo ========================================================
 echo.
 
-where dotnet >nul 2>nul
+rem 1. فحص وتشغيل خادم الـ API
+echo [1/2] تشغيل خادم الـ API (http://localhost:5070)...
+dotnet --version > nul 2>&1
 if %errorlevel% equ 0 (
-    echo [1/2] Starting Backend API on http://localhost:5070 ...
-    start "Backend API" /min cmd /c "cd /d "%~dp0QuranCircles.Api\QuranCircles.Api" && dotnet run --urls=http://localhost:5070"
+    netstat -ano | findstr :5070 > nul
+    if %errorlevel% neq 0 (
+        start "Backend API (QuranCircles)" /min /D "%BASE_DIR%QuranCircles.Api\QuranCircles.Api" dotnet run --urls=http://localhost:5070
+        ping 127.0.0.1 -n 3 > nul
+    )
 )
 
-echo [2/2] Starting Web Application Server on http://localhost:8000 ...
-
-start "Quran Web Server (Port 8000)" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port 8000 -Path "%~dp0QuranCircles.Web"
-
-timeout /t 2 >nul
-start http://localhost:8000
+rem 2. فتح واجهة النظام
+echo [2/2] فتح المنظومة في المتصفح...
+start "" "%BASE_DIR%QuranCircles.Web\index.html"
 
 echo.
-echo ========================================================
-echo   Quran Center Web Application Launched Successfully!
-echo   Local Web URL: http://localhost:8000
-echo ========================================================
-echo.
+echo تم تشغيل النظام بنجاح!
 pause

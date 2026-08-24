@@ -119,6 +119,27 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Serve QuranCircles.Web directly if present locally
+try
+{
+    var candidates = new[]
+    {
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "QuranCircles.Web")),
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "QuranCircles.Web")),
+        Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "QuranCircles.Web")),
+        @"c:\xampp\htdocs\Quran Center\QuranCircles.Web"
+    };
+
+    var webDir = candidates.FirstOrDefault(Directory.Exists);
+    if (webDir != null)
+    {
+        var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webDir);
+        app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
+        app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
+    }
+}
+catch { }
+
 // Enterprise Security Headers
 app.Use(async (context, next) =>
 {

@@ -24,8 +24,8 @@ if %errorlevel% equ 0 (
     )
 )
 
-rem 2. تشغيل تطبيق فلاتر
-echo [2/2] تشغيل تطبيق فلاتر في المتصفح...
+rem 2. تشغيل فلاتر أو فتح واجهة التطبيق مباشرة
+echo [2/2] فتح واجهة التطبيق في المتصفح...
 where flutter > nul 2>&1
 if %errorlevel% equ 0 (
     cd /d "%BASE_DIR%QuranCircles.Mobile"
@@ -33,9 +33,7 @@ if %errorlevel% equ 0 (
     goto done
 )
 
-rem في حال لم يكن أمر flutter في الـ PATH العالمي، يتم فتح التطبيق مباشرة
-echo فتح التطبيق في المتصفح...
-start http://localhost:8000
+start "" "%BASE_DIR%QuranCircles.Web\index.html"
 
 :done
 echo.
