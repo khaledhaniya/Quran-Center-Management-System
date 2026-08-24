@@ -1,22 +1,33 @@
 @echo off
-cd /d "%~dp0"
-title Quran Center Flutter Mobile Launcher
+setlocal enableextensions
+chcp 65001 > nul
+set "BASE_DIR=%~dp0"
+
+title Quran Center - Mobile App Launcher
 
 echo ========================================================
-echo   Quran Center - Flutter Mobile App Launcher (Web)
+echo   Quran Center - Mobile App Launcher
 echo ========================================================
 echo.
-echo Starting Flutter Mobile Web on http://localhost:9000 ...
 
-start "Flutter Mobile Server (Port 9000)" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port 9000 -Path "%~dp0QuranCircles.Mobile\build\web"
+where dotnet > nul 2>&1
+if %errorlevel% equ 0 (
+    netstat -ano | findstr :5070 > nul
+    if %errorlevel% neq 0 (
+        start "Backend API (QuranCircles)" /min /D "%BASE_DIR%QuranCircles.Api\QuranCircles.Api" dotnet run --urls=http://localhost:5070
+        ping 127.0.0.1 -n 3 > nul
+    )
+)
 
-timeout /t 2 >nul
-start http://localhost:9000
+where flutter > nul 2>&1
+if %errorlevel% equ 0 (
+    cd /d "%BASE_DIR%QuranCircles.Mobile"
+    call flutter run -d chrome
+    goto done
+)
 
-echo.
-echo ========================================================
-echo   Flutter Mobile App (Web) is now Running on:
-echo   http://localhost:9000
-echo ========================================================
+start http://localhost:8000
+
+:done
 echo.
 pause
