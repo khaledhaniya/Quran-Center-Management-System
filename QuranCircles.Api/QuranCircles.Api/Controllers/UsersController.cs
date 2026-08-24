@@ -39,7 +39,7 @@ public class UsersController : ControllerBase
                 u.ParentId,
                 PlainPassword = !string.IsNullOrEmpty(u.PlainPassword) 
                     ? u.PlainPassword 
-                    : (u.Username == "dev" ? "dev123" : u.Username == "admin" ? "admin123" : (u.Role == UserRole.Teacher ? "teacher123" : (u.Role == UserRole.ExamSupervisor ? "exam123" : "123456")))
+                    : (u.Username == "dev" ? "dev123" : (u.Username == "admin" ? "admin123" : (u.Username == "wael" ? "exam123" : "123456")))
             })
             .ToListAsync();
         return Ok(users);

@@ -4153,10 +4153,7 @@ function getUserDisplayPassword(u) {
     if (u.plainPassword && u.plainPassword.trim() !== "") return u.plainPassword;
     if (u.username === "dev") return "dev123";
     if (u.username === "admin") return "admin123";
-    if (u.role === "Teacher" || (u.username && u.username.startsWith("tch_")) || u.username === "ahmad" || u.username === "khaled") return "teacher123";
-    if (u.role === "ExamSupervisor" || u.username === "wael") return "exam123";
-    if (u.role === "Parent" || u.username === "parent100" || u.username === "parent101") return "parent123";
-    if (u.role === "Student" || (u.username && (u.username.startsWith("student_") || u.username === "mohammad" || u.username === "abdullah" || u.username === "yousef"))) return "student123";
+    if (u.username === "wael") return "exam123";
     return "123456";
 }
 
