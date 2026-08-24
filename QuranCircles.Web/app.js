@@ -5,7 +5,11 @@ if (window.location.protocol === "https:" && savedApiUrl && savedApiUrl.startsWi
     localStorage.removeItem("custom_api_url");
     savedApiUrl = null;
 }
-const API_BASE = savedApiUrl || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+const isLocalEnv = window.location.hostname === "localhost" || 
+                   window.location.hostname === "127.0.0.1" || 
+                   window.location.protocol === "file:";
+
+let API_BASE = savedApiUrl || (isLocalEnv 
     ? "http://localhost:5070/api" 
     : "https://albayan-quran.onrender.com/api");
 
@@ -201,16 +205,39 @@ async function handleLogin(e) {
     }
     
     try {
-        const response = await fetch(`${API_BASE}/auth/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                username: usernameInput,
-                password: passwordInput
-            })
-        });
+        let response;
+        try {
+            response = await fetch(`${API_BASE}/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username: usernameInput,
+                    password: passwordInput
+                })
+            });
+        } catch(fetchErr) {
+            // If local API was down or unreachable, seamlessly try the cloud API
+            if (isLocalEnv && API_BASE.includes("localhost")) {
+                console.log("Local API failed, trying Render Cloud API...");
+                response = await fetch("https://albayan-quran.onrender.com/api/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: usernameInput,
+                        password: passwordInput
+                    })
+                });
+                if (response && response.ok) {
+                    API_BASE = "https://albayan-quran.onrender.com/api";
+                }
+            } else {
+                throw fetchErr;
+            }
+        }
         
         if (!response.ok) {
             let errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة.";
@@ -243,7 +270,7 @@ async function handleLogin(e) {
     } catch(err) {
         let msg = err.message || "حدث خطأ في الاتصال بالسيرفر";
         if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-            msg = "السيرفر الأونلاين يجري تشغيله حالياً أو في وضع الاستيقاظ.. يرجى الانتظار 10 ثوانٍ وإعادة المحاولة.";
+            msg = "السيرفر الأونلاين يجري تشغيله حالياً أو في وضع الاستيقاظ.. يرجى الانتظار ثوانٍ معدودة وإعادة المحاولة.";
         }
         if (errorContainer) {
             errorContainer.innerHTML = `
