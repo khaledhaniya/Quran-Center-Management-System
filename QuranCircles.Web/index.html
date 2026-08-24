@@ -389,54 +389,75 @@
 
                 <!-- SECTION: Profile Update Requests Manager -->
                 <section id="profile-requests-section" class="content-section hidden">
-                    <div class="section-header">
-                        <h2><i class="fa-solid fa-bell text-warning"></i> طلبات تعديل وتحديث بيانات العائلة والأبناء</h2>
-                        <button class="btn btn-outline-primary shadow-sm" onclick="loadAdminProfileRequests()"><i class="fa-solid fa-rotate"></i> تحديث الطلبات</button>
-                    </div>
-
-                    <!-- Stats Cards -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <div class="card p-3 text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #fff8e1, #ffecb3); border-radius: 12px; border-right: 6px solid #ffb300;">
-                                <h3 id="stat-req-pending" class="fw-bold text-dark mb-1">0</h3>
-                                <span class="fw-bold text-dark">طلبات تنتظر الاعتماد والمراجعة</span>
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                            <div class="header-titles">
+                                <span class="badge bg-warning bg-opacity-10 text-dark fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-bell text-warning"></i> تدقيق البيانات الأسرية
+                                </span>
+                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-user-pen text-primary"></i> طلبات تعديل وتحديث بيانات العائلة والأبناء
+                                </h2>
+                                <p class="text-muted small mb-0">مراجعة وتدقيق واعتماد طلبات التعديل المقدمة من أولياء الأمور والطلاب وتطبيقها فورياً على السجلات الرسمية.</p>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card p-3 text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 12px; border-right: 6px solid #4caf50;">
-                                <h3 id="stat-req-approved" class="fw-bold text-dark mb-1">0</h3>
-                                <span class="fw-bold text-dark">طلبات تم اعتمادها وتطبيقها</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card p-3 text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #eceff1, #cfd8dc); border-radius: 12px; border-right: 6px solid #78909c;">
-                                <h3 id="stat-req-rejected" class="fw-bold text-dark mb-1">0</h3>
-                                <span class="fw-bold text-dark">طلبات تم رفضها</span>
+                            <div class="action-buttons-group flex-shrink-0">
+                                <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadAdminProfileRequests()">
+                                    <i class="fa-solid fa-rotate me-1"></i> تحديث الطلبات
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
-                        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-3 py-3 border-bottom">
-                            <h5 class="mb-0 text-primary fw-bold"><i class="fa-solid fa-list-check"></i> قائمة طلبات تعديل البيانات الواردة</h5>
-                            <div class="d-flex flex-wrap align-items-center gap-2">
-                                <div class="input-group input-group-sm" style="width: 250px;">
-                                    <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <input type="text" id="req-search-input" class="form-control" placeholder="بحث باسم الطالب أو ولي الأمر..." oninput="filterProfileRequestsTable(currentProfileRequestFilter)">
-                                </div>
-                                <div class="btn-group btn-group-sm" id="req-filter-buttons">
-                                    <button class="btn btn-primary active fw-bold" data-filter="all" onclick="filterProfileRequestsTable('all')">الكل</button>
-                                    <button class="btn btn-outline-warning text-dark fw-bold" data-filter="Pending" onclick="filterProfileRequestsTable('Pending')">المعلقة ⏳</button>
-                                    <button class="btn btn-outline-success fw-bold" data-filter="Approved" onclick="filterProfileRequestsTable('Approved')">المعتمدة ✅</button>
-                                    <button class="btn btn-outline-secondary fw-bold" data-filter="Rejected" onclick="filterProfileRequestsTable('Rejected')">المرفوضة ❌</button>
-                                </div>
+                    <!-- Stats Cards Grid -->
+                    <div class="requests-stats-grid">
+                        <div class="request-stat-card stat-pending shadow-sm">
+                            <div class="stat-icon-circle">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-number" id="stat-req-pending">0</span>
+                                <span class="stat-title">طلبات تنتظر الاعتماد</span>
                             </div>
                         </div>
-                        <div class="card-body p-3 bg-light">
-                            <div id="profile-requests-cards-container" class="d-flex flex-column gap-3">
-                                <!-- Populated dynamically with rich cards -->
+
+                        <div class="request-stat-card stat-approved shadow-sm">
+                            <div class="stat-icon-circle">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-number" id="stat-req-approved">0</span>
+                                <span class="stat-title">طلبات تم اعتمادها وتطبيقها</span>
                             </div>
                         </div>
+
+                        <div class="request-stat-card stat-rejected shadow-sm">
+                            <div class="stat-icon-circle">
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-number" id="stat-req-rejected">0</span>
+                                <span class="stat-title">طلبات تم رفضها</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Toolbar & Filters -->
+                    <div class="requests-toolbar-card shadow-sm">
+                        <div class="requests-search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="req-search-input" class="requests-search-input" placeholder="بحث باسم الطالب أو ولي الأمر..." oninput="filterProfileRequestsTable(currentProfileRequestFilter)">
+                        </div>
+                        <div class="requests-filter-pills" id="req-filter-buttons">
+                            <button class="request-filter-btn active" data-filter="all" onclick="filterProfileRequestsTable('all')">الكل</button>
+                            <button class="request-filter-btn" data-filter="Pending" onclick="filterProfileRequestsTable('Pending')">المعلقة ⏳</button>
+                            <button class="request-filter-btn" data-filter="Approved" onclick="filterProfileRequestsTable('Approved')">المعتمدة ✅</button>
+                            <button class="request-filter-btn" data-filter="Rejected" onclick="filterProfileRequestsTable('Rejected')">المرفوضة ❌</button>
+                        </div>
+                    </div>
+
+                    <!-- Requests List Container -->
+                    <div id="profile-requests-cards-container" class="d-flex flex-column gap-3">
+                        <!-- Populated dynamically with rich cards -->
                     </div>
                 </section>
 
@@ -547,25 +568,33 @@
 
                 <!-- SECTION: Parent-Children Audit & Disambiguation -->
                 <section id="parent-audit-section" class="content-section hidden">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h2><i class="fa-solid fa-people-roof text-primary me-2"></i> تدقيق وحوكمة أبناء أولياء الأمور (فك وإعادة الربط)</h2>
-                            <p class="text-muted">استعراض إجمالي عدد الأبناء المسجلين لكل ولي أمر، وفك الربط الخاطئ أو نقل الطالب لولي أمر آخر بضغطة زر.</p>
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                            <div class="header-titles">
+                                <span class="badge bg-primary bg-opacity-10 text-primary fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-people-roof text-primary"></i> حوكمة السجلات الأسرية
+                                </span>
+                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-people-roof text-primary"></i> تدقيق وحوكمة أبناء أولياء الأمور (فك وإعادة الربط)
+                                </h2>
+                                <p class="text-muted small mb-0">استعراض إجمالي عدد الأبناء المسجلين لكل ولي أمر، وفك الربط الخاطئ أو نقل الطالب لولي أمر آخر بضغطة زر.</p>
+                            </div>
+                            <div class="action-buttons-group flex-shrink-0">
+                                <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadParentAuditScreen()">
+                                    <i class="fa-solid fa-rotate me-1"></i> تحديث القائمة
+                                </button>
+                            </div>
                         </div>
-                        <button class="btn btn-outline-primary" onclick="loadParentAuditScreen()"><i class="fa-solid fa-rotate"></i> تحديث القائمة</button>
                     </div>
 
-                    <div class="card card-custom p-3 mb-4">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-6">
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <input type="text" id="parent-audit-search" class="form-control" placeholder="ابحث باسم ولي الأمر أو رقم الهوية..." oninput="filterParentAuditView()">
-                                </div>
-                            </div>
-                            <div class="col-md-6 text-end">
-                                <span class="badge bg-primary fs-6 p-2" id="parent-audit-count-badge">إجمالي أولياء الأمور: 0</span>
-                            </div>
+                    <!-- Search & Count Toolbar -->
+                    <div class="requests-toolbar-card shadow-sm">
+                        <div class="requests-search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="parent-audit-search" class="requests-search-input" placeholder="ابحث باسم ولي الأمر أو رقم الهوية أو اسم الابن..." oninput="filterParentAuditView()">
+                        </div>
+                        <div>
+                            <span class="badge bg-primary text-white fs-6 px-3 py-2 rounded-pill shadow-xs" id="parent-audit-count-badge">إجمالي أولياء الأمور: 0</span>
                         </div>
                     </div>
 

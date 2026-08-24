@@ -3085,15 +3085,11 @@ async function hardDeleteTeacher(id, name) {
 
 function filterProfileRequestsTable(filter) {
     currentProfileRequestFilter = filter;
-    document.querySelectorAll("#req-filter-buttons button").forEach(btn => {
+    document.querySelectorAll("#req-filter-buttons .request-filter-btn").forEach(btn => {
         if (btn.dataset.filter === filter) {
-            btn.classList.add("active", "btn-primary");
-            btn.classList.remove("btn-outline-warning", "btn-outline-success", "btn-outline-secondary");
+            btn.classList.add("active");
         } else {
-            btn.classList.remove("active", "btn-primary");
-            if (btn.dataset.filter === 'Pending') btn.classList.add("btn-outline-warning", "text-dark");
-            else if (btn.dataset.filter === 'Approved') btn.classList.add("btn-outline-success");
-            else if (btn.dataset.filter === 'Rejected') btn.classList.add("btn-outline-secondary");
+            btn.classList.remove("active");
         }
     });
     renderProfileRequestsTable();
@@ -3102,7 +3098,7 @@ function filterProfileRequestsTable(filter) {
 async function loadAdminProfileRequests() {
     const container = document.getElementById("profile-requests-cards-container");
     if (!container) return;
-    container.innerHTML = `<div class="text-center py-5"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary me-2"></i><p class="mt-2 text-muted fw-bold">جاري تحميل طلبات تعديل البيانات...</p></div>`;
+    container.innerHTML = `<div class="text-center py-5"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary me-2"></i><p class="mt-2 text-muted fw-bold">جاري تحميل وتدقيق طلبات تعديل البيانات...</p></div>`;
 
     try {
         const requests = await apiRequest("/profile-update-requests");
@@ -3146,9 +3142,10 @@ function renderProfileRequestsTable() {
 
     if (filtered.length === 0) {
         container.innerHTML = `
-            <div class="card p-5 text-center border-0 shadow-sm bg-white" style="border-radius: 12px;">
-                <i class="fa-solid fa-inbox text-muted mb-3" style="font-size: 3rem;"></i>
-                <h5 class="text-muted fw-bold mb-0">${query ? 'لا يوجد طلبات تطابق كلمة البحث.' : 'لا يوجد أي طلبات بانتظار العرض في هذه الفئة حالياً.'}</h5>
+            <div class="card p-5 text-center border-0 shadow-sm bg-white" style="border-radius: 14px;">
+                <i class="fa-solid fa-inbox text-muted mb-3" style="font-size: 3rem; color: #cbd5e1 !important;"></i>
+                <h5 class="text-muted fw-bold mb-1">${query ? 'لا توجد طلبات تطابق كلمة البحث.' : 'لا توجد طلبات بانتظار العرض في هذه الفئة حالياً.'}</h5>
+                <p class="text-muted small mb-0">يمكنك التبديل بين التبويبات بالأعلى لاستعراض الطلبات الأخرى.</p>
             </div>
         `;
         return;
@@ -3178,13 +3175,9 @@ function renderProfileRequestsTable() {
                     const labelName = typeof info === 'object' ? info.label : info;
                     const iconClass = typeof info === 'object' ? info.icon : 'fa-circle-info';
                     changesCardsHtml.push(`
-                        <div class="col-md-6 col-lg-4">
-                            <div class="p-3 bg-white rounded-3 border shadow-xs d-flex align-items-center justify-content-between h-100">
-                                <div>
-                                    <span class="text-muted small d-block mb-1"><i class="fa-solid ${iconClass} me-1"></i> ${labelName}:</span>
-                                    <span class="fw-bold text-dark fs-6" style="word-break: break-word;">${v}</span>
-                                </div>
-                            </div>
+                        <div class="req-change-pill">
+                            <span class="req-change-label"><i class="fa-solid ${iconClass}"></i> ${labelName}:</span>
+                            <span class="req-change-val">${escapeXml(v)}</span>
                         </div>
                     `);
                 }
@@ -3192,60 +3185,61 @@ function renderProfileRequestsTable() {
         }
 
         let statusBadge = `<span class="badge bg-warning text-dark px-3 py-2 rounded-pill shadow-xs"><i class="fa-solid fa-hourglass-half me-1"></i> قيد المراجعة والاعتماد</span>`;
-        let cardBorderColor = "#ffc107";
-        let cardBg = "#ffffff";
+        let borderAccent = "#f59e0b";
         if (r.status === "Approved") {
             statusBadge = `<span class="badge bg-success px-3 py-2 rounded-pill shadow-xs"><i class="fa-solid fa-circle-check me-1"></i> تم الاعتماد وتطبيق البيانات</span>`;
-            cardBorderColor = "#28a745";
+            borderAccent = "#10b981";
         } else if (r.status === "Rejected") {
             statusBadge = `<span class="badge bg-secondary px-3 py-2 rounded-pill shadow-xs"><i class="fa-solid fa-circle-xmark me-1"></i> مرفوض</span>`;
-            cardBorderColor = "#6c757d";
+            borderAccent = "#64748b";
         }
 
         html += `
-            <div class="card border-0 shadow-sm" style="border-radius: 14px; border-right: 6px solid ${cardBorderColor}; background: ${cardBg}; overflow: hidden;">
-                <div class="card-header bg-white p-3 border-bottom d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary text-white rounded-pill px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">#${idx + 1}</span>
+            <div class="req-item-card" style="border-right: 6px solid ${borderAccent};">
+                <div class="req-card-header">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-primary text-white rounded-pill px-3 py-1.5 fw-bold" style="font-size: 0.85rem;">#${idx + 1}</span>
                         <div>
-                            <h6 class="fw-bold text-dark mb-0 d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.95rem;">
-                                <i class="fa-solid fa-user-graduate text-success me-1"></i>
-                                <span>${r.studentName || 'طلب بيانات عامة'}</span>
-                                ${r.studentId ? `<span class="badge bg-light text-secondary border font-monospace ms-1" style="font-size: 0.72rem;">#معرّف الطالب: ${r.studentId}</span>` : ''}
+                            <h6 class="fw-bold text-dark mb-1 d-flex flex-wrap align-items-center gap-2" style="font-size: 1rem;">
+                                <i class="fa-solid fa-user-graduate text-success"></i>
+                                <span>${escapeXml(r.studentName || 'طلب بيانات عامة')}</span>
+                                ${r.studentId ? `<span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.72rem;">#معرّف الطالب: ${r.studentId}</span>` : ''}
                             </h6>
-                            <span class="small text-muted d-block mt-1" style="font-size: 0.78rem;">
-                                <i class="fa-solid fa-user-tag me-1"></i> مقدم الطلب: <b>${r.requestedByName}</b> (${r.requestedByRole === 'Parent' ? 'ولي الأمر' : r.requestedByRole === 'Student' ? 'الطالب' : r.requestedByRole})
+                            <span class="small text-muted d-block" style="font-size: 0.82rem;">
+                                <i class="fa-solid fa-user-tag me-1 text-primary"></i> مقدم الطلب: <b>${escapeXml(r.requestedByName)}</b> (${r.requestedByRole === 'Parent' ? 'ولي الأمر' : r.requestedByRole === 'Student' ? 'الطالب' : r.requestedByRole})
                             </span>
                         </div>
                     </div>
-                    <div class="mt-1 mt-sm-0">
+                    <div class="text-start">
                         <div class="mb-1">${statusBadge}</div>
-                        <span class="small text-muted font-monospace d-block" style="font-size: 0.75rem;"><i class="fa-regular fa-clock me-1"></i> ${r.requestDate}</span>
+                        <span class="small text-muted font-monospace d-block" style="font-size: 0.76rem;"><i class="fa-regular fa-clock me-1"></i> ${r.requestDate || ''}</span>
                     </div>
                 </div>
 
-                <div class="card-body p-3 bg-light">
-                    <h6 class="fw-bold text-secondary mb-2" style="font-size: 0.85rem;"><i class="fa-solid fa-pen-to-square me-1"></i> التغييرات والتحديثات المطلوبة:</h6>
-                    <div class="row g-2">
-                        ${changesCardsHtml.join('') || '<div class="col-12"><p class="text-muted small mb-0">تعديل عام دون تفاصيل.</p></div>'}
+                <div class="req-card-body">
+                    <h6 class="fw-bold text-secondary mb-3 d-flex align-items-center gap-2" style="font-size: 0.88rem;">
+                        <i class="fa-solid fa-pen-to-square text-primary"></i> التغييرات والتحديثات المطلوبة:
+                    </h6>
+                    <div class="req-changes-grid">
+                        ${changesCardsHtml.join('') || '<p class="text-muted small mb-0">تعديل عام دون تفاصيل إضافية.</p>'}
                     </div>
                 </div>
 
                 ${r.status === "Pending" ? `
-                <div class="card-footer bg-white p-3 border-top d-flex flex-column gap-2.5">
-                    <span class="small text-muted" style="font-size: 0.78rem;"><i class="fa-solid fa-shield-halved text-warning me-1"></i> الاعتماد سيعتمد التغييرات الموضحة أعلاه ويحدث الملف فوراً.</span>
-                    <div class="d-flex flex-row gap-2 w-100">
-                        <button class="btn btn-success flex-fill px-3 py-2.5 fw-bold shadow-sm" onclick="approveProfileRequest(${r.id})" style="white-space: nowrap; font-size: 0.84rem;">
+                <div class="req-card-footer">
+                    <span class="small text-muted" style="font-size: 0.82rem;"><i class="fa-solid fa-shield-halved text-warning me-1"></i> الاعتماد سيحدث بيانات الطالب في السجلات الرسمية والبطاقات فوراً.</span>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-success px-3 py-2 fw-bold shadow-sm" onclick="approveProfileRequest(${r.id})" style="font-size: 0.88rem;">
                             <i class="fa-solid fa-check me-1"></i> موافقة وتحديث
                         </button>
-                        <button class="btn btn-outline-danger flex-fill px-3 py-2.5 fw-bold" onclick="rejectProfileRequest(${r.id})" style="white-space: nowrap; font-size: 0.84rem;">
+                        <button class="btn btn-outline-danger px-3 py-2 fw-bold" onclick="rejectProfileRequest(${r.id})" style="font-size: 0.88rem;">
                             <i class="fa-solid fa-xmark me-1"></i> رفض الطلب
                         </button>
                     </div>
                 </div>
                 ` : r.reviewDate ? `
-                <div class="card-footer bg-white p-2.5 px-3 border-top small text-muted">
-                    <i class="fa-solid fa-info-circle me-1"></i> تم اتخاذ القرار وتاريخ المراجعة: <b>${r.reviewDate}</b> ${r.reviewerNotes ? ` | ملاحظة: ${r.reviewerNotes}` : ''}
+                <div class="req-card-footer small text-muted">
+                    <span><i class="fa-solid fa-info-circle me-1 text-primary"></i> تاريخ المراجعة: <b>${r.reviewDate}</b> ${r.reviewerNotes ? ` | ملاحظة: ${escapeXml(r.reviewerNotes)}` : ''}</span>
                 </div>
                 ` : ''}
             </div>
