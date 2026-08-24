@@ -272,13 +272,37 @@ public static class DbSeeder
                 ("Notes", "TEXT")
             };
 
+            var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var conn = db.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    conn.Open();
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "PRAGMA table_info(Students);";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            existingCols.Add(reader.GetString(1));
+                        }
+                    }
+                }
+            }
+            catch { }
+
             foreach (var (colName, colType) in studentColumns)
             {
-                try
+                if (!existingCols.Contains(colName))
                 {
-                    db.Database.ExecuteSqlRaw($"ALTER TABLE Students ADD COLUMN {colName} {colType};");
+                    try
+                    {
+                        db.Database.ExecuteSqlRaw($"ALTER TABLE Students ADD COLUMN {colName} {colType};");
+                    }
+                    catch { /* Column already exists */ }
                 }
-                catch { /* Column already exists */ }
             }
 
             // 2. Ensure SystemSettings table exists
