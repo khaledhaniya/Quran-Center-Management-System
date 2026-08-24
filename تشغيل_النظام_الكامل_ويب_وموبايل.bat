@@ -13,35 +13,15 @@ if %errorlevel% equ 0 (
     start "Backend API" /min cmd /c "cd /d "%~dp0QuranCircles.Api\QuranCircles.Api" && dotnet run --urls=http://localhost:5070"
 )
 
-echo [2/3] Opening Web Application on http://localhost:8000 ...
-if exist "C:\xampp\php\php.exe" (
-    start "Web Server" /min cmd /c "cd /d "%~dp0QuranCircles.Web" && C:\xampp\php\php.exe -S localhost:8000"
-    timeout /t 1 >nul
-    start http://localhost:8000
-) else (
-    where php >nul 2>nul
-    if %errorlevel% equ 0 (
-        start "Web Server" /min cmd /c "cd /d "%~dp0QuranCircles.Web" && php -S localhost:8000"
-        timeout /t 1 >nul
-        start http://localhost:8000
-    )
-)
+echo [2/3] Starting Web Application on http://localhost:8000 ...
+start "Quran Web Server (Port 8000)" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port 8000 -Path "%~dp0QuranCircles.Web"
+timeout /t 1 >nul
+start http://localhost:8000
 
-echo [3/3] Opening Flutter Mobile App (Web) on http://localhost:9000 ...
-if exist "C:\xampp\php\php.exe" (
-    start "Flutter Mobile Web Server" /min cmd /c "cd /d "%~dp0QuranCircles.Mobile\build\web" && C:\xampp\php\php.exe -S localhost:9000"
-    timeout /t 1 >nul
-    start http://localhost:9000
-) else (
-    where php >nul 2>nul
-    if %errorlevel% equ 0 (
-        start "Flutter Mobile Web Server" /min cmd /c "cd /d "%~dp0QuranCircles.Mobile\build\web" && php -S localhost:9000"
-        timeout /t 1 >nul
-        start http://localhost:9000
-    ) else (
-        start "" "%~dp0QuranCircles.Mobile\build\web\index.html"
-    )
-)
+echo [3/3] Starting Flutter Mobile App (Web) on http://localhost:9000 ...
+start "Flutter Mobile Server (Port 9000)" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port 9000 -Path "%~dp0QuranCircles.Mobile\build\web"
+timeout /t 1 >nul
+start http://localhost:9000
 
 echo.
 echo ========================================================
