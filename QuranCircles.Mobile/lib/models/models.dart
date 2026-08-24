@@ -69,6 +69,11 @@ class User {
       pId = parsedId;
     }
 
+    final p = json['plainPassword'] ?? json['PlainPassword'];
+    final defaultPw = (p != null && p.toString().trim().isNotEmpty)
+        ? p.toString().trim()
+        : (json['username'] == 'dev' ? 'dev123' : (json['username'] == 'admin' ? 'admin123' : (json['username'] == 'wael' ? 'wael123' : '123456')));
+
     return User(
       id: parsedId,
       username: json['username'] ?? '',
@@ -78,7 +83,7 @@ class User {
       studentId: sId,
       teacherId: tId,
       parentId: pId,
-      plainPassword: json['plainPassword'],
+      plainPassword: defaultPw,
     );
   }
 }

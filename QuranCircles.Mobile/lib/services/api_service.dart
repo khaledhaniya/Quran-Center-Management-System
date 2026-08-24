@@ -820,5 +820,66 @@ class ApiService {
     }
     return {};
   }
+
+  // --- Developer Users Management ---
+  static Future<List<User>> getUsers() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/users'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
+        return list.map((x) => User.fromJson(x)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> createUser(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/users'),
+        headers: _headers(),
+        body: jsonEncode(data),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> updateUser(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/users/$id'),
+        headers: _headers(),
+        body: jsonEncode(data),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteUser(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/users/$id'),
+        headers: _headers(),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<AuditLog>> getAuditLogs() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/audit'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
+        return list.map((x) => AuditLog.fromJson(x)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
 }
 
