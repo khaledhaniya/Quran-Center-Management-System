@@ -36,8 +36,7 @@ public class UsersController : ControllerBase
                 u.IsActive,
                 u.TeacherId,
                 u.StudentId,
-                u.ParentId,
-                u.PlainPassword
+                u.ParentId
             })
             .ToListAsync();
         return Ok(users);
@@ -64,7 +63,7 @@ public class UsersController : ControllerBase
             TeacherId = dto.TeacherId,
             IsActive = true,
             PasswordHash = _hasher.HashPassword(dto.Password),
-            PlainPassword = dto.Password
+            PlainPassword = string.Empty
         };
 
         _db.Users.Add(user);
@@ -72,7 +71,14 @@ public class UsersController : ControllerBase
 
         await AuditLogger.LogAsync(_db, HttpContext, "CreateUser", $"إنشاء حساب جديد للمستخدم: {user.Username} ({user.FullName}) - الصفة: {user.Role}");
 
-        return CreatedAtAction(nameof(GetAll), new { id = user.Id }, user);
+        return CreatedAtAction(nameof(GetAll), new { id = user.Id }, new {
+            user.Id,
+            user.Username,
+            user.FullName,
+            Role = user.Role.ToString(),
+            user.TeacherId,
+            user.IsActive
+        });
     }
 
     [HttpPut("{id:int}")]
@@ -100,7 +106,7 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
             user.PasswordHash = _hasher.HashPassword(dto.Password);
-            user.PlainPassword = dto.Password;
+            user.PlainPassword = string.Empty;
         }
 
         await _db.SaveChangesAsync();

@@ -33,11 +33,7 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "اسم المستخدم غير موجود أو الحساب معطل." });
 
         bool isPasswordValid = false;
-        if (!string.IsNullOrEmpty(user.PlainPassword) && user.PlainPassword == dto.Password)
-        {
-            isPasswordValid = true;
-        }
-        else if (!string.IsNullOrEmpty(user.PasswordHash))
+        if (!string.IsNullOrEmpty(user.PasswordHash))
         {
             try
             {
@@ -47,6 +43,14 @@ public class AuthController : ControllerBase
             {
                 isPasswordValid = false;
             }
+        }
+        else if (!string.IsNullOrEmpty(user.PlainPassword) && user.PlainPassword == dto.Password)
+        {
+            // Auto-upgrade legacy plain password to secure hash immediately and clear plain password
+            isPasswordValid = true;
+            user.PasswordHash = _hasher.HashPassword(dto.Password);
+            user.PlainPassword = string.Empty;
+            await _db.SaveChangesAsync();
         }
 
         if (!isPasswordValid)

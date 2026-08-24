@@ -4184,7 +4184,7 @@ async function loadDeveloperUsers() {
                 <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
                 <td><code>${u.username}</code></td>
                 <td><span class="small text-muted">${refIdStr}</span></td>
-                <td><code style="color: var(--primary-color); font-weight: bold; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px;">${u.plainPassword || '••••••••'}</code></td>
+                <td><span class="badge badge-success" style="font-size: 0.8rem;"><i class="fa-solid fa-lock"></i> مشفرة وآمنة</span></td>
                 <td>
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
@@ -4245,7 +4245,7 @@ function filterUsersTable(query) {
             <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
             <td><code>${u.username}</code></td>
             <td><span class="small text-muted">${refIdStr}</span></td>
-            <td><code style="color: var(--primary-color); font-weight: bold; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px;">${u.plainPassword || '••••••••'}</code></td>
+            <td><span class="badge badge-success" style="font-size: 0.8rem;"><i class="fa-solid fa-lock"></i> مشفرة وآمنة</span></td>
             <td>
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
@@ -4387,8 +4387,8 @@ function showEditUserModal(user) {
                 </div>
                 
                 <div class="form-group">
-                    <label for="edit-user-password">كلمة المرور (Password):</label>
-                    <input type="text" id="edit-user-password" class="form-control" value="${user.plainPassword || ''}" placeholder="أدخل كلمة مرور جديدة أو عدّلها...">
+                    <label for="edit-user-password">تعيين كلمة مرور جديدة (اتركها فارغة لعدم التغيير):</label>
+                    <input type="password" id="edit-user-password" class="form-control" placeholder="اتركها فارغة للإبقاء على الحالية أو أدخل كلمة جديدة...">
                 </div>
             </div>
             

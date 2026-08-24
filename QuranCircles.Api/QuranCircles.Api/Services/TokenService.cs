@@ -33,9 +33,11 @@ public class TokenService
         var payloadBase64 = parts[0];
         var signature = parts[1];
 
-        // Verify signature
+        // Verify signature using constant-time comparison to prevent timing attacks
         var expectedSignature = ComputeHmac(payloadBase64);
-        if (signature != expectedSignature) return false;
+        var sigBytes = Encoding.UTF8.GetBytes(signature);
+        var expectedBytes = Encoding.UTF8.GetBytes(expectedSignature);
+        if (!CryptographicOperations.FixedTimeEquals(sigBytes, expectedBytes)) return false;
 
         try
         {

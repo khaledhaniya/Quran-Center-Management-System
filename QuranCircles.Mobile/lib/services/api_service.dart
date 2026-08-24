@@ -42,9 +42,6 @@ class ApiService {
     if (authToken != null && authToken!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $authToken';
     }
-    if (currentUser != null) {
-      headers['X-User-Id'] = currentUser!.id.toString();
-    }
     if (code2FA != null && code2FA.isNotEmpty) {
       headers['X-2FA-Code'] = code2FA;
     }

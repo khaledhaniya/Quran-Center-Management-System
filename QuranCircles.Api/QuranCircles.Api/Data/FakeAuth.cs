@@ -36,14 +36,6 @@ public static class FakeAuth
             }
         }
 
-        var userIdHeader = ctx.Request.Headers["X-User-Id"].FirstOrDefault();
-        if (int.TryParse(userIdHeader, out var userId))
-        {
-            var db = ctx.RequestServices.GetRequiredService<AppDbContext>();
-            var user = db.Users.Find(userId);
-            if (user != null) return user.Role;
-        }
-
         return null;
     }
 
@@ -59,10 +51,19 @@ public static class FakeAuth
             }
         }
 
-        var userIdHeader = ctx.Request.Headers["X-User-Id"].FirstOrDefault();
-        if (int.TryParse(userIdHeader, out var uid))
+        return null;
+    }
+
+    public static string? GetUsername(HttpContext ctx)
+    {
+        var token = GetToken(ctx);
+        if (token != null)
         {
-            return uid;
+            var tokenSvc = ctx.RequestServices.GetRequiredService<TokenService>();
+            if (tokenSvc.ValidateToken(token, out _, out _, out var username))
+            {
+                return username;
+            }
         }
 
         return null;

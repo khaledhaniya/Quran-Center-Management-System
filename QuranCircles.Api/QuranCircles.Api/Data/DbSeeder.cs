@@ -39,7 +39,6 @@ public static class DbSeeder
             { 
                 Username = "dev", 
                 PasswordHash = hasher.HashPassword("dev123"), 
-                PlainPassword = "dev123",
                 Role = UserRole.Developer, 
                 FullName = "مطور النظام", 
                 IsActive = true 
@@ -49,7 +48,6 @@ public static class DbSeeder
             { 
                 Username = "admin", 
                 PasswordHash = hasher.HashPassword("admin123"), 
-                PlainPassword = "admin123",
                 Role = UserRole.Admin, 
                 FullName = "مدير المركز", 
                 IsActive = true 
@@ -59,7 +57,6 @@ public static class DbSeeder
             { 
                 Username = "ahmad", 
                 PasswordHash = hasher.HashPassword("teacher123"), 
-                PlainPassword = "teacher123",
                 Role = UserRole.Teacher, 
                 FullName = "الشيخ أحمد", 
                 TeacherId = t1.Id, 
@@ -70,7 +67,6 @@ public static class DbSeeder
             { 
                 Username = "khaled", 
                 PasswordHash = hasher.HashPassword("teacher123"), 
-                PlainPassword = "teacher123",
                 Role = UserRole.Teacher, 
                 FullName = "الشيخ خالد", 
                 TeacherId = t2.Id, 
@@ -81,7 +77,6 @@ public static class DbSeeder
             { 
                 Username = "mohammad", 
                 PasswordHash = hasher.HashPassword("student123"), 
-                PlainPassword = "student123",
                 Role = UserRole.Student, 
                 FullName = "محمد علي", 
                 StudentId = s1.Id, 
@@ -92,7 +87,6 @@ public static class DbSeeder
             { 
                 Username = "abdullah", 
                 PasswordHash = hasher.HashPassword("student123"), 
-                PlainPassword = "student123",
                 Role = UserRole.Student, 
                 FullName = "عبدالله سامي", 
                 StudentId = s2.Id, 
@@ -103,7 +97,6 @@ public static class DbSeeder
             { 
                 Username = "yousef", 
                 PasswordHash = hasher.HashPassword("student123"), 
-                PlainPassword = "student123",
                 Role = UserRole.Student, 
                 FullName = "يوسف ماهر", 
                 StudentId = s3.Id, 
@@ -114,7 +107,6 @@ public static class DbSeeder
             { 
                 Username = "parent100", 
                 PasswordHash = hasher.HashPassword("parent123"), 
-                PlainPassword = "parent123",
                 Role = UserRole.Parent, 
                 FullName = "أبو محمد (ولي أمر محمد وعبد الله)", 
                 ParentId = 100, // يمثل ParentId المستهدف في الكنترولر
@@ -125,7 +117,6 @@ public static class DbSeeder
             { 
                 Username = "parent101", 
                 PasswordHash = hasher.HashPassword("parent123"), 
-                PlainPassword = "parent123",
                 Role = UserRole.Parent, 
                 FullName = "أبو يوسف (ولي أمر يوسف)", 
                 ParentId = 101, // يمثل ParentId المستهدف في الكنترولر
@@ -312,6 +303,23 @@ public static class DbSeeder
                         EnableCertificates = true,
                         UpdatedAt = DateTime.UtcNow
                     });
+                    db.SaveChanges();
+                }
+            }
+            catch { }
+
+            // 4. Ensure all user passwords in database are securely hashed and plain text is purged
+            try
+            {
+                var unhashedUsers = db.Users.Where(u => string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword)).ToList();
+                if (unhashedUsers.Count != 0)
+                {
+                    var hasher = new PasswordHasher();
+                    foreach (var u in unhashedUsers)
+                    {
+                        u.PasswordHash = hasher.HashPassword(u.PlainPassword);
+                        u.PlainPassword = string.Empty;
+                    }
                     db.SaveChanges();
                 }
             }
