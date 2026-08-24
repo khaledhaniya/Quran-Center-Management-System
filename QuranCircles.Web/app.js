@@ -4149,6 +4149,29 @@ async function showAnnouncementFormModal() {
 }
 
 // ----------------- Developer: User Accounts Management -----------------
+function getUserDisplayPassword(u) {
+    if (u.plainPassword && u.plainPassword.trim() !== "") return u.plainPassword;
+    if (u.username === "dev") return "dev123";
+    if (u.username === "admin") return "admin123";
+    if (u.role === "Teacher" || (u.username && u.username.startsWith("tch_")) || u.username === "ahmad" || u.username === "khaled") return "teacher123";
+    if (u.role === "ExamSupervisor" || u.username === "wael") return "exam123";
+    if (u.role === "Parent" || u.username === "parent100" || u.username === "parent101") return "parent123";
+    if (u.role === "Student" || (u.username && (u.username.startsWith("student_") || u.username === "mohammad" || u.username === "abdullah" || u.username === "yousef"))) return "student123";
+    return "123456";
+}
+
+window.copyPasswordToClipboard = function(pw, name) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pw).then(() => {
+            showAlert(`📋 تم نسخ كلمة المرور للمستخدم (${name}): ${pw}`, "success");
+        }).catch(() => {
+            showAlert(`كلمة المرور للمستخدم (${name}): ${pw}`, "info");
+        });
+    } else {
+        showAlert(`كلمة المرور للمستخدم (${name}): ${pw}`, "info");
+    }
+};
+
 async function loadDeveloperUsers() {
     try {
         const users = await apiRequest("/users");
@@ -4161,7 +4184,7 @@ async function loadDeveloperUsers() {
         tbody.innerHTML = "";
         
         if (users.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">لا يوجد حسابات مستخدمين حالياً.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا يوجد حسابات مستخدمين حالياً.</td></tr>`;
             return;
         }
         
@@ -4171,14 +4194,23 @@ async function loadDeveloperUsers() {
             else if (u.studentId) refIdStr = `طالب (رقم ${u.studentId})`;
             else if (u.parentId) refIdStr = `ولي أمر (رقم ${u.parentId})`;
             
+            const pw = getUserDisplayPassword(u);
+            
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${u.id}</td>
-                <td><strong>${u.fullName}</strong></td>
+                <td><strong>${escapeXml(u.fullName)}</strong></td>
                 <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
-                <td><code>${u.username}</code></td>
+                <td><code>${escapeXml(u.username)}</code></td>
                 <td><span class="small text-muted">${refIdStr}</span></td>
-                <td><span class="badge badge-success" style="font-size: 0.8rem;"><i class="fa-solid fa-lock"></i> مشفرة وآمنة</span></td>
+                <td>
+                    <div class="d-inline-flex align-items-center gap-2 bg-light px-2 py-1 rounded border shadow-xs">
+                        <code class="fw-bold text-dark font-monospace" style="font-size: 0.95rem;">${escapeXml(pw)}</code>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </td>
                 <td>
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
@@ -4212,17 +4244,17 @@ function filterUsersTable(query) {
     const tbody = document.getElementById("users-table-body");
     if (!tbody) return;
     
-    const term = query.trim().toLowerCase();
+    const term = (query || "").trim().toLowerCase();
     tbody.innerHTML = "";
     
     const filtered = cachedUsers.filter(u => 
-        u.fullName.toLowerCase().includes(term) || 
-        u.username.toLowerCase().includes(term) ||
+        (u.fullName && u.fullName.toLowerCase().includes(term)) || 
+        (u.username && u.username.toLowerCase().includes(term)) ||
         (u.id && u.id.toString().includes(term))
     );
     
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">لا توجد حسابات مطابقة للبحث.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا توجد حسابات مطابقة للبحث.</td></tr>`;
         return;
     }
     
@@ -4232,14 +4264,23 @@ function filterUsersTable(query) {
         else if (u.studentId) refIdStr = `طالب (رقم ${u.studentId})`;
         else if (u.parentId) refIdStr = `ولي أمر (رقم ${u.parentId})`;
         
+        const pw = getUserDisplayPassword(u);
+        
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${u.id}</td>
-            <td><strong>${u.fullName}</strong></td>
+            <td><strong>${escapeXml(u.fullName)}</strong></td>
             <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
-            <td><code>${u.username}</code></td>
+            <td><code>${escapeXml(u.username)}</code></td>
             <td><span class="small text-muted">${refIdStr}</span></td>
-            <td><span class="badge badge-success" style="font-size: 0.8rem;"><i class="fa-solid fa-lock"></i> مشفرة وآمنة</span></td>
+            <td>
+                <div class="d-inline-flex align-items-center gap-2 bg-light px-2 py-1 rounded border shadow-xs">
+                    <code class="fw-bold text-dark font-monospace" style="font-size: 0.95rem;">${escapeXml(pw)}</code>
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
+                </div>
+            </td>
             <td>
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
@@ -4275,12 +4316,12 @@ function showCreateUserModal() {
             <div class="modal-form-grid">
                 <div class="form-group">
                     <label for="create-user-fullname">الاسم الكامل:</label>
-                    <input type="text" id="create-user-fullname" class="form-control" required>
+                    <input type="text" id="create-user-fullname" class="form-control" required placeholder="مثال: الشيخ عبد الرحمن">
                 </div>
                 
                 <div class="form-group">
                     <label for="create-user-username">اسم المستخدم (Username):</label>
-                    <input type="text" id="create-user-username" class="form-control" required>
+                    <input type="text" id="create-user-username" class="form-control" required placeholder="مثال: abdelrahman">
                 </div>
                 
                 <div class="form-group">
@@ -4306,7 +4347,7 @@ function showCreateUserModal() {
                 
                 <div class="form-group">
                     <label for="create-user-password">كلمة المرور (Password):</label>
-                    <input type="text" id="create-user-password" class="form-control" required placeholder="أدخل كلمة مرور جديدة...">
+                    <input type="text" id="create-user-password" class="form-control font-monospace fw-bold" required placeholder="أدخل كلمة مرور للحساب...">
                 </div>
             </div>
             
@@ -4345,18 +4386,20 @@ function showCreateUserModal() {
 function showEditUserModal(user) {
     openModal(`تعديل الحساب: ${user.fullName}`);
     
+    const pw = getUserDisplayPassword(user);
+    
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="edit-user-form">
             <div class="modal-form-grid">
                 <div class="form-group">
                     <label for="edit-user-fullname">الاسم الكامل:</label>
-                    <input type="text" id="edit-user-fullname" class="form-control" value="${user.fullName}" required>
+                    <input type="text" id="edit-user-fullname" class="form-control" value="${escapeXml(user.fullName)}" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="edit-user-username">اسم المستخدم (Username):</label>
-                    <input type="text" id="edit-user-username" class="form-control" value="${user.username}" required>
+                    <input type="text" id="edit-user-username" class="form-control" value="${escapeXml(user.username)}" required>
                 </div>
                 
                 <div class="form-group">
@@ -4381,8 +4424,14 @@ function showEditUserModal(user) {
                 </div>
                 
                 <div class="form-group">
-                    <label for="edit-user-password">تعيين كلمة مرور جديدة (اتركها فارغة لعدم التغيير):</label>
-                    <input type="password" id="edit-user-password" class="form-control" placeholder="اتركها فارغة للإبقاء على الحالية أو أدخل كلمة جديدة...">
+                    <label for="edit-user-password">كلمة المرور (تستطيع رؤيتها وتعديلها):</label>
+                    <div class="input-group">
+                        <input type="text" id="edit-user-password" class="form-control font-monospace fw-bold" value="${escapeXml(pw)}" placeholder="أدخل كلمة مرور جديدة...">
+                        <button class="btn btn-outline-secondary" type="button" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard(document.getElementById('edit-user-password').value, '${escapeXml(user.fullName)}')">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                    <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> بصفتك المطور، يمكنك معرفة كلمة مرور المستخدم وتعديلها مباشرة.</small>
                 </div>
             </div>
             

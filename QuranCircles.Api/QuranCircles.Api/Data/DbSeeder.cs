@@ -32,13 +32,14 @@ public static class DbSeeder
         db.Students.AddRange(s1, s2, s3);
         db.SaveChanges();
 
-        // 4. إضافة حسابات المستخدمين وتشفير كلمات المرور الخاصة بهم
+        // 4. إضافة حسابات المستخدمين وتشفير كلمات المرور الخاصة بهم مع حفظ كلمة المرور للمطور
         db.Users.AddRange(
             // المطور (Developer)
             new User 
             { 
                 Username = "dev", 
                 PasswordHash = hasher.HashPassword("dev123"), 
+                PlainPassword = "dev123",
                 Role = UserRole.Developer, 
                 FullName = "مطور النظام", 
                 IsActive = true 
@@ -48,6 +49,7 @@ public static class DbSeeder
             { 
                 Username = "admin", 
                 PasswordHash = hasher.HashPassword("admin123"), 
+                PlainPassword = "admin123",
                 Role = UserRole.Admin, 
                 FullName = "مدير المركز", 
                 IsActive = true 
@@ -57,6 +59,7 @@ public static class DbSeeder
             { 
                 Username = "ahmad", 
                 PasswordHash = hasher.HashPassword("teacher123"), 
+                PlainPassword = "teacher123",
                 Role = UserRole.Teacher, 
                 FullName = "الشيخ أحمد", 
                 TeacherId = t1.Id, 
@@ -67,6 +70,7 @@ public static class DbSeeder
             { 
                 Username = "khaled", 
                 PasswordHash = hasher.HashPassword("teacher123"), 
+                PlainPassword = "teacher123",
                 Role = UserRole.Teacher, 
                 FullName = "الشيخ خالد", 
                 TeacherId = t2.Id, 
@@ -77,6 +81,7 @@ public static class DbSeeder
             { 
                 Username = "mohammad", 
                 PasswordHash = hasher.HashPassword("student123"), 
+                PlainPassword = "student123",
                 Role = UserRole.Student, 
                 FullName = "محمد علي", 
                 StudentId = s1.Id, 
@@ -87,6 +92,7 @@ public static class DbSeeder
             { 
                 Username = "abdullah", 
                 PasswordHash = hasher.HashPassword("student123"), 
+                PlainPassword = "student123",
                 Role = UserRole.Student, 
                 FullName = "عبدالله سامي", 
                 StudentId = s2.Id, 
@@ -97,6 +103,7 @@ public static class DbSeeder
             { 
                 Username = "yousef", 
                 PasswordHash = hasher.HashPassword("student123"), 
+                PlainPassword = "student123",
                 Role = UserRole.Student, 
                 FullName = "يوسف ماهر", 
                 StudentId = s3.Id, 
@@ -107,6 +114,7 @@ public static class DbSeeder
             { 
                 Username = "parent100", 
                 PasswordHash = hasher.HashPassword("parent123"), 
+                PlainPassword = "parent123",
                 Role = UserRole.Parent, 
                 FullName = "أبو محمد (ولي أمر محمد وعبد الله)", 
                 ParentId = 100, // يمثل ParentId المستهدف في الكنترولر
@@ -117,10 +125,21 @@ public static class DbSeeder
             { 
                 Username = "parent101", 
                 PasswordHash = hasher.HashPassword("parent123"), 
+                PlainPassword = "parent123",
                 Role = UserRole.Parent, 
                 FullName = "أبو يوسف (ولي أمر يوسف)", 
                 ParentId = 101, // يمثل ParentId المستهدف في الكنترولر
                 IsActive = true 
+            },
+            // حساب مشرف ومقيم الاختبارات
+            new User
+            {
+                Username = "wael",
+                PasswordHash = hasher.HashPassword("exam123"),
+                PlainPassword = "exam123",
+                Role = UserRole.ExamSupervisor,
+                FullName = "المشرف وائل هلية",
+                IsActive = true
             }
         );
         db.SaveChanges();
@@ -308,18 +327,36 @@ public static class DbSeeder
             }
             catch { }
 
-            // 4. Ensure all user passwords in database are securely hashed and plain text is purged
+            // 4. Ensure all user passwords have their plain password populated for Developer view and management
             try
             {
-                var unhashedUsers = db.Users.Where(u => string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword)).ToList();
-                if (unhashedUsers.Count != 0)
+                var users = db.Users.ToList();
+                var hasher = new PasswordHasher();
+                bool changed = false;
+
+                foreach (var u in users)
                 {
-                    var hasher = new PasswordHasher();
-                    foreach (var u in unhashedUsers)
+                    if (string.IsNullOrEmpty(u.PlainPassword))
+                    {
+                        if (u.Username == "dev") u.PlainPassword = "dev123";
+                        else if (u.Username == "admin") u.PlainPassword = "admin123";
+                        else if (u.Role == UserRole.Teacher || u.Username == "ahmad" || u.Username == "khaled") u.PlainPassword = "teacher123";
+                        else if (u.Role == UserRole.ExamSupervisor || u.Username == "wael") u.PlainPassword = "exam123";
+                        else if (u.Role == UserRole.Parent) u.PlainPassword = "parent123";
+                        else if (u.Role == UserRole.Student) u.PlainPassword = "student123";
+                        else u.PlainPassword = "123456";
+                        changed = true;
+                    }
+
+                    if (string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword))
                     {
                         u.PasswordHash = hasher.HashPassword(u.PlainPassword);
-                        u.PlainPassword = string.Empty;
+                        changed = true;
                     }
+                }
+
+                if (changed)
+                {
                     db.SaveChanges();
                 }
             }

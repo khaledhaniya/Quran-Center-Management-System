@@ -24,7 +24,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> GetAll()
     {
         var users = await _db.Users
@@ -36,14 +36,17 @@ public class UsersController : ControllerBase
                 u.IsActive,
                 u.TeacherId,
                 u.StudentId,
-                u.ParentId
+                u.ParentId,
+                PlainPassword = !string.IsNullOrEmpty(u.PlainPassword) 
+                    ? u.PlainPassword 
+                    : (u.Username == "dev" ? "dev123" : u.Username == "admin" ? "admin123" : (u.Role == UserRole.Teacher ? "teacher123" : (u.Role == UserRole.ExamSupervisor ? "exam123" : "123456")))
             })
             .ToListAsync();
         return Ok(users);
     }
 
     [HttpPost]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
@@ -63,7 +66,7 @@ public class UsersController : ControllerBase
             TeacherId = dto.TeacherId,
             IsActive = true,
             PasswordHash = _hasher.HashPassword(dto.Password),
-            PlainPassword = string.Empty
+            PlainPassword = dto.Password.Trim()
         };
 
         _db.Users.Add(user);
@@ -77,7 +80,8 @@ public class UsersController : ControllerBase
             user.FullName,
             Role = user.Role.ToString(),
             user.TeacherId,
-            user.IsActive
+            user.IsActive,
+            user.PlainPassword
         });
     }
 
@@ -106,7 +110,7 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
             user.PasswordHash = _hasher.HashPassword(dto.Password);
-            user.PlainPassword = string.Empty;
+            user.PlainPassword = dto.Password.Trim();
         }
 
         await _db.SaveChangesAsync();
@@ -134,6 +138,7 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
+
     [HttpGet("supervisors")]
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> GetSupervisors()
@@ -145,6 +150,3 @@ public class UsersController : ControllerBase
         return Ok(supervisors);
     }
 }
-
-public record CreateUserDto(string Username, string FullName, string Role, string Password, int? TeacherId);
-public record UpdateUserDto(string Username, string FullName, string Role, string? Password, int? TeacherId);
