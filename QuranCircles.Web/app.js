@@ -8065,104 +8065,127 @@ async function loadSystemSettingsForm() {
         cachedSystemSettings = settings;
 
         container.innerHTML = `
-            <div class="card shadow-sm p-4" style="border-radius: 14px; background: #ffffff;">
-                <div class="alert alert-info border-info d-flex align-items-center gap-3 mb-4">
-                    <div class="bg-primary text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
-                        <i class="fa-solid fa-sliders fa-lg"></i>
+            <div class="settings-cms-container">
+                <div class="settings-info-banner shadow-sm">
+                    <div class="settings-info-icon">
+                        <i class="fa-solid fa-sliders"></i>
                     </div>
                     <div>
-                        <h6 class="fw-bold mb-1 text-primary">لوحة تحكم إعدادات المنظومة الشاملة (Web & Mobile Dynamic CMS)</h6>
-                        <small class="text-muted">يمكنك تعديل أي خاصية أو نص أو ميزة للمركز بدون الرجوع للمطور أو تعديل الكود البرمجي، وسيتم تطبيق التعديلات فورياً على الويب والموبايل.</small>
+                        <h4 style="font-weight: 800; color: #0d5c3a; margin-bottom: 4px; font-size: 1.05rem;">لوحة تحكم إعدادات المنظومة الشاملة (Web & Mobile Dynamic CMS)</h4>
+                        <p style="margin: 0; color: #475569; font-size: 0.88rem; line-height: 1.5;">يمكنك تعديل أي خاصية أو نص أو ميزة للمركز بدون الرجوع للمطور أو تعديل الكود، وسيتم تطبيق كافة التغييرات فورياً وتلقائياً على موقع الويب وتطبيق الموبايل.</p>
                     </div>
                 </div>
 
-                <form id="system-settings-form">
-                    <div class="row g-4">
-                        <!-- Section 1: الهوية والعناوين -->
-                        <div class="col-12"><h5 class="fw-bold text-success border-bottom pb-2 mb-2"><i class="fa-solid fa-mosque me-2"></i> 1. الهوية والبيانات الرسمية للمركز</h5></div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark">اسم مركز التحفيظ الرسمي:</label>
-                            <input type="text" id="setting-center-name" class="form-control border-success" value="${escapeXml(settings.centerName || 'مركز البيان لتعليم القرآن الكريم')}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark">اسم المسجد / المقر:</label>
-                            <input type="text" id="setting-mosque-name" class="form-control" value="${escapeXml(settings.mosqueName || 'مسجد التقوى')}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark">رقم هاتف الدعم الفني / الإدارة:</label>
-                            <input type="text" id="setting-support-phone" class="form-control" value="${escapeXml(settings.supportPhone || '+970599000000')}">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark">نمط التصميم المعتمد:</label>
-                            <select id="setting-theme-style" class="form-select border-primary">
-                                <option value="Classic" ${settings.themeStyle === 'Classic' ? 'selected' : ''}>🕌 النمط التراثي الإسلامي الكلاسيكي (Heritage Classic)</option>
-                                <option value="Modern" ${settings.themeStyle === 'Modern' ? 'selected' : ''}>🌟 النمط العصري الحديث</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-bold text-dark">رسالة الترحيب والشعار العام:</label>
-                            <input type="text" id="setting-welcome-msg" class="form-control" value="${escapeXml(settings.welcomeMessage || 'مرحباً بكم في منصة تحفيظ القرآن الكريم')}">
+                <div class="settings-card shadow-sm">
+                    <form id="system-settings-form">
+                        <!-- Section 1: الهوية والبيانات الرسمية -->
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-mosque"></i> 1. الهوية والبيانات الرسمية للمركز</h4>
                         </div>
 
-                        <!-- Section 2: مفاتيح الميزات والتحكم بالصلاحيات (Feature Flags) -->
-                        <div class="col-12 mt-4"><h5 class="fw-bold text-success border-bottom pb-2 mb-2"><i class="fa-solid fa-toggle-on me-2"></i> 2. مفاتيح الميزات والتحكم بالعرض (Feature Flags)</h5></div>
-                        
-                        <div class="col-md-6">
-                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-show-student-count">إظهار عدد الطلاب في لوحة المعلم</label>
-                                    <small class="text-muted">عند التعطيل، يتم إخفاء إجمالي الطلاب من لوحة تحكم المعلم.</small>
-                                </div>
-                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-show-student-count" ${settings.showStudentCountToTeacher ? 'checked' : ''}>
+                        <div class="settings-grid-2col">
+                            <div class="settings-input-group">
+                                <label for="setting-center-name"><i class="fa-solid fa-building-columns"></i> اسم مركز التحفيظ الرسمي:</label>
+                                <input type="text" id="setting-center-name" class="settings-input-control" value="${escapeXml(settings.centerName || 'مركز البيان لتعليم القرآن الكريم')}" placeholder="مثال: مركز البيان لتعليم القرآن الكريم" required>
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-mosque-name"><i class="fa-solid fa-kaaba"></i> اسم المسجد / المقر الرئيسي:</label>
+                                <input type="text" id="setting-mosque-name" class="settings-input-control" value="${escapeXml(settings.mosqueName || 'مسجد علي بن أبي طالب')}" placeholder="مثال: مسجد علي بن أبي طالب" required>
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-support-phone"><i class="fa-solid fa-phone-volume"></i> رقم هاتف الإدارة / الدعم الفني:</label>
+                                <input type="text" id="setting-support-phone" class="settings-input-control" value="${escapeXml(settings.supportPhone || '+970599000000')}" placeholder="مثال: +970599000000" dir="ltr" style="text-align: right;">
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-theme-style"><i class="fa-solid fa-palette"></i> نمط التصميم وهوية الألوان:</label>
+                                <select id="setting-theme-style" class="settings-input-control">
+                                    <option value="Classic" ${settings.themeStyle === 'Classic' ? 'selected' : ''}>🕌 النمط التراثي الإسلامي الأصيل (Heritage Classic - أخضر وذهبي)</option>
+                                    <option value="Modern" ${settings.themeStyle === 'Modern' ? 'selected' : ''}>🌟 النمط العصري الحديث (Modern Emerald)</option>
+                                </select>
+                            </div>
+
+                            <div class="settings-input-group settings-grid-full">
+                                <label for="setting-welcome-msg"><i class="fa-solid fa-quote-right"></i> رسالة الترحيب والشعار العام:</label>
+                                <input type="text" id="setting-welcome-msg" class="settings-input-control" value="${escapeXml(settings.welcomeMessage || 'مرحباً بكم في منصة تحفيظ القرآن الكريم والعلوم الشرعية')}" placeholder="اكتب عبارة الترحيب الظاهرة في التطبيق والواجهة...">
                             </div>
                         </div>
 
-                        <div class="col-md-6">
-                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-show-cumulative-attendance">إظهار الحضور التراكمي في كشف التسميع</label>
-                                    <small class="text-muted">عرض نسب الحضور والغياب التراكمية في شاشات التسميع اليومية.</small>
-                                </div>
-                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance ? 'checked' : ''}>
-                            </div>
+                        <!-- Section 2: مفاتيح الميزات والتحكم بالعرض -->
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-toggle-on"></i> 2. مفاتيح الميزات والتحكم بالعرض (Feature Flags)</h4>
                         </div>
 
-                        <div class="col-md-6">
-                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-allow-teacher-enrollment">السماح للمعلم بتنسيب طلاب جدد لحلقته</label>
-                                    <small class="text-muted">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته مباشرة.</small>
+                        <div class="settings-flags-grid">
+                            <label class="settings-switch-card ${settings.showStudentCountToTeacher ? 'active' : ''}" for="setting-show-student-count">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-users text-success me-1"></i> إظهار إجمالي الطلاب في لوحة المعلم</span>
+                                    <span class="switch-desc">عند التعطيل، يتم إخفاء إجمالي الطلاب من لوحة المعلم للخصوصية.</span>
                                 </div>
-                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment ? 'checked' : ''}>
-                            </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-show-student-count" ${settings.showStudentCountToTeacher ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.showCumulativeAttendance ? 'active' : ''}" for="setting-show-cumulative-attendance">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-clipboard-user text-primary me-1"></i> إظهار الحضور التراكمي في كشف التسميع</span>
+                                    <span class="switch-desc">عرض نسب الحضور والغياب التراكمية في شاشات التسميع اليومية.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.allowTeacherSelfEnrollment ? 'active' : ''}" for="setting-allow-teacher-enrollment">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-user-plus text-warning me-1"></i> السماح للمعلم بتنسيب طلاب جدد لحلقته</span>
+                                    <span class="switch-desc">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته مباشرة دون طلب إداري.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.allowPublicAnnouncements ? 'active' : ''}" for="setting-allow-public-announcements">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-bullhorn text-info me-1"></i> تفعيل التعاميم والإعلانات العامة</span>
+                                    <span class="switch-desc">إتاحة لوحة التعاميم والإعلانات لكافة حسابات المركز والطلاب.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.enableCertificates ? 'active' : ''}" for="setting-enable-certificates">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-certificate text-danger me-1"></i> تفعيل إصدار وطباعة الشهادات المعتمدة</span>
+                                    <span class="switch-desc">إصدار الشهادات الرسمية للطلاب الناجحين في المساقات واختبارات الأجزاء.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
                         </div>
 
-                        <div class="col-md-6">
-                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-allow-public-announcements">تفعيل التعاميم والاعلانات العامة</label>
-                                    <small class="text-muted">إتاحة لوحة التعاميم والإعلانات لكافة حسابات المركز.</small>
-                                </div>
-                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements ? 'checked' : ''}>
-                            </div>
+                        <!-- Action Bar -->
+                        <div class="settings-actions-footer">
+                            <button type="submit" class="btn btn-save-settings">
+                                <i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة
+                            </button>
+                            <button type="button" class="btn btn-light px-4" onclick="loadSystemSettingsForm()">
+                                <i class="fa-solid fa-rotate-left"></i> إعادة ضبط البيانات
+                            </button>
                         </div>
-
-                        <div class="col-md-6">
-                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <label class="form-check-label fw-bold text-dark d-block" for="setting-enable-certificates">تفعيل إصدار وطباعة الشهادات المعتمدة</label>
-                                    <small class="text-muted">إصدار الشهادات الرسمية للطلاب الناجحين في المساقات واختبارات الأجزاء.</small>
-                                </div>
-                                <input class="form-check-input fs-5 ms-0" type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates ? 'checked' : ''}>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                        <button type="submit" class="btn btn-success fw-bold px-4 py-2 fs-6 shadow"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتطبيق الإعدادات للمنظومة</button>
-                        <button type="button" class="btn btn-light px-4" onclick="loadSystemSettingsForm()"><i class="fa-solid fa-rotate-left me-1"></i> إعادة ضبط</button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         `;
 
