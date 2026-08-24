@@ -53,13 +53,18 @@ builder.Services.AddCors(options =>
     {
         policy.SetIsOriginAllowed(origin =>
               {
-                  if (string.IsNullOrEmpty(origin)) return false;
-                  var uri = new Uri(origin);
-                  return uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                         uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-                         allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) ||
-                         origin.EndsWith(".github.io", StringComparison.OrdinalIgnoreCase) ||
-                         origin.EndsWith(".onrender.com", StringComparison.OrdinalIgnoreCase);
+                  if (string.IsNullOrWhiteSpace(origin) || origin.Equals("null", StringComparison.OrdinalIgnoreCase)) 
+                      return true;
+
+                  if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                  {
+                      return uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                             uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                             allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) ||
+                             origin.EndsWith(".github.io", StringComparison.OrdinalIgnoreCase) ||
+                             origin.EndsWith(".onrender.com", StringComparison.OrdinalIgnoreCase);
+                  }
+                  return true;
               })
               .AllowAnyMethod()
               .AllowAnyHeader()
