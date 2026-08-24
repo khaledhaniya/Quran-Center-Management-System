@@ -4150,10 +4150,27 @@ async function showAnnouncementFormModal() {
 
 // ----------------- Developer: User Accounts Management -----------------
 function getUserDisplayPassword(u) {
-    if (u.plainPassword && u.plainPassword.trim() !== "") return u.plainPassword;
-    if (u.username === "dev") return "dev123";
-    if (u.username === "admin") return "admin123";
-    if (u.username === "wael") return "wael123";
+    if (!u) return "123456";
+    
+    // 1. Check persistent localStorage update (instant guarantee for developer modifications)
+    if (u.id) {
+        const localById = localStorage.getItem("user_pw_" + u.id);
+        if (localById && localById.trim() !== "") return localById.trim();
+    }
+    if (u.username) {
+        const localByUsername = localStorage.getItem("user_pw_" + u.username.toLowerCase().trim());
+        if (localByUsername && localByUsername.trim() !== "") return localByUsername.trim();
+    }
+
+    // 2. Check API returned fields
+    const p = u.plainPassword || u.PlainPassword;
+    if (p && p.trim() !== "") return p.trim();
+
+    // 3. Known system credentials
+    const uName = (u.username || "").toLowerCase().trim();
+    if (uName === "dev") return "dev123";
+    if (uName === "admin") return "admin123";
+    if (uName === "wael") return "wael123";
     return "123456";
 }
 
@@ -4169,93 +4186,17 @@ window.copyPasswordToClipboard = function(pw, name) {
     }
 };
 
-async function loadDeveloperUsers() {
-    try {
-        const users = await apiRequest("/users");
-        cachedUsers = users;
-        
-        const searchInput = document.getElementById("users-search-input");
-        if (searchInput) searchInput.value = "";
-        
-        const tbody = document.getElementById("users-table-body");
-        tbody.innerHTML = "";
-        
-        if (users.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا يوجد حسابات مستخدمين حالياً.</td></tr>`;
-            return;
-        }
-        
-        users.forEach(u => {
-            let refIdStr = "-";
-            if (u.teacherId) refIdStr = `معلّم (رقم ${u.teacherId})`;
-            else if (u.studentId) refIdStr = `طالب (رقم ${u.studentId})`;
-            else if (u.parentId) refIdStr = `ولي أمر (رقم ${u.parentId})`;
-            
-            const pw = getUserDisplayPassword(u);
-            
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${u.id}</td>
-                <td><strong>${escapeXml(u.fullName)}</strong></td>
-                <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
-                <td><code>${escapeXml(u.username)}</code></td>
-                <td><span class="small text-muted">${refIdStr}</span></td>
-                <td style="white-space: nowrap;">
-                    <div class="d-inline-flex align-items-center gap-2 bg-light px-2.5 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
-                        <code class="fw-bold text-dark font-monospace" style="font-size: 0.92rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
-                            <i class="fa-solid fa-copy"></i>
-                        </button>
-                    </div>
-                </td>
-                <td>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
-                        <button class="btn btn-danger btn-sm btn-delete-user" data-id="${u.id}"><i class="fa-solid fa-user-slash"></i> حذف</button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-        
-        // Bind Actions
-        tbody.querySelectorAll(".btn-edit-user").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-                const userId = e.target.closest("button").dataset.id;
-                const user = cachedUsers.find(x => x.id == userId);
-                if (user) showEditUserModal(user);
-            });
-        });
-        tbody.querySelectorAll(".btn-delete-user").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-                const userId = e.target.closest("button").dataset.id;
-                deleteUser(userId);
-            });
-        });
-    } catch(e) {
-        console.error(e);
-    }
-}
-
-function filterUsersTable(query) {
+function renderUsersTableRows(usersList) {
     const tbody = document.getElementById("users-table-body");
     if (!tbody) return;
-    
-    const term = (query || "").trim().toLowerCase();
     tbody.innerHTML = "";
     
-    const filtered = cachedUsers.filter(u => 
-        (u.fullName && u.fullName.toLowerCase().includes(term)) || 
-        (u.username && u.username.toLowerCase().includes(term)) ||
-        (u.id && u.id.toString().includes(term))
-    );
-    
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا توجد حسابات مطابقة للبحث.</td></tr>`;
+    if (!usersList || usersList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا توجد حسابات مستخدمين حالياً.</td></tr>`;
         return;
     }
     
-    filtered.forEach(u => {
+    usersList.forEach(u => {
         let refIdStr = "-";
         if (u.teacherId) refIdStr = `معلّم (رقم ${u.teacherId})`;
         else if (u.studentId) refIdStr = `طالب (رقم ${u.studentId})`;
@@ -4272,7 +4213,7 @@ function filterUsersTable(query) {
             <td><span class="small text-muted">${refIdStr}</span></td>
             <td style="white-space: nowrap;">
                 <div class="d-inline-flex align-items-center gap-2 bg-light px-2.5 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
-                    <code class="fw-bold text-dark font-monospace" style="font-size: 0.92rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
+                    <code class="fw-bold text-dark font-monospace user-pw-value" id="pw-user-${u.id}" style="font-size: 0.92rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
                     <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
                         <i class="fa-solid fa-copy"></i>
                     </button>
@@ -4302,6 +4243,42 @@ function filterUsersTable(query) {
             deleteUser(userId);
         });
     });
+}
+
+async function loadDeveloperUsers() {
+    try {
+        const users = await apiRequest("/users");
+        if (users && Array.isArray(users)) {
+            cachedUsers = users;
+        }
+        
+        const searchInput = document.getElementById("users-search-input");
+        if (searchInput) searchInput.value = "";
+        
+        renderUsersTableRows(cachedUsers);
+    } catch(e) {
+        console.error(e);
+        if (cachedUsers && cachedUsers.length > 0) {
+            renderUsersTableRows(cachedUsers);
+        }
+    }
+}
+
+function filterUsersTable(query) {
+    const term = (query || "").trim().toLowerCase();
+    
+    if (!term) {
+        renderUsersTableRows(cachedUsers);
+        return;
+    }
+    
+    const filtered = cachedUsers.filter(u => 
+        (u.fullName && u.fullName.toLowerCase().includes(term)) || 
+        (u.username && u.username.toLowerCase().includes(term)) ||
+        (u.id && u.id.toString().includes(term))
+    );
+    
+    renderUsersTableRows(filtered);
 }
 
 function showCreateUserModal() {
@@ -4370,7 +4347,11 @@ function showCreateUserModal() {
         };
         
         try {
-            await apiRequest("/users", "POST", dto);
+            const res = await apiRequest("/users", "POST", dto);
+            if (dto.password && dto.password.trim() !== "") {
+                if (res && res.id) localStorage.setItem("user_pw_" + res.id, dto.password.trim());
+                if (dto.username) localStorage.setItem("user_pw_" + dto.username.toLowerCase().trim(), dto.password.trim());
+            }
             showAlert("تم إنشاء حساب المستخدم بنجاح.", "success");
             closeModal();
             loadDeveloperUsers();
@@ -4460,6 +4441,13 @@ function showEditUserModal(user) {
         
         try {
             const res = await apiRequest(`/users/${user.id}`, "PUT", dto);
+            
+            // Persist the edited password in localStorage as immediate guaranteed truth!
+            if (password && password.trim() !== "") {
+                localStorage.setItem("user_pw_" + user.id, password.trim());
+                if (username) localStorage.setItem("user_pw_" + username.toLowerCase().trim(), password.trim());
+            }
+            
             showAlert("تم تحديث حساب المستخدم وكلمة المرور بنجاح.", "success");
             closeModal();
             
@@ -4471,9 +4459,18 @@ function showEditUserModal(user) {
                 targetUser.role = role;
                 if (password && password.trim() !== "") {
                     targetUser.plainPassword = password.trim();
+                    targetUser.PlainPassword = password.trim();
                 }
             }
-            await loadDeveloperUsers();
+            
+            // Re-render table rows instantly with updated user data
+            renderUsersTableRows(cachedUsers);
+            
+            // Also directly update the badge text if present in DOM
+            const pwBadge = document.getElementById(`pw-user-${user.id}`);
+            if (pwBadge && password && password.trim() !== "") {
+                pwBadge.textContent = password.trim();
+            }
         } catch(e) {
             console.error(e);
         }

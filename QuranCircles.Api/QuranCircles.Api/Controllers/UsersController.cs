@@ -156,3 +156,19 @@ public class UsersController : ControllerBase
         return Ok(supervisors);
     }
 }
+
+public record CreateUserDto(
+    string Username,
+    string FullName,
+    string Role,
+    string Password,
+    int? TeacherId = null
+);
+
+public record UpdateUserDto(
+    string Username,
+    string FullName,
+    string Role,
+    string? Password = null,
+    int? TeacherId = null
+);
