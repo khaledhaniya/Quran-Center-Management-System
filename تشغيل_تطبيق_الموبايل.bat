@@ -24,17 +24,19 @@ if %errorlevel% equ 0 (
     )
 )
 
-rem 2. تشغيل فلاتر أو فتح واجهة التطبيق مباشرة
-echo [2/2] فتح واجهة التطبيق في المتصفح...
+rem 2. تحديد مسار فلاتر وتشغيل التطبيق في كروم
+echo [2/2] جاري تشغيل تطبيق فلاتر الموبايل في المتصفح (Chrome)...
+
+set "FLUTTER_EXE=flutter"
 where flutter > nul 2>&1
-if %errorlevel% equ 0 (
-    cd /d "%BASE_DIR%QuranCircles.Mobile"
-    call flutter run -d chrome
-    goto done
+if %errorlevel% neq 0 (
+    if exist "D:\flutter_windows_3.41.9-stable\flutter\bin\flutter.bat" (
+        set "FLUTTER_EXE=D:\flutter_windows_3.41.9-stable\flutter\bin\flutter.bat"
+    )
 )
 
-start "" "%BASE_DIR%QuranCircles.Web\index.html"
+cd /d "%BASE_DIR%QuranCircles.Mobile"
+call "%FLUTTER_EXE%" run -d chrome
 
-:done
 echo.
 pause
