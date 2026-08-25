@@ -140,6 +140,32 @@ try
 }
 catch { }
 
+// Serve Flutter Mobile Web Build under /mobile/ path
+try
+{
+    var mobileCandidates = new[]
+    {
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "QuranCircles.Mobile", "build", "web")),
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "QuranCircles.Mobile", "build", "web")),
+        Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "QuranCircles.Mobile", "build", "web")),
+        @"c:\xampp\htdocs\Quran Center\QuranCircles.Mobile\build\web"
+    };
+
+    var mobileDir = mobileCandidates.FirstOrDefault(Directory.Exists);
+    if (mobileDir != null)
+    {
+        var mobileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(mobileDir);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = mobileProvider,
+            RequestPath = "/mobile"
+        });
+        app.MapGet("/mobile", () => Results.Redirect("/mobile/index.html"));
+    }
+}
+catch { }
+
+
 // Enterprise Security Headers
 app.Use(async (context, next) =>
 {
