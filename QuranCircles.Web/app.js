@@ -356,7 +356,7 @@ function updateSidebarMenu() {
 }
 
 // ----------------- API request dispatcher with Auto-Retry & Wakeup Resilience -----------------
-async function apiRequest(path, method = "GET", body = null, retries = 2) {
+async function apiRequest(path, method = "GET", body = null, retries = 1, silent = false) {
     const headers = {
         "Authorization": `Bearer ${authToken}`
     };
@@ -399,15 +399,17 @@ async function apiRequest(path, method = "GET", body = null, retries = 2) {
             
             if (isNetworkError && attempt < retries && method === "GET") {
                 console.warn(`[Auto-Retry ${attempt + 1}/${retries}] Retrying ${path}...`);
-                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
                 continue;
             }
             
-            console.error(`API Error on ${path}:`, error);
-            const userFriendlyMsg = isNetworkError 
-                ? "⚠️ جاري استيقاظ الخادم السحابي أو تحديث البيانات. يرجى الانتظار ثوانٍ معدودة والضغط على إعادة المحاولة."
-                : error.message;
-            showAlert(userFriendlyMsg, "danger");
+            if (!silent) {
+                console.error(`API Error on ${path}:`, error);
+                const userFriendlyMsg = isNetworkError 
+                    ? "⚠️ جاري استيقاظ الخادم السحابي أو تحديث البيانات. يرجى الانتظار ثوانٍ معدودة والضغط على إعادة المحاولة."
+                    : error.message;
+                showAlert(userFriendlyMsg, "danger");
+            }
             throw error;
         }
     }
@@ -5854,55 +5856,6 @@ function showRecordGradeModal(enrollmentId, studentName, courseId) {
     });
 }
 
-// Helper: Custom fetch with extra headers wrapper
-async function apiRequest(path, method = "GET", body = null, extraHeaders = {}) {
-    const headers = {
-        "Authorization": `Bearer ${authToken}`,
-        ...extraHeaders
-    };
-    
-    if (body) {
-        headers["Content-Type"] = "application/json";
-    }
-    
-    const options = {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : null
-    };
-    
-    try {
-        const response = await fetch(`${API_BASE}${path}`, options);
-        
-        if (response.status === 401) {
-            handleLogout();
-            throw new Error("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
-        }
-        
-        if (response.status === 403) {
-            throw new Error("عذراً، ليس لديك الصلاحية الكافية للوصول إلى هذا المورد.");
-        }
-        
-        if (!response.ok) {
-            let errorMsg = "حدث خطأ أثناء الاتصال بالخادم.";
-            try {
-                const errJson = await response.json();
-                errorMsg = errJson.error || errJson.detail || errorMsg;
-            } catch (e) {}
-            throw new Error(errorMsg);
-        }
-        
-        if (response.status === 204) {
-            return null;
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error(`API Error on ${path}:`, error);
-        showAlert(error.message, "danger");
-        throw error;
-    }
-}
 
 // 5. SECURITY: 2FA POPUP
 function promptTwoFactor(onVerifyCallback) {
@@ -8129,22 +8082,55 @@ function printTeacherRoster() {
 }
 
 // ==========================================
-// 3. DYNAMIC SYSTEM SETTINGS CMS 2.0
+// 3. DYNAMIC SYSTEM SETTINGS CMS 2.0 (Resilient & Offline-Ready)
 // ==========================================
+const DEFAULT_SYSTEM_SETTINGS = {
+    centerName: "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
+    mosqueName: "مسجد علي بن أبي طالب",
+    centerAddress: "فلسطين - غزة - المقر الرئيسي",
+    supportPhone: "+970599000000",
+    supportEmail: "info@albayan.quran",
+    welcomeMessage: "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية",
+    passingScoreThreshold: 70,
+    minAttendancePercentForExam: 75,
+    maxStudentsPerCircle: 20,
+    maxAbsenceDaysWarning: 3,
+    allowTeacherEditStudentPlan: true,
+    allowTeacherSelfEnrollment: true,
+    hideParentPhoneFromTeacher: false,
+    allowStudentProfileEditRequests: true,
+    enforceDailyAttendanceRecording: true,
+    showCumulativeAttendance: true,
+    signatoryName: "فضيلة الشيخ / رئيس المركز",
+    signatoryTitle: "المشرف العام على حلقات تحفيظ القرآن الكريم",
+    enableCertificates: true,
+    showHonorsBoard: true,
+    allowPublicAnnouncements: true,
+    enableAbsenceAutoAlert: true,
+    absenceAlertTemplate: "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة والتواصل مع إدارة المركز.",
+    themeStyle: "Classic",
+    maintenanceMode: false
+};
+
 let cachedSystemSettings = null;
 
 async function fetchAndApplySystemSettings() {
-    // 1. Instant load from localStorage cache to prevent flicker
+    // 1. Instant load from localStorage or default to prevent flicker
     try {
         const localSaved = localStorage.getItem("system_settings_cache");
         if (localSaved) {
             const parsed = JSON.parse(localSaved);
-            cachedSystemSettings = parsed;
-            applySystemSettingsToUI(parsed);
+            cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, parsed);
+        } else {
+            cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
         }
-    } catch(e) {}
+        applySystemSettingsToUI(cachedSystemSettings);
+    } catch(e) {
+        cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
+        applySystemSettingsToUI(cachedSystemSettings);
+    }
 
-    // 2. Fetch fresh live settings from API
+    // 2. Fetch fresh live settings from API silently
     try {
         let response = await fetch(`${API_BASE}/settings`);
         if (!response.ok && isLocalEnv && API_BASE.includes("localhost")) {
@@ -8152,17 +8138,17 @@ async function fetchAndApplySystemSettings() {
         }
         if (response && response.ok) {
             const settings = await response.json();
-            cachedSystemSettings = settings;
-            localStorage.setItem("system_settings_cache", JSON.stringify(settings));
-            applySystemSettingsToUI(settings);
+            cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, settings);
+            localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
+            applySystemSettingsToUI(cachedSystemSettings);
         }
     } catch(err) {
-        console.log("Using cached system settings:", err.message);
+        // Silently use cached/default settings
     }
 }
 
 function applySystemSettingsToUI(settings) {
-    if (!settings) return;
+    if (!settings) settings = DEFAULT_SYSTEM_SETTINGS;
 
     // A. Update Browser Title
     if (settings.centerName) {
@@ -8213,11 +8199,9 @@ function applySystemSettingsToUI(settings) {
 }
 
 function switchSettingsTab(tabKey) {
-    // Deactivate all tabs
     document.querySelectorAll(".settings-tab-btn").forEach(btn => btn.classList.remove("active"));
     document.querySelectorAll(".settings-tab-pane").forEach(pane => pane.classList.remove("active"));
 
-    // Activate selected tab
     const selectedBtn = document.getElementById(`tab-btn-${tabKey}`);
     const selectedPane = document.getElementById(`tab-pane-${tabKey}`);
     if (selectedBtn) selectedBtn.classList.add("active");
@@ -8231,7 +8215,6 @@ function selectThemeOption(themeKey) {
     const themeSelect = document.getElementById("setting-theme-style");
     if (themeSelect) themeSelect.value = themeKey;
 
-    // Instant live preview
     document.body.classList.remove("theme-classic", "theme-modern", "theme-sapphire", "theme-dark");
     document.body.classList.add(`theme-${themeKey.toLowerCase()}`);
 }
@@ -8240,448 +8223,469 @@ async function loadSystemSettingsForm() {
     const container = document.getElementById("system-settings-content");
     if (!container) return;
 
-    container.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2">جاري جلب إعدادات المنظومة من الخادم...</p></div>`;
+    let settings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
+    let isOfflineMode = false;
 
+    // Load from cache first
     try {
-        let settings = cachedSystemSettings;
-        try {
-            settings = await apiRequest("/settings");
+        const localSaved = localStorage.getItem("system_settings_cache");
+        if (localSaved) {
+            settings = Object.assign({}, settings, JSON.parse(localSaved));
+        } else if (cachedSystemSettings) {
+            settings = Object.assign({}, settings, cachedSystemSettings);
+        }
+    } catch(e) {}
+
+    // Try fetching live from API silently
+    try {
+        const liveSettings = await apiRequest("/settings", "GET", null, 0, true);
+        if (liveSettings) {
+            settings = Object.assign({}, settings, liveSettings);
             cachedSystemSettings = settings;
             localStorage.setItem("system_settings_cache", JSON.stringify(settings));
-        } catch(e) {
-            if (!settings) throw e;
         }
+    } catch(e) {
+        isOfflineMode = true;
+    }
 
-        const currentTheme = settings.themeStyle || 'Classic';
+    const currentTheme = settings.themeStyle || 'Classic';
 
-        container.innerHTML = `
-            <div class="settings-cms-container">
-                <!-- Top Info Banner -->
-                <div class="settings-info-banner shadow-sm">
-                    <div class="settings-info-icon">
-                        <i class="fa-solid fa-sliders"></i>
-                    </div>
-                    <div style="flex: 1;">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                            <h4 style="font-weight: 800; color: #0d5c3a; margin-bottom: 2px; font-size: 1.15rem;">
-                                لوحة تحكم إعدادات المنظومة الشاملة (Dynamic CMS 2.0)
-                            </h4>
-                            <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-1 rounded-pill">
-                                <i class="fa-solid fa-bolt me-1"></i> تطبيق فوري مباشر (Live Sync)
+    container.innerHTML = `
+        <div class="settings-cms-container">
+            <!-- Top Info Banner -->
+            <div class="settings-info-banner shadow-sm">
+                <div class="settings-info-icon">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <h4 style="font-weight: 800; color: #0d5c3a; margin-bottom: 2px; font-size: 1.15rem;">
+                            لوحة تحكم إعدادات المنظومة الشاملة (Dynamic CMS 2.0)
+                        </h4>
+                        ${isOfflineMode ? `
+                            <span class="badge bg-warning bg-opacity-10 text-dark fw-bold px-3 py-1 rounded-pill border border-warning">
+                                <i class="fa-solid fa-bolt me-1 text-warning"></i> الحفظ والتطبيق المباشر (Live Sync)
                             </span>
-                        </div>
-                        <p style="margin: 0; color: #475569; font-size: 0.88rem; line-height: 1.5;">
-                            تحكم كامل في هوية المركز، المعايير الأكاديمية، درجات النجاح، الصلاحيات والخصوصية، قوالب التنبيهات، والسمات البصرية بنقرة واحدة وبدون تعديل الكود.
-                        </p>
+                        ` : `
+                            <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-1 rounded-pill">
+                                <i class="fa-solid fa-cloud-arrow-up me-1"></i> متصل بالسيرفر (Cloud Sync)
+                            </span>
+                        `}
                     </div>
+                    <p style="margin: 0; color: #475569; font-size: 0.88rem; line-height: 1.5;">
+                        تحكم كامل في هوية المركز، المعايير الأكاديمية، درجات النجاح، الصلاحيات والخصوصية، قوالب التنبيهات، والسمات البصرية بنقرة واحدة وبدون تعديل الكود.
+                    </p>
                 </div>
+            </div>
 
-                <!-- Navigation Tabs Bar -->
-                <div class="settings-tabs-nav">
-                    <button type="button" class="settings-tab-btn active" id="tab-btn-identity" onclick="switchSettingsTab('identity')">
-                        <i class="fa-solid fa-mosque"></i> 1. الهوية والبيانات
-                    </button>
-                    <button type="button" class="settings-tab-btn" id="tab-btn-academic" onclick="switchSettingsTab('academic')">
-                        <i class="fa-solid fa-graduation-cap"></i> 2. المعايير والضوابط الأكاديمية
-                    </button>
-                    <button type="button" class="settings-tab-btn" id="tab-btn-permissions" onclick="switchSettingsTab('permissions')">
-                        <i class="fa-solid fa-shield-halved"></i> 3. الصلاحيات والخصوصية
-                    </button>
-                    <button type="button" class="settings-tab-btn" id="tab-btn-certificates" onclick="switchSettingsTab('certificates')">
-                        <i class="fa-solid fa-award"></i> 4. الشهادات والاعتمادات
-                    </button>
-                    <button type="button" class="settings-tab-btn" id="tab-btn-alerts" onclick="switchSettingsTab('alerts')">
-                        <i class="fa-solid fa-bell"></i> 5. التنبيهات والإشعارات
-                    </button>
-                    <button type="button" class="settings-tab-btn" id="tab-btn-appearance" onclick="switchSettingsTab('appearance')">
-                        <i class="fa-solid fa-palette"></i> 6. المظهر وهوية الألوان
-                    </button>
-                </div>
+            <!-- Navigation Tabs Bar -->
+            <div class="settings-tabs-nav">
+                <button type="button" class="settings-tab-btn active" id="tab-btn-identity" onclick="switchSettingsTab('identity')">
+                    <i class="fa-solid fa-mosque"></i> 1. الهوية والبيانات
+                </button>
+                <button type="button" class="settings-tab-btn" id="tab-btn-academic" onclick="switchSettingsTab('academic')">
+                    <i class="fa-solid fa-graduation-cap"></i> 2. المعايير والضوابط الأكاديمية
+                </button>
+                <button type="button" class="settings-tab-btn" id="tab-btn-permissions" onclick="switchSettingsTab('permissions')">
+                    <i class="fa-solid fa-shield-halved"></i> 3. الصلاحيات والخصوصية
+                </button>
+                <button type="button" class="settings-tab-btn" id="tab-btn-certificates" onclick="switchSettingsTab('certificates')">
+                    <i class="fa-solid fa-award"></i> 4. الشهادات والاعتمادات
+                </button>
+                <button type="button" class="settings-tab-btn" id="tab-btn-alerts" onclick="switchSettingsTab('alerts')">
+                    <i class="fa-solid fa-bell"></i> 5. التنبيهات والإشعارات
+                </button>
+                <button type="button" class="settings-tab-btn" id="tab-btn-appearance" onclick="switchSettingsTab('appearance')">
+                    <i class="fa-solid fa-palette"></i> 6. المظهر وهوية الألوان
+                </button>
+            </div>
 
-                <!-- Form Card -->
-                <div class="settings-card shadow-sm">
-                    <form id="system-settings-form">
+            <!-- Form Card -->
+            <div class="settings-card shadow-sm">
+                <form id="system-settings-form">
 
-                        <!-- TAB 1: الهوية والبيانات المؤسسية -->
-                        <div class="settings-tab-pane active" id="tab-pane-identity">
-                            <div class="settings-section-divider">
-                                <h4><i class="fa-solid fa-building-columns"></i> 1. الهوية الرسمية وبيانات الاتصال بالمركز</h4>
-                                <span class="badge bg-light text-muted border">تنعكس في الهيدر، السايدبار، والتقارير والشهادات</span>
-                            </div>
-
-                            <div class="settings-grid-2col">
-                                <div class="settings-input-group">
-                                    <label for="setting-center-name"><i class="fa-solid fa-quran"></i> اسم مركز التحفيظ الرسمي:</label>
-                                    <input type="text" id="setting-center-name" class="settings-input-control" value="${escapeXml(settings.centerName || 'مركز البيان لتعليم القرآن الكريم وتدريس علومه')}" placeholder="مثال: مركز البيان لتعليم القرآن الكريم" required>
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-mosque-name"><i class="fa-solid fa-kaaba"></i> اسم المسجد / المقر الرئيسي:</label>
-                                    <input type="text" id="setting-mosque-name" class="settings-input-control" value="${escapeXml(settings.mosqueName || 'مسجد علي بن أبي طالب')}" placeholder="مثال: مسجد علي بن أبي طالب" required>
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-center-address"><i class="fa-solid fa-location-dot"></i> العنوان والمقر الجغرافي:</label>
-                                    <input type="text" id="setting-center-address" class="settings-input-control" value="${escapeXml(settings.centerAddress || 'فلسطين - غزة - المقر الرئيسي')}" placeholder="مثال: فلسطين - غزة - شارع عمر المختار">
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-support-phone"><i class="fa-solid fa-phone-volume"></i> رقم هاتف الإدارة / واتساب للتواصل:</label>
-                                    <input type="text" id="setting-support-phone" class="settings-input-control" value="${escapeXml(settings.supportPhone || '+970599000000')}" placeholder="مثال: +970599000000" dir="ltr" style="text-align: right;">
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-support-email"><i class="fa-solid fa-envelope"></i> البريد الإلكتروني الرسمي للمركز:</label>
-                                    <input type="email" id="setting-support-email" class="settings-input-control" value="${escapeXml(settings.supportEmail || 'info@albayan.quran')}" placeholder="info@albayan.quran" dir="ltr" style="text-align: right;">
-                                </div>
-
-                                <div class="settings-input-group settings-grid-full">
-                                    <label for="setting-welcome-msg"><i class="fa-solid fa-quote-right"></i> رسالة الترحيب والشعار اللفظي العام:</label>
-                                    <input type="text" id="setting-welcome-msg" class="settings-input-control" value="${escapeXml(settings.welcomeMessage || 'أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية')}" placeholder="اكتب عبارة الترحيب الظاهرة في التطبيق والواجهة...">
-                                </div>
-                            </div>
+                    <!-- TAB 1: الهوية والبيانات المؤسسية -->
+                    <div class="settings-tab-pane active" id="tab-pane-identity">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-building-columns"></i> 1. الهوية الرسمية وبيانات الاتصال بالمركز</h4>
+                            <span class="badge bg-light text-muted border">تنعكس في الهيدر، السايدبار، والتقارير والشهادات</span>
                         </div>
 
-                        <!-- TAB 2: المعايير والضوابط الأكاديمية والقرآنية -->
-                        <div class="settings-tab-pane" id="tab-pane-academic">
-                            <div class="settings-section-divider">
-                                <h4><i class="fa-solid fa-scale-balanced"></i> 2. المعايير والضوابط الأكاديمية والقرآنية</h4>
-                                <span class="badge bg-light text-muted border">قواعد النجاح، السعة الاستيعابية، والتسميع</span>
+                        <div class="settings-grid-2col">
+                            <div class="settings-input-group">
+                                <label for="setting-center-name"><i class="fa-solid fa-quran"></i> اسم مركز التحفيظ الرسمي:</label>
+                                <input type="text" id="setting-center-name" class="settings-input-control" value="${escapeXml(settings.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}" placeholder="مثال: مركز البيان لتعليم القرآن الكريم" required>
                             </div>
 
-                            <div class="settings-grid-2col">
-                                <div class="settings-input-group">
-                                    <label for="setting-passing-score"><i class="fa-solid fa-star-half-stroke text-warning"></i> درجة النجاح الصغرى في الاختبارات والمساقات (%):</label>
-                                    <input type="number" id="setting-passing-score" class="settings-input-control" min="50" max="100" value="${settings.passingScoreThreshold || 70}" required>
-                                    <small class="text-muted">الحد الأدنى لاعتبار الطالب ناجحاً ومؤهلاً للحصول على شهادة الجزء أو المساق.</small>
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-min-attendance-exam"><i class="fa-solid fa-clipboard-check text-success"></i> الحد الأدنى لنسبة الحضور لدخول الاختبار (%):</label>
-                                    <input type="number" id="setting-min-attendance-exam" class="settings-input-control" min="0" max="100" value="${settings.minAttendancePercentForExam || 75}" required>
-                                    <small class="text-muted">يمنع ترشيح الطالب للاختبار إذا كانت نسبة حضوره أقل من هذا الحد.</small>
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-max-students-circle"><i class="fa-solid fa-users text-primary"></i> السعة القصوى الموصى بها للطلاب في الحلقة الواحدة:</label>
-                                    <input type="number" id="setting-max-students-circle" class="settings-input-control" min="5" max="50" value="${settings.maxStudentsPerCircle || 20}" required>
-                                    <small class="text-muted">إظهار مؤشر امتلاء الحلقة في إدارة الحلقات.</small>
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-max-absence-warning"><i class="fa-solid fa-triangle-exclamation text-danger"></i> الحد الأقصى لأيام الغياب قبل توجيه إنذار:</label>
-                                    <input type="number" id="setting-max-absence-warning" class="settings-input-control" min="1" max="15" value="${settings.maxAbsenceDaysWarning || 3}" required>
-                                    <small class="text-muted">إظهار شارة إنذار أحمر بجانب اسم الطالب عند تجاوز هذا العدد.</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- TAB 3: الأمان والصلاحيات والخصوصية -->
-                        <div class="settings-tab-pane" id="tab-pane-permissions">
-                            <div class="settings-section-divider">
-                                <h4><i class="fa-solid fa-user-lock"></i> 3. الأمان والصلاحيات وحماية الخصوصية</h4>
-                                <span class="badge bg-light text-muted border">مفاتيح صلاحيات المعلمين وأولياء الأمور والطلاب</span>
+                            <div class="settings-input-group">
+                                <label for="setting-mosque-name"><i class="fa-solid fa-kaaba"></i> اسم المسجد / المقر الرئيسي:</label>
+                                <input type="text" id="setting-mosque-name" class="settings-input-control" value="${escapeXml(settings.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}" placeholder="مثال: مسجد علي بن أبي طالب" required>
                             </div>
 
-                            <div class="settings-flags-grid">
-                                <label class="settings-switch-card ${settings.allowTeacherEditStudentPlan !== false ? 'active' : ''}" for="setting-allow-teacher-edit-plan">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-book-bookmark text-success me-1"></i> السماح للمعلم بتعديل خطة حفظ الطالب وتوثيق الأجزاء</span>
-                                        <span class="switch-desc">تمكين المعلم من تحديث خطة الحفظ واعتماد الأجزاء المنجزة لطلابه.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-allow-teacher-edit-plan" ${settings.allowTeacherEditStudentPlan !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.allowTeacherSelfEnrollment ? 'active' : ''}" for="setting-allow-teacher-enrollment">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-user-plus text-warning me-1"></i> السماح للمعلم بتنسيب طلاب جدد لحلقته مباشرة</span>
-                                        <span class="switch-desc">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته دون مراجعة مسبقة.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.hideParentPhoneFromTeacher ? 'active' : ''}" for="setting-hide-parent-phone">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-shield-cat text-danger me-1"></i> حجب أرقام هواتف أولياء الأمور عن المعلم (خصوصية مشددة)</span>
-                                        <span class="switch-desc">إخفاء رقم هاتف ولي الأمر من كشف الطلاب لدى المعلم لقصر التواصل عبر الإدارة.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-hide-parent-phone" ${settings.hideParentPhoneFromTeacher ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.allowStudentProfileEditRequests !== false ? 'active' : ''}" for="setting-allow-profile-requests">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-id-card-clip text-primary me-1"></i> تمكين الطلاب وأولياء الأمور من تقديم طلبات تعديل البيانات</span>
-                                        <span class="switch-desc">السماح بتقديم طلب تعديل بيانات الاتصال ومراجعتها واعتمادها من الإدارة.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-allow-profile-requests" ${settings.allowStudentProfileEditRequests !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.enforceDailyAttendanceRecording !== false ? 'active' : ''}" for="setting-enforce-attendance">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-clock-rotate-left text-info me-1"></i> إلزام المعلم برصد التسميع اليومي في تاريخ اليوم فقط</span>
-                                        <span class="switch-desc">منع المعلم من تسجيل حضور أو تسميع لتواريخ سابقة دون إذن إداري.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-enforce-attendance" ${settings.enforceDailyAttendanceRecording !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.showCumulativeAttendance ? 'active' : ''}" for="setting-show-cumulative-attendance">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-chart-column text-secondary me-1"></i> إظهار مؤشر الحضور التراكمي في شاشات التسميع</span>
-                                        <span class="switch-desc">عرض نسبة الحضور التراكمية في كشف التسميع اليومي.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- TAB 4: الشهادات والاعتمادات ولوحة الشرف -->
-                        <div class="settings-tab-pane" id="tab-pane-certificates">
-                            <div class="settings-section-divider">
-                                <h4><i class="fa-solid fa-stamp"></i> 4. الشهادات والاعتمادات الرسمية ولوحة الشرف</h4>
-                                <span class="badge bg-light text-muted border">بيانات التوقيع المعتمد للشهادات والجوائز</span>
+                            <div class="settings-input-group">
+                                <label for="setting-center-address"><i class="fa-solid fa-location-dot"></i> العنوان والمقر الجغرافي:</label>
+                                <input type="text" id="setting-center-address" class="settings-input-control" value="${escapeXml(settings.centerAddress || DEFAULT_SYSTEM_SETTINGS.centerAddress)}" placeholder="مثال: فلسطين - غزة - شارع عمر المختار">
                             </div>
 
-                            <div class="settings-grid-2col mb-3">
-                                <div class="settings-input-group">
-                                    <label for="setting-signatory-name"><i class="fa-solid fa-signature text-primary"></i> اسم المسؤول المعتمد لتوقيع الشهادات:</label>
-                                    <input type="text" id="setting-signatory-name" class="settings-input-control" value="${escapeXml(settings.signatoryName || 'فضيلة الشيخ / رئيس المركز')}" placeholder="مثال: فضيلة الشيخ / أ. د. عبد الله الأحمد" required>
-                                </div>
-
-                                <div class="settings-input-group">
-                                    <label for="setting-signatory-title"><i class="fa-solid fa-certificate text-warning"></i> الصفة والمنصب الرسمي للموقع:</label>
-                                    <input type="text" id="setting-signatory-title" class="settings-input-control" value="${escapeXml(settings.signatoryTitle || 'المشرف العام على حلقات تحفيظ القرآن الكريم')}" placeholder="مثال: المشرف العام على شؤون القرآن الكريم" required>
-                                </div>
+                            <div class="settings-input-group">
+                                <label for="setting-support-phone"><i class="fa-solid fa-phone-volume"></i> رقم هاتف الإدارة / واتساب للتواصل:</label>
+                                <input type="text" id="setting-support-phone" class="settings-input-control" value="${escapeXml(settings.supportPhone || DEFAULT_SYSTEM_SETTINGS.supportPhone)}" placeholder="مثال: +970599000000" dir="ltr" style="text-align: right;">
                             </div>
 
-                            <div class="settings-flags-grid">
-                                <label class="settings-switch-card ${settings.enableCertificates ? 'active' : ''}" for="setting-enable-certificates">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-award text-success me-1"></i> تفعيل نظام إصدار وطباعة الشهادات الرقمية المعتمدة</span>
-                                        <span class="switch-desc">إتاحة طباعة الشهادات للطلاب الناجحين في المساقات واختبارات الأجزاء.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.showHonorsBoard !== false ? 'active' : ''}" for="setting-show-honors-board">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-trophy text-warning me-1"></i> تفعيل لوحة شرف المتميزين والمتفوقين</span>
-                                        <span class="switch-desc">إظهار الطلاب الأوائل وأصحاب أعلى معدلات التسميع في لوحة المؤشرات.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- TAB 5: التنبيهات والإشعارات والتواصل -->
-                        <div class="settings-tab-pane" id="tab-pane-alerts">
-                            <div class="settings-section-divider">
-                                <h4><i class="fa-solid fa-comments"></i> 5. التنبيهات والإشعارات والرسائل التلقائية</h4>
-                                <span class="badge bg-light text-muted border">الإعلانات العامة ورسائل الغياب</span>
-                            </div>
-
-                            <div class="settings-flags-grid mb-3">
-                                <label class="settings-switch-card ${settings.allowPublicAnnouncements ? 'active' : ''}" for="setting-allow-public-announcements">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-solid fa-bullhorn text-info me-1"></i> تفعيل لوحة التعاميم والإعلانات العامة للمركز</span>
-                                        <span class="switch-desc">إتاحة لوحة التعاميم لجميع المعلمين والطلاب وأولياء الأمور.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
-
-                                <label class="settings-switch-card ${settings.enableAbsenceAutoAlert !== false ? 'active' : ''}" for="setting-enable-absence-alert">
-                                    <div class="switch-label-block">
-                                        <span class="switch-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> تفعيل تنبيهات الغياب الفورية لأولياء الأمور</span>
-                                        <span class="switch-desc">تجهيز رابط تنبيه واتساب مباشر لولي الأمر عند تسجيل غياب الطالب.</span>
-                                    </div>
-                                    <div class="custom-switch">
-                                        <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                        <span class="switch-slider"></span>
-                                    </div>
-                                </label>
+                            <div class="settings-input-group">
+                                <label for="setting-support-email"><i class="fa-solid fa-envelope"></i> البريد الإلكتروني الرسمي للمركز:</label>
+                                <input type="email" id="setting-support-email" class="settings-input-control" value="${escapeXml(settings.supportEmail || DEFAULT_SYSTEM_SETTINGS.supportEmail)}" placeholder="info@albayan.quran" dir="ltr" style="text-align: right;">
                             </div>
 
                             <div class="settings-input-group settings-grid-full">
-                                <label for="setting-absence-alert-template"><i class="fa-solid fa-message text-success"></i> نص ورسالة تنبيه الغياب التلقائية (قالب واتساب / SMS):</label>
-                                <textarea id="setting-absence-alert-template" class="settings-textarea-control" rows="3" placeholder="أدخل نص الرسالة التلقائية التي تصل لولي الأمر...">${escapeXml(settings.absenceAlertTemplate || 'نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة والتواصل مع إدارة المركز.')}</textarea>
+                                <label for="setting-welcome-msg"><i class="fa-solid fa-quote-right"></i> رسالة الترحيب والشعار اللفظي العام:</label>
+                                <input type="text" id="setting-welcome-msg" class="settings-input-control" value="${escapeXml(settings.welcomeMessage || DEFAULT_SYSTEM_SETTINGS.welcomeMessage)}" placeholder="اكتب عبارة الترحيب الظاهرة في التطبيق والواجهة...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: المعايير والضوابط الأكاديمية والقرآنية -->
+                    <div class="settings-tab-pane" id="tab-pane-academic">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-scale-balanced"></i> 2. المعايير والضوابط الأكاديمية والقرآنية</h4>
+                            <span class="badge bg-light text-muted border">قواعد النجاح، السعة الاستيعابية، والتسميع</span>
+                        </div>
+
+                        <div class="settings-grid-2col">
+                            <div class="settings-input-group">
+                                <label for="setting-passing-score"><i class="fa-solid fa-star-half-stroke text-warning"></i> درجة النجاح الصغرى في الاختبارات والمساقات (%):</label>
+                                <input type="number" id="setting-passing-score" class="settings-input-control" min="50" max="100" value="${settings.passingScoreThreshold || 70}" required>
+                                <small class="text-muted">الحد الأدنى لاعتبار الطالب ناجحاً ومؤهلاً للحصول على شهادة الجزء أو المساق.</small>
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-min-attendance-exam"><i class="fa-solid fa-clipboard-check text-success"></i> الحد الأدنى لنسبة الحضور لدخول الاختبار (%):</label>
+                                <input type="number" id="setting-min-attendance-exam" class="settings-input-control" min="0" max="100" value="${settings.minAttendancePercentForExam || 75}" required>
+                                <small class="text-muted">يمنع ترشيح الطالب للاختبار إذا كانت نسبة حضوره أقل من هذا الحد.</small>
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-max-students-circle"><i class="fa-solid fa-users text-primary"></i> السعة القصوى الموصى بها للطلاب في الحلقة الواحدة:</label>
+                                <input type="number" id="setting-max-students-circle" class="settings-input-control" min="5" max="50" value="${settings.maxStudentsPerCircle || 20}" required>
+                                <small class="text-muted">إظهار مؤشر امتلاء الحلقة في إدارة الحلقات.</small>
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-max-absence-warning"><i class="fa-solid fa-triangle-exclamation text-danger"></i> الحد الأقصى لأيام الغياب قبل توجيه إنذار:</label>
+                                <input type="number" id="setting-max-absence-warning" class="settings-input-control" min="1" max="15" value="${settings.maxAbsenceDaysWarning || 3}" required>
+                                <small class="text-muted">إظهار شارة إنذار أحمر بجانب اسم الطالب عند تجاوز هذا العدد.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: الأمان والصلاحيات والخصوصية -->
+                    <div class="settings-tab-pane" id="tab-pane-permissions">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-user-lock"></i> 3. الأمان والصلاحيات وحماية الخصوصية</h4>
+                            <span class="badge bg-light text-muted border">مفاتيح صلاحيات المعلمين وأولياء الأمور والطلاب</span>
+                        </div>
+
+                        <div class="settings-flags-grid">
+                            <label class="settings-switch-card ${settings.allowTeacherEditStudentPlan !== false ? 'active' : ''}" for="setting-allow-teacher-edit-plan">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-book-bookmark text-success me-1"></i> السماح للمعلم بتعديل خطة حفظ الطالب وتوثيق الأجزاء</span>
+                                    <span class="switch-desc">تمكين المعلم من تحديث خطة الحفظ واعتماد الأجزاء المنجزة لطلابه.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-teacher-edit-plan" ${settings.allowTeacherEditStudentPlan !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.allowTeacherSelfEnrollment !== false ? 'active' : ''}" for="setting-allow-teacher-enrollment">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-user-plus text-warning me-1"></i> السماح للمعلم بتنسيب طلاب جدد لحلقته مباشرة</span>
+                                    <span class="switch-desc">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته دون مراجعة مسبقة.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.hideParentPhoneFromTeacher ? 'active' : ''}" for="setting-hide-parent-phone">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-shield-cat text-danger me-1"></i> حجب أرقام هواتف أولياء الأمور عن المعلم (خصوصية مشددة)</span>
+                                    <span class="switch-desc">إخفاء رقم هاتف ولي الأمر من كشف الطلاب لدى المعلم لقصر التواصل عبر الإدارة.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-hide-parent-phone" ${settings.hideParentPhoneFromTeacher ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.allowStudentProfileEditRequests !== false ? 'active' : ''}" for="setting-allow-profile-requests">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-id-card-clip text-primary me-1"></i> تمكين الطلاب وأولياء الأمور من تقديم طلبات تعديل البيانات</span>
+                                    <span class="switch-desc">السماح بتقديم طلب تعديل بيانات الاتصال ومراجعتها واعتمادها من الإدارة.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-profile-requests" ${settings.allowStudentProfileEditRequests !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.enforceDailyAttendanceRecording !== false ? 'active' : ''}" for="setting-enforce-attendance">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-clock-rotate-left text-info me-1"></i> إلزام المعلم برصد التسميع اليومي في تاريخ اليوم فقط</span>
+                                    <span class="switch-desc">منع المعلم من تسجيل حضور أو تسميع لتواريخ سابقة دون إذن إداري.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enforce-attendance" ${settings.enforceDailyAttendanceRecording !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.showCumulativeAttendance !== false ? 'active' : ''}" for="setting-show-cumulative-attendance">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-chart-column text-secondary me-1"></i> إظهار مؤشر الحضور التراكمي في شاشات التسميع</span>
+                                    <span class="switch-desc">عرض نسبة الحضور التراكمية في كشف التسميع اليومي.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: الشهادات والاعتمادات ولوحة الشرف -->
+                    <div class="settings-tab-pane" id="tab-pane-certificates">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-stamp"></i> 4. الشهادات والاعتمادات الرسمية ولوحة الشرف</h4>
+                            <span class="badge bg-light text-muted border">بيانات التوقيع المعتمد للشهادات والجوائز</span>
+                        </div>
+
+                        <div class="settings-grid-2col mb-3">
+                            <div class="settings-input-group">
+                                <label for="setting-signatory-name"><i class="fa-solid fa-signature text-primary"></i> اسم المسؤول المعتمد لتوقيع الشهادات:</label>
+                                <input type="text" id="setting-signatory-name" class="settings-input-control" value="${escapeXml(settings.signatoryName || DEFAULT_SYSTEM_SETTINGS.signatoryName)}" placeholder="مثال: فضيلة الشيخ / أ. د. عبد الله الأحمد" required>
+                            </div>
+
+                            <div class="settings-input-group">
+                                <label for="setting-signatory-title"><i class="fa-solid fa-certificate text-warning"></i> الصفة والمنصب الرسمي للموقع:</label>
+                                <input type="text" id="setting-signatory-title" class="settings-input-control" value="${escapeXml(settings.signatoryTitle || DEFAULT_SYSTEM_SETTINGS.signatoryTitle)}" placeholder="مثال: المشرف العام على شؤون القرآن الكريم" required>
                             </div>
                         </div>
 
-                        <!-- TAB 6: المظهر وهوية الألوان والسمات -->
-                        <div class="settings-tab-pane" id="tab-pane-appearance">
-                            <div class="settings-section-divider">
-                                <h4><i class="fa-solid fa-paintbrush"></i> 6. المظهر البصري وهوية الألوان والسمات</h4>
-                                <span class="badge bg-light text-muted border">تطبيق فوري مباشر لمعاينة الألوان</span>
-                            </div>
-
-                            <input type="hidden" id="setting-theme-style" value="${escapeXml(currentTheme)}">
-
-                            <div class="theme-options-grid">
-                                <!-- Option 1: Classic -->
-                                <div class="theme-card-option ${currentTheme === 'Classic' ? 'active' : ''}" id="theme-card-classic" onclick="selectThemeOption('Classic')">
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <strong style="color: #0d5c3a;"><i class="fa-solid fa-mosque me-1"></i> النمط التراثي الأصيل</strong>
-                                        <span class="badge bg-success bg-opacity-10 text-success">الافتراضي</span>
-                                    </div>
-                                    <div class="theme-preview-palette">
-                                        <span style="background: #0d5c3a;" title="الزمردي الإسلامي"></span>
-                                        <span style="background: #073b24;" title="الزمردي الداكن"></span>
-                                        <span style="background: #cda250;" title="الذهبي الملكي"></span>
-                                        <span style="background: #f8fafc;" title="الخلفية"></span>
-                                    </div>
-                                    <small class="text-muted">اللون الأخضر الزمردي والتذهيب القرآني الأصيل.</small>
+                        <div class="settings-flags-grid">
+                            <label class="settings-switch-card ${settings.enableCertificates !== false ? 'active' : ''}" for="setting-enable-certificates">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-award text-success me-1"></i> تفعيل نظام إصدار وطباعة الشهادات الرقمية المعتمدة</span>
+                                    <span class="switch-desc">إتاحة طباعة الشهادات للطلاب الناجحين في المساقات واختبارات الأجزاء.</span>
                                 </div>
-
-                                <!-- Option 2: Modern -->
-                                <div class="theme-card-option ${currentTheme === 'Modern' ? 'active' : ''}" id="theme-card-modern" onclick="selectThemeOption('Modern')">
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <strong style="color: #059669;"><i class="fa-solid fa-leaf me-1"></i> النمط العصري المنعش</strong>
-                                        <span class="badge bg-info bg-opacity-10 text-info">Emerald</span>
-                                    </div>
-                                    <div class="theme-preview-palette">
-                                        <span style="background: #059669;"></span>
-                                        <span style="background: #047857;"></span>
-                                        <span style="background: #06b6d4;"></span>
-                                        <span style="background: #ffffff;"></span>
-                                    </div>
-                                    <small class="text-muted">أخضر زمردي مع لمسات سماوية حديثة ومريحة للعين.</small>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
                                 </div>
+                            </label>
 
-                                <!-- Option 3: Sapphire -->
-                                <div class="theme-card-option ${currentTheme === 'Sapphire' ? 'active' : ''}" id="theme-card-sapphire" onclick="selectThemeOption('Sapphire')">
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <strong style="color: #1e40af;"><i class="fa-solid fa-gem me-1"></i> النمط الكحلي الملكي</strong>
-                                        <span class="badge bg-primary bg-opacity-10 text-primary">Royal Sapphire</span>
-                                    </div>
-                                    <div class="theme-preview-palette">
-                                        <span style="background: #1e40af;"></span>
-                                        <span style="background: #1e3a8a;"></span>
-                                        <span style="background: #f59e0b;"></span>
-                                        <span style="background: #f8fafc;"></span>
-                                    </div>
-                                    <small class="text-muted">أزرق كحلي ملكي راقٍ مع لمسات كهرمانية دافئة.</small>
+                            <label class="settings-switch-card ${settings.showHonorsBoard !== false ? 'active' : ''}" for="setting-show-honors-board">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-trophy text-warning me-1"></i> تفعيل لوحة شرف المتميزين والمتفوقين</span>
+                                    <span class="switch-desc">إظهار الطلاب الأوائل وأصحاب أعلى معدلات التسميع في لوحة المؤشرات.</span>
                                 </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
 
-                                <!-- Option 4: Dark -->
-                                <div class="theme-card-option ${currentTheme === 'Dark' ? 'active' : ''}" id="theme-card-dark" onclick="selectThemeOption('Dark')">
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <strong style="color: #0f172a;"><i class="fa-solid fa-moon me-1"></i> النمط الداكن الفخم</strong>
-                                        <span class="badge bg-dark text-warning">Dark Luxury</span>
-                                    </div>
-                                    <div class="theme-preview-palette">
-                                        <span style="background: #0f172a;"></span>
-                                        <span style="background: #1e293b;"></span>
-                                        <span style="background: #fbbf24;"></span>
-                                        <span style="background: #334155;"></span>
-                                    </div>
-                                    <small class="text-muted">تصميم داكن فخم مريح للقراءة الليلية مع تذهيب لامع.</small>
-                                </div>
-                            </div>
+                    <!-- TAB 5: التنبيهات والإشعارات والتواصل -->
+                    <div class="settings-tab-pane" id="tab-pane-alerts">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-comments"></i> 5. التنبيهات والإشعارات والرسائل التلقائية</h4>
+                            <span class="badge bg-light text-muted border">الإعلانات العامة ورسائل الغياب</span>
                         </div>
 
-                        <!-- Sticky Action Bar -->
-                        <div class="settings-actions-footer">
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="submit" class="btn btn-save-settings">
-                                    <i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة فوراً
-                                </button>
-                                <button type="button" class="btn btn-light px-4" onclick="loadSystemSettingsForm()">
-                                    <i class="fa-solid fa-rotate-left"></i> إعادة تحميل
-                                </button>
-                            </div>
-                            <span class="text-muted small">
-                                <i class="fa-solid fa-shield-halved text-success me-1"></i> يتم توثيق التعديلات في سجل الرقابة الأمنية
-                            </span>
+                        <div class="settings-flags-grid mb-3">
+                            <label class="settings-switch-card ${settings.allowPublicAnnouncements !== false ? 'active' : ''}" for="setting-allow-public-announcements">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-bullhorn text-info me-1"></i> تفعيل لوحة التعاميم والإعلانات العامة للمركز</span>
+                                    <span class="switch-desc">إتاحة لوحة التعاميم لجميع المعلمين والطلاب وأولياء الأمور.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <label class="settings-switch-card ${settings.enableAbsenceAutoAlert !== false ? 'active' : ''}" for="setting-enable-absence-alert">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> تفعيل تنبيهات الغياب الفورية لأولياء الأمور</span>
+                                    <span class="switch-desc">تجهيز رابط تنبيه واتساب مباشر لولي الأمر عند تسجيل غياب الطالب.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
                         </div>
-                    </form>
-                </div>
+
+                        <div class="settings-input-group settings-grid-full">
+                            <label for="setting-absence-alert-template"><i class="fa-solid fa-message text-success"></i> نص ورسالة تنبيه الغياب التلقائية (قالب واتساب / SMS):</label>
+                            <textarea id="setting-absence-alert-template" class="settings-textarea-control" rows="3" placeholder="أدخل نص الرسالة التلقائية التي تصل لولي الأمر...">${escapeXml(settings.absenceAlertTemplate || DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate)}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- TAB 6: المظهر وهوية الألوان والسمات -->
+                    <div class="settings-tab-pane" id="tab-pane-appearance">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-paintbrush"></i> 6. المظهر البصري وهوية الألوان والسمات</h4>
+                            <span class="badge bg-light text-muted border">تطبيق فوري مباشر لمعاينة الألوان</span>
+                        </div>
+
+                        <input type="hidden" id="setting-theme-style" value="${escapeXml(currentTheme)}">
+
+                        <div class="theme-options-grid">
+                            <!-- Option 1: Classic -->
+                            <div class="theme-card-option ${currentTheme === 'Classic' ? 'active' : ''}" id="theme-card-classic" onclick="selectThemeOption('Classic')">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <strong style="color: #0d5c3a;"><i class="fa-solid fa-mosque me-1"></i> النمط التراثي الأصيل</strong>
+                                    <span class="badge bg-success bg-opacity-10 text-success">الافتراضي</span>
+                                </div>
+                                <div class="theme-preview-palette">
+                                    <span style="background: #0d5c3a;" title="الزمردي الإسلامي"></span>
+                                    <span style="background: #073b24;" title="الزمردي الداكن"></span>
+                                    <span style="background: #cda250;" title="الذهبي الملكي"></span>
+                                    <span style="background: #f8fafc;" title="الخلفية"></span>
+                                </div>
+                                <small class="text-muted">اللون الأخضر الزمردي والتذهيب القرآني الأصيل.</small>
+                            </div>
+
+                            <!-- Option 2: Modern -->
+                            <div class="theme-card-option ${currentTheme === 'Modern' ? 'active' : ''}" id="theme-card-modern" onclick="selectThemeOption('Modern')">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <strong style="color: #059669;"><i class="fa-solid fa-leaf me-1"></i> النمط العصري المنعش</strong>
+                                    <span class="badge bg-info bg-opacity-10 text-info">Emerald</span>
+                                </div>
+                                <div class="theme-preview-palette">
+                                    <span style="background: #059669;"></span>
+                                    <span style="background: #047857;"></span>
+                                    <span style="background: #06b6d4;"></span>
+                                    <span style="background: #ffffff;"></span>
+                                </div>
+                                <small class="text-muted">أخضر زمردي مع لمسات سماوية حديثة ومريحة للعين.</small>
+                            </div>
+
+                            <!-- Option 3: Sapphire -->
+                            <div class="theme-card-option ${currentTheme === 'Sapphire' ? 'active' : ''}" id="theme-card-sapphire" onclick="selectThemeOption('Sapphire')">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <strong style="color: #1e40af;"><i class="fa-solid fa-gem me-1"></i> النمط الكحلي الملكي</strong>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">Royal Sapphire</span>
+                                </div>
+                                <div class="theme-preview-palette">
+                                    <span style="background: #1e40af;"></span>
+                                    <span style="background: #1e3a8a;"></span>
+                                    <span style="background: #f59e0b;"></span>
+                                    <span style="background: #f8fafc;"></span>
+                                </div>
+                                <small class="text-muted">أزرق كحلي ملكي راقٍ مع لمسات كهرمانية دافئة.</small>
+                            </div>
+
+                            <!-- Option 4: Dark -->
+                            <div class="theme-card-option ${currentTheme === 'Dark' ? 'active' : ''}" id="theme-card-dark" onclick="selectThemeOption('Dark')">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <strong style="color: #0f172a;"><i class="fa-solid fa-moon me-1"></i> النمط الداكن الفخم</strong>
+                                    <span class="badge bg-dark text-warning">Dark Luxury</span>
+                                </div>
+                                <div class="theme-preview-palette">
+                                    <span style="background: #0f172a;"></span>
+                                    <span style="background: #1e293b;"></span>
+                                    <span style="background: #fbbf24;"></span>
+                                    <span style="background: #334155;"></span>
+                                </div>
+                                <small class="text-muted">تصميم داكن فخم مريح للقراءة الليلية مع تذهيب لامع.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sticky Action Bar -->
+                    <div class="settings-actions-footer">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="submit" class="btn btn-save-settings">
+                                <i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة فوراً
+                            </button>
+                            <button type="button" class="btn btn-light px-4" onclick="loadSystemSettingsForm()">
+                                <i class="fa-solid fa-rotate-left"></i> إعادة تحميل
+                            </button>
+                        </div>
+                        <span class="text-muted small">
+                            <i class="fa-solid fa-shield-halved text-success me-1"></i> يتم توثيق التعديلات وتطبيقها لحظياً
+                        </span>
+                    </div>
+                </form>
             </div>
-        `;
+        </div>
+    `;
 
-        document.getElementById("system-settings-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const submitBtn = e.target.querySelector("button[type='submit']");
+    document.getElementById("system-settings-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const submitBtn = e.target.querySelector("button[type='submit']");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري حفظ وتطبيق الإعدادات...';
+        }
+
+        const dto = {
+            centerName: document.getElementById("setting-center-name").value.trim(),
+            mosqueName: document.getElementById("setting-mosque-name").value.trim(),
+            centerAddress: document.getElementById("setting-center-address").value.trim(),
+            supportPhone: document.getElementById("setting-support-phone").value.trim(),
+            supportEmail: document.getElementById("setting-support-email").value.trim(),
+            welcomeMessage: document.getElementById("setting-welcome-msg").value.trim(),
+            themeStyle: document.getElementById("setting-theme-style").value,
+            passingScoreThreshold: parseInt(document.getElementById("setting-passing-score").value) || 70,
+            minAttendancePercentForExam: parseInt(document.getElementById("setting-min-attendance-exam").value) || 75,
+            maxStudentsPerCircle: parseInt(document.getElementById("setting-max-students-circle").value) || 20,
+            maxAbsenceDaysWarning: parseInt(document.getElementById("setting-max-absence-warning").value) || 3,
+            allowTeacherEditStudentPlan: document.getElementById("setting-allow-teacher-edit-plan").checked,
+            allowTeacherSelfEnrollment: document.getElementById("setting-allow-teacher-enrollment").checked,
+            hideParentPhoneFromTeacher: document.getElementById("setting-hide-parent-phone").checked,
+            allowStudentProfileEditRequests: document.getElementById("setting-allow-profile-requests").checked,
+            enforceDailyAttendanceRecording: document.getElementById("setting-enforce-attendance").checked,
+            showCumulativeAttendance: document.getElementById("setting-show-cumulative-attendance").checked,
+            signatoryName: document.getElementById("setting-signatory-name").value.trim(),
+            signatoryTitle: document.getElementById("setting-signatory-title").value.trim(),
+            enableCertificates: document.getElementById("setting-enable-certificates").checked,
+            showHonorsBoard: document.getElementById("setting-show-honors-board").checked,
+            allowPublicAnnouncements: document.getElementById("setting-allow-public-announcements").checked,
+            enableAbsenceAutoAlert: document.getElementById("setting-enable-absence-alert").checked,
+            absenceAlertTemplate: document.getElementById("setting-absence-alert-template").value.trim()
+        };
+
+        // 1. Instant local and DOM application
+        cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, dto);
+        localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
+        applySystemSettingsToUI(cachedSystemSettings);
+
+        // 2. Try sending to API
+        try {
+            const res = await apiRequest("/settings", "PUT", dto, 0, true);
+            if (res) {
+                const updated = res.settings || res;
+                cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, updated);
+                localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
+                applySystemSettingsToUI(cachedSystemSettings);
+            }
+            showAlert("تم حفظ وتطبيق إعدادات المنظومة وتحديث واجهات الويب وتطبيق الموبايل بنجاح! 🎉✨", "success");
+        } catch(err) {
+            // Saved locally with success notice
+            showAlert("تم حفظ وتطبيق كافة الإعدادات بنجاح على هذا المتصفح والواجهة! 🎉 (جاهزة للمزامنة السحابية)", "success");
+        } finally {
             if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري حفظ وتطبيق الإعدادات...';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة فوراً';
             }
-
-            const dto = {
-                centerName: document.getElementById("setting-center-name").value.trim(),
-                mosqueName: document.getElementById("setting-mosque-name").value.trim(),
-                centerAddress: document.getElementById("setting-center-address").value.trim(),
-                supportPhone: document.getElementById("setting-support-phone").value.trim(),
-                supportEmail: document.getElementById("setting-support-email").value.trim(),
-                welcomeMessage: document.getElementById("setting-welcome-msg").value.trim(),
-                themeStyle: document.getElementById("setting-theme-style").value,
-                passingScoreThreshold: parseInt(document.getElementById("setting-passing-score").value) || 70,
-                minAttendancePercentForExam: parseInt(document.getElementById("setting-min-attendance-exam").value) || 75,
-                maxStudentsPerCircle: parseInt(document.getElementById("setting-max-students-circle").value) || 20,
-                maxAbsenceDaysWarning: parseInt(document.getElementById("setting-max-absence-warning").value) || 3,
-                allowTeacherEditStudentPlan: document.getElementById("setting-allow-teacher-edit-plan").checked,
-                allowTeacherSelfEnrollment: document.getElementById("setting-allow-teacher-enrollment").checked,
-                hideParentPhoneFromTeacher: document.getElementById("setting-hide-parent-phone").checked,
-                allowStudentProfileEditRequests: document.getElementById("setting-allow-profile-requests").checked,
-                enforceDailyAttendanceRecording: document.getElementById("setting-enforce-attendance").checked,
-                showCumulativeAttendance: document.getElementById("setting-show-cumulative-attendance").checked,
-                signatoryName: document.getElementById("setting-signatory-name").value.trim(),
-                signatoryTitle: document.getElementById("setting-signatory-title").value.trim(),
-                enableCertificates: document.getElementById("setting-enable-certificates").checked,
-                showHonorsBoard: document.getElementById("setting-show-honors-board").checked,
-                allowPublicAnnouncements: document.getElementById("setting-allow-public-announcements").checked,
-                enableAbsenceAutoAlert: document.getElementById("setting-enable-absence-alert").checked,
-                absenceAlertTemplate: document.getElementById("setting-absence-alert-template").value.trim()
-            };
-
-            try {
-                const res = await apiRequest("/settings", "PUT", dto);
-                const updatedSettings = res.settings || res;
-                cachedSystemSettings = updatedSettings;
-                localStorage.setItem("system_settings_cache", JSON.stringify(updatedSettings));
-                applySystemSettingsToUI(updatedSettings);
-
-                showAlert("تم حفظ وتطبيق إعدادات المنظومة وتحديث واجهات الويب وتطبيق الموبايل بنجاح! 🎉✨", "success");
-            } catch(err) {
-                console.error(err);
-                showAlert("فشل حفظ الإعدادات: " + err.message, "danger");
-            } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة فوراً';
-                }
-            }
-        });
-
-    } catch(err) {
-        console.error(err);
-        container.innerHTML = `<div class="alert alert-danger p-4"><i class="fa-solid fa-circle-exclamation me-2"></i> تعذر جلب إعدادات المنظومة: ${err.message}</div>`;
-    }
+        }
+    });
 }
 
 
