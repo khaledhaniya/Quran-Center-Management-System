@@ -28,10 +28,10 @@
             <div class="header-logo-group">
                 <button id="mobile-nav-toggle" class="btn-mobile-toggle"><i class="fa-solid fa-bars"></i></button>
                 <div class="header-logo">
-                    <img src="assets/logo.png" alt="شعار مركز البيان" class="logo-icon-img">
+                    <img src="assets/logo.png" alt="شعار المركز" class="logo-icon-img">
                     <div class="logo-text">
-                        <h1>مركز البيان لتعليم القرآن</h1>
-                        <span>مسجد علي بن أبي طالب</span>
+                        <h1 id="brand-header-center-name" class="dynamic-center-name">مركز البيان لتعليم القرآن</h1>
+                        <span id="brand-header-mosque-name" class="dynamic-mosque-name">مسجد علي بن أبي طالب</span>
                     </div>
                 </div>
                 <!-- Dual Calendar Widget -->
@@ -1399,10 +1399,10 @@
     <div class="login-wrapper" id="login-screen">
         <div class="login-card animate-zoom">
             <div class="login-logo text-center">
-                <img src="assets/logo.png" alt="شعار مركز البيان" class="login-logo-img mb-3">
-                <h2 class="fw-bold mb-1" style="color: #0d5c3a; font-size: 1.45rem; font-weight: 800;">مركز البيان لتعليم القرآن الكريم</h2>
-                <h6 class="fw-bold text-success mb-2" style="font-size: 1rem;"><i class="fa-solid fa-mosque me-1"></i> مسجد علي بن أبي طالب</h6>
-                <p class="text-muted small mb-0">نظام إدارة ومتابعة الحلقات القرآنيّة المتقدم</p>
+                <img src="assets/logo.png" alt="شعار المركز" class="login-logo-img mb-3">
+                <h2 class="fw-bold mb-1 dynamic-center-name" id="brand-login-center-name" style="color: #0d5c3a; font-size: 1.45rem; font-weight: 800;">مركز البيان لتعليم القرآن الكريم</h2>
+                <h6 class="fw-bold text-success mb-2" id="brand-login-mosque-name" style="font-size: 1rem;"><i class="fa-solid fa-mosque me-1"></i> <span class="dynamic-mosque-name">مسجد علي بن أبي طالب</span></h6>
+                <p class="text-muted small mb-0 dynamic-welcome-msg" id="brand-login-welcome-msg">نظام إدارة ومتابعة الحلقات القرآنيّة المتقدم</p>
             </div>
             
             <div id="login-error-container"></div>

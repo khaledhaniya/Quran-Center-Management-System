@@ -467,3 +467,95 @@ class AuditLog {
     );
   }
 }
+
+class SystemSettings {
+  final int id;
+  final String centerName;
+  final String mosqueName;
+  final String centerAddress;
+  final String supportPhone;
+  final String supportEmail;
+  final String welcomeMessage;
+  final int passingScoreThreshold;
+  final int minAttendancePercentForExam;
+  final int maxStudentsPerCircle;
+  final int maxAbsenceDaysWarning;
+  final bool allowTeacherEditStudentPlan;
+  final bool allowTeacherSelfEnrollment;
+  final bool hideParentPhoneFromTeacher;
+  final bool allowStudentProfileEditRequests;
+  final bool enforceDailyAttendanceRecording;
+  final bool showStudentCountToTeacher;
+  final bool showCumulativeAttendance;
+  final bool enableCertificates;
+  final String signatoryName;
+  final String signatoryTitle;
+  final bool showHonorsBoard;
+  final bool allowPublicAnnouncements;
+  final bool enableAbsenceAutoAlert;
+  final String absenceAlertTemplate;
+  final String themeStyle;
+  final bool maintenanceMode;
+
+  SystemSettings({
+    required this.id,
+    required this.centerName,
+    required this.mosqueName,
+    required this.centerAddress,
+    required this.supportPhone,
+    required this.supportEmail,
+    required this.welcomeMessage,
+    required this.passingScoreThreshold,
+    required this.minAttendancePercentForExam,
+    required this.maxStudentsPerCircle,
+    required this.maxAbsenceDaysWarning,
+    required this.allowTeacherEditStudentPlan,
+    required this.allowTeacherSelfEnrollment,
+    required this.hideParentPhoneFromTeacher,
+    required this.allowStudentProfileEditRequests,
+    required this.enforceDailyAttendanceRecording,
+    required this.showStudentCountToTeacher,
+    required this.showCumulativeAttendance,
+    required this.enableCertificates,
+    required this.signatoryName,
+    required this.signatoryTitle,
+    required this.showHonorsBoard,
+    required this.allowPublicAnnouncements,
+    required this.enableAbsenceAutoAlert,
+    required this.absenceAlertTemplate,
+    required this.themeStyle,
+    required this.maintenanceMode,
+  });
+
+  factory SystemSettings.fromJson(Map<String, dynamic> json) {
+    return SystemSettings(
+      id: json['id'] ?? 1,
+      centerName: json['centerName'] ?? 'مركز البيان لتعليم القرآن الكريم',
+      mosqueName: json['mosqueName'] ?? 'مسجد علي بن أبي طالب',
+      centerAddress: json['centerAddress'] ?? 'فلسطين - غزة - المقر الرئيسي',
+      supportPhone: json['supportPhone'] ?? '+970599000000',
+      supportEmail: json['supportEmail'] ?? 'info@albayan.quran',
+      welcomeMessage: json['welcomeMessage'] ?? 'أهلاً وسهلاً بكم في منصة تحفيظ القرآن الكريم والعلوم الشرعية',
+      passingScoreThreshold: json['passingScoreThreshold'] ?? 70,
+      minAttendancePercentForExam: json['minAttendancePercentForExam'] ?? 75,
+      maxStudentsPerCircle: json['maxStudentsPerCircle'] ?? 20,
+      maxAbsenceDaysWarning: json['maxAbsenceDaysWarning'] ?? 3,
+      allowTeacherEditStudentPlan: json['allowTeacherEditStudentPlan'] ?? true,
+      allowTeacherSelfEnrollment: json['allowTeacherSelfEnrollment'] ?? true,
+      hideParentPhoneFromTeacher: json['hideParentPhoneFromTeacher'] ?? false,
+      allowStudentProfileEditRequests: json['allowStudentProfileEditRequests'] ?? true,
+      enforceDailyAttendanceRecording: json['enforceDailyAttendanceRecording'] ?? true,
+      showStudentCountToTeacher: json['showStudentCountToTeacher'] ?? true,
+      showCumulativeAttendance: json['showCumulativeAttendance'] ?? true,
+      enableCertificates: json['enableCertificates'] ?? true,
+      signatoryName: json['signatoryName'] ?? 'فضيلة الشيخ / رئيس المركز',
+      signatoryTitle: json['signatoryTitle'] ?? 'المشرف العام على حلقات تحفيظ القرآن الكريم',
+      showHonorsBoard: json['showHonorsBoard'] ?? true,
+      allowPublicAnnouncements: json['allowPublicAnnouncements'] ?? true,
+      enableAbsenceAutoAlert: json['enableAbsenceAutoAlert'] ?? true,
+      absenceAlertTemplate: json['absenceAlertTemplate'] ?? '',
+      themeStyle: json['themeStyle'] ?? 'Classic',
+      maintenanceMode: json['maintenanceMode'] ?? false,
+    );
+  }
+}

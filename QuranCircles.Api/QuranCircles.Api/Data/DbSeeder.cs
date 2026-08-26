@@ -305,7 +305,7 @@ public static class DbSeeder
                 }
             }
 
-            // 2. Ensure SystemSettings table exists
+            // 2. Ensure SystemSettings table exists and has all new columns
             try
             {
                 db.Database.ExecuteSqlRaw(@"
@@ -313,17 +313,79 @@ public static class DbSeeder
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
                         CenterName TEXT,
                         MosqueName TEXT,
+                        CenterAddress TEXT,
                         SupportPhone TEXT,
+                        SupportEmail TEXT,
                         WelcomeMessage TEXT,
                         ThemeStyle TEXT,
+                        PassingScoreThreshold INTEGER NOT NULL DEFAULT 70,
+                        MinAttendancePercentForExam INTEGER NOT NULL DEFAULT 75,
+                        MaxStudentsPerCircle INTEGER NOT NULL DEFAULT 20,
+                        MaxAbsenceDaysWarning INTEGER NOT NULL DEFAULT 3,
+                        AllowTeacherEditStudentPlan INTEGER NOT NULL DEFAULT 1,
+                        AllowTeacherSelfEnrollment INTEGER NOT NULL DEFAULT 1,
+                        HideParentPhoneFromTeacher INTEGER NOT NULL DEFAULT 0,
+                        AllowStudentProfileEditRequests INTEGER NOT NULL DEFAULT 1,
+                        EnforceDailyAttendanceRecording INTEGER NOT NULL DEFAULT 1,
                         ShowStudentCountToTeacher INTEGER NOT NULL DEFAULT 1,
                         ShowCumulativeAttendance INTEGER NOT NULL DEFAULT 1,
-                        AllowTeacherSelfEnrollment INTEGER NOT NULL DEFAULT 1,
-                        AllowPublicAnnouncements INTEGER NOT NULL DEFAULT 1,
                         EnableCertificates INTEGER NOT NULL DEFAULT 1,
+                        SignatoryName TEXT,
+                        SignatoryTitle TEXT,
+                        ShowHonorsBoard INTEGER NOT NULL DEFAULT 1,
+                        AllowPublicAnnouncements INTEGER NOT NULL DEFAULT 1,
+                        EnableAbsenceAutoAlert INTEGER NOT NULL DEFAULT 1,
+                        AbsenceAlertTemplate TEXT,
+                        MaintenanceMode INTEGER NOT NULL DEFAULT 0,
                         UpdatedAt TEXT NOT NULL
                     );
                 ");
+
+                var existingSettingsCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (var cmd = db.Database.GetDbConnection().CreateCommand())
+                {
+                    cmd.CommandText = "PRAGMA table_info(SystemSettings);";
+                    if (cmd.Connection.State != System.Data.ConnectionState.Open) cmd.Connection.Open();
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            existingSettingsCols.Add(reader["name"]?.ToString() ?? "");
+                        }
+                    }
+                }
+
+                var settingsColumns = new Dictionary<string, string>
+                {
+                    { "CenterAddress", "TEXT" },
+                    { "SupportEmail", "TEXT" },
+                    { "PassingScoreThreshold", "INTEGER NOT NULL DEFAULT 70" },
+                    { "MinAttendancePercentForExam", "INTEGER NOT NULL DEFAULT 75" },
+                    { "MaxStudentsPerCircle", "INTEGER NOT NULL DEFAULT 20" },
+                    { "MaxAbsenceDaysWarning", "INTEGER NOT NULL DEFAULT 3" },
+                    { "AllowTeacherEditStudentPlan", "INTEGER NOT NULL DEFAULT 1" },
+                    { "HideParentPhoneFromTeacher", "INTEGER NOT NULL DEFAULT 0" },
+                    { "AllowStudentProfileEditRequests", "INTEGER NOT NULL DEFAULT 1" },
+                    { "EnforceDailyAttendanceRecording", "INTEGER NOT NULL DEFAULT 1" },
+                    { "SignatoryName", "TEXT" },
+                    { "SignatoryTitle", "TEXT" },
+                    { "ShowHonorsBoard", "INTEGER NOT NULL DEFAULT 1" },
+                    { "EnableAbsenceAutoAlert", "INTEGER NOT NULL DEFAULT 1" },
+                    { "AbsenceAlertTemplate", "TEXT" },
+                    { "MaintenanceMode", "INTEGER NOT NULL DEFAULT 0" }
+                };
+
+                foreach (var (colName, colType) in settingsColumns)
+                {
+                    if (!existingSettingsCols.Contains(colName))
+                    {
+                        try
+                        {
+                            db.Database.ExecuteSqlRaw($"ALTER TABLE SystemSettings ADD COLUMN {colName} {colType};");
+                        }
+                        catch { }
+                    }
+                }
             }
             catch { }
 
@@ -334,16 +396,32 @@ public static class DbSeeder
                 {
                     db.SystemSettings.Add(new SystemSettings
                     {
-                        CenterName = "مركز البيان لتعليم القرآن الكريم",
+                        CenterName = "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
                         MosqueName = "مسجد علي بن أبي طالب",
+                        CenterAddress = "فلسطين - غزة - المقر الرئيسي",
                         SupportPhone = "+970599000000",
-                        WelcomeMessage = "مرحباً بكم في منصة تحفيظ القرآن الكريم والعلوم الشرعية",
+                        SupportEmail = "info@albayan.quran",
+                        WelcomeMessage = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية",
                         ThemeStyle = "Classic",
+                        PassingScoreThreshold = 70,
+                        MinAttendancePercentForExam = 75,
+                        MaxStudentsPerCircle = 20,
+                        MaxAbsenceDaysWarning = 3,
+                        AllowTeacherEditStudentPlan = true,
+                        AllowTeacherSelfEnrollment = true,
+                        HideParentPhoneFromTeacher = false,
+                        AllowStudentProfileEditRequests = true,
+                        EnforceDailyAttendanceRecording = true,
                         ShowStudentCountToTeacher = true,
                         ShowCumulativeAttendance = true,
-                        AllowTeacherSelfEnrollment = true,
-                        AllowPublicAnnouncements = true,
                         EnableCertificates = true,
+                        SignatoryName = "فضيلة الشيخ / رئيس المركز",
+                        SignatoryTitle = "المشرف العام على حلقات تحفيظ القرآن الكريم",
+                        ShowHonorsBoard = true,
+                        AllowPublicAnnouncements = true,
+                        EnableAbsenceAutoAlert = true,
+                        AbsenceAlertTemplate = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.",
+                        MaintenanceMode = false,
                         UpdatedAt = DateTime.UtcNow
                     });
                     db.SaveChanges();

@@ -881,5 +881,30 @@ class ApiService {
     } catch (_) {}
     return [];
   }
+
+  // --- Dynamic System Settings CMS ---
+  static Future<SystemSettings?> getSystemSettings() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/settings'), headers: _headers());
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return SystemSettings.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<bool> updateSystemSettings(Map<String, dynamic> settingsData) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/settings'),
+        headers: _headers(),
+        body: jsonEncode(settingsData),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 

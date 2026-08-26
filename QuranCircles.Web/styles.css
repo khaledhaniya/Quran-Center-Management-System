@@ -2640,7 +2640,7 @@ button, input, select, textarea {
 }
 
 /* ========================================================
-   DYNAMIC SYSTEM SETTINGS CMS - LUXURY RESPONSIVE DESIGN
+   DYNAMIC SYSTEM SETTINGS CMS 2.0 - LUXURY RESPONSIVE DESIGN
 ======================================================== */
 .settings-cms-container {
     width: 100%;
@@ -2652,64 +2652,133 @@ button, input, select, textarea {
 
 .settings-card {
     background: #ffffff;
-    border-radius: 16px;
+    border-radius: 18px;
     border: 1px solid var(--border-color, #e2e8f0);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
     padding: 24px 28px;
     transition: all 0.25s ease;
 }
 
 .settings-info-banner {
-    background: linear-gradient(135deg, rgba(13, 92, 58, 0.06) 0%, rgba(205, 162, 80, 0.1) 100%);
-    border: 1px solid rgba(13, 92, 58, 0.2);
-    border-radius: 14px;
-    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(13, 92, 58, 0.08) 0%, rgba(205, 162, 80, 0.12) 100%);
+    border: 1px solid rgba(13, 92, 58, 0.22);
+    border-radius: 16px;
+    padding: 18px 22px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: 18px;
+    margin-bottom: 20px;
 }
 
 .settings-info-icon {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
-    border-radius: 12px;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    border-radius: 14px;
     background: linear-gradient(135deg, #0d5c3a, #073b24);
     color: #ffd700;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.3rem;
-    box-shadow: 0 4px 10px rgba(13, 92, 58, 0.25);
+    font-size: 1.4rem;
+    box-shadow: 0 4px 12px rgba(13, 92, 58, 0.3);
+}
+
+/* CMS 2.0 Navigation Tabs */
+.settings-tabs-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 6px;
+    background: #f1f5f9;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 24px;
+    scrollbar-width: thin;
+}
+
+.settings-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #475569;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.settings-tab-btn i {
+    font-size: 1rem;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+
+.settings-tab-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.settings-tab-btn.active {
+    background: #ffffff;
+    color: #0d5c3a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.settings-tab-btn.active i {
+    color: #0d5c3a;
+}
+
+.settings-tab-pane {
+    display: none;
+    animation: fadeInTab 0.3s ease forwards;
+}
+
+.settings-tab-pane.active {
+    display: block;
+}
+
+@keyframes fadeInTab {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .settings-section-divider {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
-    margin: 28px 0 16px 0;
-    padding-bottom: 8px;
+    margin: 10px 0 20px 0;
+    padding-bottom: 10px;
     border-bottom: 2px solid #edf2f7;
 }
 
-.settings-section-divider:first-of-type {
-    margin-top: 0;
-}
-
 .settings-section-divider h4 {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     font-weight: 800;
     color: #0d5c3a;
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .settings-grid-2col {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    width: 100%;
+}
+
+.settings-grid-3col {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 18px;
     width: 100%;
 }
@@ -2755,7 +2824,26 @@ button, input, select, textarea {
     box-sizing: border-box;
 }
 
-.settings-input-control:focus {
+.settings-textarea-control {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px 14px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #1e293b;
+    background-color: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    text-align: right;
+    direction: rtl;
+    box-sizing: border-box;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.settings-input-control:focus,
+.settings-textarea-control:focus {
     background-color: #ffffff;
     border-color: #0d5c3a;
     box-shadow: 0 0 0 3px rgba(13, 92, 58, 0.15);
@@ -2773,8 +2861,8 @@ button, input, select, textarea {
 .settings-switch-card {
     background: #f8fafc;
     border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 18px;
+    border-radius: 14px;
+    padding: 16px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2794,26 +2882,26 @@ button, input, select, textarea {
 
 .settings-switch-card.active {
     background: rgba(13, 92, 58, 0.04);
-    border-color: rgba(13, 92, 58, 0.3);
+    border-color: rgba(13, 92, 58, 0.35);
 }
 
 .switch-label-block {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     text-align: right;
 }
 
 .switch-title {
-    font-size: 0.92rem;
+    font-size: 0.94rem;
     font-weight: 700;
     color: #1e293b;
 }
 
 .switch-desc {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     color: #64748b;
-    line-height: 1.4;
+    line-height: 1.45;
 }
 
 /* Modern iOS Style Toggle Switch */
@@ -2865,6 +2953,50 @@ button, input, select, textarea {
     transform: translateX(22px);
 }
 
+/* Theme Preset Card Options */
+.theme-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 10px;
+}
+
+.theme-card-option {
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.theme-card-option:hover {
+    border-color: #0d5c3a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.theme-card-option.active {
+    border-color: #0d5c3a;
+    background: rgba(13, 92, 58, 0.03);
+    box-shadow: 0 0 0 3px rgba(13, 92, 58, 0.15);
+}
+
+.theme-preview-palette {
+    height: 38px;
+    border-radius: 8px;
+    display: flex;
+    overflow: hidden;
+}
+
+.theme-preview-palette span {
+    flex: 1;
+    height: 100%;
+}
+
 /* Action Bar */
 .settings-actions-footer {
     display: flex;
@@ -2872,7 +3004,7 @@ button, input, select, textarea {
     align-items: center;
     gap: 16px;
     margin-top: 24px;
-    padding-top: 18px;
+    padding-top: 20px;
     border-top: 1.5px solid #edf2f7;
     flex-wrap: wrap;
 }
@@ -2881,13 +3013,16 @@ button, input, select, textarea {
     background: linear-gradient(135deg, #0d5c3a, #073b24) !important;
     color: #ffffff !important;
     border: none !important;
-    padding: 10px 24px !important;
+    padding: 12px 28px !important;
     font-size: 1rem !important;
     font-weight: 700 !important;
     border-radius: 12px !important;
     box-shadow: 0 4px 14px rgba(13, 92, 58, 0.3) !important;
     transition: all 0.25s ease !important;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .btn-save-settings:hover {
@@ -2896,9 +3031,29 @@ button, input, select, textarea {
     background: linear-gradient(135deg, #0f6c44, #0a4d2f) !important;
 }
 
+/* Dynamic System Themes */
+body.theme-modern {
+    --primary-color: #059669;
+    --primary-hover: #047857;
+    --accent-color: #06b6d4;
+}
+
+body.theme-sapphire {
+    --primary-color: #1e40af;
+    --primary-hover: #1e3a8a;
+    --accent-color: #f59e0b;
+}
+
+body.theme-dark {
+    --primary-color: #0f172a;
+    --primary-hover: #1e293b;
+    --accent-color: #fbbf24;
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 992px) {
     .settings-grid-2col,
+    .settings-grid-3col,
     .settings-flags-grid {
         grid-template-columns: 1fr;
     }
