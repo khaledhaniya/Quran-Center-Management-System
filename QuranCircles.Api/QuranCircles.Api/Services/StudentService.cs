@@ -222,16 +222,20 @@ public class StudentService
 
     public async Task<(bool success, string? error)> UpdateAsync(int id, UpdateStudentDto dto)
     {
-        var err = Validate(dto.FullName, dto.FamilyContact, dto.DateOfBirth);
-        if (err is not null) return (false, err);
-
         var s = await _db.Students.FindAsync(id);
         if (s is null) return (false, "الطالب غير موجود.");
 
-        s.FullName = dto.FullName;
-        s.Address = string.IsNullOrWhiteSpace(dto.Address) ? s.Address : dto.Address;
-        s.FamilyContact = string.IsNullOrWhiteSpace(dto.FamilyContact) ? s.FamilyContact : dto.FamilyContact;
+        if (!string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            var err = Validate(dto.FullName, dto.FamilyContact ?? s.FamilyContact, dto.DateOfBirth ?? s.DateOfBirth);
+            if (err is not null) return (false, err);
+            s.FullName = dto.FullName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Address)) s.Address = dto.Address.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.FamilyContact)) s.FamilyContact = dto.FamilyContact.Trim();
         if (dto.DateOfBirth.HasValue) s.DateOfBirth = dto.DateOfBirth.Value;
+        
         s.CircleId = dto.CircleId;
         s.IsActive = dto.IsActive;
 

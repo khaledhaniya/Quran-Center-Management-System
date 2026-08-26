@@ -2797,40 +2797,70 @@ async function showStudentModal(studentId = null) {
         try {
             if (id) {
                 await apiRequest(`/students/${id}`, "PUT", dto);
-                showAlert("تم تحديث كافة بيانات الطالب الكليّة بنجاح.", "success");
+                closeModal();
+                loadAdminStudents();
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({
+                        title: '🎉 تم حفظ وتحديث بيانات الطالب!',
+                        html: `<div class="p-2 text-center dir-rtl">تم تحديث بيانات الطالب <b>(${escapeXml(name)})</b> في النظام بنجاح.</div>`,
+                        icon: 'success',
+                        confirmButtonText: 'حسناً',
+                        confirmButtonColor: '#0d5c3a'
+                    });
+                } else {
+                    showAlert(`تم تحديث كافة بيانات الطالب (${name}) بنجاح.`, "success");
+                }
             } else {
                 const res = await apiRequest("/students", "POST", dto);
                 
                 // Refresh cached users & students
                 try { cachedUsers = await apiRequest("/users"); } catch(err) {}
                 try { cachedStudents = await apiRequest("/students"); } catch(err) {}
+                if (typeof loadAdminStudents === "function") loadAdminStudents();
 
-                if (res && res.createdParent) {
+                const circleName = circleIdVal ? (cachedCircles.find(c => c.id == circleIdVal)?.name || 'الحلقة المحددة') : 'غير مسند لحلقة بعد';
+                const parentInfo = res && res.createdParent ? `
+                    <div class="alert alert-primary p-3 mb-2">
+                        <h6 class="fw-bold mb-2"><i class="fa-solid fa-id-card"></i> حساب ولي الأمر الجديد الذي تم توليده:</h6>
+                        <ul class="mb-0 ps-3">
+                            <li><b>اسم ولي الأمر:</b> ${res.createdParent.fullName}</li>
+                            <li><b>اسم المستخدم (رقم الهوية):</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-1 rounded">${res.createdParent.username}</code></li>
+                            <li><b>كلمة المرور التلقائية:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-1 rounded">123456</code></li>
+                        </ul>
+                    </div>
+                ` : `<div class="alert alert-light border p-2 mb-2"><i class="fa-solid fa-user-check text-success me-1"></i> تم ربط الطالب مع حساب ولي الأمر المسجل.</div>`;
+
+                if (typeof Swal !== "undefined") {
                     Swal.fire({
-                        title: '🎉 تم إضافة الطالب وإنشاء حساب ولي الأمر بنجاح!',
+                        title: '🎉 تمت إضافة الطالب بنجاح!',
                         html: `
                             <div class="text-start dir-rtl p-2">
-                                <p class="text-success fw-bold fs-6 mb-2">تم تسجيل بيانات الطالب وتوليد حساب جديد لولي الأمر بنجاح:</p>
-                                <div class="alert alert-primary p-3 mb-2">
-                                    <h6 class="fw-bold mb-2"><i class="fa-solid fa-id-card"></i> تفاصيل حساب ولي الأمر الجديد:</h6>
-                                    <ul class="mb-0 ps-3">
-                                        <li><b>اسم ولي الأمر:</b> ${res.createdParent.fullName}</li>
-                                        <li><b>اسم المستخدم (رقم الهوية):</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-1 rounded">${res.createdParent.username}</code></li>
-                                        <li><b>كلمة المرور التلقائية:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-1 rounded">123456</code></li>
-                                    </ul>
+                                <div class="card p-3 mb-3 border-success bg-success-subtle shadow-xs">
+                                    <div class="fw-bold fs-6 text-success mb-1"><i class="fa-solid fa-user-graduate me-1"></i> ${escapeXml(name)}</div>
+                                    <div class="small text-muted mb-1"><i class="fa-solid fa-mosque me-1"></i> الحلقة: <b>${escapeXml(circleName)}</b></div>
+                                    <div class="small text-muted"><i class="fa-solid fa-key me-1"></i> حساب دخول الطالب: اسم المستخدم <code>${escapeXml(dto.username || stIdNum)}</code> | كلمة المرور: <code>${escapeXml(dto.password || '123456')}</code></div>
                                 </div>
-                                <p class="text-muted small mb-0"><i class="fa-solid fa-circle-info"></i> أصبح الحساب الآن يظهر في شاشة <b>إدارة حسابات النظام</b> وتدقيق أولياء الأمور، ويمكن لولي الأمر الدخول به فوراً.</p>
+                                ${parentInfo}
                             </div>
                         `,
                         icon: 'success',
-                        confirmButtonText: 'ممتاز، حسناً'
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="fa-solid fa-plus me-1"></i> إضافة طالب آخر',
+                        cancelButtonText: '<i class="fa-solid fa-check me-1"></i> تم، إغلاق النافذة',
+                        confirmButtonColor: '#0d5c3a',
+                        cancelButtonColor: '#6c757d'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            showStudentModal(null);
+                        } else {
+                            closeModal();
+                        }
                     });
                 } else {
                     showAlert("تم تسجيل الطالب وإنشاء/ربط حساب ولي الأمر بنجاح.", "success");
+                    closeModal();
                 }
             }
-            closeModal();
-            loadAdminStudents();
         } catch(err) {
             console.error(err);
         }
@@ -3511,97 +3541,6 @@ async function deactivateStudent(id) {
     }
 }
 
-// ------ Manage Circle Students Modal ------
-async function showManageStudentsModal(circleId) {
-    const circle = cachedCircles.find(c => c.id == circleId);
-    if (!circle) return;
-    
-    openModal(`إدارة طلاب حلقة: ${circle.name}`);
-    
-    let allStudents = [];
-    try {
-        allStudents = await apiRequest("/students");
-    } catch(e) {}
-    
-    const availableStudents = allStudents.filter(s => s.isActive && s.circleId != circleId);
-    const circleStudents = allStudents.filter(s => s.circleId == circleId);
-    
-    const content = document.getElementById("modal-body-content");
-    content.innerHTML = `
-        <div class="mb-4">
-            <h4>إضافة طالب للحلقة:</h4>
-            <div class="d-flex gap-2 mt-2">
-                <select id="add-student-select" class="form-control">
-                    <option value="">-- اختر طالب لإضافته --</option>
-                    ${availableStudents.map(s => `<option value="${s.id}">${s.fullName} ${s.circleName ? `(في حلقة ${s.circleName})` : '(بدون حلقة)'}</option>`).join('')}
-                </select>
-                <button class="btn btn-success" id="btn-add-student-to-circle"><i class="fa-solid fa-plus"></i> إضافة</button>
-            </div>
-        </div>
-        
-        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
-        
-        <div>
-            <h4>طلاب الحلقة الحاليين (${circleStudents.length}):</h4>
-            <div class="table-responsive mt-2" style="max-height: 250px; overflow-y: auto;">
-                <table class="data-table">
-                    <tbody>
-                        ${circleStudents.length === 0 ? '<tr><td class="text-center text-muted">لا يوجد طلاب في الحلقة حالياً.</td></tr>' : ''}
-                        ${circleStudents.map(s => `
-                            <tr>
-                                <td><strong>${s.fullName}</strong></td>
-                                <td class="text-start">
-                                    <button class="btn btn-danger btn-sm btn-remove-student-from-circle" data-id="${s.id}">
-                                        <i class="fa-solid fa-user-minus"></i> إزالة
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <div class="mt-4 text-start">
-            <button class="btn btn-light" id="btn-close-manage-students">إغلاق</button>
-        </div>
-    `;
-    
-    document.getElementById("btn-close-manage-students").addEventListener("click", closeModal);
-    
-    document.getElementById("btn-add-student-to-circle").addEventListener("click", async () => {
-        const studentId = document.getElementById("add-student-select").value;
-        if (!studentId) {
-            showAlert("الرجاء اختيار طالب أولاً.", "danger");
-            return;
-        }
-        
-        try {
-            await apiRequest(`/circles/${circleId}/students`, "POST", { studentId: parseInt(studentId) });
-            showAlert("تمت إضافة الطالب للحلقة بنجاح.", "success");
-            showManageStudentsModal(circleId);
-            loadAdminCircles();
-        } catch(e) {
-            console.error(e);
-        }
-    });
-    
-    document.querySelectorAll(".btn-remove-student-from-circle").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            const studentId = e.target.closest("button").dataset.id;
-            if (!confirm("هل أنت متأكد من إزالة هذا الطالب من الحلقة؟")) return;
-            
-            try {
-                await apiRequest(`/circles/${circleId}/students/${studentId}`, "DELETE");
-                showAlert("تمت إزالة الطالب من الحلقة بنجاح.", "success");
-                showManageStudentsModal(circleId);
-                loadAdminCircles();
-            } catch(e) {
-                console.error(e);
-            }
-        });
-    });
-}
 
 // ------ Add/Edit Recitation Session Modal ------
 async function showSessionFormModal(studentId, sessionId = null, forceLottery = false) {
@@ -7709,12 +7648,28 @@ async function showManageStudentsModal(circleId) {
                     const stName = e.currentTarget.dataset.name;
                     if (!confirm(`هل أنت متأكد من إزالة الطالب (${stName}) من هذه الحلقة؟`)) return;
 
+                    const originalBtnHtml = e.currentTarget.innerHTML;
+                    e.currentTarget.disabled = true;
+                    e.currentTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
                     try {
-                        await apiRequest(`/students/${stId}`, "PUT", { circleId: null });
+                        await apiRequest(`/circles/${circleId}/students/${stId}`, "DELETE");
                         showAlert(`تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`, "success");
-                        showManageStudentsModal(circleId);
-                        loadAdminCircles();
+                        
+                        // Update local lists and re-render modal content smoothly
+                        const removedIdx = currentStudents.findIndex(s => s.id == stId);
+                        if (removedIdx !== -1) {
+                            const removedSt = currentStudents.splice(removedIdx, 1)[0];
+                            removedSt.circleId = null;
+                            removedSt.circleName = null;
+                            availableStudents.push(removedSt);
+                        }
+                        renderManageStudentsModalContent();
+                        if (typeof loadAdminCircles === "function") loadAdminCircles();
+                        if (typeof loadAdminStudents === "function") loadAdminStudents();
                     } catch(err) {
+                        e.currentTarget.disabled = false;
+                        e.currentTarget.innerHTML = originalBtnHtml;
                         showAlert("حدث خطأ أثناء إزالة الطالب: " + err.message, "danger");
                     }
                 });
@@ -7736,7 +7691,7 @@ async function showManageStudentsModal(circleId) {
 
                 if (query) {
                     list = list.filter(s => 
-                        s.fullName.toLowerCase().includes(query) || 
+                        (s.fullName && s.fullName.toLowerCase().includes(query)) || 
                         (s.studentIdentityNumber && s.studentIdentityNumber.includes(query)) ||
                         (s.circleName && s.circleName.toLowerCase().includes(query))
                     );
@@ -7767,12 +7722,28 @@ async function showManageStudentsModal(circleId) {
                     btn.addEventListener("click", async (e) => {
                         const stId = e.currentTarget.dataset.id;
                         const stName = e.currentTarget.dataset.name;
+                        const originalHtml = e.currentTarget.innerHTML;
+                        e.currentTarget.disabled = true;
+                        e.currentTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التنسيب...';
+
                         try {
-                            await apiRequest(`/students/${stId}`, "PUT", { circleId: parseInt(circleId) });
+                            await apiRequest(`/circles/${circleId}/students`, "POST", { studentId: parseInt(stId) });
                             showAlert(`تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`, "success");
-                            showManageStudentsModal(circleId);
-                            loadAdminCircles();
+
+                            // Update local lists and re-render modal content smoothly
+                            const addedIdx = availableStudents.findIndex(s => s.id == stId);
+                            if (addedIdx !== -1) {
+                                const addedSt = availableStudents.splice(addedIdx, 1)[0];
+                                addedSt.circleId = circleId;
+                                addedSt.circleName = circle.name;
+                                currentStudents.push(addedSt);
+                            }
+                            renderManageStudentsModalContent();
+                            if (typeof loadAdminCircles === "function") loadAdminCircles();
+                            if (typeof loadAdminStudents === "function") loadAdminStudents();
                         } catch(err) {
+                            e.currentTarget.disabled = false;
+                            e.currentTarget.innerHTML = originalHtml;
                             showAlert("حدث خطأ أثناء تنسيب الطالب: " + err.message, "danger");
                         }
                     });

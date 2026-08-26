@@ -107,7 +107,7 @@ public class CirclesController : ControllerBase
     }
 
     [HttpPost("{id:int}/students")]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> AddStudent(int id, [FromBody] AssignStudentDto dto)
     {
         var (ok, error) = await _svc.AddStudentAsync(id, dto.StudentId);
@@ -116,7 +116,7 @@ public class CirclesController : ControllerBase
     }
 
     [HttpDelete("{id:int}/students/{studentId:int}")]
-    [RequireRole(UserRole.Admin)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> RemoveStudent(int id, int studentId)
     {
         var (ok, error) = await _svc.RemoveStudentAsync(id, studentId);
