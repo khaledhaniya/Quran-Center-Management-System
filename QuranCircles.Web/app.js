@@ -8441,10 +8441,44 @@ const DEFAULT_SYSTEM_SETTINGS = {
     enableAbsenceAutoAlert: true,
     absenceAlertTemplate: "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة والتواصل مع إدارة المركز.",
     themeStyle: "Classic",
-    maintenanceMode: false
+    maintenanceMode: false,
+    logoUrl: ""
 };
 
 let cachedSystemSettings = null;
+
+function normalizeSettings(s) {
+    if (!s) return Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
+    return {
+        centerName: s.centerName || s.CenterName || DEFAULT_SYSTEM_SETTINGS.centerName,
+        mosqueName: s.mosqueName || s.MosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName,
+        centerAddress: s.centerAddress || s.CenterAddress || DEFAULT_SYSTEM_SETTINGS.centerAddress,
+        supportPhone: s.supportPhone || s.SupportPhone || DEFAULT_SYSTEM_SETTINGS.supportPhone,
+        supportEmail: s.supportEmail || s.SupportEmail || DEFAULT_SYSTEM_SETTINGS.supportEmail,
+        welcomeMessage: s.welcomeMessage || s.WelcomeMessage || DEFAULT_SYSTEM_SETTINGS.welcomeMessage,
+        logoUrl: s.logoUrl || s.LogoUrl || "",
+        themeStyle: s.themeStyle || s.ThemeStyle || DEFAULT_SYSTEM_SETTINGS.themeStyle,
+        passingScoreThreshold: s.passingScoreThreshold !== undefined ? s.passingScoreThreshold : (s.PassingScoreThreshold !== undefined ? s.PassingScoreThreshold : DEFAULT_SYSTEM_SETTINGS.passingScoreThreshold),
+        minAttendancePercentForExam: s.minAttendancePercentForExam !== undefined ? s.minAttendancePercentForExam : (s.MinAttendancePercentForExam !== undefined ? s.MinAttendancePercentForExam : DEFAULT_SYSTEM_SETTINGS.minAttendancePercentForExam),
+        maxStudentsPerCircle: s.maxStudentsPerCircle !== undefined ? s.maxStudentsPerCircle : (s.MaxStudentsPerCircle !== undefined ? s.MaxStudentsPerCircle : DEFAULT_SYSTEM_SETTINGS.maxStudentsPerCircle),
+        maxAbsenceDaysWarning: s.maxAbsenceDaysWarning !== undefined ? s.maxAbsenceDaysWarning : (s.MaxAbsenceDaysWarning !== undefined ? s.MaxAbsenceDaysWarning : DEFAULT_SYSTEM_SETTINGS.maxAbsenceDaysWarning),
+        allowTeacherEditStudentPlan: s.allowTeacherEditStudentPlan !== undefined ? s.allowTeacherEditStudentPlan : (s.AllowTeacherEditStudentPlan !== undefined ? s.AllowTeacherEditStudentPlan : DEFAULT_SYSTEM_SETTINGS.allowTeacherEditStudentPlan),
+        allowTeacherSelfEnrollment: s.allowTeacherSelfEnrollment !== undefined ? s.allowTeacherSelfEnrollment : (s.AllowTeacherSelfEnrollment !== undefined ? s.AllowTeacherSelfEnrollment : DEFAULT_SYSTEM_SETTINGS.allowTeacherSelfEnrollment),
+        hideParentPhoneFromTeacher: s.hideParentPhoneFromTeacher !== undefined ? s.hideParentPhoneFromTeacher : (s.HideParentPhoneFromTeacher !== undefined ? s.HideParentPhoneFromTeacher : DEFAULT_SYSTEM_SETTINGS.hideParentPhoneFromTeacher),
+        allowStudentProfileEditRequests: s.allowStudentProfileEditRequests !== undefined ? s.allowStudentProfileEditRequests : (s.AllowStudentProfileEditRequests !== undefined ? s.AllowStudentProfileEditRequests : DEFAULT_SYSTEM_SETTINGS.allowStudentProfileEditRequests),
+        enforceDailyAttendanceRecording: s.enforceDailyAttendanceRecording !== undefined ? s.enforceDailyAttendanceRecording : (s.EnforceDailyAttendanceRecording !== undefined ? s.EnforceDailyAttendanceRecording : DEFAULT_SYSTEM_SETTINGS.enforceDailyAttendanceRecording),
+        showStudentCountToTeacher: s.showStudentCountToTeacher !== undefined ? s.showStudentCountToTeacher : (s.ShowStudentCountToTeacher !== undefined ? s.ShowStudentCountToTeacher : DEFAULT_SYSTEM_SETTINGS.showStudentCountToTeacher),
+        showCumulativeAttendance: s.showCumulativeAttendance !== undefined ? s.showCumulativeAttendance : (s.ShowCumulativeAttendance !== undefined ? s.ShowCumulativeAttendance : DEFAULT_SYSTEM_SETTINGS.showCumulativeAttendance),
+        enableCertificates: s.enableCertificates !== undefined ? s.enableCertificates : (s.EnableCertificates !== undefined ? s.EnableCertificates : DEFAULT_SYSTEM_SETTINGS.enableCertificates),
+        signatoryName: s.signatoryName || s.SignatoryName || DEFAULT_SYSTEM_SETTINGS.signatoryName,
+        signatoryTitle: s.signatoryTitle || s.SignatoryTitle || DEFAULT_SYSTEM_SETTINGS.signatoryTitle,
+        showHonorsBoard: s.showHonorsBoard !== undefined ? s.showHonorsBoard : (s.ShowHonorsBoard !== undefined ? s.ShowHonorsBoard : DEFAULT_SYSTEM_SETTINGS.showHonorsBoard),
+        allowPublicAnnouncements: s.allowPublicAnnouncements !== undefined ? s.allowPublicAnnouncements : (s.AllowPublicAnnouncements !== undefined ? s.AllowPublicAnnouncements : DEFAULT_SYSTEM_SETTINGS.allowPublicAnnouncements),
+        enableAbsenceAutoAlert: s.enableAbsenceAutoAlert !== undefined ? s.enableAbsenceAutoAlert : (s.EnableAbsenceAutoAlert !== undefined ? s.EnableAbsenceAutoAlert : DEFAULT_SYSTEM_SETTINGS.enableAbsenceAutoAlert),
+        absenceAlertTemplate: s.absenceAlertTemplate || s.AbsenceAlertTemplate || DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate,
+        maintenanceMode: s.maintenanceMode !== undefined ? s.maintenanceMode : (s.MaintenanceMode !== undefined ? s.MaintenanceMode : DEFAULT_SYSTEM_SETTINGS.maintenanceMode)
+    };
+}
 
 async function fetchAndApplySystemSettings() {
     // 1. Instant load from localStorage or default to prevent flicker
@@ -8452,13 +8486,13 @@ async function fetchAndApplySystemSettings() {
         const localSaved = localStorage.getItem("system_settings_cache");
         if (localSaved) {
             const parsed = JSON.parse(localSaved);
-            cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, parsed);
+            cachedSystemSettings = normalizeSettings(parsed);
         } else {
-            cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
+            cachedSystemSettings = normalizeSettings(DEFAULT_SYSTEM_SETTINGS);
         }
         applySystemSettingsToUI(cachedSystemSettings);
     } catch(e) {
-        cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
+        cachedSystemSettings = normalizeSettings(DEFAULT_SYSTEM_SETTINGS);
         applySystemSettingsToUI(cachedSystemSettings);
     }
 
@@ -8470,7 +8504,7 @@ async function fetchAndApplySystemSettings() {
         }
         if (response && response.ok) {
             const settings = await response.json();
-            cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, settings);
+            cachedSystemSettings = normalizeSettings(settings);
             localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
             applySystemSettingsToUI(cachedSystemSettings);
         }
@@ -8479,8 +8513,9 @@ async function fetchAndApplySystemSettings() {
     }
 }
 
-function applySystemSettingsToUI(settings) {
-    if (!settings) settings = DEFAULT_SYSTEM_SETTINGS;
+function applySystemSettingsToUI(rawSettings) {
+    const settings = normalizeSettings(rawSettings);
+    cachedSystemSettings = settings;
 
     // A. Update Browser Title
     if (settings.centerName) {
@@ -8505,17 +8540,25 @@ function applySystemSettingsToUI(settings) {
         if (settings.welcomeMessage) el.textContent = settings.welcomeMessage;
     });
 
-    // E. Apply Dynamic Theme Style (Classic, Modern, Sapphire, Dark)
+    // E. Update Dynamic Logo if provided
+    if (settings.logoUrl && settings.logoUrl.trim().length > 10) {
+        const logoElements = document.querySelectorAll("#brand-header-logo, #brand-login-logo, .dynamic-center-logo");
+        logoElements.forEach(el => {
+            el.src = settings.logoUrl;
+        });
+    }
+
+    // F. Apply Dynamic Theme Style (Classic, Modern, Sapphire, Dark)
     document.body.classList.remove("theme-classic", "theme-modern", "theme-sapphire", "theme-dark");
     const themeClass = `theme-${(settings.themeStyle || 'classic').toLowerCase()}`;
     document.body.classList.add(themeClass);
 
-    // F. Expose global constants for runtime validation in other modules
+    // G. Expose global constants for runtime validation in other modules
     window.SYS_SETTINGS = settings;
-    window.SYS_PASSING_SCORE = settings.passingScoreThreshold || 70;
-    window.SYS_MIN_ATTENDANCE_EXAM = settings.minAttendancePercentForExam || 75;
-    window.SYS_MAX_STUDENTS_CIRCLE = settings.maxStudentsPerCircle || 20;
-    window.SYS_MAX_ABSENCE_WARNING = settings.maxAbsenceDaysWarning || 3;
+    window.SYS_PASSING_SCORE = Number(settings.passingScoreThreshold) || 70;
+    window.SYS_MIN_ATTENDANCE_EXAM = Number(settings.minAttendancePercentForExam) || 75;
+    window.SYS_MAX_STUDENTS_CIRCLE = Number(settings.maxStudentsPerCircle) || 20;
+    window.SYS_MAX_ABSENCE_WARNING = Number(settings.maxAbsenceDaysWarning) || 3;
     window.SYS_ALLOW_TEACHER_ENROLL = settings.allowTeacherSelfEnrollment !== false;
     window.SYS_ALLOW_TEACHER_EDIT_PLAN = settings.allowTeacherEditStudentPlan !== false;
     window.SYS_HIDE_PARENT_PHONE = settings.hideParentPhoneFromTeacher === true;
@@ -8528,6 +8571,48 @@ function applySystemSettingsToUI(settings) {
     window.SYS_ALLOW_PUBLIC_ANNOUNCEMENTS = settings.allowPublicAnnouncements !== false;
     window.SYS_ENABLE_ABSENCE_ALERT = settings.enableAbsenceAutoAlert !== false;
     window.SYS_ABSENCE_ALERT_TEMPLATE = settings.absenceAlertTemplate || '';
+}
+
+function livePreviewSettings() {
+    const centerName = document.getElementById("setting-center-name")?.value.trim();
+    const mosqueName = document.getElementById("setting-mosque-name")?.value.trim();
+    const welcomeMsg = document.getElementById("setting-welcome-msg")?.value.trim();
+    
+    if (centerName) {
+        document.querySelectorAll(".dynamic-center-name, #brand-header-center-name, #brand-login-center-name").forEach(el => el.textContent = centerName);
+        document.title = `${centerName} - نظام إدارة الحلقات القرآنيّة`;
+    }
+    if (mosqueName) {
+        document.querySelectorAll(".dynamic-mosque-name, #brand-header-mosque-name, #brand-login-mosque-name").forEach(el => el.textContent = mosqueName);
+    }
+    if (welcomeMsg) {
+        document.querySelectorAll(".dynamic-welcome-msg, #brand-login-welcome-msg").forEach(el => el.textContent = welcomeMsg);
+    }
+}
+
+function handleLogoFileUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+        alert("يرجى اختيار ملف صورة صالح (PNG, JPG, SVG, WebP)");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64Url = e.target.result;
+        const logoInput = document.getElementById("setting-logo-url");
+        const logoPreview = document.getElementById("setting-logo-preview-img");
+        if (logoInput) logoInput.value = base64Url;
+        if (logoPreview) {
+            logoPreview.src = base64Url;
+            logoPreview.style.display = "inline-block";
+        }
+        // Update header & login logo instantly
+        document.querySelectorAll("#brand-header-logo, #brand-login-logo, .dynamic-center-logo").forEach(el => el.src = base64Url);
+    };
+    reader.readAsDataURL(file);
 }
 
 function switchSettingsTab(tabKey) {
@@ -8562,9 +8647,9 @@ async function loadSystemSettingsForm() {
     try {
         const localSaved = localStorage.getItem("system_settings_cache");
         if (localSaved) {
-            settings = Object.assign({}, settings, JSON.parse(localSaved));
+            settings = normalizeSettings(JSON.parse(localSaved));
         } else if (cachedSystemSettings) {
-            settings = Object.assign({}, settings, cachedSystemSettings);
+            settings = normalizeSettings(cachedSystemSettings);
         }
     } catch(e) {}
 
@@ -8572,7 +8657,7 @@ async function loadSystemSettingsForm() {
     try {
         const liveSettings = await apiRequest("/settings", "GET", null, 0, true);
         if (liveSettings) {
-            settings = Object.assign({}, settings, liveSettings);
+            settings = normalizeSettings(liveSettings);
             cachedSystemSettings = settings;
             localStorage.setItem("system_settings_cache", JSON.stringify(settings));
         }
@@ -8581,6 +8666,7 @@ async function loadSystemSettingsForm() {
     }
 
     const currentTheme = settings.themeStyle || 'Classic';
+    const logoSrc = settings.logoUrl || (typeof CENTER_LOGO_BASE64 !== 'undefined' ? CENTER_LOGO_BASE64 : 'assets/logo.png');
 
     container.innerHTML = `
         <div class="settings-cms-container">
@@ -8613,7 +8699,7 @@ async function loadSystemSettingsForm() {
             <!-- Navigation Tabs Bar -->
             <div class="settings-tabs-nav">
                 <button type="button" class="settings-tab-btn active" id="tab-btn-identity" onclick="switchSettingsTab('identity')">
-                    <i class="fa-solid fa-mosque"></i> 1. الهوية والبيانات
+                    <i class="fa-solid fa-mosque"></i> 1. الهوية والشعار
                 </button>
                 <button type="button" class="settings-tab-btn" id="tab-btn-academic" onclick="switchSettingsTab('academic')">
                     <i class="fa-solid fa-graduation-cap"></i> 2. المعايير والضوابط الأكاديمية
@@ -8639,19 +8725,40 @@ async function loadSystemSettingsForm() {
                     <!-- TAB 1: الهوية والبيانات المؤسسية -->
                     <div class="settings-tab-pane active" id="tab-pane-identity">
                         <div class="settings-section-divider">
-                            <h4><i class="fa-solid fa-building-columns"></i> 1. الهوية الرسمية وبيانات الاتصال بالمركز</h4>
+                            <h4><i class="fa-solid fa-building-columns"></i> 1. الهوية الرسمية، الشعار وبيانات الاتصال</h4>
                             <span class="badge bg-light text-muted border">تنعكس في الهيدر، السايدبار، والتقارير والشهادات</span>
                         </div>
+
+                        <!-- Center Logo Box -->
+                        <div class="p-3 mb-4 rounded-3 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-white p-2 rounded-circle border shadow-sm" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+                                    <img id="setting-logo-preview-img" src="${logoSrc}" style="max-width: 54px; max-height: 54px; object-fit: contain;" alt="شعار المركز">
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">شعار المركز القرآني الرسمي</h6>
+                                    <p class="text-muted small mb-0">يمكنك رفع صورة جديدة من جهازك أو إدخال رابط مباشر للصورة.</p>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="btn btn-outline-primary fw-bold mb-0 cursor-pointer" style="cursor: pointer;">
+                                    <i class="fa-solid fa-upload me-1"></i> رفع صورة شعار جديدة
+                                    <input type="file" accept="image/*" style="display: none;" onchange="handleLogoFileUpload(event)">
+                                </label>
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="setting-logo-url" value="${escapeXml(settings.logoUrl || '')}">
 
                         <div class="settings-grid-2col">
                             <div class="settings-input-group">
                                 <label for="setting-center-name"><i class="fa-solid fa-quran"></i> اسم مركز التحفيظ الرسمي:</label>
-                                <input type="text" id="setting-center-name" class="settings-input-control" value="${escapeXml(settings.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}" placeholder="مثال: مركز البيان لتعليم القرآن الكريم" required>
+                                <input type="text" id="setting-center-name" class="settings-input-control" value="${escapeXml(settings.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}" placeholder="مثال: مركز البيان لتعليم القرآن الكريم" oninput="livePreviewSettings()" required>
                             </div>
 
                             <div class="settings-input-group">
                                 <label for="setting-mosque-name"><i class="fa-solid fa-kaaba"></i> اسم المسجد / المقر الرئيسي:</label>
-                                <input type="text" id="setting-mosque-name" class="settings-input-control" value="${escapeXml(settings.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}" placeholder="مثال: مسجد علي بن أبي طالب" required>
+                                <input type="text" id="setting-mosque-name" class="settings-input-control" value="${escapeXml(settings.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}" placeholder="مثال: مسجد علي بن أبي طالب" oninput="livePreviewSettings()" required>
                             </div>
 
                             <div class="settings-input-group">
@@ -8671,7 +8778,7 @@ async function loadSystemSettingsForm() {
 
                             <div class="settings-input-group settings-grid-full">
                                 <label for="setting-welcome-msg"><i class="fa-solid fa-quote-right"></i> رسالة الترحيب والشعار اللفظي العام:</label>
-                                <input type="text" id="setting-welcome-msg" class="settings-input-control" value="${escapeXml(settings.welcomeMessage || DEFAULT_SYSTEM_SETTINGS.welcomeMessage)}" placeholder="اكتب عبارة الترحيب الظاهرة في التطبيق والواجهة...">
+                                <input type="text" id="setting-welcome-msg" class="settings-input-control" value="${escapeXml(settings.welcomeMessage || DEFAULT_SYSTEM_SETTINGS.welcomeMessage)}" placeholder="اكتب عبارة الترحيب الظاهرة في التطبيق والواجهة..." oninput="livePreviewSettings()">
                             </div>
                         </div>
                     </div>
@@ -8973,6 +9080,7 @@ async function loadSystemSettingsForm() {
             supportPhone: document.getElementById("setting-support-phone").value.trim(),
             supportEmail: document.getElementById("setting-support-email").value.trim(),
             welcomeMessage: document.getElementById("setting-welcome-msg").value.trim(),
+            logoUrl: document.getElementById("setting-logo-url").value.trim(),
             themeStyle: document.getElementById("setting-theme-style").value,
             passingScoreThreshold: parseInt(document.getElementById("setting-passing-score").value) || 70,
             minAttendancePercentForExam: parseInt(document.getElementById("setting-min-attendance-exam").value) || 75,
@@ -8994,7 +9102,7 @@ async function loadSystemSettingsForm() {
         };
 
         // 1. Instant local and DOM application
-        cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, dto);
+        cachedSystemSettings = normalizeSettings(dto);
         localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
         applySystemSettingsToUI(cachedSystemSettings);
 
@@ -9003,11 +9111,21 @@ async function loadSystemSettingsForm() {
             const res = await apiRequest("/settings", "PUT", dto, 0, true);
             if (res) {
                 const updated = res.settings || res;
-                cachedSystemSettings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS, updated);
+                cachedSystemSettings = normalizeSettings(updated);
                 localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
                 applySystemSettingsToUI(cachedSystemSettings);
             }
-            showAlert("تم حفظ وتطبيق إعدادات المنظومة وتحديث واجهات الويب وتطبيق الموبايل بنجاح! 🎉✨", "success");
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'تم حفظ وتطبيق الإعدادات بنجاح!',
+                    text: 'تم تحديث هوية المركز والمعايير الأكاديمية والصلاحيات والمظهر، ومزامنتها مع الخادم وتطبيق الموبايل.',
+                    confirmButtonText: 'ممتاز',
+                    confirmButtonColor: '#0d5c3a'
+                });
+            } else {
+                showAlert("تم حفظ وتطبيق إعدادات المنظومة وتحديث واجهات الويب وتطبيق الموبايل بنجاح! 🎉✨", "success");
+            }
         } catch(err) {
             // Saved locally with success notice
             showAlert("تم حفظ وتطبيق كافة الإعدادات بنجاح على هذا المتصفح والواجهة! 🎉 (جاهزة للمزامنة السحابية)", "success");

@@ -780,35 +780,6 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-  // --- System Settings CMS ---
-  static Future<Map<String, dynamic>> getSystemSettings() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/settings'), headers: _headers());
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (_) {}
-    return {
-      'centerName': 'مركز البيان لتعليم القرآن الكريم',
-      'mosqueName': 'مسجد التقوى',
-      'showStudentCountToTeacher': true,
-      'showCumulativeAttendance': true,
-      'allowTeacherSelfEnrollment': true,
-      'allowPublicAnnouncements': true,
-      'enableCertificates': true,
-      'themeStyle': 'Classic',
-    };
-  }
-
-  static Future<bool> updateSystemSettings(Map<String, dynamic> settingsData) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/settings'),
-      headers: _headers(),
-      body: jsonEncode(settingsData),
-    );
-    return response.statusCode == 200;
-  }
-
   // --- Teacher Comprehensive Report ---
   static Future<Map<String, dynamic>> getTeacherComprehensiveReport(int teacherId) async {
     final response = await http.get(
@@ -883,12 +854,11 @@ class ApiService {
   }
 
   // --- Dynamic System Settings CMS ---
-  static Future<SystemSettings?> getSystemSettings() async {
+  static Future<Map<String, dynamic>?> getSystemSettings() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/settings'), headers: _headers());
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return SystemSettings.fromJson(data);
+        return jsonDecode(response.body) as Map<String, dynamic>;
       }
     } catch (_) {}
     return null;

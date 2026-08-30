@@ -15,6 +15,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController(text: 'admin123');
   bool _isLoading = false;
   String _serverUrl = ApiService.baseUrl;
+  String _centerName = 'مركز البيان لتعليم القرآن الكريم';
+  String _mosqueName = 'مسجد علي بن أبي طالب - نظام الحلقات المتقدم';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCenterSettings();
+  }
+
+  void _fetchCenterSettings() async {
+    try {
+      final s = await ApiService.getSystemSettings();
+      if (s != null && mounted) {
+        setState(() {
+          if (s['centerName'] != null) _centerName = s['centerName'];
+          if (s['mosqueName'] != null) _mosqueName = '${s['mosqueName']} - نظام الحلقات المتقدم';
+        });
+      }
+    } catch (_) {}
+  }
 
   void _login() async {
     setState(() {
@@ -129,15 +149,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                  'مركز البيان لتعليم القرآن الكريم',
+                  _centerName,
+                  textAlign: TextAlign.center,
                   style: AppTheme.cairoStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primary,
                   ),
                 ),
                 Text(
-                  'مسجد علي بن أبي طالب - نظام الحلقات المتقدم',
+                  _mosqueName,
+                  textAlign: TextAlign.center,
                   style: AppTheme.cairoStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,

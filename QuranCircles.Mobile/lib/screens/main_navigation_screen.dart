@@ -20,6 +20,7 @@ import 'profile_requests_screen.dart';
 import 'student_360_screen.dart';
 import 'students_management_screen.dart';
 import 'teachers_management_screen.dart';
+import 'system_settings_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -327,6 +328,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => const DeveloperUsersScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune, color: AppTheme.primary),
+                title: Text('لوحة تحكم إعدادات المنظومة (CMS)', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('تخصيص الهوية، المعايير، الصلاحيات والشهادات', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const SystemSettingsScreen()));
                 },
               ),
             ],

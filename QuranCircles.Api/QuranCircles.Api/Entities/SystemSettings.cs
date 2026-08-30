@@ -13,6 +13,7 @@ public class SystemSettings
     public string SupportPhone { get; set; } = "+970599000000";
     public string SupportEmail { get; set; } = "info@albayan.quran";
     public string WelcomeMessage { get; set; } = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية";
+    public string? LogoUrl { get; set; }
 
     // 2. Academic & Quranic Standards
     public int PassingScoreThreshold { get; set; } = 70;
