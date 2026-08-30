@@ -153,10 +153,45 @@ public class StudentsController : ControllerBase
 
 
 
+    [HttpGet("unassigned")]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    public async Task<IActionResult> GetUnassignedStudents()
+    {
+        var unassigned = await _db.Students
+            .Include(s => s.Circle)
+            .Where(s => s.CircleId == null && s.IsActive)
+            .OrderBy(s => s.FullName)
+            .ToListAsync();
+        return Ok(unassigned.Select(s => StudentService.MapStudentToFullObject(s)).ToList());
+    }
+
+    [HttpGet("all-for-enrollment")]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    public async Task<IActionResult> GetAllForEnrollment([FromQuery] string? search)
+    {
+        var query = _db.Students.Include(s => s.Circle).Where(s => s.IsActive).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLower();
+            query = query.Where(s => s.FullName.ToLower().Contains(q) || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
+        }
+        var list = await query.OrderBy(s => s.FullName).Take(50).ToListAsync();
+        return Ok(list.Select(s => StudentService.MapStudentToFullObject(s)).ToList());
+    }
+
     [HttpPost]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> Create([FromBody] CreateStudentDto dto)
     {
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+
+        if (currentUser?.Role == UserRole.Teacher && !settings.AllowTeacherSelfEnrollment)
+        {
+            return BadRequest(new { error = "عذراً، تسجيل وتنسيب الطلاب بواسطة المعلم معطل حالياً من قبل إدارة المركز." });
+        }
+
         var (created, createdParent, error) = await _svc.CreateAsync(dto);
         if (error is not null) return BadRequest(new { error });
 
@@ -176,9 +211,23 @@ public class StudentsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateStudentDto dto)
     {
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+
+        if (currentUser?.Role == UserRole.Teacher)
+        {
+            var student = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
+            if (student == null) return NotFound(new { error = "الطالب غير موجود." });
+            if (student.Circle?.TeacherId != currentUser.TeacherId && student.Circle?.Teacher?.FullName != currentUser.FullName)
+            {
+                return Forbid();
+            }
+        }
+
         var (ok, error) = await _svc.UpdateAsync(id, dto);
         if (!ok) return BadRequest(new { error });
 

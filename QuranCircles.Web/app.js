@@ -563,6 +563,11 @@ function handleRouting() {
         document.getElementById("teacher-sessions-section").classList.remove("hidden");
         loadTeacherSessionsSetup();
     } 
+    else if (hash === "#teacher-students" && currentRole === "Teacher") {
+        document.getElementById("btn-teacher-students")?.classList.add("active");
+        document.getElementById("teacher-students-section")?.classList.remove("hidden");
+        loadTeacherStudentsSetup();
+    }
     else if (hash === "#teacher-comprehensive-report" && (currentRole === "Teacher" || isAdminOrDev)) {
         document.getElementById("btn-teacher-comprehensive-report")?.classList.add("active");
         document.getElementById("teacher-comprehensive-report-section")?.classList.remove("hidden");
@@ -1504,6 +1509,362 @@ async function loadTeacherAttendanceSetup() {
     } catch(e) {
         console.error(e);
     }
+}
+
+// ----------------- Teacher: Students & Enrollment Management -----------------
+async function loadTeacherStudentsSetup() {
+    try {
+        const circles = await apiRequest("/circles");
+        const myCircles = (circles || []).filter(c => c.isActive);
+        const select = document.getElementById("teacher-students-circle-select");
+        if (!select) return;
+        select.innerHTML = "";
+
+        if (myCircles.length === 0) {
+            select.innerHTML = `<option value="">لا توجد حلقات مسندة إليك</option>`;
+            const tbody = document.getElementById("teacher-students-table-body");
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا توجد حلقات مسندة إلى حسابك حالياً.</td></tr>`;
+            return;
+        }
+
+        myCircles.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c.id;
+            opt.textContent = c.name;
+            select.appendChild(opt);
+        });
+
+        // Check if teacher enrollment is permitted
+        const enrollBtnExisting = document.getElementById("btn-teacher-enroll-existing");
+        const enrollBtnNew = document.getElementById("btn-teacher-add-new-student");
+        if (window.SYS_ALLOW_TEACHER_ENROLL === false) {
+            if (enrollBtnExisting) enrollBtnExisting.style.display = "none";
+            if (enrollBtnNew) enrollBtnNew.style.display = "none";
+        } else {
+            if (enrollBtnExisting) enrollBtnExisting.style.display = "inline-flex";
+            if (enrollBtnNew) enrollBtnNew.style.display = "inline-flex";
+        }
+
+        await loadTeacherStudentsTable();
+    } catch (e) {
+        console.error("Error loading teacher students setup:", e);
+    }
+}
+
+async function loadTeacherStudentsTable() {
+    const select = document.getElementById("teacher-students-circle-select");
+    if (!select || !select.value) return;
+    const circleId = select.value;
+
+    const tbody = document.getElementById("teacher-students-table-body");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center p-4"><i class="fa-solid fa-spinner fa-spin text-success fs-3"></i> جاري تحميل بيانات الطلاب...</td></tr>`;
+
+    try {
+        const circle = await apiRequest(`/circles/${circleId}`);
+        const students = circle.students || [];
+
+        const capBadge = document.getElementById("teacher-circle-capacity-badge");
+        const maxCap = window.SYS_MAX_STUDENTS_CIRCLE || 25;
+        if (capBadge) {
+            capBadge.textContent = `سعة الحلقة: ${students.length} / ${maxCap} طالب`;
+            if (students.length >= maxCap) {
+                capBadge.className = "badge bg-danger fs-6 px-3 py-2 rounded-pill shadow-xs";
+                capBadge.textContent += " (الحلقة ممتلئة)";
+            } else {
+                capBadge.className = "badge bg-success fs-6 px-3 py-2 rounded-pill shadow-xs";
+            }
+        }
+
+        if (students.length === 0) {
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center p-4 text-muted">
+                            <i class="fa-solid fa-users-slash fs-2 mb-2 d-block text-secondary"></i>
+                            لا يوجد طلاب منتسبين في هذه الحلقة حالياً.<br>
+                            ${window.SYS_ALLOW_TEACHER_ENROLL !== false ? '<button class="btn btn-sm btn-primary mt-2 rounded-pill px-3" onclick="showTeacherEnrollExistingModal()"><i class="fa-solid fa-user-plus me-1"></i> تنسيب طالب موجود الآن</button>' : ''}
+                        </td>
+                    </tr>
+                `;
+            }
+            return;
+        }
+
+        // Fetch full details of these students
+        let fullStudents = [];
+        try {
+            const allMyStudents = await apiRequest("/students");
+            fullStudents = allMyStudents || [];
+        } catch(e) {}
+
+        const hideParentPhone = window.SYS_HIDE_PARENT_PHONE === true;
+        const allowEditPlan = window.SYS_ALLOW_TEACHER_EDIT_PLAN !== false;
+        const allowEnroll = window.SYS_ALLOW_TEACHER_ENROLL !== false;
+
+        let rowsHtml = "";
+        students.forEach((s, idx) => {
+            const fullS = fullStudents.find(x => x.id === s.id) || s;
+            let displayPhone = fullS.familyContact || fullS.studentMobile || "-";
+            if (hideParentPhone && displayPhone !== "-") {
+                displayPhone = displayPhone.substring(0, 4) + "****" + displayPhone.slice(-2);
+            }
+
+            rowsHtml += `
+                <tr>
+                    <td><strong>${idx + 1}</strong></td>
+                    <td>
+                        <div class="fw-bold text-dark">${s.fullName}</div>
+                        <small class="text-muted">${fullS.parentName ? 'ولي الأمر: ' + fullS.parentName : ''}</small>
+                    </td>
+                    <td><span class="badge bg-light text-dark border">${fullS.studentIdentityNumber || s.id}</span></td>
+                    <td><span class="badge bg-success bg-opacity-10 text-success fw-bold">${fullS.previousQuranMemorization || 'مبتدئ'}</span></td>
+                    <td><span class="text-muted"><i class="fa-solid fa-phone me-1"></i>${displayPhone}</span></td>
+                    <td><small class="text-muted">${fullS.address || '-'}</small></td>
+                    <td>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <button class="btn btn-outline-info btn-sm rounded-pill px-2" onclick="showStudentProgressModal(${s.id})" title="عرض بطاقة الطالب الشاملة">
+                                <i class="fa-solid fa-id-card"></i> بطاقة الطالب
+                            </button>
+                            ${allowEditPlan ? `
+                            <button class="btn btn-outline-warning btn-sm rounded-pill px-2" onclick="showTeacherEditStudentPlanModal(${s.id}, '${s.fullName.replace(/'/g, "\\'")}', '${fullS.previousQuranMemorization || ''}')" title="تعديل خطة الحفظ">
+                                <i class="fa-solid fa-pen-to-square"></i> الخطة
+                            </button>` : ''}
+                            ${allowEnroll ? `
+                            <button class="btn btn-outline-danger btn-sm rounded-pill px-2" onclick="unenrollStudentFromCircle(${s.id}, '${s.fullName.replace(/'/g, "\\'")}', ${circleId})" title="إلغاء تنسيب الطالب من الحلقة">
+                                <i class="fa-solid fa-user-minus"></i>
+                            </button>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        if (tbody) tbody.innerHTML = rowsHtml;
+
+    } catch (e) {
+        console.error("Error rendering teacher students table:", e);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger p-4">حدث خطأ أثناء تحميل بيانات الحلقة.</td></tr>`;
+    }
+}
+
+// Modal for Teacher to enroll existing student in the center into their circle
+async function showTeacherEnrollExistingModal() {
+    if (window.SYS_ALLOW_TEACHER_ENROLL === false) {
+        showAlert("تنسيب الطلاب بواسطة المعلم معطل حالياً من قبل إدارة المركز.", "warning");
+        return;
+    }
+
+    try {
+        const circles = await apiRequest("/circles");
+        const myCircles = (circles || []).filter(c => c.isActive);
+        if (myCircles.length === 0) {
+            showAlert("لا توجد حلقات مسندة إليك لتنسيب الطلاب إليها.", "warning");
+            return;
+        }
+
+        openModal("تنسيب طالب إلى حلقتي القرآنيّة");
+
+        const modalBody = document.getElementById("modal-body-content");
+        modalBody.innerHTML = `
+            <div class="p-3">
+                <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+                    <i class="fa-solid fa-circle-info fs-4"></i>
+                    <div>
+                        <strong>تنسيب الطلاب للحلقة:</strong> يمكنك البحث عن أي طالب مسجل في المركز القرآني وإضافته مباشرة إلى حلقتك.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-circle-nodes text-primary me-1"></i> اختر الحلقة المستهدفة للتنسيب:</label>
+                    <select id="teacher-enroll-target-circle" class="form-select shadow-xs border-primary">
+                        ${myCircles.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-success me-1"></i> ابحث عن اسم الطالب أو رقم الهوية:</label>
+                    <input type="text" id="teacher-enroll-search-input" class="form-control form-control-lg shadow-xs" placeholder="اكتب اسم الطالب للبحث..." autocomplete="off">
+                </div>
+
+                <div id="teacher-enroll-results-container" style="max-height: 320px; overflow-y: auto;" class="border rounded-3 p-2 bg-light">
+                    <p class="text-center text-muted my-4"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب قائمة طلاب المركز...</p>
+                </div>
+            </div>
+        `;
+
+        // Fetch students available in center
+        let allStudents = [];
+        try {
+            allStudents = await apiRequest("/students/all-for-enrollment") || [];
+        } catch(e) {
+            try { allStudents = await apiRequest("/students") || []; } catch(err) {}
+        }
+
+        const renderResults = (searchTerm = "") => {
+            const container = document.getElementById("teacher-enroll-results-container");
+            if (!container) return;
+
+            const q = searchTerm.trim().toLowerCase();
+            const filtered = allStudents.filter(s => 
+                !q || (s.fullName && s.fullName.toLowerCase().includes(q)) || 
+                (s.studentIdentityNumber && s.studentIdentityNumber.includes(q))
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-center text-muted my-4">لا يوجد طلاب مطابقين لاسم البحث.</p>`;
+                return;
+            }
+
+            let html = '<div class="list-group list-group-flush gap-2">';
+            filtered.forEach(s => {
+                const currentCircle = s.circleName && s.circleName !== "غير مسند حلقة" ? s.circleName : null;
+                html += `
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 rounded-3 shadow-xs bg-white border">
+                        <div>
+                            <div class="fw-bold text-dark fs-6">${s.fullName}</div>
+                            <div class="small text-muted">
+                                <span class="badge bg-light text-secondary border me-1">هوية: ${s.studentIdentityNumber || s.id}</span>
+                                ${currentCircle ? `<span class="badge bg-warning bg-opacity-25 text-dark border">الحلقة الحالية: ${currentCircle}</span>` : '<span class="badge bg-success bg-opacity-25 text-success border">غير مسند حلقة</span>'}
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-xs" onclick="executeTeacherStudentEnrollment(${s.id}, '${s.fullName.replace(/'/g, "\\'")}')">
+                            <i class="fa-solid fa-plus me-1"></i> تنسيب لحلقتي
+                        </button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        };
+
+        renderResults("");
+
+        const searchInput = document.getElementById("teacher-enroll-search-input");
+        if (searchInput) {
+            searchInput.addEventListener("input", (e) => renderResults(e.target.value));
+        }
+
+    } catch (e) {
+        console.error("Error in showTeacherEnrollExistingModal:", e);
+        showAlert("تعذر فتح نافذة التنسيب.", "danger");
+    }
+}
+
+// Execute the student enrollment into teacher's circle
+async function executeTeacherStudentEnrollment(studentId, studentName) {
+    const circleSelect = document.getElementById("teacher-enroll-target-circle");
+    if (!circleSelect || !circleSelect.value) {
+        showAlert("الرجاء اختيار الحلقة أولاً.", "warning");
+        return;
+    }
+    const circleId = parseInt(circleSelect.value);
+    const circleName = circleSelect.options[circleSelect.selectedIndex].text;
+
+    try {
+        await apiRequest(`/circles/${circleId}/students`, "POST", { studentId: studentId });
+
+        closeModal();
+
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "success",
+                title: "تم التنسيب بنجاح! 🎉",
+                html: `تم إضافة الطالب <b>${studentName}</b> إلى حلقة <b>${circleName}</b> بنجاح.`,
+                confirmButtonText: "رائع، حسناً",
+                confirmButtonColor: "#10b981"
+            });
+        } else {
+            showAlert(`تم تنسيب الطالب (${studentName}) إلى حلقة (${circleName}) بنجاح.`, "success");
+        }
+
+        // Refresh teacher views
+        if (typeof loadTeacherStudentsTable === "function") loadTeacherStudentsTable();
+        if (typeof loadAttendanceSheet === "function") loadAttendanceSheet();
+        if (typeof loadAdminStudents === "function") loadAdminStudents();
+
+    } catch (err) {
+        console.error("Error enrolling student:", err);
+        const errMsg = err && err.error ? err.error : (err.message || "تعذر إتمام عملية التنسيب.");
+        showAlert(errMsg, "danger");
+    }
+}
+
+// Unenroll student from circle
+async function unenrollStudentFromCircle(studentId, studentName, circleId) {
+    if (window.SYS_ALLOW_TEACHER_ENROLL === false) {
+        showAlert("إلغاء تنسيب الطلاب معطل حالياً من إدارة المركز.", "warning");
+        return;
+    }
+
+    const confirmed = await showConfirmModal(`هل أنت متأكد من فك ارتباط الطالب (${studentName}) من هذه الحلقة؟`);
+    if (!confirmed) return;
+
+    try {
+        await apiRequest(`/circles/${circleId}/students/${studentId}`, "DELETE");
+        showAlert(`تم فك ارتباط الطالب (${studentName}) من الحلقة بنجاح.`, "success");
+        loadTeacherStudentsTable();
+    } catch (e) {
+        console.error("Error unenrolling student:", e);
+        showAlert("تعذر فك ارتباط الطالب.", "danger");
+    }
+}
+
+// Modal for Teacher to register a brand new student directly
+async function showTeacherAddNewStudentModal() {
+    if (window.SYS_ALLOW_TEACHER_ENROLL === false) {
+        showAlert("تسجيل الطلاب الجدد بواسطة المعلم معطل حالياً من إدارة المركز.", "warning");
+        return;
+    }
+    await showStudentModal();
+}
+
+// Modal for Teacher to edit student memorization plan
+async function showTeacherEditStudentPlanModal(studentId, studentName, currentPlan) {
+    if (window.SYS_ALLOW_TEACHER_EDIT_PLAN === false) {
+        showAlert("تعديل خطط الطلاب معطل حالياً من إدارة المركز.", "warning");
+        return;
+    }
+
+    openModal(`تعديل خطة الحفظ للطالب: ${studentName}`);
+    const modalBody = document.getElementById("modal-body-content");
+    modalBody.innerHTML = `
+        <form id="teacher-edit-plan-form" class="p-3">
+            <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+                <i class="fa-solid fa-book-quran fs-4"></i>
+                <div>
+                    <strong>الخطة القرآنية:</strong> حدد المحفوظ الحالي والخطة المستهدفة للطالب <b>${studentName}</b>.
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-dark"><i class="fa-solid fa-bookmark text-primary me-1"></i> مقدار الحفظ المنجز حالياً:</label>
+                <input type="text" id="teacher-plan-memorization" class="form-control" value="${currentPlan || ''}" placeholder="مثلاً: جزء عم وتبارك (2 أجزاء)..." required>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
+                <button type="submit" class="btn btn-success fw-bold px-4"><i class="fa-solid fa-save me-1"></i> حفظ وتحديث الخطة</button>
+            </div>
+        </form>
+    `;
+
+    document.getElementById("teacher-edit-plan-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const newPlan = document.getElementById("teacher-plan-memorization").value.trim();
+
+        try {
+            let fullS = await apiRequest(`/students/${studentId}`);
+            if (fullS) {
+                fullS.previousQuranMemorization = newPlan;
+                await apiRequest(`/students/${studentId}`, "PUT", fullS);
+            }
+            closeModal();
+            showAlert(`تم تحديث خطة الطالب (${studentName}) بنجاح.`, "success");
+            loadTeacherStudentsTable();
+        } catch (err) {
+            console.error("Error updating plan:", err);
+            showAlert("تعذر تحديث خطة الطالب.", "danger");
+        }
+    });
 }
 
 async function loadAttendanceSheet() {

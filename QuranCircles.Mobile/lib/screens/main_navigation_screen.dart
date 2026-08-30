@@ -343,6 +343,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
             if (isTeacher) ...[
               ListTile(
+                leading: const Icon(Icons.person_add_alt_1, color: AppTheme.primary),
+                title: Text('تنسيب وإدارة طلاب حلقاتي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('تنسيب طلاب جدد واستعراض بيانات طلاب الحلقة', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const StudentsManagementScreen()));
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.playlist_add_check, color: AppTheme.primary),
                 title: Text('تسجيل حضور الحلقة وقرعة التسميع', style: AppTheme.cairoStyle()),
                 onTap: () {
