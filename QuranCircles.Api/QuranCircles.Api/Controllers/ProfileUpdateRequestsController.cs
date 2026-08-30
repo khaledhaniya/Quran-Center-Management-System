@@ -60,20 +60,49 @@ public class ProfileUpdateRequestsController : ControllerBase
             .ToListAsync();
 
         var studentIds = requests.Where(r => r.StudentId.HasValue).Select(r => r.StudentId!.Value).Distinct().ToList();
-        var studentsMap = await _db.Students.Where(s => studentIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.FullName);
+        var studentsList = await _db.Students.Where(s => studentIds.Contains(s.Id)).ToListAsync();
+        var studentsMap = studentsList.ToDictionary(s => s.Id);
 
-        var list = requests.Select(r => new {
-            r.Id,
-            r.UserId,
-            r.StudentId,
-            StudentName = r.StudentId.HasValue && studentsMap.TryGetValue(r.StudentId.Value, out var sName) ? sName : "طلب بيانات عامة",
-            r.RequestedByRole,
-            r.RequestedByName,
-            Changes = JsonSerializer.Deserialize<Dictionary<string, string>>(r.ChangesJson),
-            r.Status,
-            RequestDate = r.RequestDate.ToString("yyyy-MM-dd HH:mm"),
-            r.ReviewerNotes,
-            ReviewDate = r.ReviewDate?.ToString("yyyy-MM-dd HH:mm")
+        var list = requests.Select(r => {
+            Student? st = r.StudentId.HasValue && studentsMap.TryGetValue(r.StudentId.Value, out var sVal) ? sVal : null;
+            return new {
+                r.Id,
+                r.UserId,
+                r.StudentId,
+                StudentName = st != null ? st.FullName : "طلب بيانات عامة",
+                r.RequestedByRole,
+                r.RequestedByName,
+                Changes = JsonSerializer.Deserialize<Dictionary<string, string>>(r.ChangesJson),
+                CurrentStudentData = st != null ? new {
+                    fullName = st.FullName,
+                    studentIdentityNumber = st.StudentIdentityNumber,
+                    dateOfBirth = st.DateOfBirth.ToString("yyyy-MM-dd"),
+                    previousQuranMemorization = st.PreviousQuranMemorization,
+                    healthStatus = st.HealthStatus,
+                    familyContact = st.FamilyContact,
+                    studentMobile = st.StudentMobile,
+                    whatsappNumber = st.WhatsappNumber,
+                    studentWhatsapp = st.StudentWhatsapp,
+                    address = st.Address,
+                    currentAddress = st.CurrentAddress,
+                    originalAddress = st.OriginalAddress,
+                    originalHousingType = st.OriginalHousingType,
+                    originalHousingStatus = st.OriginalHousingStatus,
+                    currentHousingType = st.CurrentHousingType,
+                    fatherStatus = st.FatherStatus,
+                    motherStatus = st.MotherStatus,
+                    kinship = st.Kinship,
+                    parentIdentityNumber = st.ParentIdentityNumber,
+                    walletNumber = st.WalletNumber,
+                    bankAccountNumber = st.BankAccountNumber,
+                    bankName = st.BankName,
+                    notes = st.Notes
+                } : null,
+                r.Status,
+                RequestDate = r.RequestDate.ToString("yyyy-MM-dd HH:mm"),
+                r.ReviewerNotes,
+                ReviewDate = r.ReviewDate?.ToString("yyyy-MM-dd HH:mm")
+            };
         });
 
         return Ok(list);
@@ -104,6 +133,9 @@ public class ProfileUpdateRequestsController : ControllerBase
                 var changes = JsonSerializer.Deserialize<Dictionary<string, string>>(req.ChangesJson);
                 if (changes != null)
                 {
+                    if (changes.TryGetValue("fullName", out var fName) && !string.IsNullOrWhiteSpace(fName)) student.FullName = fName;
+                    if (changes.TryGetValue("dateOfBirth", out var dobStr) && DateOnly.TryParse(dobStr, out var dobVal)) student.DateOfBirth = dobVal;
+                    if (changes.TryGetValue("kinship", out var kinship)) student.Kinship = kinship;
                     if (changes.TryGetValue("studentMobile", out var mobile)) student.StudentMobile = mobile;
                     if (changes.TryGetValue("familyContact", out var contact)) student.FamilyContact = contact;
                     if (changes.TryGetValue("address", out var addr)) student.Address = addr;

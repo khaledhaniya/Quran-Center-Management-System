@@ -3321,3 +3321,94 @@ body.theme-dark {
     flex-wrap: wrap;
 }
 
+/* Diff Comparison Cards for Profile Requests */
+.req-diff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+    width: 100%;
+}
+
+.req-diff-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.req-diff-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.req-diff-label {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px dashed #e2e8f0;
+    padding-bottom: 6px;
+}
+
+.req-diff-flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+}
+
+.req-diff-old {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #991b1b;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.req-diff-old small {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #dc2626;
+    margin-bottom: 2px;
+}
+
+.req-diff-arrow {
+    color: #0d5c3a;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.req-diff-new {
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #14532d;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.4;
+    word-break: break-word;
+    box-shadow: 0 2px 5px rgba(22, 163, 74, 0.08);
+}
+
+.req-diff-new small {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #16a34a;
+    margin-bottom: 2px;
+}
+

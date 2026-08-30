@@ -3079,83 +3079,196 @@ async function showProfileEditModalForRole(role) {
 }
 
 async function showProfileUpdateRequestModal(studentId, studentName) {
-    openModal(`طلب تعديل وتحديث بيانات: ${studentName}`);
+    openModal(`طلب تعديل وتحديث بيانات الطالب: ${studentName}`, true);
     const content = document.getElementById("modal-body-content");
-    content.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-warning" role="status"></div><p class="mt-2 text-muted">جاري تحميل البيانات الحالية للطالب...</p></div>`;
+    content.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted fw-bold">جاري جلب كافة البيانات الحالية للطالب...</p></div>`;
     
     let s = null;
     try {
         s = await apiRequest(`/students/${studentId}`);
-    } catch(e) {}
+    } catch(e) {
+        console.error("Failed to load student details:", e);
+    }
 
     content.innerHTML = `
+        <div id="parent-req-alert-container"></div>
         <form id="profile-update-req-form">
             <input type="hidden" id="req-student-id" value="${studentId}">
-            <div class="alert alert-info border-info">
-                <i class="fa-solid fa-circle-info"></i> قم بتعديل الحقول المراد تحديثها وسيقوم المطور ومدير المركز بمراجعتها واعتمادها فوراً.
+            <div class="alert alert-info border-info d-flex align-items-center gap-2 mb-3" style="border-radius: 10px;">
+                <i class="fa-solid fa-circle-info fa-lg text-primary"></i>
+                <div class="small">
+                    <b>ملاحظة لولي الأمر:</b> كافة بيانات ابنك الحالية معروضة أدناه. يمكنك تعديل أي بيان ترغب بتحديثه، وسيقوم المطور ومدير المركز بمراجعة التعديلات واعتمادها فوراً.
+                </div>
             </div>
             
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="req-contact" class="fw-bold">رقم الجوال / التواصل:</label>
-                    <input type="text" id="req-contact" class="form-control" value="${s ? (s.familyContact || s.studentMobile || '') : ''}" placeholder="أدخل رقم الجوال الجديد...">
+                <!-- 1. البيانات الشخصية والتعريفية للطالب -->
+                <div class="col-12"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-id-card me-1"></i> 1. البيانات الشخصية والتعريفية للطالب</h6></div>
+                
+                <div class="col-md-4">
+                    <label for="req-fullname" class="fw-bold"><i class="fa-solid fa-user me-1 text-secondary"></i> اسم الطالب الكامل (رباعي):</label>
+                    <input type="text" id="req-fullname" class="form-control" value="${s ? (s.fullName || '') : ''}">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-student-id-num" class="fw-bold"><i class="fa-solid fa-id-card-clip me-1 text-secondary"></i> رقم هوية الطالب:</label>
+                    <input type="text" id="req-student-id-num" class="form-control" value="${s ? (s.studentIdentityNumber || '') : ''}">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-dob" class="fw-bold"><i class="fa-solid fa-calendar-days me-1 text-secondary"></i> تاريخ الميلاد:</label>
+                    <input type="date" id="req-dob" class="form-control" value="${s ? (s.dateOfBirth || '') : ''}">
                 </div>
                 <div class="col-md-6">
-                    <label for="req-whatsapp" class="fw-bold">رقم الواتساب:</label>
-                    <input type="text" id="req-whatsapp" class="form-control" value="${s ? (s.whatsappNumber || s.studentWhatsapp || '') : ''}" placeholder="رقم الواتساب...">
+                    <label for="req-prev-quran" class="fw-bold"><i class="fa-solid fa-book-quran me-1 text-success"></i> الحفظ السابق من القرآن:</label>
+                    <input type="text" id="req-prev-quran" class="form-control" value="${s ? (s.previousQuranMemorization || '') : ''}" placeholder="مثال: جزئين، 5 أجزاء">
                 </div>
                 <div class="col-md-6">
-                    <label for="req-address" class="fw-bold">عنوان السكن الحالي:</label>
-                    <input type="text" id="req-address" class="form-control" value="${s ? (s.currentAddress || s.address || '') : ''}" placeholder="أدخل عنوان السكن الجديد...">
+                    <label for="req-health" class="fw-bold"><i class="fa-solid fa-heart-pulse me-1 text-danger"></i> الحالة الصحية للطالب:</label>
+                    <input type="text" id="req-health" class="form-control" value="${s ? (s.healthStatus || 'سليم') : 'سليم'}" placeholder="سليم / مصاب / مرض مزمن">
                 </div>
-                <div class="col-md-6">
-                    <label for="req-health" class="fw-bold">الحالة الصحية:</label>
-                    <input type="text" id="req-health" class="form-control" value="${s ? (s.healthStatus || 'سليم') : 'سليم'}" placeholder="سليم / مصاب / مرض مزمن...">
+
+                <!-- 2. بيانات العائلة وولي الأمر -->
+                <div class="col-12 mt-3"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-people-roof me-1"></i> 2. بيانات العائلة وولي الأمر</h6></div>
+                
+                <div class="col-md-4">
+                    <label for="req-kinship" class="fw-bold"><i class="fa-solid fa-hands-holding-child me-1 text-primary"></i> صلة القرابة:</label>
+                    <input type="text" id="req-kinship" class="form-control" value="${s ? (s.kinship || 'الأب') : 'الأب'}" placeholder="الأب / الأم / ولي الأمر">
                 </div>
-                <div class="col-md-6">
-                    <label for="req-wallet" class="fw-bold">رقم المحفظة (المالية):</label>
-                    <input type="text" id="req-wallet" class="form-control" value="${s ? (s.walletNumber || '') : ''}" placeholder="رقم المحفظة المالية...">
+                <div class="col-md-4">
+                    <label for="req-parent-id-num" class="fw-bold"><i class="fa-solid fa-fingerprint me-1 text-success"></i> رقم هوية ولي الأمر (الأب):</label>
+                    <input type="text" id="req-parent-id-num" class="form-control" value="${s ? (s.parentIdentityNumber || '') : ''}">
                 </div>
-                <div class="col-md-6">
-                    <label for="req-bank" class="fw-bold">رقم الحساب البنكي واسم البنك:</label>
-                    <input type="text" id="req-bank" class="form-control" value="${s ? (s.bankAccountNumber ? (s.bankAccountNumber + (s.bankName ? ' - ' + s.bankName : '')) : '') : ''}" placeholder="رقم الحساب والبنك...">
+                <div class="col-md-4">
+                    <label for="req-father-status" class="fw-bold text-danger"><i class="fa-solid fa-ribbon me-1"></i> حالة الأب:</label>
+                    <input type="text" id="req-father-status" class="form-control" value="${s ? (s.fatherStatus || 'حي') : 'حي'}" placeholder="حي / شهيد / متوفى">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-mother-status" class="fw-bold text-danger"><i class="fa-solid fa-ribbon me-1"></i> حالة الأم:</label>
+                    <input type="text" id="req-mother-status" class="form-control" value="${s ? (s.motherStatus || 'حية') : 'حية'}" placeholder="حية / شهيدة / متوفاة">
+                </div>
+
+                <!-- 3. أرقام التواصل والعناوين المفصلة -->
+                <div class="col-12 mt-3"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-map-location-dot me-1"></i> 3. أرقام التواصل والعناوين المفصلة</h6></div>
+                
+                <div class="col-md-4">
+                    <label for="req-family-contact" class="fw-bold"><i class="fa-solid fa-phone text-success me-1"></i> رقم جوال التواصل (العائلة):</label>
+                    <input type="text" id="req-family-contact" class="form-control" value="${s ? (s.familyContact || '') : ''}" placeholder="059xxxxxxx">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-student-mobile" class="fw-bold"><i class="fa-solid fa-mobile-screen text-info me-1"></i> جوال الطالب الشخصي:</label>
+                    <input type="text" id="req-student-mobile" class="form-control" value="${s ? (s.studentMobile || '') : ''}" placeholder="059xxxxxxx">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-whatsapp" class="fw-bold"><i class="fa-brands fa-whatsapp text-success me-1"></i> رقم واتساب العائلة:</label>
+                    <input type="text" id="req-whatsapp" class="form-control" value="${s ? (s.whatsappNumber || '') : ''}" placeholder="059xxxxxxx">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-student-whatsapp" class="fw-bold"><i class="fa-brands fa-whatsapp text-success me-1"></i> واتساب الطالب الشخصي:</label>
+                    <input type="text" id="req-student-whatsapp" class="form-control" value="${s ? (s.studentWhatsapp || '') : ''}" placeholder="059xxxxxxx">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-address" class="fw-bold"><i class="fa-solid fa-location-dot text-danger me-1"></i> العنوان العام (البلدة/المحافظة):</label>
+                    <input type="text" id="req-address" class="form-control" value="${s ? (s.address || '') : ''}" placeholder="غزة - الشيخ رضوان">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-curr-address" class="fw-bold"><i class="fa-solid fa-house-chimney-user text-primary me-1"></i> عنوان السكن الحالي (مكان النزوح/الإقامة):</label>
+                    <input type="text" id="req-curr-address" class="form-control" value="${s ? (s.currentAddress || '') : ''}" placeholder="مثال: دير البلح - مخيم 2">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-curr-type"><i class="fa-solid fa-tents me-1"></i> نوع السكن الحالي:</label>
+                    <input type="text" id="req-curr-type" class="form-control" value="${s ? (s.currentHousingType || '') : ''}" placeholder="خيمة / مركز إيواء / إيجار">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-orig-address"><i class="fa-solid fa-house-chimney me-1"></i> العنوان الأصلي قبل النزوح:</label>
+                    <input type="text" id="req-orig-address" class="form-control" value="${s ? (s.originalAddress || '') : ''}" placeholder="العنوان الأصلي">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-orig-status"><i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> حالة السكن الأصلي:</label>
+                    <input type="text" id="req-orig-status" class="form-control" value="${s ? (s.originalHousingStatus || '') : ''}" placeholder="سليم / مدمر كلي / جزئي">
+                </div>
+
+                <!-- 4. البيانات المالية والملاحظات -->
+                <div class="col-12 mt-3"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-wallet me-1"></i> 4. البيانات المالية والملاحظات</h6></div>
+                
+                <div class="col-md-4">
+                    <label for="req-wallet" class="fw-bold"><i class="fa-solid fa-wallet text-warning me-1"></i> رقم المحفظة المالية (PalPay/جوال باي):</label>
+                    <input type="text" id="req-wallet" class="form-control" value="${s ? (s.walletNumber || '') : ''}" placeholder="رقم المحفظة...">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-bank-account" class="fw-bold"><i class="fa-solid fa-building-columns text-primary me-1"></i> رقم الحساب البنكي (IBAN):</label>
+                    <input type="text" id="req-bank-account" class="form-control" value="${s ? (s.bankAccountNumber || '') : ''}" placeholder="رقم الحساب البنكي...">
+                </div>
+                <div class="col-md-4">
+                    <label for="req-bank-name" class="fw-bold"><i class="fa-solid fa-landmark text-secondary me-1"></i> اسم البنك:</label>
+                    <input type="text" id="req-bank-name" class="form-control" value="${s ? (s.bankName || '') : ''}" placeholder="بنك فلسطين / البنك الإسلامي">
                 </div>
                 <div class="col-12">
-                    <label for="req-notes" class="fw-bold">ملاحظات أو تفاصيل إضافية للإدارة:</label>
-                    <textarea id="req-notes" class="form-control" rows="2" placeholder="أدخل أي ملاحظات أو طلب تفصيلي للتعديل...">${s ? (s.notes || '') : ''}</textarea>
+                    <label for="req-notes" class="fw-bold"><i class="fa-solid fa-note-sticky text-secondary me-1"></i> ملاحظات أو تفاصيل إضافية للإدارة والمطور:</label>
+                    <textarea id="req-notes" class="form-control" rows="2" placeholder="أدخل أي تفاصيل ترغب بتوضيحها للإدارة بخصوص هذا الطلب...">${s ? (s.notes || '') : ''}</textarea>
                 </div>
             </div>
             
             <div class="d-flex justify-content-between mt-4 border-top pt-3">
-                <button type="submit" class="btn btn-warning text-dark fw-bold"><i class="fa-solid fa-paper-plane"></i> إرسال الطلب للإدارة والمطور</button>
-                <button type="button" class="btn btn-light" onclick="closeModal()">إلغاء</button>
+                <button type="submit" class="btn btn-warning text-dark fw-bold px-4 py-2 shadow-sm" id="btn-submit-profile-req">
+                    <i class="fa-solid fa-paper-plane me-1"></i> إرسال طلب التعديل للإدارة والمطور
+                </button>
+                <button type="button" class="btn btn-light px-4" onclick="closeModal()">إلغاء</button>
             </div>
         </form>
     `;
 
     document.getElementById("profile-update-req-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        const stId = document.getElementById("req-student-id").value;
-        const contact = document.getElementById("req-contact").value;
-        const whatsapp = document.getElementById("req-whatsapp").value;
-        const address = document.getElementById("req-address").value;
-        const health = document.getElementById("req-health").value;
-        const wallet = document.getElementById("req-wallet").value;
-        const bank = document.getElementById("req-bank").value;
-        const notes = document.getElementById("req-notes").value;
+        const alertBox = document.getElementById("parent-req-alert-container");
+        const submitBtn = document.getElementById("btn-submit-profile-req");
 
+        const formValues = {
+            fullName: document.getElementById("req-fullname")?.value.trim() || '',
+            studentIdentityNumber: document.getElementById("req-student-id-num")?.value.trim() || '',
+            dateOfBirth: document.getElementById("req-dob")?.value || '',
+            previousQuranMemorization: document.getElementById("req-prev-quran")?.value.trim() || '',
+            healthStatus: document.getElementById("req-health")?.value.trim() || '',
+            kinship: document.getElementById("req-kinship")?.value.trim() || '',
+            parentIdentityNumber: document.getElementById("req-parent-id-num")?.value.trim() || '',
+            fatherStatus: document.getElementById("req-father-status")?.value.trim() || '',
+            motherStatus: document.getElementById("req-mother-status")?.value.trim() || '',
+            familyContact: document.getElementById("req-family-contact")?.value.trim() || '',
+            studentMobile: document.getElementById("req-student-mobile")?.value.trim() || '',
+            whatsappNumber: document.getElementById("req-whatsapp")?.value.trim() || '',
+            studentWhatsapp: document.getElementById("req-student-whatsapp")?.value.trim() || '',
+            address: document.getElementById("req-address")?.value.trim() || '',
+            currentAddress: document.getElementById("req-curr-address")?.value.trim() || '',
+            currentHousingType: document.getElementById("req-curr-type")?.value.trim() || '',
+            originalAddress: document.getElementById("req-orig-address")?.value.trim() || '',
+            originalHousingStatus: document.getElementById("req-orig-status")?.value.trim() || '',
+            walletNumber: document.getElementById("req-wallet")?.value.trim() || '',
+            bankAccountNumber: document.getElementById("req-bank-account")?.value.trim() || '',
+            bankName: document.getElementById("req-bank-name")?.value.trim() || '',
+            notes: document.getElementById("req-notes")?.value.trim() || ''
+        };
+
+        // Compute actual diff compared to student's initial data `s`
         const changes = {};
-        if (contact) { changes.familyContact = contact; changes.studentMobile = contact; }
-        if (whatsapp) { changes.whatsappNumber = whatsapp; changes.studentWhatsapp = whatsapp; }
-        if (address) { changes.address = address; changes.currentAddress = address; }
-        if (health) changes.healthStatus = health;
-        if (wallet) changes.walletNumber = wallet;
-        if (bank) changes.bankAccountNumber = bank;
-        if (notes) changes.notes = notes;
+        for (let [k, newVal] of Object.entries(formValues)) {
+            const oldVal = s ? (s[k] || '') : '';
+            if (newVal !== oldVal && newVal !== '') {
+                changes[k] = newVal;
+            }
+        }
 
         if (Object.keys(changes).length === 0) {
-            showAlert("يرجى تعبئة حقل واحد على الأقل للتعديل.", "warning");
+            if (alertBox) {
+                alertBox.innerHTML = `
+                    <div class="alert alert-warning animate-shake mb-3" style="border-radius: 8px;">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> لم تقم بإجراء أي تعديل على البيانات الحالية للطالب.
+                    </div>
+                `;
+            }
             return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري إرسال الطلب...';
         }
 
         const reqRole = currentRole || localStorage.getItem("role") || "Parent";
@@ -3163,19 +3276,42 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
 
         try {
             await apiRequest("/profile-update-requests", "POST", {
-                studentId: parseInt(stId),
+                studentId: parseInt(studentId),
                 requestedByRole: reqRole,
                 requestedByName: reqName,
                 changes: changes
             });
-            showAlert("تم تقديم طلب التعديل بنجاح، وسيتم اعتماده وتحديثه من الإدارة/المطور فوراً.", "success");
+            
             closeModal();
-            if (typeof loadAdminProfileRequests === "function") {
+            showAlert(`تم تقديم طلب التعديل للطالب (<strong>${studentName}</strong>) بنجاح، وسيتم مراجعته واعتماده من المطور والإدارة.`, "success");
+            
+            if (typeof Swal !== "undefined") {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'تم إرسال الطلب بنجاح! 🎉',
+                    html: `تم تسجيل طلب تعديل وتحديث بيانات الطالب <b>${escapeXml(studentName)}</b> وسيتم اعتماده وتطبيقه من الإدارة والمطور فوراً.`,
+                    confirmButtonText: 'حسناً',
+                    confirmButtonColor: '#0d5c3a'
+                });
+            }
+
+            // Only call admin refresh if caller is Admin or Dev to prevent 403 / logout!
+            if ((currentRole === "Admin" || currentRole === "Developer") && typeof loadAdminProfileRequests === "function") {
                 loadAdminProfileRequests();
             }
         } catch(err) {
             console.error(err);
-            showAlert("حدث خطأ أثناء إرسال طلب التعديل: " + (err.message || "يرجى المحاولة لاحقاً"), "danger");
+            if (alertBox) {
+                alertBox.innerHTML = `
+                    <div class="alert alert-danger animate-shake mb-3" style="border-radius: 8px;">
+                        <i class="fa-solid fa-circle-exclamation me-1"></i> حدث خطأ أثناء إرسال طلب التعديل: ${err.message || "يرجى المحاولة لاحقاً"}
+                    </div>
+                `;
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i> إعادة المحاولة';
+            }
         }
     });
 }
@@ -3365,16 +3501,28 @@ function renderProfileRequestsTable() {
     }
 
     const fieldLabels = {
+        fullName: { label: "اسم الطالب الكامل", icon: "fa-user text-primary" },
+        studentIdentityNumber: { label: "رقم هوية الطالب", icon: "fa-id-card text-success" },
+        dateOfBirth: { label: "تاريخ الميلاد", icon: "fa-calendar-days text-info" },
+        previousQuranMemorization: { label: "الحفظ السابق من القرآن", icon: "fa-book-quran text-success" },
+        healthStatus: { label: "الحالة الصحية", icon: "fa-heart-pulse text-danger" },
+        kinship: { label: "صلة القرابة", icon: "fa-hands-holding-child text-primary" },
+        parentIdentityNumber: { label: "رقم هوية ولي الأمر", icon: "fa-fingerprint text-success" },
+        fatherStatus: { label: "حالة الأب", icon: "fa-ribbon text-danger" },
+        motherStatus: { label: "حالة الأم", icon: "fa-ribbon text-danger" },
         familyContact: { label: "رقم جوال التواصل", icon: "fa-phone text-success" },
         studentMobile: { label: "جوال الطالب", icon: "fa-mobile-screen text-info" },
         whatsappNumber: { label: "واتساب العائلة", icon: "fa-brands fa-whatsapp text-success" },
         studentWhatsapp: { label: "واتس الطالب", icon: "fa-brands fa-whatsapp text-success" },
         address: { label: "العنوان العام", icon: "fa-location-dot text-danger" },
         currentAddress: { label: "عنوان السكن الحالي", icon: "fa-house-user text-primary" },
-        healthStatus: { label: "الحالة الصحية", icon: "fa-heart-pulse text-danger" },
+        currentHousingType: { label: "نوع السكن الحالي", icon: "fa-tents text-secondary" },
+        originalAddress: { label: "العنوان الأصلي قبل النزوح", icon: "fa-house text-secondary" },
+        originalHousingType: { label: "نوع السكن الأصلي", icon: "fa-building text-secondary" },
+        originalHousingStatus: { label: "حالة السكن الأصلي", icon: "fa-triangle-exclamation text-warning" },
         walletNumber: { label: "رقم المحفظة المالية", icon: "fa-wallet text-warning" },
-        bankAccountNumber: { label: "رقم الحساب البنكي / البنك", icon: "fa-building-columns text-primary" },
-        bankName: "اسم البنك",
+        bankAccountNumber: { label: "رقم الحساب البنكي", icon: "fa-building-columns text-primary" },
+        bankName: { label: "اسم البنك", icon: "fa-landmark text-secondary" },
         notes: { label: "ملاحظات وتفاصيل طلب التعديل", icon: "fa-note-sticky text-secondary" }
     };
 
@@ -3387,10 +3535,31 @@ function renderProfileRequestsTable() {
                     const info = fieldLabels[k] || { label: k, icon: "fa-pen" };
                     const labelName = typeof info === 'object' ? info.label : info;
                     const iconClass = typeof info === 'object' ? info.icon : 'fa-circle-info';
+                    
+                    // Retrieve previous/old value from currentStudentData if present
+                    const oldVal = (r.currentStudentData && r.currentStudentData[k] !== undefined && r.currentStudentData[k] !== null && r.currentStudentData[k] !== '') 
+                        ? r.currentStudentData[k] 
+                        : '— (غير مسجل)';
+
                     changesCardsHtml.push(`
-                        <div class="req-change-pill">
-                            <span class="req-change-label"><i class="fa-solid ${iconClass}"></i> ${labelName}:</span>
-                            <span class="req-change-val">${escapeXml(v)}</span>
+                        <div class="req-diff-card">
+                            <div class="req-diff-label">
+                                <span><i class="fa-solid ${iconClass} me-1"></i> ${labelName}</span>
+                                <span class="badge bg-warning text-dark font-monospace" style="font-size:0.7rem;"><i class="fa-solid fa-pen-fancy me-1"></i> حقل معدل</span>
+                            </div>
+                            <div class="req-diff-flow">
+                                <div class="req-diff-old">
+                                    <small><i class="fa-solid fa-clock-rotate-left me-1"></i> القيمة السابقة (القديمة):</small>
+                                    <span>${escapeXml(oldVal)}</span>
+                                </div>
+                                <div class="req-diff-arrow">
+                                    <i class="fa-solid fa-arrow-left"></i>
+                                </div>
+                                <div class="req-diff-new">
+                                    <small><i class="fa-solid fa-sparkles me-1"></i> القيمة الجديدة (المطلوبة):</small>
+                                    <span>${escapeXml(v)}</span>
+                                </div>
+                            </div>
                         </div>
                     `);
                 }
@@ -3408,7 +3577,7 @@ function renderProfileRequestsTable() {
         }
 
         html += `
-            <div class="req-item-card" style="border-right: 6px solid ${borderAccent};">
+            <div class="req-item-card mb-4" style="border-right: 6px solid ${borderAccent};">
                 <div class="req-card-header">
                     <div class="d-flex align-items-center gap-3">
                         <span class="badge bg-primary text-white rounded-pill px-3 py-1.5 fw-bold" style="font-size: 0.85rem;">#${idx + 1}</span>
@@ -3430,22 +3599,22 @@ function renderProfileRequestsTable() {
                 </div>
 
                 <div class="req-card-body">
-                    <h6 class="fw-bold text-secondary mb-3 d-flex align-items-center gap-2" style="font-size: 0.88rem;">
-                        <i class="fa-solid fa-pen-to-square text-primary"></i> التغييرات والتحديثات المطلوبة:
+                    <h6 class="fw-bold text-secondary mb-3 d-flex align-items-center gap-2" style="font-size: 0.9rem;">
+                        <i class="fa-solid fa-code-compare text-primary"></i> مقارنة التغييرات (البيانات السابقة ⬅️ البيانات الجديدة المقترحة):
                     </h6>
-                    <div class="req-changes-grid">
+                    <div class="req-diff-grid">
                         ${changesCardsHtml.join('') || '<p class="text-muted small mb-0">تعديل عام دون تفاصيل إضافية.</p>'}
                     </div>
                 </div>
 
                 ${r.status === "Pending" ? `
                 <div class="req-card-footer">
-                    <span class="small text-muted" style="font-size: 0.82rem;"><i class="fa-solid fa-shield-halved text-warning me-1"></i> الاعتماد سيحدث بيانات الطالب في السجلات الرسمية والبطاقات فوراً.</span>
+                    <span class="small text-muted" style="font-size: 0.82rem;"><i class="fa-solid fa-shield-halved text-warning me-1"></i> الضغط على "موافقة وتحديث" سيقوم بتطبيق القيم الجديدة مباشرة على ملف الطالب والسجلات الرسمية.</span>
                     <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-success px-3 py-2 fw-bold shadow-sm" onclick="approveProfileRequest(${r.id})" style="font-size: 0.88rem;">
-                            <i class="fa-solid fa-check me-1"></i> موافقة وتحديث
+                        <button class="btn btn-success px-4 py-2 fw-bold shadow-sm" onclick="approveProfileRequest(${r.id})" style="font-size: 0.9rem;">
+                            <i class="fa-solid fa-check me-1"></i> موافقة وتحديث البيانات فوراً
                         </button>
-                        <button class="btn btn-outline-danger px-3 py-2 fw-bold" onclick="rejectProfileRequest(${r.id})" style="font-size: 0.88rem;">
+                        <button class="btn btn-outline-danger px-3 py-2 fw-bold" onclick="rejectProfileRequest(${r.id})" style="font-size: 0.9rem;">
                             <i class="fa-solid fa-xmark me-1"></i> رفض الطلب
                         </button>
                     </div>
