@@ -205,36 +205,56 @@ async function handleLogin(e) {
     const submitBtn = document.querySelector("#login-form button[type='submit']");
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تسجيل الدخول وتجهيز السيرفر...';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري الاتصال وتجهيز الخادم...';
     }
+    
+    if (errorContainer) errorContainer.innerHTML = "";
+
+    // Timer feedback for wake-up resilience
+    let elapsedSec = 0;
+    const timerInterval = setInterval(() => {
+        elapsedSec++;
+        if (submitBtn && submitBtn.disabled) {
+            if (elapsedSec > 2) {
+                submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري الاتصال بالخادم (${elapsedSec} ث)...`;
+            }
+        }
+    }, 1000);
     
     try {
         let response;
-        try {
-            response = await fetch(`${API_BASE}/auth/login`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    username: usernameInput,
-                    password: passwordInput
-                })
-            });
-        } catch(fetchErr) {
-            // If local API was down or unreachable, seamlessly try the cloud API
-            if (isLocalEnv && API_BASE.includes("localhost")) {
-                console.log("Local API failed, trying Render Cloud API...");
-                response = await fetch("https://albayan-quran.onrender.com/api/auth/login", {
+
+        // Helper to fetch with timeout
+        async function tryFetchLogin(url, timeoutMs = 12000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(`${url}/auth/login`, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        username: usernameInput,
-                        password: passwordInput
-                    })
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
+                return res;
+            } catch(err) {
+                clearTimeout(timeoutId);
+                throw err;
+            }
+        }
+
+        try {
+            // First attempt with active API_BASE
+            const timeout = (isLocalEnv && API_BASE.includes("localhost")) ? 3000 : 45000;
+            response = await tryFetchLogin(API_BASE, timeout);
+        } catch(fetchErr) {
+            // Fallback to Render Cloud API if local or primary failed
+            if (API_BASE !== "https://albayan-quran.onrender.com/api") {
+                console.log("Primary API failed or timed out, trying Render Cloud API...");
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down fa-spin me-2"></i> جاري الاتصال بالسيرفر السحابي...';
+                }
+                response = await tryFetchLogin("https://albayan-quran.onrender.com/api", 45000);
                 if (response && response.ok) {
                     API_BASE = "https://albayan-quran.onrender.com/api";
                 }
@@ -247,7 +267,7 @@ async function handleLogin(e) {
             let errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة.";
             try {
                 const errJson = await response.json();
-                errorMsg = errJson.error || errorMsg;
+                errorMsg = errJson.error || errJson.message || errorMsg;
             } catch(e) {}
             throw new Error(errorMsg);
         }
@@ -273,20 +293,21 @@ async function handleLogin(e) {
         
     } catch(err) {
         let msg = err.message || "حدث خطأ في الاتصال بالسيرفر";
-        if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-            msg = "السيرفر الأونلاين يجري تشغيله حالياً أو في وضع الاستيقاظ.. يرجى الانتظار ثوانٍ معدودة وإعادة المحاولة.";
+        if (err.name === "AbortError" || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("aborted")) {
+            msg = "السيرفر السحابي قيد الاستيقاظ والتجهيز حالياً (يستغرق حوالي 15-30 ثانية في المرة الأولى).. يرجى إعادة الضغط على 'تسجيل الدخول'.";
         }
         if (errorContainer) {
             errorContainer.innerHTML = `
-                <div class="alert alert-danger" style="margin-top:0; margin-bottom:15px; padding: 10px 15px;">
-                    <i class="fa-solid fa-circle-exclamation me-2"></i> ${msg}
+                <div class="alert alert-danger animate-shake" style="margin-top:0; margin-bottom:15px; padding: 12px 15px; border-radius: 8px;" dir="rtl">
+                    <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> ${msg}
                 </div>
             `;
         }
     } finally {
+        clearInterval(timerInterval);
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول';
+            submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket me-1"></i> تسجيل الدخول';
         }
     }
 }
@@ -2506,7 +2527,9 @@ async function showStudentModal(studentId = null) {
             if (fullS) s = fullS;
         } catch(e) {}
     }
-    
+
+    const content = document.getElementById("modal-body-content");
+    content.innerHTML = `
         <!-- In-modal alerts container -->
         <div id="student-modal-alert-container"></div>
 
@@ -4800,13 +4823,16 @@ function triggerFaithToast() {
     ];
 
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    const logoSrc = (typeof CENTER_LOGO_BASE64 !== 'undefined' && CENTER_LOGO_BASE64) ? CENTER_LOGO_BASE64 : (cachedSystemSettings?.logoUrl || 'assets/logo.png');
 
     const toast = document.createElement("div");
     toast.className = "faith-toast";
     toast.innerHTML = `
-        <div class="faith-toast-icon"><img src="logo.png" alt="شعار" style="width:28px; height:28px; border-radius:50%;"></div>
+        <div class="faith-toast-icon">
+            <img src="${logoSrc}" alt="شعار المركز" style="width: 38px; height: 38px; border-radius: 50%; object-fit: contain; background: #ffffff; padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        </div>
         <div class="faith-toast-content">
-            <h4>نفحة إيمانية</h4>
+            <h4><i class="fa-solid fa-mosque me-1" style="color: #4ade80;"></i> نفحة إيمانية</h4>
             <p>${randomQuote}</p>
         </div>
     `;
