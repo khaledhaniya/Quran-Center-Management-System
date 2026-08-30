@@ -7,12 +7,12 @@ public class SystemSettings
     public int Id { get; set; } = 1;
 
     // 1. Institutional Identity & Contact
-    public string CenterName { get; set; } = "مركز البيان لتعليم القرآن الكريم وتدريس علومه";
-    public string MosqueName { get; set; } = "مسجد علي بن أبي طالب";
-    public string CenterAddress { get; set; } = "فلسطين - غزة - المقر الرئيسي";
-    public string SupportPhone { get; set; } = "+970599000000";
-    public string SupportEmail { get; set; } = "info@albayan.quran";
-    public string WelcomeMessage { get; set; } = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية";
+    public string? CenterName { get; set; } = "مركز البيان لتعليم القرآن الكريم وتدريس علومه";
+    public string? MosqueName { get; set; } = "مسجد علي بن أبي طالب";
+    public string? CenterAddress { get; set; } = "فلسطين - غزة - المقر الرئيسي";
+    public string? SupportPhone { get; set; } = "+970599000000";
+    public string? SupportEmail { get; set; } = "info@albayan.quran";
+    public string? WelcomeMessage { get; set; } = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية";
     public string? LogoUrl { get; set; }
 
     // 2. Academic & Quranic Standards
@@ -32,17 +32,17 @@ public class SystemSettings
 
     // 4. Certificates & Recognition
     public bool EnableCertificates { get; set; } = true;
-    public string SignatoryName { get; set; } = "فضيلة الشيخ / رئيس المركز";
-    public string SignatoryTitle { get; set; } = "المشرف العام على حلقات تحفيظ القرآن الكريم";
+    public string? SignatoryName { get; set; } = "فضيلة الشيخ / رئيس المركز";
+    public string? SignatoryTitle { get; set; } = "المشرف العام على حلقات تحفيظ القرآن الكريم";
     public bool ShowHonorsBoard { get; set; } = true;
 
     // 5. Alerts & Communication
     public bool AllowPublicAnnouncements { get; set; } = true;
     public bool EnableAbsenceAutoAlert { get; set; } = true;
-    public string AbsenceAlertTemplate { get; set; } = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.";
+    public string? AbsenceAlertTemplate { get; set; } = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.";
 
     // 6. UI & Appearance
-    public string ThemeStyle { get; set; } = "Classic"; // Classic, Modern, Sapphire, Dark
+    public string? ThemeStyle { get; set; } = "Classic"; // Classic, Modern, Sapphire, Dark
     public bool MaintenanceMode { get; set; } = false;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

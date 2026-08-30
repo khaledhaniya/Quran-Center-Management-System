@@ -317,6 +317,7 @@ public static class DbSeeder
                         SupportPhone TEXT,
                         SupportEmail TEXT,
                         WelcomeMessage TEXT,
+                        LogoUrl TEXT,
                         ThemeStyle TEXT,
                         PassingScoreThreshold INTEGER NOT NULL DEFAULT 70,
                         MinAttendancePercentForExam INTEGER NOT NULL DEFAULT 75,
@@ -357,22 +358,34 @@ public static class DbSeeder
 
                 var settingsColumns = new Dictionary<string, string>
                 {
+                    { "CenterName", "TEXT" },
+                    { "MosqueName", "TEXT" },
                     { "CenterAddress", "TEXT" },
+                    { "SupportPhone", "TEXT" },
                     { "SupportEmail", "TEXT" },
+                    { "WelcomeMessage", "TEXT" },
+                    { "LogoUrl", "TEXT" },
+                    { "ThemeStyle", "TEXT" },
                     { "PassingScoreThreshold", "INTEGER NOT NULL DEFAULT 70" },
                     { "MinAttendancePercentForExam", "INTEGER NOT NULL DEFAULT 75" },
                     { "MaxStudentsPerCircle", "INTEGER NOT NULL DEFAULT 20" },
                     { "MaxAbsenceDaysWarning", "INTEGER NOT NULL DEFAULT 3" },
                     { "AllowTeacherEditStudentPlan", "INTEGER NOT NULL DEFAULT 1" },
+                    { "AllowTeacherSelfEnrollment", "INTEGER NOT NULL DEFAULT 1" },
                     { "HideParentPhoneFromTeacher", "INTEGER NOT NULL DEFAULT 0" },
                     { "AllowStudentProfileEditRequests", "INTEGER NOT NULL DEFAULT 1" },
                     { "EnforceDailyAttendanceRecording", "INTEGER NOT NULL DEFAULT 1" },
+                    { "ShowStudentCountToTeacher", "INTEGER NOT NULL DEFAULT 1" },
+                    { "ShowCumulativeAttendance", "INTEGER NOT NULL DEFAULT 1" },
+                    { "EnableCertificates", "INTEGER NOT NULL DEFAULT 1" },
                     { "SignatoryName", "TEXT" },
                     { "SignatoryTitle", "TEXT" },
                     { "ShowHonorsBoard", "INTEGER NOT NULL DEFAULT 1" },
+                    { "AllowPublicAnnouncements", "INTEGER NOT NULL DEFAULT 1" },
                     { "EnableAbsenceAutoAlert", "INTEGER NOT NULL DEFAULT 1" },
                     { "AbsenceAlertTemplate", "TEXT" },
-                    { "MaintenanceMode", "INTEGER NOT NULL DEFAULT 0" }
+                    { "MaintenanceMode", "INTEGER NOT NULL DEFAULT 0" },
+                    { "UpdatedAt", "TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'" }
                 };
 
                 foreach (var (colName, colType) in settingsColumns)
@@ -425,6 +438,29 @@ public static class DbSeeder
                         UpdatedAt = DateTime.UtcNow
                     });
                     db.SaveChanges();
+                }
+                else
+                {
+                    var s = db.SystemSettings.FirstOrDefault();
+                    if (s != null)
+                    {
+                        bool changed = false;
+                        if (string.IsNullOrWhiteSpace(s.CenterName)) { s.CenterName = "مركز البيان لتعليم القرآن الكريم وتدريس علومه"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.MosqueName)) { s.MosqueName = "مسجد علي بن أبي طالب"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.CenterAddress)) { s.CenterAddress = "فلسطين - غزة - المقر الرئيسي"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.SupportPhone)) { s.SupportPhone = "+970599000000"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.SupportEmail)) { s.SupportEmail = "info@albayan.quran"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.WelcomeMessage)) { s.WelcomeMessage = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.ThemeStyle)) { s.ThemeStyle = "Classic"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.SignatoryName)) { s.SignatoryName = "فضيلة الشيخ / رئيس المركز"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.SignatoryTitle)) { s.SignatoryTitle = "المشرف العام على حلقات تحفيظ القرآن الكريم"; changed = true; }
+                        if (string.IsNullOrWhiteSpace(s.AbsenceAlertTemplate)) { s.AbsenceAlertTemplate = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز."; changed = true; }
+                        if (changed)
+                        {
+                            s.UpdatedAt = DateTime.UtcNow;
+                            db.SaveChanges();
+                        }
+                    }
                 }
             }
             catch { }
