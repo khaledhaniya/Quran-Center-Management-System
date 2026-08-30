@@ -119,6 +119,119 @@ public class SettingsController : ControllerBase
             return StatusCode(500, new { error = "فشل حفظ الإعدادات: " + ex.Message });
         }
     }
+
+    [HttpGet("backup")]
+    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    public async Task<IActionResult> ExportBackup()
+    {
+        try
+        {
+            var data = new
+            {
+                ExportDate = DateTime.UtcNow,
+                Version = "2.0",
+                Settings = await _db.SystemSettings.FirstOrDefaultAsync(),
+                Users = await _db.Users.ToListAsync(),
+                Teachers = await _db.Teachers.ToListAsync(),
+                Circles = await _db.Circles.ToListAsync(),
+                Students = await _db.Students.ToListAsync(),
+                Sessions = await _db.Sessions.ToListAsync(),
+                Attendances = await _db.Attendances.ToListAsync(),
+                Announcements = await _db.Announcements.ToListAsync(),
+                Courses = await _db.Courses.ToListAsync(),
+                CourseEnrollments = await _db.CourseEnrollments.ToListAsync(),
+                CourseAttendances = await _db.CourseAttendances.ToListAsync(),
+                HadithSessions = await _db.HadithSessions.ToListAsync(),
+                ExamNominations = await _db.ExamNominations.ToListAsync(),
+                ExamResults = await _db.ExamResults.ToListAsync(),
+                ProfileUpdateRequests = await _db.ProfileUpdateRequests.ToListAsync(),
+                AuditLogs = await _db.AuditLogs.Take(500).ToListAsync()
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            return File(bytes, "application/json", $"quran_center_backup_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "فشل تصدير النسخة الاحتياطية: " + ex.Message });
+        }
+    }
+
+    [HttpPost("restore")]
+    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    public async Task<IActionResult> RestoreBackup([FromBody] System.Text.Json.JsonElement payload)
+    {
+        try
+        {
+            if (payload.TryGetProperty("Students", out var studentsEl) && studentsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var students = System.Text.Json.JsonSerializer.Deserialize<List<Student>>(studentsEl.GetRawText());
+                if (students != null && students.Any())
+                {
+                    foreach (var s in students)
+                    {
+                        var existing = await _db.Students.FindAsync(s.Id);
+                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(s);
+                        else _db.Students.Add(s);
+                    }
+                }
+            }
+
+            if (payload.TryGetProperty("Teachers", out var teachersEl) && teachersEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var teachers = System.Text.Json.JsonSerializer.Deserialize<List<Teacher>>(teachersEl.GetRawText());
+                if (teachers != null && teachers.Any())
+                {
+                    foreach (var t in teachers)
+                    {
+                        var existing = await _db.Teachers.FindAsync(t.Id);
+                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(t);
+                        else _db.Teachers.Add(t);
+                    }
+                }
+            }
+
+            if (payload.TryGetProperty("Circles", out var circlesEl) && circlesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var circles = System.Text.Json.JsonSerializer.Deserialize<List<Circle>>(circlesEl.GetRawText());
+                if (circles != null && circles.Any())
+                {
+                    foreach (var c in circles)
+                    {
+                        var existing = await _db.Circles.FindAsync(c.Id);
+                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(c);
+                        else _db.Circles.Add(c);
+                    }
+                }
+            }
+
+            if (payload.TryGetProperty("ProfileUpdateRequests", out var reqsEl) && reqsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var reqs = System.Text.Json.JsonSerializer.Deserialize<List<ProfileUpdateRequest>>(reqsEl.GetRawText());
+                if (reqs != null && reqs.Any())
+                {
+                    foreach (var r in reqs)
+                    {
+                        var existing = await _db.ProfileUpdateRequests.FindAsync(r.Id);
+                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(r);
+                        else _db.ProfileUpdateRequests.Add(r);
+                    }
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "تم استعادة كافة بيانات المنظومة بنجاح تام." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "فشل استعادة البيانات: " + ex.Message });
+        }
+    }
 }
 
 public record UpdateSettingsDto(

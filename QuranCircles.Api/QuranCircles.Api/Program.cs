@@ -22,7 +22,26 @@ var port = Environment.GetEnvironmentVariable("PORT") ?? "5070";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // 2. Database Context with WAL mode & multi-provider readiness
-var dbPath = Path.Combine(AppContext.BaseDirectory, "quran.db");
+var baseDir = AppContext.BaseDirectory;
+var candidate1 = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
+var candidate2 = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
+var envDataDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? Environment.GetEnvironmentVariable("PERSISTENT_DATA_PATH");
+
+string dbPath;
+if (!string.IsNullOrWhiteSpace(envDataDir))
+{
+    Directory.CreateDirectory(envDataDir);
+    dbPath = Path.Combine(envDataDir, "quran.db");
+}
+else if (File.Exists(candidate1))
+{
+    dbPath = candidate1;
+}
+else
+{
+    dbPath = candidate2;
+}
+
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? $"Data Source={dbPath};Cache=Shared;"));
 

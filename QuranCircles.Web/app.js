@@ -9032,6 +9032,65 @@ function updateSwitchCardState(input) {
     }
 }
 
+async function exportSystemBackup() {
+    try {
+        showAlert("جاري تجهيز وتصدير النسخة الاحتياطية لكافة بيانات المنظومة...", "info");
+        const token = getToken();
+        const headers = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE}/settings/backup?t=${Date.now()}`, { headers });
+        if (!res.ok) throw new Error("تعذر جلب ملف النسخة الاحتياطية من السيرفر.");
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `quran_center_backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        showAlert("تم تحميل وتصدير النسخة الاحتياطية الكاملة للمنظومة بنجاح! 💾", "success");
+    } catch (e) {
+        console.error(e);
+        showAlert("فشل تصدير النسخة الاحتياطية: " + e.message, "danger");
+    }
+}
+
+async function handleRestoreBackupFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const confirmed = await showConfirmModal("هل أنت متأكد من رغبتك في استعادة ومزامنة بيانات المنظومة من هذا الملف؟");
+    if (!confirmed) {
+        event.target.value = "";
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const json = JSON.parse(e.target.result);
+            showAlert("جاري استعادة ومزامنة بيانات المنظومة...", "info");
+            const res = await apiRequest("/settings/restore", "POST", json);
+            showAlert("تم استعادة كافة بيانات المنظومة والطلاب بنجاح تام! 🎉", "success");
+            // Refresh views
+            if (typeof loadAdminStudents === "function") loadAdminStudents();
+            if (typeof loadAdminCircles === "function") loadAdminCircles();
+            if (typeof loadAdminTeachers === "function") loadAdminTeachers();
+            if (typeof loadSystemSettingsForm === "function") loadSystemSettingsForm();
+        } catch (err) {
+            console.error(err);
+            showAlert("فشل استعادة الملف: " + (err.error || err.message || "الملف غير صالح"), "danger");
+        } finally {
+            event.target.value = "";
+        }
+    };
+    reader.readAsText(file);
+}
+
 async function loadSystemSettingsForm() {
     const container = document.getElementById("system-settings-content");
     if (!container) return;
@@ -9111,6 +9170,9 @@ async function loadSystemSettingsForm() {
                 </button>
                 <button type="button" class="settings-tab-btn" id="tab-btn-appearance" onclick="switchSettingsTab('appearance')">
                     <i class="fa-solid fa-palette"></i> 6. المظهر وهوية الألوان
+                </button>
+                <button type="button" class="settings-tab-btn" id="tab-btn-backup" onclick="switchSettingsTab('backup')">
+                    <i class="fa-solid fa-database"></i> 7. النسخ الاحتياطي والبيانات
                 </button>
             </div>
 
@@ -9438,6 +9500,43 @@ async function loadSystemSettingsForm() {
                                     <span style="background: #334155;"></span>
                                 </div>
                                 <small class="text-muted">تصميم داكن فخم مريح للقراءة الليلية مع تذهيب لامع.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 7: النسخ الاحتياطي وحماية البيانات -->
+                    <div class="settings-tab-pane" id="tab-pane-backup">
+                        <div class="settings-section-divider">
+                            <h4><i class="fa-solid fa-database"></i> 7. إدارة النسخ الاحتياطي الشامل وحماية بيانات المركز</h4>
+                            <span class="badge bg-light text-muted border">حفظ واسترجاع كامل لبيانات الطلاب والحلقات والطلبات والإعدادات</span>
+                        </div>
+
+                        <div class="p-4 mb-4 rounded-3 border bg-light">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="bg-success text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="fa-solid fa-cloud-arrow-down fs-4"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">النسخ الاحتياطي الكامل لقاعدة البيانات (Full Database Backup & Restore)</h6>
+                                    <p class="text-muted small mb-0">يمكنك بضغطة زر واحدة تنزيل ملف JSON يحتوي على كافة بيانات المنظومة (الطلاب، الحلقات، المعلمين، طلبات التعديل، سجلات التسميع، والنتائج والإعدادات).</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-3">
+                                <button type="button" class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-xs" onclick="exportSystemBackup()">
+                                    <i class="fa-solid fa-download me-1"></i> تحميل نسخة احتياطية كاملة للمنظومة (Backup JSON)
+                                </button>
+                                <label class="btn btn-outline-primary fw-bold px-4 py-2 rounded-3 shadow-xs mb-0 cursor-pointer" style="cursor: pointer;">
+                                    <i class="fa-solid fa-upload me-1"></i> استعادة المنظومة من نسخة احتياطية (Restore JSON)
+                                    <input type="file" accept=".json,application/json" style="display: none;" onchange="handleRestoreBackupFile(event)">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-success d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-shield-halved fs-3 text-success"></i>
+                            <div>
+                                <strong>أمان وحفظ البيانات:</strong> قاعدة بيانات المنظومة تعمل بنظام الكتابة المتزامنة (WAL Mode) لضمان حفظ كل حركة تسجيل أو تعديل بشكل دائم ومباشر.
                             </div>
                         </div>
                     </div>
