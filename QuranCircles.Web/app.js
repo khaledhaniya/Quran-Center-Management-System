@@ -1116,25 +1116,46 @@ async function exportExecutiveExcelReport() {
             <table>
                 <thead>
                     <tr>
-                        <th colspan="16" class="sec-header">🎓 القسم الرابع: السجل الشامل والتفصيلي لكل طالب (البيانات + التسميع + المساقات + التواصل)</th>
+                        <th colspan="37" class="sec-header">🎓 القسم الرابع: السجل الشامل والتفصيلي لكافة بيانات الطلاب والخطط والسكن والتواصل</th>
                     </tr>
                     <tr>
-                        <th style="width: 3%;">#</th>
-                        <th style="width: 12%;">اسم الطالب الكامل</th>
-                        <th style="width: 8%;">رقم الهوية</th>
-                        <th style="width: 7%;">تاريخ الميلاد</th>
-                        <th style="width: 4%;">العمر</th>
-                        <th style="width: 6%;">حالة الأب</th>
-                        <th style="width: 6%;">حالة الأم</th>
-                        <th style="width: 7%;">تصنيف اليتم</th>
-                        <th style="width: 6%;">الحالة الصحية</th>
-                        <th style="width: 8%;">ما حفظه الطالب بالحلقة</th>
-                        <th style="width: 9%;">الحلقة القرآنية</th>
-                        <th style="width: 9%;">المساقات والدورات المأخوذة</th>
-                        <th style="width: 7%;">رقم التواصل</th>
-                        <th style="width: 8%;">عنوان السكن الحالي</th>
-                        <th style="width: 6%;">عنوان السكن الأصلي</th>
-                        <th style="width: 6%;">ملاحظات</th>
+                        <th>#</th>
+                        <th>كود الطالب</th>
+                        <th>اسم الطالب الكامل</th>
+                        <th>رقم هوية الطالب</th>
+                        <th>تاريخ الميلاد</th>
+                        <th>العمر</th>
+                        <th>حالة الأب</th>
+                        <th>حالة الأم</th>
+                        <th>تصنيف اليتم</th>
+                        <th>اسم ولي الأمر</th>
+                        <th>صلة القرابة</th>
+                        <th>هوية ولي الأمر</th>
+                        <th>جوال التواصل</th>
+                        <th>واتساب ولي الأمر</th>
+                        <th>جوال الطالب</th>
+                        <th>واتساب الطالب</th>
+                        <th>الحالة الصحية</th>
+                        <th>الحفظ السابق</th>
+                        <th>الحلقة</th>
+                        <th>المحفظ</th>
+                        <th>نوع الخطة</th>
+                        <th>الأجزاء المستهدفة</th>
+                        <th>الأجزاء المنجزة</th>
+                        <th>وتيرة الحفظ (صفحات)</th>
+                        <th>تاريخ بدء الخطة</th>
+                        <th>تاريخ الختم</th>
+                        <th>عنوان السكن الحالي</th>
+                        <th>نوع السكن الحالي</th>
+                        <th>عنوان السكن الأصلي</th>
+                        <th>نوع السكن الأصلي</th>
+                        <th>حالة السكن الأصلي</th>
+                        <th>المحفظة الإلكترونية</th>
+                        <th>رقم الحساب البنكي</th>
+                        <th>اسم البنك</th>
+                        <th>تاريخ التسجيل</th>
+                        <th>حالة القيد</th>
+                        <th>الملاحظات</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1152,9 +1173,14 @@ async function exportExecutiveExcelReport() {
                         else if (fOrphan) orphanCat = `يتيم الأب (${f})`;
                         else if (mOrphan) orphanCat = `يتيم الأم (${m})`;
 
+                        const planText = s.planType === 'Intensive' ? 'مكثفة' :
+                                         s.planType === 'Standard' ? 'معيارية' :
+                                         s.planType === 'Gradual' ? 'متدرجة' : (s.planType || 'معيارية');
+
                         return `
                             <tr>
                                 <td class="text-center">${idx + 1}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">#${s.id}</td>
                                 <td style="font-weight: bold;">${escapeXml(s.fullName)}</td>
                                 <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.studentIdentityNumber || '-')}</td>
                                 <td class="text-center">${escapeXml(s.dateOfBirth || '-')}</td>
@@ -1162,13 +1188,33 @@ async function exportExecutiveExcelReport() {
                                 <td class="text-center">${escapeXml(f)}</td>
                                 <td class="text-center">${escapeXml(m)}</td>
                                 <td class="text-center" style="font-weight: bold;">${escapeXml(orphanCat)}</td>
+                                <td class="text-center">${escapeXml(s.parentName || '-')}</td>
+                                <td class="text-center">${escapeXml(s.kinship || 'الأب')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.parentIdentityNumber || '-')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.familyContact || '-')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.whatsappNumber || '-')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.studentMobile || '-')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.studentWhatsapp || '-')}</td>
                                 <td class="text-center">${escapeXml(s.healthStatus || 'سليم')}</td>
                                 <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${escapeXml(s.previousQuranMemorization || 'مستمر التسميع')}</td>
                                 <td class="text-center">${escapeXml(s.circleName || 'غير مسند')}</td>
-                                <td class="text-center" style="color: #1565c0;">دورة التجويد والآداب</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.familyContact || '-')}</td>
+                                <td class="text-center">${escapeXml(s.teacherName || 'غير محدد')}</td>
+                                <td class="text-center">${escapeXml(planText)}</td>
+                                <td class="text-center">${s.targetAjzaaCount || 30}</td>
+                                <td class="text-center">${escapeXml(s.completedAjzaa || '0')}</td>
+                                <td class="text-center">${s.dailyPacePages || 1}</td>
+                                <td class="text-center">${escapeXml(s.planStartDate || '-')}</td>
+                                <td class="text-center">${escapeXml(s.planTargetDate || '-')}</td>
                                 <td>${escapeXml(s.currentAddress || s.address || '-')}</td>
+                                <td>${escapeXml(s.currentHousingType || '-')}</td>
                                 <td>${escapeXml(s.originalAddress || '-')}</td>
+                                <td>${escapeXml(s.originalHousingType || '-')}</td>
+                                <td>${escapeXml(s.originalHousingStatus || '-')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.walletNumber || '-')}</td>
+                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.bankAccountNumber || '-')}</td>
+                                <td>${escapeXml(s.bankName || '-')}</td>
+                                <td class="text-center">${escapeXml(s.registrationDate || '-')}</td>
+                                <td class="text-center">${s.isActive ? 'نشط' : 'موقوف'}</td>
                                 <td>${escapeXml(s.notes || '-')}</td>
                             </tr>
                         `;
@@ -7774,8 +7820,14 @@ function exportDynamicReportToExcel() {
         return;
     }
 
-    const tagText = document.getElementById("dyn-report-tag") ? document.getElementById("dyn-report-tag").textContent : "تقرير الطلاب";
+    const tagText = document.getElementById("dyn-report-tag") ? document.getElementById("dyn-report-tag").textContent : "تقرير الطلاب الشامل";
     const nowStr = new Date().toLocaleDateString('ar-EG');
+
+    const escapeXml = (str) => (str || '').toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 
     let rowsXml = "";
     currentDynamicFilteredStudents.forEach((s, idx) => {
@@ -7792,15 +7844,16 @@ function exportDynamicReportToExcel() {
         else if (fOrphan) orphanCategory = `يتيم الأب (${f})`;
         else if (mOrphan) orphanCategory = `يتيم الأم (${m})`;
 
-        const escapeXml = (str) => (str || '').toString()
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+        const planText = s.planType === 'Intensive' ? 'مكثفة (سريعة)' :
+                         s.planType === 'Standard' ? 'معيارية' :
+                         s.planType === 'Gradual' ? 'متدرجة' : (s.planType || 'معيارية');
+
+        const activeText = s.isActive ? 'نشط' : 'موقوف';
 
         rowsXml += `
             <tr>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${idx + 1}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">#${s.id}</td>
                 <td style="font-weight: bold; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.fullName)}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentIdentityNumber || '-')}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.dateOfBirth || '-')}</td>
@@ -7808,13 +7861,33 @@ function exportDynamicReportToExcel() {
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(f)}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(m)}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(orphanCategory)}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.parentName || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.kinship || 'الأب')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.parentIdentityNumber || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.familyContact || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.whatsappNumber || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentMobile || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentWhatsapp || '-')}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.healthStatus || 'سليم')}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.previousQuranMemorization || '-')}</td>
                 <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.circleName || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.familyContact || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentMobile || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.teacherName || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(planText)}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${s.targetAjzaaCount || 30}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.completedAjzaa || '0')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${s.dailyPacePages || 1}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.planStartDate || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.planTargetDate || '-')}</td>
                 <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.currentAddress || s.address || '-')}</td>
+                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.currentHousingType || '-')}</td>
                 <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.originalAddress || '-')}</td>
+                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.originalHousingType || '-')}</td>
+                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.originalHousingStatus || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.walletNumber || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.bankAccountNumber || '-')}</td>
+                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.bankName || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.registrationDate || '-')}</td>
+                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(activeText)}</td>
                 <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.notes || '-')}</td>
             </tr>
         `;
@@ -7829,7 +7902,7 @@ function exportDynamicReportToExcel() {
                 <x:ExcelWorkbook>
                     <x:ExcelWorksheets>
                         <x:ExcelWorksheet>
-                            <x:Name>تقرير الطلاب</x:Name>
+                            <x:Name>تقرير الطلاب الشامل</x:Name>
                             <x:WorksheetOptions>
                                 <x:DisplayRightToLeft/>
                                 <x:Print>
@@ -7853,15 +7926,16 @@ function exportDynamicReportToExcel() {
         <body dir="rtl">
             <table>
                 <tr>
-                    <td colspan="16" class="title-header">مركز البيان لتعليم القرآن الكريم - مسجد علي بن أبي طالب</td>
+                    <td colspan="37" class="title-header">مركز البيان لتعليم القرآن الكريم - مسجد علي بن أبي طالب</td>
                 </tr>
                 <tr>
-                    <td colspan="16" class="meta-header">
+                    <td colspan="37" class="meta-header">
                         ${tagText} | عدد الطلاب بالتقرير: ${currentDynamicFilteredStudents.length} طالب | تاريخ الاستخراج: ${nowStr}
                     </td>
                 </tr>
                 <tr>
                     <th>#</th>
+                    <th>كود الطالب</th>
                     <th>اسم الطالب الكامل</th>
                     <th>رقم هوية الطالب</th>
                     <th>تاريخ الميلاد</th>
@@ -7869,13 +7943,33 @@ function exportDynamicReportToExcel() {
                     <th>حالة الأب</th>
                     <th>حالة الأم</th>
                     <th>تصنيف اليتم</th>
+                    <th>اسم ولي الأمر</th>
+                    <th>صلة القرابة</th>
+                    <th>هوية ولي الأمر</th>
+                    <th>جوال التواصل</th>
+                    <th>واتساب ولي الأمر</th>
+                    <th>جوال الطالب</th>
+                    <th>واتساب الطالب</th>
                     <th>الحالة الصحية</th>
                     <th>الحفظ السابق</th>
                     <th>الحلقة</th>
-                    <th>رقم جوال التواصل</th>
-                    <th>رقم جوال الطالب</th>
+                    <th>المحفظ</th>
+                    <th>نوع الخطة</th>
+                    <th>الأجزاء المستهدفة</th>
+                    <th>الأجزاء المنجزة</th>
+                    <th>وتيرة الحفظ (صفحات)</th>
+                    <th>تاريخ بدء الخطة</th>
+                    <th>تاريخ الختم</th>
                     <th>عنوان السكن الحالي</th>
+                    <th>نوع السكن الحالي</th>
                     <th>عنوان السكن الأصلي</th>
+                    <th>نوع السكن الأصلي</th>
+                    <th>حالة السكن الأصلي</th>
+                    <th>المحفظة الإلكترونية</th>
+                    <th>رقم الحساب البنكي</th>
+                    <th>اسم البنك</th>
+                    <th>تاريخ التسجيل</th>
+                    <th>حالة القيد</th>
                     <th>الملاحظات</th>
                 </tr>
                 ${rowsXml}
@@ -8068,25 +8162,53 @@ function runDynamicFilter() {
         else if (fOrphan) orphanTag = `<span class="badge bg-danger text-white">يتيم الأب (${f})</span>`;
         else if (mOrphan) orphanTag = `<span class="badge bg-danger text-white">يتيم الأم (${m})</span>`;
 
+        const planText = s.planType === 'Intensive' ? 'مكثفة (سريعة)' :
+                         s.planType === 'Standard' ? 'معيارية' :
+                         s.planType === 'Gradual' ? 'متدرجة' : (s.planType || 'معيارية');
+
+        const activeTag = s.isActive ? '<span class="badge bg-success text-white">نشط</span>' : '<span class="badge bg-secondary text-white">موقوف</span>';
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td class="fw-bold text-muted">${idx + 1}</td>
+            <td style="white-space: nowrap;" class="font-monospace">#${s.id}</td>
             <td style="white-space: nowrap;">
-                <strong class="clickable-student-360 d-inline-block me-1 text-success" data-id="${s.id}" style="cursor: pointer; text-decoration: underline;">${s.fullName}</strong>
+                <strong class="clickable-student-360 d-inline-block me-1 text-success" data-id="${s.id}" style="cursor: pointer; text-decoration: underline;">${escapeXml(s.fullName)}</strong>
             </td>
-            <td style="white-space: nowrap;" class="font-monospace">${s.studentIdentityNumber || 'غير مسجل'}</td>
-            <td style="white-space: nowrap;" class="font-monospace">${s.dateOfBirth || '-'}</td>
-            <td style="white-space: nowrap;" class="fw-bold text-dark font-monospace">${ageStr}</td>
-            <td style="white-space: nowrap;">${f}</td>
-            <td style="white-space: nowrap;">${m}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.studentIdentityNumber || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.dateOfBirth || '-')}</td>
+            <td style="white-space: nowrap;" class="fw-bold text-dark font-monospace">${escapeXml(ageStr)}</td>
+            <td style="white-space: nowrap;">${escapeXml(f)}</td>
+            <td style="white-space: nowrap;">${escapeXml(m)}</td>
             <td style="white-space: nowrap;">${orphanTag}</td>
-            <td style="white-space: nowrap;">${s.healthStatus && s.healthStatus !== 'سليم' ? `<span class="badge bg-danger text-white">${s.healthStatus}</span>` : '<span class="badge bg-light text-muted border">سليم</span>'}</td>
-            <td style="white-space: nowrap;"><span class="badge bg-success-subtle text-success border border-success px-2 py-1">${s.previousQuranMemorization || 'غير محدد'}</span></td>
-            <td style="white-space: nowrap;"><span class="badge bg-info text-dark">${s.circleName || 'غير مسند'}</span></td>
-            <td style="white-space: nowrap;">${s.parentId ? 'مسجل حساب ولي أمر' : '-'}</td>
-            <td style="white-space: nowrap;" class="font-monospace fw-bold">${s.familyContact || '-'}</td>
-            <td style="white-space: nowrap;">${s.currentAddress || s.address || '-'}</td>
-            <td style="white-space: nowrap;">${s.notes || '-'}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.parentName || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.kinship || 'الأب')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.parentIdentityNumber || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace fw-bold">${escapeXml(s.familyContact || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.whatsappNumber || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.studentMobile || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.studentWhatsapp || '-')}</td>
+            <td style="white-space: nowrap;">${s.healthStatus && s.healthStatus !== 'سليم' ? `<span class="badge bg-danger text-white">${escapeXml(s.healthStatus)}</span>` : '<span class="badge bg-light text-muted border">سليم</span>'}</td>
+            <td style="white-space: nowrap;"><span class="badge bg-success-subtle text-success border border-success px-2 py-1">${escapeXml(s.previousQuranMemorization || 'غير محدد')}</span></td>
+            <td style="white-space: nowrap;"><span class="badge bg-info text-dark">${escapeXml(s.circleName || 'غير مسند')}</span></td>
+            <td style="white-space: nowrap;">${escapeXml(s.teacherName || 'غير محدد')}</td>
+            <td style="white-space: nowrap;">${escapeXml(planText)}</td>
+            <td style="white-space: nowrap;" class="text-center font-monospace">${s.targetAjzaaCount || 30} جزء</td>
+            <td style="white-space: nowrap;" class="text-center font-monospace">${escapeXml(s.completedAjzaa || '0')}</td>
+            <td style="white-space: nowrap;" class="text-center font-monospace">${s.dailyPacePages || 1} صفحة</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.planStartDate || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.planTargetDate || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.currentAddress || s.address || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.currentHousingType || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.originalAddress || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.originalHousingType || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.originalHousingStatus || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.walletNumber || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.bankAccountNumber || '-')}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.bankName || '-')}</td>
+            <td style="white-space: nowrap;" class="font-monospace">${escapeXml(s.registrationDate || '-')}</td>
+            <td style="white-space: nowrap;">${activeTag}</td>
+            <td style="white-space: nowrap;">${escapeXml(s.notes || '-')}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -8113,9 +8235,15 @@ function printDynamicReport() {
         return;
     }
 
-    const tagText = document.getElementById("dyn-report-tag") ? document.getElementById("dyn-report-tag").textContent : "تقرير جميع الطلاب";
+    const tagText = document.getElementById("dyn-report-tag") ? document.getElementById("dyn-report-tag").textContent : "تقرير جميع الطلاب الشامل";
     const nowStr = new Date().toLocaleString('ar-EG');
     const logoSrc = (typeof CENTER_LOGO_BASE64 !== 'undefined') ? CENTER_LOGO_BASE64 : 'assets/logo.png';
+
+    const escapeXml = (str) => (str || '').toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 
     let rowsHtml = "";
     currentDynamicFilteredStudents.forEach((s, idx) => {
@@ -8131,21 +8259,36 @@ function printDynamicReport() {
         else if (fOrphan) orphanCategory = `<b style='color:#dc3545;'>يتيم الأب (${f})</b>`;
         else if (mOrphan) orphanCategory = `<b style='color:#dc3545;'>يتيم الأم (${m})</b>`;
 
+        const planText = s.planType === 'Intensive' ? 'مكثفة' :
+                         s.planType === 'Standard' ? 'معيارية' :
+                         s.planType === 'Gradual' ? 'متدرجة' : (s.planType || 'معيارية');
+
         rowsHtml += `
             <tr>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${idx + 1}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; font-weight: bold; white-space: nowrap;">${s.fullName}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center; font-family: monospace;">${s.studentIdentityNumber || '-'}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${s.dateOfBirth || '-'}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center; font-weight: bold;">${ageStr}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${f}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${m}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${orphanCategory}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${s.healthStatus || 'سليم'}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${s.previousQuranMemorization || '-'}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center;">${s.circleName || '-'}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px; text-align: center; font-family: monospace;">${s.familyContact || '-'}</td>
-                <td style="border: 1px solid #c2c2c2; padding: 6px;">${s.currentAddress || s.address || '-'}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${idx + 1}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center; font-family: monospace;">#${s.id}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; font-weight: bold; white-space: nowrap;">${escapeXml(s.fullName)}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center; font-family: monospace;">${escapeXml(s.studentIdentityNumber || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.dateOfBirth || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center; font-weight: bold;">${escapeXml(ageStr)}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(f)}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(m)}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${orphanCategory}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.parentName || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.kinship || 'الأب')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center; font-family: monospace;">${escapeXml(s.familyContact || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center; font-family: monospace;">${escapeXml(s.studentMobile || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.healthStatus || 'سليم')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.previousQuranMemorization || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.circleName || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.teacherName || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(planText)}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${s.targetAjzaaCount || 30}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${escapeXml(s.completedAjzaa || '0')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px;">${escapeXml(s.currentAddress || s.address || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px;">${escapeXml(s.originalAddress || '-')}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px; text-align: center;">${s.isActive ? 'نشط' : 'موقوف'}</td>
+                <td style="border: 1px solid #c2c2c2; padding: 4px;">${escapeXml(s.notes || '-')}</td>
             </tr>
         `;
     });
@@ -8156,21 +8299,21 @@ function printDynamicReport() {
         <html lang="ar" dir="rtl">
         <head>
             <meta charset="UTF-8">
-            <title>تقرير الطلاب - مركز البيان لتعليم القرآن</title>
+            <title>تقرير الطلاب الشامل - مركز البيان لتعليم القرآن</title>
             <style>
-                @page { size: A4 landscape; margin: 8mm; }
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; padding: 10px; color: #111; font-size: 11px; }
-                .report-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #0d5c3a; padding-bottom: 12px; margin-bottom: 15px; }
-                .logo-box img { width: 85px; height: 85px; object-fit: contain; }
+                @page { size: A3 landscape; margin: 6mm; }
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; padding: 8px; color: #111; font-size: 10px; }
+                .report-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #0d5c3a; padding-bottom: 10px; margin-bottom: 12px; }
+                .logo-box img { width: 75px; height: 75px; object-fit: contain; }
                 .title-box { text-align: center; flex: 1; }
-                .title-box h1 { margin: 0; font-size: 20px; color: #0d5c3a; font-weight: 800; }
-                .title-box h2 { margin: 4px 0 0 0; font-size: 15px; color: #198754; font-weight: 700; }
-                .title-box h3 { margin: 4px 0 0 0; font-size: 13px; color: #555; }
-                .meta-ribbon { display: flex; justify-content: space-between; background: #e8f5e9; border: 1px solid #a5d6a7; padding: 8px 15px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px; }
-                th { background-color: #0d5c3a; color: white; border: 1px solid #083c26; padding: 7px; text-align: center; font-weight: bold; }
+                .title-box h1 { margin: 0; font-size: 18px; color: #0d5c3a; font-weight: 800; }
+                .title-box h2 { margin: 3px 0 0 0; font-size: 14px; color: #198754; font-weight: 700; }
+                .title-box h3 { margin: 3px 0 0 0; font-size: 12px; color: #555; }
+                .meta-ribbon { display: flex; justify-content: space-between; background: #e8f5e9; border: 1px solid #a5d6a7; padding: 6px 12px; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 11px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 9.5px; }
+                th { background-color: #0d5c3a; color: white; border: 1px solid #083c26; padding: 5px 3px; text-align: center; font-weight: bold; }
                 tr:nth-child(even) { background-color: #f9f9f9; }
-                .footer-signatures { display: flex; justify-content: space-between; margin-top: 40px; padding: 0 50px; font-weight: bold; font-size: 13px; }
+                .footer-signatures { display: flex; justify-content: space-between; margin-top: 30px; padding: 0 40px; font-weight: bold; font-size: 12px; }
             </style>
         </head>
         <body>
@@ -8196,7 +8339,8 @@ function printDynamicReport() {
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 30px;">#</th>
+                        <th style="width: 25px;">#</th>
+                        <th>كود</th>
                         <th>اسم الطالب الكامل</th>
                         <th>رقم الهوية</th>
                         <th>تاريخ الميلاد</th>
@@ -8204,11 +8348,21 @@ function printDynamicReport() {
                         <th>حالة الأب</th>
                         <th>حالة الأم</th>
                         <th>تصنيف اليتم</th>
-                        <th>الحالة الصحية</th>
+                        <th>ولي الأمر</th>
+                        <th>القرابة</th>
+                        <th>جوال التواصل</th>
+                        <th>جوال الطالب</th>
+                        <th>الصحة</th>
                         <th>الحفظ السابق</th>
                         <th>الحلقة</th>
-                        <th>رقم التواصل</th>
+                        <th>المحفظ</th>
+                        <th>الخطة</th>
+                        <th>المستهدف</th>
+                        <th>المنجز</th>
                         <th>السكن الحالي</th>
+                        <th>السكن الأصلي</th>
+                        <th>القيد</th>
+                        <th>الملاحظات</th>
                     </tr>
                 </thead>
                 <tbody>

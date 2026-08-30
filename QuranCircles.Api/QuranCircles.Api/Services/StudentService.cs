@@ -18,7 +18,7 @@ public class StudentService
 
     public async Task<List<object>> GetAllAsync(string? search)
     {
-        var query = _db.Students.Include(s => s.Circle).AsQueryable();
+        var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -37,7 +37,7 @@ public class StudentService
 
     public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search)
     {
-        var query = _db.Students.Include(s => s.Circle).AsQueryable();
+        var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
 
         query = query.Where(s => (s.Circle != null && s.Circle.TeacherId == teacherId)
             || _db.CourseEnrollments.Any(ce => ce.StudentId == s.Id && ce.Course != null && ce.Course.TeacherId == teacherId));
@@ -66,6 +66,8 @@ public class StudentService
         DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
         s.CircleId,
         CircleName = s.Circle?.Name ?? "غير مسند حلقة",
+        TeacherId = s.Circle?.TeacherId,
+        TeacherName = s.Circle?.Teacher?.FullName ?? "غير محدد",
         s.ParentId,
         ParentName = parentName ?? ExtractFatherName(s.FullName),
         RegistrationDate = s.RegistrationDate.ToString("yyyy-MM-dd"),
@@ -88,7 +90,13 @@ public class StudentService
         s.OriginalHousingStatus,
         s.CurrentAddress,
         s.CurrentHousingType,
-        s.Notes
+        s.Notes,
+        s.TargetAjzaaCount,
+        s.PlanType,
+        PlanStartDate = s.PlanStartDate?.ToString("yyyy-MM-dd"),
+        PlanTargetDate = s.PlanTargetDate?.ToString("yyyy-MM-dd"),
+        s.DailyPacePages,
+        s.CompletedAjzaa
     };
 
     public async Task<Student?> GetByIdAsync(int id)
