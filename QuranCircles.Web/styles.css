@@ -2922,6 +2922,7 @@ button, input, select, textarea {
     height: 26px;
     min-width: 48px;
     flex-shrink: 0;
+    pointer-events: none;
 }
 
 .custom-switch input {

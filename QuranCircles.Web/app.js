@@ -9226,9 +9226,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-book-bookmark text-success me-1"></i> السماح للمعلم بتعديل خطة حفظ الطالب وتوثيق الأجزاء</span>
                                     <span class="switch-desc">تمكين المعلم من تحديث خطة الحفظ واعتماد الأجزاء المنجزة لطلابه.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-allow-teacher-edit-plan" ${settings.allowTeacherEditStudentPlan === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-teacher-edit-plan')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-teacher-edit-plan" ${settings.allowTeacherEditStudentPlan === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9237,9 +9237,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-user-plus text-warning me-1"></i> السماح للمعلم بتنسيب طلاب جدد لحلقته مباشرة</span>
                                     <span class="switch-desc">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته دون مراجعة مسبقة.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-teacher-enrollment')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9248,9 +9248,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-shield-cat text-danger me-1"></i> حجب أرقام هواتف أولياء الأمور عن المعلم (خصوصية مشددة)</span>
                                     <span class="switch-desc">إخفاء رقم هاتف ولي الأمر من كشف الطلاب لدى المعلم لقصر التواصل عبر الإدارة.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-hide-parent-phone" ${settings.hideParentPhoneFromTeacher === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-hide-parent-phone')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-hide-parent-phone" ${settings.hideParentPhoneFromTeacher === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9259,9 +9259,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-id-card-clip text-primary me-1"></i> تمكين الطلاب وأولياء الأمور من تقديم طلبات تعديل البيانات</span>
                                     <span class="switch-desc">السماح بتقديم طلب تعديل بيانات الاتصال ومراجعتها واعتمادها من الإدارة.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-allow-profile-requests" ${settings.allowStudentProfileEditRequests === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-profile-requests')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-profile-requests" ${settings.allowStudentProfileEditRequests === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9270,9 +9270,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-clock-rotate-left text-info me-1"></i> إلزام المعلم برصد التسميع اليومي في تاريخ اليوم فقط</span>
                                     <span class="switch-desc">منع المعلم من تسجيل حضور أو تسميع لتواريخ سابقة دون إذن إداري.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-enforce-attendance" ${settings.enforceDailyAttendanceRecording === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-enforce-attendance')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enforce-attendance" ${settings.enforceDailyAttendanceRecording === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9281,9 +9281,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-chart-column text-secondary me-1"></i> إظهار مؤشر الحضور التراكمي في شاشات التسميع</span>
                                     <span class="switch-desc">عرض نسبة الحضور التراكمية في كشف التسميع اليومي.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-show-cumulative-attendance')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
                         </div>
@@ -9314,9 +9314,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-award text-success me-1"></i> تفعيل نظام إصدار وطباعة الشهادات الرقمية المعتمدة</span>
                                     <span class="switch-desc">إتاحة طباعة الشهادات للطلاب الناجحين في المساقات واختبارات الأجزاء.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-enable-certificates')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9325,9 +9325,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-trophy text-warning me-1"></i> تفعيل لوحة شرف المتميزين والمتفوقين</span>
                                     <span class="switch-desc">إظهار الطلاب الأوائل وأصحاب أعلى معدلات التسميع في لوحة المؤشرات.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-show-honors-board')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
                         </div>
@@ -9346,9 +9346,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-solid fa-bullhorn text-info me-1"></i> تفعيل لوحة التعاميم والإعلانات العامة للمركز</span>
                                     <span class="switch-desc">إتاحة لوحة التعاميم لجميع المعلمين والطلاب وأولياء الأمور.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-public-announcements')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
 
@@ -9357,9 +9357,9 @@ async function loadSystemSettingsForm() {
                                     <span class="switch-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> تفعيل تنبيهات الغياب الفورية لأولياء الأمور</span>
                                     <span class="switch-desc">تجهيز رابط تنبيه واتساب مباشر لولي الأمر عند تسجيل غياب الطالب.</span>
                                 </div>
-                                <div class="custom-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
-                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-enable-absence-alert')"></span>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
                                 </div>
                             </div>
                         </div>
