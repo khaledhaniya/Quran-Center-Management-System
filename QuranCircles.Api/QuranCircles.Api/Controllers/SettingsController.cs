@@ -53,14 +53,14 @@ public class SettingsController : ControllerBase
             }
 
             // 1. Institutional Identity & Contact
-            if (!string.IsNullOrWhiteSpace(dto.CenterName)) settings.CenterName = dto.CenterName.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.MosqueName)) settings.MosqueName = dto.MosqueName.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.CenterAddress)) settings.CenterAddress = dto.CenterAddress.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.SupportPhone)) settings.SupportPhone = dto.SupportPhone.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.SupportEmail)) settings.SupportEmail = dto.SupportEmail.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.WelcomeMessage)) settings.WelcomeMessage = dto.WelcomeMessage.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.LogoUrl)) settings.LogoUrl = dto.LogoUrl.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.ThemeStyle)) settings.ThemeStyle = dto.ThemeStyle.Trim();
+            if (dto.CenterName != null) settings.CenterName = dto.CenterName.Trim();
+            if (dto.MosqueName != null) settings.MosqueName = dto.MosqueName.Trim();
+            if (dto.CenterAddress != null) settings.CenterAddress = dto.CenterAddress.Trim();
+            if (dto.SupportPhone != null) settings.SupportPhone = dto.SupportPhone.Trim();
+            if (dto.SupportEmail != null) settings.SupportEmail = dto.SupportEmail.Trim();
+            if (dto.WelcomeMessage != null) settings.WelcomeMessage = dto.WelcomeMessage.Trim();
+            if (dto.LogoUrl != null) settings.LogoUrl = dto.LogoUrl.Trim();
+            if (dto.ThemeStyle != null) settings.ThemeStyle = dto.ThemeStyle.Trim();
 
             // 2. Academic & Quranic Standards
             if (dto.PassingScoreThreshold.HasValue && dto.PassingScoreThreshold.Value > 0)
@@ -86,14 +86,14 @@ public class SettingsController : ControllerBase
 
             // 4. Certificates & Recognition
             if (dto.EnableCertificates.HasValue) settings.EnableCertificates = dto.EnableCertificates.Value;
-            if (!string.IsNullOrWhiteSpace(dto.SignatoryName)) settings.SignatoryName = dto.SignatoryName.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.SignatoryTitle)) settings.SignatoryTitle = dto.SignatoryTitle.Trim();
+            if (dto.SignatoryName != null) settings.SignatoryName = dto.SignatoryName.Trim();
+            if (dto.SignatoryTitle != null) settings.SignatoryTitle = dto.SignatoryTitle.Trim();
             if (dto.ShowHonorsBoard.HasValue) settings.ShowHonorsBoard = dto.ShowHonorsBoard.Value;
 
             // 5. Alerts & Communication
             if (dto.AllowPublicAnnouncements.HasValue) settings.AllowPublicAnnouncements = dto.AllowPublicAnnouncements.Value;
             if (dto.EnableAbsenceAutoAlert.HasValue) settings.EnableAbsenceAutoAlert = dto.EnableAbsenceAutoAlert.Value;
-            if (!string.IsNullOrWhiteSpace(dto.AbsenceAlertTemplate)) settings.AbsenceAlertTemplate = dto.AbsenceAlertTemplate.Trim();
+            if (dto.AbsenceAlertTemplate != null) settings.AbsenceAlertTemplate = dto.AbsenceAlertTemplate.Trim();
 
             // 6. UI & Appearance
             if (dto.MaintenanceMode.HasValue) settings.MaintenanceMode = dto.MaintenanceMode.Value;

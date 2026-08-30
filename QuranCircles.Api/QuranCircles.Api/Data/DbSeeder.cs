@@ -440,33 +440,45 @@ public static class DbSeeder
                     });
                     db.SaveChanges();
                 }
-                else
+                // Only seed initial default SystemSettings if table is completely empty
+                if (!db.SystemSettings.Any())
                 {
-                    var s = db.SystemSettings.FirstOrDefault();
-                    if (s != null)
+                    db.SystemSettings.Add(new SystemSettings
                     {
-                        bool changed = false;
-                        if (string.IsNullOrWhiteSpace(s.CenterName)) { s.CenterName = "مركز البيان لتعليم القرآن الكريم وتدريس علومه"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.MosqueName)) { s.MosqueName = "مسجد علي بن أبي طالب"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.CenterAddress)) { s.CenterAddress = "فلسطين - غزة - المقر الرئيسي"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.SupportPhone)) { s.SupportPhone = "+970599000000"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.SupportEmail)) { s.SupportEmail = "info@albayan.quran"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.WelcomeMessage)) { s.WelcomeMessage = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.ThemeStyle)) { s.ThemeStyle = "Classic"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.SignatoryName)) { s.SignatoryName = "فضيلة الشيخ / رئيس المركز"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.SignatoryTitle)) { s.SignatoryTitle = "المشرف العام على حلقات تحفيظ القرآن الكريم"; changed = true; }
-                        if (string.IsNullOrWhiteSpace(s.AbsenceAlertTemplate)) { s.AbsenceAlertTemplate = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز."; changed = true; }
-                        if (changed)
-                        {
-                            s.UpdatedAt = DateTime.UtcNow;
-                            db.SaveChanges();
-                        }
-                    }
+                        CenterName = "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
+                        MosqueName = "مسجد علي بن أبي طالب",
+                        CenterAddress = "فلسطين - غزة - المقر الرئيسي",
+                        SupportPhone = "+970599000000",
+                        SupportEmail = "info@albayan.quran",
+                        WelcomeMessage = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية",
+                        ThemeStyle = "Classic",
+                        PassingScoreThreshold = 70,
+                        MinAttendancePercentForExam = 75,
+                        MaxStudentsPerCircle = 20,
+                        MaxAbsenceDaysWarning = 3,
+                        AllowTeacherEditStudentPlan = true,
+                        AllowTeacherSelfEnrollment = true,
+                        HideParentPhoneFromTeacher = false,
+                        AllowStudentProfileEditRequests = true,
+                        EnforceDailyAttendanceRecording = true,
+                        ShowStudentCountToTeacher = true,
+                        ShowCumulativeAttendance = true,
+                        EnableCertificates = true,
+                        SignatoryName = "فضيلة الشيخ / رئيس المركز",
+                        SignatoryTitle = "المشرف العام على حلقات تحفيظ القرآن الكريم",
+                        ShowHonorsBoard = true,
+                        AllowPublicAnnouncements = true,
+                        EnableAbsenceAutoAlert = true,
+                        AbsenceAlertTemplate = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.",
+                        MaintenanceMode = false,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                    db.SaveChanges();
                 }
             }
             catch { }
 
-            // 4. Ensure all user passwords have their plain password populated for Developer view and management
+            // 4. Ensure existing users have a valid password hash without resetting their passwords
             try
             {
                 var users = db.Users.ToList();
@@ -475,15 +487,6 @@ public static class DbSeeder
 
                 foreach (var u in users)
                 {
-                    if (string.IsNullOrEmpty(u.PlainPassword))
-                    {
-                        if (u.Username == "dev") u.PlainPassword = "dev123";
-                        else if (u.Username == "admin") u.PlainPassword = "admin123";
-                        else if (u.Username == "wael") u.PlainPassword = "wael123";
-                        else u.PlainPassword = "123456";
-                        changed = true;
-                    }
-
                     if (string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword))
                     {
                         u.PasswordHash = hasher.HashPassword(u.PlainPassword);

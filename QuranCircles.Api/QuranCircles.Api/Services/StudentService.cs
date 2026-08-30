@@ -240,38 +240,45 @@ public class StudentService
             s.FullName = dto.FullName.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.Address)) s.Address = dto.Address.Trim();
-        if (!string.IsNullOrWhiteSpace(dto.FamilyContact)) s.FamilyContact = dto.FamilyContact.Trim();
+        if (dto.Address != null) s.Address = dto.Address.Trim();
+        if (dto.FamilyContact != null) s.FamilyContact = dto.FamilyContact.Trim();
         if (dto.DateOfBirth.HasValue) s.DateOfBirth = dto.DateOfBirth.Value;
         
-        s.CircleId = dto.CircleId;
-        s.IsActive = dto.IsActive;
+        if (dto.CircleId.HasValue) s.CircleId = dto.CircleId.Value;
+        if (dto.IsActive.HasValue) s.IsActive = dto.IsActive.Value;
 
-        s.StudentIdentityNumber = dto.StudentIdentityNumber;
-        s.PreviousQuranMemorization = dto.PreviousQuranMemorization;
-        s.StudentMobile = dto.StudentMobile;
-        s.StudentWhatsapp = dto.StudentWhatsapp;
-        s.HealthStatus = dto.HealthStatus;
-        s.FatherStatus = dto.FatherStatus;
-        s.MotherStatus = dto.MotherStatus;
-        s.Kinship = dto.Kinship;
-        s.ParentIdentityNumber = dto.ParentIdentityNumber;
-        s.WhatsappNumber = dto.WhatsappNumber;
-        s.WalletNumber = dto.WalletNumber;
-        s.BankAccountNumber = dto.BankAccountNumber;
-        s.BankName = dto.BankName;
-        s.OriginalAddress = dto.OriginalAddress;
-        s.OriginalHousingType = dto.OriginalHousingType;
-        s.OriginalHousingStatus = dto.OriginalHousingStatus;
-        s.CurrentAddress = dto.CurrentAddress;
-        s.CurrentHousingType = dto.CurrentHousingType;
-        s.Notes = dto.Notes;
+        if (dto.StudentIdentityNumber != null) s.StudentIdentityNumber = dto.StudentIdentityNumber.Trim();
+        if (dto.PreviousQuranMemorization != null) s.PreviousQuranMemorization = dto.PreviousQuranMemorization.Trim();
+        if (dto.StudentMobile != null) s.StudentMobile = dto.StudentMobile.Trim();
+        if (dto.StudentWhatsapp != null) s.StudentWhatsapp = dto.StudentWhatsapp.Trim();
+        if (dto.HealthStatus != null) s.HealthStatus = dto.HealthStatus.Trim();
+        if (dto.FatherStatus != null) s.FatherStatus = dto.FatherStatus.Trim();
+        if (dto.MotherStatus != null) s.MotherStatus = dto.MotherStatus.Trim();
+        if (dto.Kinship != null) s.Kinship = dto.Kinship.Trim();
+        if (dto.ParentIdentityNumber != null) s.ParentIdentityNumber = dto.ParentIdentityNumber.Trim();
+        if (dto.WhatsappNumber != null) s.WhatsappNumber = dto.WhatsappNumber.Trim();
+        if (dto.WalletNumber != null) s.WalletNumber = dto.WalletNumber.Trim();
+        if (dto.BankAccountNumber != null) s.BankAccountNumber = dto.BankAccountNumber.Trim();
+        if (dto.BankName != null) s.BankName = dto.BankName.Trim();
+        if (dto.OriginalAddress != null) s.OriginalAddress = dto.OriginalAddress.Trim();
+        if (dto.OriginalHousingType != null) s.OriginalHousingType = dto.OriginalHousingType.Trim();
+        if (dto.OriginalHousingStatus != null) s.OriginalHousingStatus = dto.OriginalHousingStatus.Trim();
+        if (dto.CurrentAddress != null) s.CurrentAddress = dto.CurrentAddress.Trim();
+        if (dto.CurrentHousingType != null) s.CurrentHousingType = dto.CurrentHousingType.Trim();
+        if (dto.Notes != null) s.Notes = dto.Notes.Trim();
+
+        if (dto.TargetAjzaaCount.HasValue && dto.TargetAjzaaCount.Value > 0) s.TargetAjzaaCount = dto.TargetAjzaaCount.Value;
+        if (dto.PlanType != null) s.PlanType = dto.PlanType.Trim();
+        if (dto.PlanStartDate.HasValue) s.PlanStartDate = dto.PlanStartDate.Value;
+        if (dto.PlanTargetDate.HasValue) s.PlanTargetDate = dto.PlanTargetDate.Value;
+        if (dto.DailyPacePages.HasValue && dto.DailyPacePages.Value > 0) s.DailyPacePages = dto.DailyPacePages.Value;
+        if (dto.CompletedAjzaa != null) s.CompletedAjzaa = dto.CompletedAjzaa.Trim();
 
         int? resolvedParentId = dto.ParentId ?? s.ParentId;
         if (!string.IsNullOrWhiteSpace(dto.ParentIdentityNumber))
         {
             var pIdNum = dto.ParentIdentityNumber.Trim();
-            var fatherName = !string.IsNullOrWhiteSpace(dto.ParentName) ? dto.ParentName.Trim() : ExtractFatherName(dto.FullName);
+            var fatherName = !string.IsNullOrWhiteSpace(dto.ParentName) ? dto.ParentName.Trim() : ExtractFatherName(s.FullName);
 
             var existingParent = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Parent && (u.Username == pIdNum || u.ParentId.ToString() == pIdNum));
             if (existingParent != null)
@@ -315,7 +322,7 @@ public class StudentService
         var studentUser = await _db.Users.FirstOrDefaultAsync(u => u.StudentId == s.Id);
         if (studentUser != null)
         {
-            studentUser.FullName = dto.FullName;
+            studentUser.FullName = s.FullName;
         }
 
         await _db.SaveChangesAsync();

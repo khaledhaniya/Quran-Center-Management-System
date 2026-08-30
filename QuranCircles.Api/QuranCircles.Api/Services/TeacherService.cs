@@ -83,8 +83,11 @@ public class TeacherService
         if (err is not null) return (false, err);
 
         t.FullName = dto.FullName.Trim();
-        t.Address = dto.Address?.Trim() ?? "";
-        t.Contact = dto.Contact?.Trim() ?? "";
+        if (dto.Address != null) t.Address = dto.Address.Trim();
+        if (dto.Contact != null) t.Contact = dto.Contact.Trim();
+
+        var u = await _db.Users.FirstOrDefaultAsync(x => x.TeacherId == id);
+        if (u != null) u.FullName = t.FullName;
 
         await _db.SaveChangesAsync();
         return (true, null);

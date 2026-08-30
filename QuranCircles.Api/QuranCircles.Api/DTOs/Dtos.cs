@@ -37,13 +37,13 @@ public record CreateStudentDto(
 );
 
 public record UpdateStudentDto(
-    string FullName,
-    string? Address,
-    DateOnly? DateOfBirth,
-    string? FamilyContact,
-    int? CircleId,
-    int? ParentId,
-    bool IsActive,
+    string? FullName = null,
+    string? Address = null,
+    DateOnly? DateOfBirth = null,
+    string? FamilyContact = null,
+    int? CircleId = null,
+    int? ParentId = null,
+    bool? IsActive = null,
     string? StudentIdentityNumber = null,
     string? PreviousQuranMemorization = null,
     string? StudentMobile = null,
@@ -63,7 +63,13 @@ public record UpdateStudentDto(
     string? CurrentAddress = null,
     string? CurrentHousingType = null,
     string? Notes = null,
-    string? ParentName = null
+    string? ParentName = null,
+    int? TargetAjzaaCount = null,
+    string? PlanType = null,
+    DateOnly? PlanStartDate = null,
+    DateOnly? PlanTargetDate = null,
+    double? DailyPacePages = null,
+    string? CompletedAjzaa = null
 );
 
 public record StudentDto(
