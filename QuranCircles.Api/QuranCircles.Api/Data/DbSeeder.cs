@@ -346,7 +346,8 @@ public static class DbSeeder
                 using (var cmd = db.Database.GetDbConnection().CreateCommand())
                 {
                     cmd.CommandText = "PRAGMA table_info(SystemSettings);";
-                    if (cmd.Connection.State != System.Data.ConnectionState.Open) cmd.Connection.Open();
+                    var conn = cmd.Connection;
+                    if (conn != null && conn.State != System.Data.ConnectionState.Open) conn.Open();
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())

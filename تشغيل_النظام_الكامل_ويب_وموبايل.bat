@@ -1,33 +1,36 @@
 @echo off
 cd /d "%~dp0"
-title Quran Center Full System Launcher
+chcp 65001 > nul
+title تشغيل النظام الكامل - مركز البيان القرآني
 
 echo ========================================================
-echo   Launching Quran Center (Web + Mobile + API)...
+echo   [مركز البيان القرآني] - تشغيل المنظومة الكاملة (ويب + موبايل)
 echo ========================================================
 echo.
 
 where dotnet >nul 2>nul
 if %errorlevel% equ 0 (
-    echo [1/3] Starting Backend API on http://localhost:5070 ...
-    start "Backend API" /min cmd /c "cd /d "%~dp0QuranCircles.Api\QuranCircles.Api" && dotnet run --urls=http://localhost:5070"
+    netstat -ano | findstr :5070 >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo [1/2] جاري تشغيل خادم المنظومة والـ API (http://localhost:5070)...
+        start "Backend API (QuranCircles)" /min cmd /c "cd /d "%~dp0QuranCircles.Api\QuranCircles.Api" && dotnet run --urls=http://localhost:5070"
+        timeout /t 3 /nobreak >nul
+    ) else (
+        echo [1/2] خادم الـ API يعمل بالفعل على المنفذ 5070.
+    )
 )
 
-echo [2/3] Starting Web Application on http://localhost:8000 ...
-start "Quran Web Server (Port 8000)" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port 8000 -Path "%~dp0QuranCircles.Web"
-timeout /t 1 >nul
-start http://localhost:8000
+echo [2/2] جاري فتح واجهات المنظومة...
+start http://localhost:5070
 
-echo [3/3] Starting Flutter Mobile App (Web) on http://localhost:9000 ...
-start "Flutter Mobile Server (Port 9000)" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port 9000 -Path "%~dp0QuranCircles.Mobile\build\web"
-timeout /t 1 >nul
-start http://localhost:9000
+if exist "%~dp0QuranCircles.Mobile\build\web\index.html" (
+    start http://localhost:5070/mobile/index.html
+)
 
 echo.
 echo ========================================================
-echo   All Systems Launched Successfully!
-echo   Admin/Teacher Web: http://localhost:8000
-echo   Flutter Mobile Web: http://localhost:9000
+echo   تم تشغيل النظام بالكامل بنجاح!
+echo   لوحة الإدارة والويب: http://localhost:5070
 echo ========================================================
 echo.
 pause

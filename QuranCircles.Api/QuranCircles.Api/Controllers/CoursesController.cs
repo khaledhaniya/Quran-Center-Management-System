@@ -476,7 +476,7 @@ public class CoursesController : ControllerBase
         {
             Username = currentUser?.Username ?? "Unknown",
             Action = "RecordCourseGrade",
-            Details = $"رصد علامة الطالب {enrollment.Student.FullName} في {enrollment.Course!.Name} بدرجة {dto.Grade} وحالة {enrollment.Status}",
+            Details = $"رصد علامة الطالب {enrollment.Student?.FullName ?? "طالب"} في {enrollment.Course?.Name ?? "مساق"} بدرجة {dto.Grade} وحالة {enrollment.Status}",
             Timestamp = DateTime.UtcNow,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "::1"
         });
