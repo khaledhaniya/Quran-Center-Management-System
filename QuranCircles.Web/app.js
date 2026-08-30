@@ -1583,7 +1583,7 @@ async function loadTeacherStudentsTable() {
                         <td colspan="7" class="text-center p-4 text-muted">
                             <i class="fa-solid fa-users-slash fs-2 mb-2 d-block text-secondary"></i>
                             لا يوجد طلاب منتسبين في هذه الحلقة حالياً.<br>
-                            ${window.SYS_ALLOW_TEACHER_ENROLL !== false ? '<button class="btn btn-sm btn-primary mt-2 rounded-pill px-3" onclick="showTeacherEnrollExistingModal()"><i class="fa-solid fa-user-plus me-1"></i> تنسيب طالب موجود الآن</button>' : ''}
+                            ${window.SYS_ALLOW_TEACHER_ENROLL === true ? '<button class="btn btn-sm btn-primary mt-2 rounded-pill px-3" onclick="showTeacherEnrollExistingModal()"><i class="fa-solid fa-user-plus me-1"></i> تنسيب طالب موجود الآن</button>' : ''}
                         </td>
                     </tr>
                 `;
@@ -1599,8 +1599,8 @@ async function loadTeacherStudentsTable() {
         } catch(e) {}
 
         const hideParentPhone = window.SYS_HIDE_PARENT_PHONE === true;
-        const allowEditPlan = window.SYS_ALLOW_TEACHER_EDIT_PLAN !== false;
-        const allowEnroll = window.SYS_ALLOW_TEACHER_ENROLL !== false;
+        const allowEditPlan = window.SYS_ALLOW_TEACHER_EDIT_PLAN === true;
+        const allowEnroll = window.SYS_ALLOW_TEACHER_ENROLL === true;
 
         let rowsHtml = "";
         students.forEach((s, idx) => {
@@ -8927,17 +8927,17 @@ function applySystemSettingsToUI(rawSettings) {
     window.SYS_MIN_ATTENDANCE_EXAM = Number(settings.minAttendancePercentForExam) || 75;
     window.SYS_MAX_STUDENTS_CIRCLE = Number(settings.maxStudentsPerCircle) || 20;
     window.SYS_MAX_ABSENCE_WARNING = Number(settings.maxAbsenceDaysWarning) || 3;
-    window.SYS_ALLOW_TEACHER_ENROLL = settings.allowTeacherSelfEnrollment !== false;
-    window.SYS_ALLOW_TEACHER_EDIT_PLAN = settings.allowTeacherEditStudentPlan !== false;
+    window.SYS_ALLOW_TEACHER_ENROLL = settings.allowTeacherSelfEnrollment === true;
+    window.SYS_ALLOW_TEACHER_EDIT_PLAN = settings.allowTeacherEditStudentPlan === true;
     window.SYS_HIDE_PARENT_PHONE = settings.hideParentPhoneFromTeacher === true;
-    window.SYS_ALLOW_PROFILE_REQUESTS = settings.allowStudentProfileEditRequests !== false;
-    window.SYS_ENFORCE_DAILY_ATTENDANCE = settings.enforceDailyAttendanceRecording !== false;
-    window.SYS_ENABLE_CERTIFICATES = settings.enableCertificates !== false;
+    window.SYS_ALLOW_PROFILE_REQUESTS = settings.allowStudentProfileEditRequests === true;
+    window.SYS_ENFORCE_DAILY_ATTENDANCE = settings.enforceDailyAttendanceRecording === true;
+    window.SYS_ENABLE_CERTIFICATES = settings.enableCertificates === true;
     window.SYS_SIGNATORY_NAME = settings.signatoryName || 'فضيلة الشيخ / رئيس المركز';
     window.SYS_SIGNATORY_TITLE = settings.signatoryTitle || 'المشرف العام على حلقات تحفيظ القرآن الكريم';
-    window.SYS_SHOW_HONORS_BOARD = settings.showHonorsBoard !== false;
-    window.SYS_ALLOW_PUBLIC_ANNOUNCEMENTS = settings.allowPublicAnnouncements !== false;
-    window.SYS_ENABLE_ABSENCE_ALERT = settings.enableAbsenceAutoAlert !== false;
+    window.SYS_SHOW_HONORS_BOARD = settings.showHonorsBoard === true;
+    window.SYS_ALLOW_PUBLIC_ANNOUNCEMENTS = settings.allowPublicAnnouncements === true;
+    window.SYS_ENABLE_ABSENCE_ALERT = settings.enableAbsenceAutoAlert === true;
     window.SYS_ABSENCE_ALERT_TEMPLATE = settings.absenceAlertTemplate || '';
 
     // H. Immediate DOM element visibility synchronization across all views
@@ -9221,71 +9221,71 @@ async function loadSystemSettingsForm() {
                         </div>
 
                         <div class="settings-flags-grid">
-                            <label class="settings-switch-card ${settings.allowTeacherEditStudentPlan !== false ? 'active' : ''}" for="setting-allow-teacher-edit-plan">
+                            <div class="settings-switch-card ${settings.allowTeacherEditStudentPlan === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-teacher-edit-plan')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-book-bookmark text-success me-1"></i> السماح للمعلم بتعديل خطة حفظ الطالب وتوثيق الأجزاء</span>
                                     <span class="switch-desc">تمكين المعلم من تحديث خطة الحفظ واعتماد الأجزاء المنجزة لطلابه.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-allow-teacher-edit-plan" ${settings.allowTeacherEditStudentPlan !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-allow-teacher-edit-plan" ${settings.allowTeacherEditStudentPlan === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-teacher-edit-plan')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.allowTeacherSelfEnrollment !== false ? 'active' : ''}" for="setting-allow-teacher-enrollment">
+                            <div class="settings-switch-card ${settings.allowTeacherSelfEnrollment === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-teacher-enrollment')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-user-plus text-warning me-1"></i> السماح للمعلم بتنسيب طلاب جدد لحلقته مباشرة</span>
                                     <span class="switch-desc">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته دون مراجعة مسبقة.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-allow-teacher-enrollment" ${settings.allowTeacherSelfEnrollment === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-teacher-enrollment')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.hideParentPhoneFromTeacher ? 'active' : ''}" for="setting-hide-parent-phone">
+                            <div class="settings-switch-card ${settings.hideParentPhoneFromTeacher === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-hide-parent-phone')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-shield-cat text-danger me-1"></i> حجب أرقام هواتف أولياء الأمور عن المعلم (خصوصية مشددة)</span>
                                     <span class="switch-desc">إخفاء رقم هاتف ولي الأمر من كشف الطلاب لدى المعلم لقصر التواصل عبر الإدارة.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-hide-parent-phone" ${settings.hideParentPhoneFromTeacher ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-hide-parent-phone" ${settings.hideParentPhoneFromTeacher === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-hide-parent-phone')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.allowStudentProfileEditRequests !== false ? 'active' : ''}" for="setting-allow-profile-requests">
+                            <div class="settings-switch-card ${settings.allowStudentProfileEditRequests === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-profile-requests')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-id-card-clip text-primary me-1"></i> تمكين الطلاب وأولياء الأمور من تقديم طلبات تعديل البيانات</span>
                                     <span class="switch-desc">السماح بتقديم طلب تعديل بيانات الاتصال ومراجعتها واعتمادها من الإدارة.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-allow-profile-requests" ${settings.allowStudentProfileEditRequests !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-allow-profile-requests" ${settings.allowStudentProfileEditRequests === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-profile-requests')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.enforceDailyAttendanceRecording !== false ? 'active' : ''}" for="setting-enforce-attendance">
+                            <div class="settings-switch-card ${settings.enforceDailyAttendanceRecording === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enforce-attendance')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-clock-rotate-left text-info me-1"></i> إلزام المعلم برصد التسميع اليومي في تاريخ اليوم فقط</span>
                                     <span class="switch-desc">منع المعلم من تسجيل حضور أو تسميع لتواريخ سابقة دون إذن إداري.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-enforce-attendance" ${settings.enforceDailyAttendanceRecording !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-enforce-attendance" ${settings.enforceDailyAttendanceRecording === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-enforce-attendance')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.showCumulativeAttendance !== false ? 'active' : ''}" for="setting-show-cumulative-attendance">
+                            <div class="settings-switch-card ${settings.showCumulativeAttendance === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-show-cumulative-attendance')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-chart-column text-secondary me-1"></i> إظهار مؤشر الحضور التراكمي في شاشات التسميع</span>
                                     <span class="switch-desc">عرض نسبة الحضور التراكمية في كشف التسميع اليومي.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-show-cumulative-attendance')"></span>
                                 </div>
-                            </label>
+                            </div>
                         </div>
                     </div>
 
@@ -9309,27 +9309,27 @@ async function loadSystemSettingsForm() {
                         </div>
 
                         <div class="settings-flags-grid">
-                            <label class="settings-switch-card ${settings.enableCertificates !== false ? 'active' : ''}" for="setting-enable-certificates">
+                            <div class="settings-switch-card ${settings.enableCertificates === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-certificates')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-award text-success me-1"></i> تفعيل نظام إصدار وطباعة الشهادات الرقمية المعتمدة</span>
                                     <span class="switch-desc">إتاحة طباعة الشهادات للطلاب الناجحين في المساقات واختبارات الأجزاء.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-enable-certificates" ${settings.enableCertificates === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-enable-certificates')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.showHonorsBoard !== false ? 'active' : ''}" for="setting-show-honors-board">
+                            <div class="settings-switch-card ${settings.showHonorsBoard === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-show-honors-board')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-trophy text-warning me-1"></i> تفعيل لوحة شرف المتميزين والمتفوقين</span>
                                     <span class="switch-desc">إظهار الطلاب الأوائل وأصحاب أعلى معدلات التسميع في لوحة المؤشرات.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-show-honors-board')"></span>
                                 </div>
-                            </label>
+                            </div>
                         </div>
                     </div>
 
@@ -9341,27 +9341,27 @@ async function loadSystemSettingsForm() {
                         </div>
 
                         <div class="settings-flags-grid mb-3">
-                            <label class="settings-switch-card ${settings.allowPublicAnnouncements !== false ? 'active' : ''}" for="setting-allow-public-announcements">
+                            <div class="settings-switch-card ${settings.allowPublicAnnouncements === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-public-announcements')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-bullhorn text-info me-1"></i> تفعيل لوحة التعاميم والإعلانات العامة للمركز</span>
                                     <span class="switch-desc">إتاحة لوحة التعاميم لجميع المعلمين والطلاب وأولياء الأمور.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-allow-public-announcements" ${settings.allowPublicAnnouncements === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-allow-public-announcements')"></span>
                                 </div>
-                            </label>
+                            </div>
 
-                            <label class="settings-switch-card ${settings.enableAbsenceAutoAlert !== false ? 'active' : ''}" for="setting-enable-absence-alert">
+                            <div class="settings-switch-card ${settings.enableAbsenceAutoAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-absence-alert')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> تفعيل تنبيهات الغياب الفورية لأولياء الأمور</span>
                                     <span class="switch-desc">تجهيز رابط تنبيه واتساب مباشر لولي الأمر عند تسجيل غياب الطالب.</span>
                                 </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert !== false ? 'checked' : ''} onchange="this.closest('.settings-switch-card').classList.toggle('active', this.checked)">
-                                    <span class="switch-slider"></span>
+                                <div class="custom-switch" onclick="event.stopPropagation()">
+                                    <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert === true ? 'checked' : ''} onchange="updateSwitchCardState(this)">
+                                    <span class="switch-slider" onclick="event.stopPropagation(); toggleSettingSwitch('setting-enable-absence-alert')"></span>
                                 </div>
-                            </label>
+                            </div>
                         </div>
 
                         <div class="settings-input-group settings-grid-full">
@@ -9469,32 +9469,37 @@ async function loadSystemSettingsForm() {
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري حفظ وتطبيق الإعدادات...';
         }
 
+        const getCheckboxValue = (id) => {
+            const el = document.getElementById(id);
+            return el ? el.checked === true : false;
+        };
+
         const dto = {
-            centerName: document.getElementById("setting-center-name").value.trim(),
-            mosqueName: document.getElementById("setting-mosque-name").value.trim(),
-            centerAddress: document.getElementById("setting-center-address").value.trim(),
-            supportPhone: document.getElementById("setting-support-phone").value.trim(),
-            supportEmail: document.getElementById("setting-support-email").value.trim(),
-            welcomeMessage: document.getElementById("setting-welcome-msg").value.trim(),
-            logoUrl: document.getElementById("setting-logo-url").value.trim(),
-            themeStyle: document.getElementById("setting-theme-style").value,
-            passingScoreThreshold: parseInt(document.getElementById("setting-passing-score").value) || 70,
-            minAttendancePercentForExam: parseInt(document.getElementById("setting-min-attendance-exam").value) || 75,
-            maxStudentsPerCircle: parseInt(document.getElementById("setting-max-students-circle").value) || 20,
-            maxAbsenceDaysWarning: parseInt(document.getElementById("setting-max-absence-warning").value) || 3,
-            allowTeacherEditStudentPlan: document.getElementById("setting-allow-teacher-edit-plan").checked,
-            allowTeacherSelfEnrollment: document.getElementById("setting-allow-teacher-enrollment").checked,
-            hideParentPhoneFromTeacher: document.getElementById("setting-hide-parent-phone").checked,
-            allowStudentProfileEditRequests: document.getElementById("setting-allow-profile-requests").checked,
-            enforceDailyAttendanceRecording: document.getElementById("setting-enforce-attendance").checked,
-            showCumulativeAttendance: document.getElementById("setting-show-cumulative-attendance").checked,
-            signatoryName: document.getElementById("setting-signatory-name").value.trim(),
-            signatoryTitle: document.getElementById("setting-signatory-title").value.trim(),
-            enableCertificates: document.getElementById("setting-enable-certificates").checked,
-            showHonorsBoard: document.getElementById("setting-show-honors-board").checked,
-            allowPublicAnnouncements: document.getElementById("setting-allow-public-announcements").checked,
-            enableAbsenceAutoAlert: document.getElementById("setting-enable-absence-alert").checked,
-            absenceAlertTemplate: document.getElementById("setting-absence-alert-template").value.trim()
+            centerName: (document.getElementById("setting-center-name")?.value || "").trim(),
+            mosqueName: (document.getElementById("setting-mosque-name")?.value || "").trim(),
+            centerAddress: (document.getElementById("setting-center-address")?.value || "").trim(),
+            supportPhone: (document.getElementById("setting-support-phone")?.value || "").trim(),
+            supportEmail: (document.getElementById("setting-support-email")?.value || "").trim(),
+            welcomeMessage: (document.getElementById("setting-welcome-msg")?.value || "").trim(),
+            logoUrl: (document.getElementById("setting-logo-url")?.value || "").trim(),
+            themeStyle: document.getElementById("setting-theme-style")?.value || "Classic",
+            passingScoreThreshold: parseInt(document.getElementById("setting-passing-score")?.value) || 70,
+            minAttendancePercentForExam: parseInt(document.getElementById("setting-min-attendance-exam")?.value) || 75,
+            maxStudentsPerCircle: parseInt(document.getElementById("setting-max-students-circle")?.value) || 20,
+            maxAbsenceDaysWarning: parseInt(document.getElementById("setting-max-absence-warning")?.value) || 3,
+            allowTeacherEditStudentPlan: getCheckboxValue("setting-allow-teacher-edit-plan"),
+            allowTeacherSelfEnrollment: getCheckboxValue("setting-allow-teacher-enrollment"),
+            hideParentPhoneFromTeacher: getCheckboxValue("setting-hide-parent-phone"),
+            allowStudentProfileEditRequests: getCheckboxValue("setting-allow-profile-requests"),
+            enforceDailyAttendanceRecording: getCheckboxValue("setting-enforce-attendance"),
+            showCumulativeAttendance: getCheckboxValue("setting-show-cumulative-attendance"),
+            signatoryName: (document.getElementById("setting-signatory-name")?.value || "").trim(),
+            signatoryTitle: (document.getElementById("setting-signatory-title")?.value || "").trim(),
+            enableCertificates: getCheckboxValue("setting-enable-certificates"),
+            showHonorsBoard: getCheckboxValue("setting-show-honors-board"),
+            allowPublicAnnouncements: getCheckboxValue("setting-allow-public-announcements"),
+            enableAbsenceAutoAlert: getCheckboxValue("setting-enable-absence-alert"),
+            absenceAlertTemplate: (document.getElementById("setting-absence-alert-template")?.value || "").trim()
         };
 
         // 1. Instant local and DOM application
