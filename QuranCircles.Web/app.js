@@ -8521,7 +8521,6 @@ async function loadTeacherComprehensiveReport() {
         // Update Top KPI Cards
         const elTotalStudents = document.getElementById("teacher-roster-total-students");
         if (elTotalStudents) elTotalStudents.textContent = totalStudents;
-
         const elTotalSessions = document.getElementById("teacher-roster-total-sessions");
         if (elTotalSessions) elTotalSessions.textContent = totalSessions;
 
@@ -8776,7 +8775,7 @@ function printTeacherRoster() {
 }
 
 // ==========================================
-// 3. DYNAMIC SYSTEM SETTINGS CMS 2.0 (Resilient & Offline-Ready)
+// 3. DYNAMIC SYSTEM SETTINGS CMS 2.0 (Resilient & Real-time Sync)
 // ==========================================
 const DEFAULT_SYSTEM_SETTINGS = {
     centerName: "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
@@ -8809,6 +8808,12 @@ const DEFAULT_SYSTEM_SETTINGS = {
 
 let cachedSystemSettings = null;
 
+function toBoolean(val, defaultVal) {
+    if (val === true || val === 1 || val === "true" || val === "1") return true;
+    if (val === false || val === 0 || val === "false" || val === "0") return false;
+    return defaultVal;
+}
+
 function normalizeSettings(s) {
     if (!s) return Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
     return {
@@ -8820,25 +8825,25 @@ function normalizeSettings(s) {
         welcomeMessage: s.welcomeMessage || s.WelcomeMessage || DEFAULT_SYSTEM_SETTINGS.welcomeMessage,
         logoUrl: s.logoUrl || s.LogoUrl || "",
         themeStyle: s.themeStyle || s.ThemeStyle || DEFAULT_SYSTEM_SETTINGS.themeStyle,
-        passingScoreThreshold: s.passingScoreThreshold !== undefined ? s.passingScoreThreshold : (s.PassingScoreThreshold !== undefined ? s.PassingScoreThreshold : DEFAULT_SYSTEM_SETTINGS.passingScoreThreshold),
-        minAttendancePercentForExam: s.minAttendancePercentForExam !== undefined ? s.minAttendancePercentForExam : (s.MinAttendancePercentForExam !== undefined ? s.MinAttendancePercentForExam : DEFAULT_SYSTEM_SETTINGS.minAttendancePercentForExam),
-        maxStudentsPerCircle: s.maxStudentsPerCircle !== undefined ? s.maxStudentsPerCircle : (s.MaxStudentsPerCircle !== undefined ? s.MaxStudentsPerCircle : DEFAULT_SYSTEM_SETTINGS.maxStudentsPerCircle),
-        maxAbsenceDaysWarning: s.maxAbsenceDaysWarning !== undefined ? s.maxAbsenceDaysWarning : (s.MaxAbsenceDaysWarning !== undefined ? s.MaxAbsenceDaysWarning : DEFAULT_SYSTEM_SETTINGS.maxAbsenceDaysWarning),
-        allowTeacherEditStudentPlan: s.allowTeacherEditStudentPlan !== undefined ? s.allowTeacherEditStudentPlan : (s.AllowTeacherEditStudentPlan !== undefined ? s.AllowTeacherEditStudentPlan : DEFAULT_SYSTEM_SETTINGS.allowTeacherEditStudentPlan),
-        allowTeacherSelfEnrollment: s.allowTeacherSelfEnrollment !== undefined ? s.allowTeacherSelfEnrollment : (s.AllowTeacherSelfEnrollment !== undefined ? s.AllowTeacherSelfEnrollment : DEFAULT_SYSTEM_SETTINGS.allowTeacherSelfEnrollment),
-        hideParentPhoneFromTeacher: s.hideParentPhoneFromTeacher !== undefined ? s.hideParentPhoneFromTeacher : (s.HideParentPhoneFromTeacher !== undefined ? s.HideParentPhoneFromTeacher : DEFAULT_SYSTEM_SETTINGS.hideParentPhoneFromTeacher),
-        allowStudentProfileEditRequests: s.allowStudentProfileEditRequests !== undefined ? s.allowStudentProfileEditRequests : (s.AllowStudentProfileEditRequests !== undefined ? s.AllowStudentProfileEditRequests : DEFAULT_SYSTEM_SETTINGS.allowStudentProfileEditRequests),
-        enforceDailyAttendanceRecording: s.enforceDailyAttendanceRecording !== undefined ? s.enforceDailyAttendanceRecording : (s.EnforceDailyAttendanceRecording !== undefined ? s.EnforceDailyAttendanceRecording : DEFAULT_SYSTEM_SETTINGS.enforceDailyAttendanceRecording),
-        showStudentCountToTeacher: s.showStudentCountToTeacher !== undefined ? s.showStudentCountToTeacher : (s.ShowStudentCountToTeacher !== undefined ? s.ShowStudentCountToTeacher : DEFAULT_SYSTEM_SETTINGS.showStudentCountToTeacher),
-        showCumulativeAttendance: s.showCumulativeAttendance !== undefined ? s.showCumulativeAttendance : (s.ShowCumulativeAttendance !== undefined ? s.ShowCumulativeAttendance : DEFAULT_SYSTEM_SETTINGS.showCumulativeAttendance),
-        enableCertificates: s.enableCertificates !== undefined ? s.enableCertificates : (s.EnableCertificates !== undefined ? s.EnableCertificates : DEFAULT_SYSTEM_SETTINGS.enableCertificates),
+        passingScoreThreshold: Number(s.passingScoreThreshold ?? s.PassingScoreThreshold ?? DEFAULT_SYSTEM_SETTINGS.passingScoreThreshold),
+        minAttendancePercentForExam: Number(s.minAttendancePercentForExam ?? s.MinAttendancePercentForExam ?? DEFAULT_SYSTEM_SETTINGS.minAttendancePercentForExam),
+        maxStudentsPerCircle: Number(s.maxStudentsPerCircle ?? s.MaxStudentsPerCircle ?? DEFAULT_SYSTEM_SETTINGS.maxStudentsPerCircle),
+        maxAbsenceDaysWarning: Number(s.maxAbsenceDaysWarning ?? s.MaxAbsenceDaysWarning ?? DEFAULT_SYSTEM_SETTINGS.maxAbsenceDaysWarning),
+        allowTeacherEditStudentPlan: toBoolean(s.allowTeacherEditStudentPlan ?? s.AllowTeacherEditStudentPlan, DEFAULT_SYSTEM_SETTINGS.allowTeacherEditStudentPlan),
+        allowTeacherSelfEnrollment: toBoolean(s.allowTeacherSelfEnrollment ?? s.AllowTeacherSelfEnrollment, DEFAULT_SYSTEM_SETTINGS.allowTeacherSelfEnrollment),
+        hideParentPhoneFromTeacher: toBoolean(s.hideParentPhoneFromTeacher ?? s.HideParentPhoneFromTeacher, DEFAULT_SYSTEM_SETTINGS.hideParentPhoneFromTeacher),
+        allowStudentProfileEditRequests: toBoolean(s.allowStudentProfileEditRequests ?? s.AllowStudentProfileEditRequests, DEFAULT_SYSTEM_SETTINGS.allowStudentProfileEditRequests),
+        enforceDailyAttendanceRecording: toBoolean(s.enforceDailyAttendanceRecording ?? s.EnforceDailyAttendanceRecording, DEFAULT_SYSTEM_SETTINGS.enforceDailyAttendanceRecording),
+        showStudentCountToTeacher: toBoolean(s.showStudentCountToTeacher ?? s.ShowStudentCountToTeacher, DEFAULT_SYSTEM_SETTINGS.showStudentCountToTeacher),
+        showCumulativeAttendance: toBoolean(s.showCumulativeAttendance ?? s.ShowCumulativeAttendance, DEFAULT_SYSTEM_SETTINGS.showCumulativeAttendance),
+        enableCertificates: toBoolean(s.enableCertificates ?? s.EnableCertificates, DEFAULT_SYSTEM_SETTINGS.enableCertificates),
         signatoryName: s.signatoryName || s.SignatoryName || DEFAULT_SYSTEM_SETTINGS.signatoryName,
         signatoryTitle: s.signatoryTitle || s.SignatoryTitle || DEFAULT_SYSTEM_SETTINGS.signatoryTitle,
-        showHonorsBoard: s.showHonorsBoard !== undefined ? s.showHonorsBoard : (s.ShowHonorsBoard !== undefined ? s.ShowHonorsBoard : DEFAULT_SYSTEM_SETTINGS.showHonorsBoard),
-        allowPublicAnnouncements: s.allowPublicAnnouncements !== undefined ? s.allowPublicAnnouncements : (s.AllowPublicAnnouncements !== undefined ? s.AllowPublicAnnouncements : DEFAULT_SYSTEM_SETTINGS.allowPublicAnnouncements),
-        enableAbsenceAutoAlert: s.enableAbsenceAutoAlert !== undefined ? s.enableAbsenceAutoAlert : (s.EnableAbsenceAutoAlert !== undefined ? s.EnableAbsenceAutoAlert : DEFAULT_SYSTEM_SETTINGS.enableAbsenceAutoAlert),
+        showHonorsBoard: toBoolean(s.showHonorsBoard ?? s.ShowHonorsBoard, DEFAULT_SYSTEM_SETTINGS.showHonorsBoard),
+        allowPublicAnnouncements: toBoolean(s.allowPublicAnnouncements ?? s.AllowPublicAnnouncements, DEFAULT_SYSTEM_SETTINGS.allowPublicAnnouncements),
+        enableAbsenceAutoAlert: toBoolean(s.enableAbsenceAutoAlert ?? s.EnableAbsenceAutoAlert, DEFAULT_SYSTEM_SETTINGS.enableAbsenceAutoAlert),
         absenceAlertTemplate: s.absenceAlertTemplate || s.AbsenceAlertTemplate || DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate,
-        maintenanceMode: s.maintenanceMode !== undefined ? s.maintenanceMode : (s.MaintenanceMode !== undefined ? s.MaintenanceMode : DEFAULT_SYSTEM_SETTINGS.maintenanceMode)
+        maintenanceMode: toBoolean(s.maintenanceMode ?? s.MaintenanceMode, DEFAULT_SYSTEM_SETTINGS.maintenanceMode)
     };
 }
 
@@ -8980,11 +8985,10 @@ function handleLogoFileUpload(event) {
     reader.onload = function(e) {
         const base64Url = e.target.result;
         const logoInput = document.getElementById("setting-logo-url");
-        const logoPreview = document.getElementById("setting-logo-preview-img");
+        const logoPreview = document.getElementById("setting-logo-preview");
         if (logoInput) logoInput.value = base64Url;
         if (logoPreview) {
             logoPreview.src = base64Url;
-            logoPreview.style.display = "inline-block";
         }
         // Update header & login logo instantly
         document.querySelectorAll("#brand-header-logo, #brand-login-logo, .dynamic-center-logo").forEach(el => el.src = base64Url);
@@ -9013,6 +9017,21 @@ function selectThemeOption(themeKey) {
     document.body.classList.add(`theme-${themeKey.toLowerCase()}`);
 }
 
+function toggleSettingSwitch(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.checked = !input.checked;
+    updateSwitchCardState(input);
+}
+
+function updateSwitchCardState(input) {
+    if (!input) return;
+    const card = input.closest('.settings-switch-card');
+    if (card) {
+        card.classList.toggle('active', input.checked);
+    }
+}
+
 async function loadSystemSettingsForm() {
     const container = document.getElementById("system-settings-content");
     if (!container) return;
@@ -9032,7 +9051,7 @@ async function loadSystemSettingsForm() {
 
     // Try fetching live from API silently
     try {
-        const liveSettings = await apiRequest("/settings", "GET", null, 0, true);
+        const liveSettings = await apiRequest(`/settings?t=${Date.now()}`, "GET", null, 0, true);
         if (liveSettings) {
             settings = normalizeSettings(liveSettings);
             cachedSystemSettings = settings;
