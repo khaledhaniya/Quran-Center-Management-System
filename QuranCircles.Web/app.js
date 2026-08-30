@@ -603,8 +603,26 @@ function handleRouting() {
 
 // ----------------- Alert Notification helper -----------------
 function showAlert(message, type = "success") {
+    const isModalOpen = document.getElementById("modal-container")?.classList.contains("open");
+    
+    // If SweetAlert2 is loaded, show a crisp floating toast
+    if (typeof Swal !== "undefined") {
+        const swalIcon = type === "danger" ? "error" : (type === "warning" ? "warning" : (type === "info" ? "info" : "success"));
+        Swal.mixin({
+            toast: true,
+            position: isModalOpen ? 'top' : 'top-end',
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true
+        }).fire({
+            icon: swalIcon,
+            title: message
+        });
+        if (isModalOpen) return;
+    }
+
     const container = document.getElementById("alert-container");
-    if (!container) return;
+    if (!container || isModalOpen) return;
     const alertId = "alert_" + Date.now();
     
     const icon = type === "success" ? "fa-circle-check" : (type === "danger" ? "fa-circle-exclamation" : "fa-circle-info");
@@ -7667,7 +7685,7 @@ async function showManageStudentsModal(circleId) {
         const currentStudents = allStudents.filter(s => s.circleId == circleId);
         const availableStudents = allStudents.filter(s => s.circleId != circleId);
 
-        function renderManageStudentsModalContent() {
+        function renderManageStudentsModalContent(lastAlertMessage = null, lastAlertType = "success") {
             content.innerHTML = `
                 <div class="p-2">
                     <div class="alert alert-success d-flex align-items-center justify-content-between mb-3" style="background:#e8f5e9; border: 1px solid #c8e6c9;">
@@ -7676,6 +7694,19 @@ async function showManageStudentsModal(circleId) {
                             <span class="text-muted small">المحفظ المشرف: <b>${circle.teacherName || 'غير معين'}</b> | عدد الطلاب الحالي: <b>${currentStudents.length}</b></span>
                         </div>
                         <span class="badge bg-success fs-6">${currentStudents.length} طلاب مسجلين</span>
+                    </div>
+
+                    <!-- In-Modal Alert Banner for Circle Management -->
+                    <div id="circle-manage-modal-alert">
+                        ${lastAlertMessage ? `
+                            <div class="alert alert-${lastAlertType} d-flex align-items-center justify-content-between p-2.5 mb-3 shadow-sm border border-${lastAlertType} animate-zoom" dir="rtl" style="${lastAlertType === 'success' ? 'background: #e8f5e9; border-color: #a7f3d0;' : 'background: #fef2f2; border-color: #fecaca;'}">
+                                <div class="fw-bold">
+                                    <i class="fa-solid ${lastAlertType === 'success' ? 'fa-circle-check text-success' : 'fa-circle-exclamation text-danger'} me-2"></i>
+                                    ${escapeXml(lastAlertMessage)}
+                                </div>
+                                <button type="button" class="btn-close" onclick="this.parentElement.remove()" style="font-size: 0.75rem;"></button>
+                            </div>
+                        ` : ''}
                     </div>
 
                     <div class="row g-4">
@@ -7753,8 +7784,7 @@ async function showManageStudentsModal(circleId) {
                     e.currentTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
                     try {
-                        await apiRequest(`/circles/${circleId}/students/${stId}`, "DELETE");
-                        showAlert(`تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`, "success");
+                        await apiRequest(`/circles/${circleId}/students/${stId}`, "DELETE", null, 0, true);
                         
                         // Update local lists and re-render modal content smoothly
                         const removedIdx = currentStudents.findIndex(s => s.id == stId);
@@ -7764,13 +7794,27 @@ async function showManageStudentsModal(circleId) {
                             removedSt.circleName = null;
                             availableStudents.push(removedSt);
                         }
-                        renderManageStudentsModalContent();
+                        
+                        if (typeof Swal !== "undefined") {
+                            Swal.mixin({
+                                toast: true,
+                                position: 'top',
+                                showConfirmButton: false,
+                                timer: 3000,
+                                timerProgressBar: true
+                            }).fire({
+                                icon: 'success',
+                                title: `تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`
+                            });
+                        }
+                        
+                        renderManageStudentsModalContent(`تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`, "success");
                         if (typeof loadAdminCircles === "function") loadAdminCircles();
                         if (typeof loadAdminStudents === "function") loadAdminStudents();
                     } catch(err) {
                         e.currentTarget.disabled = false;
                         e.currentTarget.innerHTML = originalBtnHtml;
-                        showAlert("حدث خطأ أثناء إزالة الطالب: " + err.message, "danger");
+                        renderManageStudentsModalContent("حدث خطأ أثناء إزالة الطالب: " + err.message, "danger");
                     }
                 });
             });
@@ -7827,8 +7871,7 @@ async function showManageStudentsModal(circleId) {
                         e.currentTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التنسيب...';
 
                         try {
-                            await apiRequest(`/circles/${circleId}/students`, "POST", { studentId: parseInt(stId) });
-                            showAlert(`تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`, "success");
+                            await apiRequest(`/circles/${circleId}/students`, "POST", { studentId: parseInt(stId) }, 0, true);
 
                             // Update local lists and re-render modal content smoothly
                             const addedIdx = availableStudents.findIndex(s => s.id == stId);
@@ -7838,13 +7881,27 @@ async function showManageStudentsModal(circleId) {
                                 addedSt.circleName = circle.name;
                                 currentStudents.push(addedSt);
                             }
-                            renderManageStudentsModalContent();
+                            
+                            if (typeof Swal !== "undefined") {
+                                Swal.mixin({
+                                    toast: true,
+                                    position: 'top',
+                                    showConfirmButton: false,
+                                    timer: 3000,
+                                    timerProgressBar: true
+                                }).fire({
+                                    icon: 'success',
+                                    title: `تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`
+                                });
+                            }
+                            
+                            renderManageStudentsModalContent(`تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`, "success");
                             if (typeof loadAdminCircles === "function") loadAdminCircles();
                             if (typeof loadAdminStudents === "function") loadAdminStudents();
                         } catch(err) {
                             e.currentTarget.disabled = false;
                             e.currentTarget.innerHTML = originalHtml;
-                            showAlert("حدث خطأ أثناء تنسيب الطالب: " + err.message, "danger");
+                            renderManageStudentsModalContent("حدث خطأ أثناء تنسيب الطالب: " + err.message, "danger");
                         }
                     });
                 });
