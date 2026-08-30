@@ -170,42 +170,51 @@ function setupAuth() {
         submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول';
     }
 
-    // Bind Login Form
+    // Bind Login Form safely without cloneNode
     const loginForm = document.getElementById("login-form");
-    if (loginForm) {
-        const newLoginForm = loginForm.cloneNode(true);
-        loginForm.parentNode.replaceChild(newLoginForm, loginForm);
-        newLoginForm.addEventListener("submit", handleLogin);
+    if (loginForm && !loginForm.dataset.bound) {
+        loginForm.dataset.bound = "true";
+        loginForm.addEventListener("submit", handleLogin);
     }
     
     // Bind Top Bar Logout Button
     const logoutBtn = document.getElementById("btn-logout");
-    if (logoutBtn) {
-        const newLogoutBtn = logoutBtn.cloneNode(true);
-        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
-        newLogoutBtn.addEventListener("click", () => handleLogout(false));
+    if (logoutBtn && !logoutBtn.dataset.bound) {
+        logoutBtn.dataset.bound = "true";
+        logoutBtn.addEventListener("click", () => handleLogout(false));
     }
 
     // Bind Mobile Sidebar Logout Button
     const sidebarLogoutBtn = document.getElementById("btn-sidebar-logout");
-    if (sidebarLogoutBtn) {
-        const newSidebarLogoutBtn = sidebarLogoutBtn.cloneNode(true);
-        sidebarLogoutBtn.parentNode.replaceChild(newSidebarLogoutBtn, sidebarLogoutBtn);
-        newSidebarLogoutBtn.addEventListener("click", () => handleLogout(false));
+    if (sidebarLogoutBtn && !sidebarLogoutBtn.dataset.bound) {
+        sidebarLogoutBtn.dataset.bound = "true";
+        sidebarLogoutBtn.addEventListener("click", () => handleLogout(false));
     }
 }
 
+window.handleLogin = handleLogin;
 async function handleLogin(e) {
-    e.preventDefault();
-    const usernameInput = document.getElementById("login-username").value.trim();
-    const passwordInput = document.getElementById("login-password").value;
+    if (e && e.preventDefault) e.preventDefault();
+    const usernameInput = (document.getElementById("login-username")?.value || "").trim();
+    const passwordInput = (document.getElementById("login-password")?.value || "");
     const rememberMe = document.getElementById("remember-me-checkbox")?.checked || false;
     const errorContainer = document.getElementById("login-error-container");
+    
+    if (!usernameInput || !passwordInput) {
+        if (errorContainer) {
+            errorContainer.innerHTML = `
+                <div class="alert alert-warning animate-shake" style="margin-top:0; margin-bottom:15px; padding: 10px 15px;" dir="rtl">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i> يرجى إدخال اسم المستخدم وكلمة المرور.
+                </div>
+            `;
+        }
+        return false;
+    }
     
     const submitBtn = document.querySelector("#login-form button[type='submit']");
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري الاتصال وتجهيز الخادم...';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري التحقق والاتصال...';
     }
     
     if (errorContainer) errorContainer.innerHTML = "";

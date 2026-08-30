@@ -1407,7 +1407,7 @@
             
             <div id="login-error-container"></div>
             
-            <form id="login-form">
+            <form id="login-form" onsubmit="handleLogin(event); return false;">
                 <div class="form-group">
                     <label for="login-username"><i class="fa-solid fa-user"></i> اسم المستخدم:</label>
                     <input type="text" id="login-username" class="form-control" placeholder="أدخل اسم المستخدم..." required autocomplete="username">
