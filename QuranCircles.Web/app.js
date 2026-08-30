@@ -2489,8 +2489,9 @@ async function showStudentModal(studentId = null) {
         } catch(e) {}
     }
     
-    const content = document.getElementById("modal-body-content");
-    content.innerHTML = `
+        <!-- In-modal alerts container -->
+        <div id="student-modal-alert-container"></div>
+
         <form id="student-form">
             <input type="hidden" id="form-student-id" value="${studentId || ''}">
             
@@ -2628,7 +2629,9 @@ async function showStudentModal(studentId = null) {
             </div>
             
             <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ كافة البيانات الكلية</button>
+                <button type="submit" class="btn btn-primary" id="btn-save-student-submit">
+                    <i class="fa-solid fa-save me-1"></i> حفظ كافة البيانات الكلية
+                </button>
                 <button type="button" class="btn btn-light" id="btn-cancel-student">إلغاء</button>
             </div>
         </form>
@@ -2693,7 +2696,7 @@ async function showStudentModal(studentId = null) {
             return;
         }
         if (!cachedUsers || cachedUsers.length === 0) {
-            try { cachedUsers = await apiRequest("/users"); } catch(e) {}
+            try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(e) {}
         }
         
         const foundUser = cachedUsers.find(u => 
@@ -2733,6 +2736,15 @@ async function showStudentModal(studentId = null) {
     document.getElementById("student-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         
+        const alertBox = document.getElementById("student-modal-alert-container");
+        if (alertBox) alertBox.innerHTML = "";
+
+        const submitBtn = document.getElementById("btn-save-student-submit");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري حفظ البيانات...';
+        }
+
         const id = document.getElementById("form-student-id").value;
         const name = document.getElementById("student-name").value;
         const parentNameVal = document.getElementById("student-parent-name")?.value;
@@ -2796,76 +2808,164 @@ async function showStudentModal(studentId = null) {
         
         try {
             if (id) {
-                await apiRequest(`/students/${id}`, "PUT", dto);
-                closeModal();
-                loadAdminStudents();
-                if (typeof Swal !== "undefined") {
-                    Swal.fire({
-                        title: '🎉 تم حفظ وتحديث بيانات الطالب!',
-                        html: `<div class="p-2 text-center dir-rtl">تم تحديث بيانات الطالب <b>(${escapeXml(name)})</b> في النظام بنجاح.</div>`,
-                        icon: 'success',
-                        confirmButtonText: 'حسناً',
-                        confirmButtonColor: '#0d5c3a'
-                    });
-                } else {
-                    showAlert(`تم تحديث كافة بيانات الطالب (${name}) بنجاح.`, "success");
-                }
-            } else {
-                const res = await apiRequest("/students", "POST", dto);
+                // Update Existing Student
+                await apiRequest(`/students/${id}`, "PUT", dto, 1, true);
                 
-                // Refresh cached users & students
-                try { cachedUsers = await apiRequest("/users"); } catch(err) {}
-                try { cachedStudents = await apiRequest("/students"); } catch(err) {}
+                // Refresh data in background
                 if (typeof loadAdminStudents === "function") loadAdminStudents();
-
-                const circleName = circleIdVal ? (cachedCircles.find(c => c.id == circleIdVal)?.name || 'الحلقة المحددة') : 'غير مسند لحلقة بعد';
-                const parentInfo = res && res.createdParent ? `
-                    <div class="alert alert-primary p-3 mb-2">
-                        <h6 class="fw-bold mb-2"><i class="fa-solid fa-id-card"></i> حساب ولي الأمر الجديد الذي تم توليده:</h6>
-                        <ul class="mb-0 ps-3">
-                            <li><b>اسم ولي الأمر:</b> ${res.createdParent.fullName}</li>
-                            <li><b>اسم المستخدم (رقم الهوية):</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-1 rounded">${res.createdParent.username}</code></li>
-                            <li><b>كلمة المرور التلقائية:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-1 rounded">123456</code></li>
-                        </ul>
-                    </div>
-                ` : `<div class="alert alert-light border p-2 mb-2"><i class="fa-solid fa-user-check text-success me-1"></i> تم ربط الطالب مع حساب ولي الأمر المسجل.</div>`;
-
-                if (typeof Swal !== "undefined") {
-                    Swal.fire({
-                        title: '🎉 تمت إضافة الطالب بنجاح!',
-                        html: `
-                            <div class="text-start dir-rtl p-2">
-                                <div class="card p-3 mb-3 border-success bg-success-subtle shadow-xs">
-                                    <div class="fw-bold fs-6 text-success mb-1"><i class="fa-solid fa-user-graduate me-1"></i> ${escapeXml(name)}</div>
-                                    <div class="small text-muted mb-1"><i class="fa-solid fa-mosque me-1"></i> الحلقة: <b>${escapeXml(circleName)}</b></div>
-                                    <div class="small text-muted"><i class="fa-solid fa-key me-1"></i> حساب دخول الطالب: اسم المستخدم <code>${escapeXml(dto.username || stIdNum)}</code> | كلمة المرور: <code>${escapeXml(dto.password || '123456')}</code></div>
-                                </div>
-                                ${parentInfo}
+                
+                // Show In-Modal Success Card
+                document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> تم تحديث بيانات الطالب بنجاح';
+                content.innerHTML = `
+                    <div class="text-center p-4 animate-zoom">
+                        <div class="mb-3">
+                            <div style="width: 75px; height: 75px; margin: 0 auto; background: #e8f5e9; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(13,92,58,0.15);">
+                                <i class="fa-solid fa-circle-check text-success" style="font-size: 2.5rem;"></i>
                             </div>
-                        `,
-                        icon: 'success',
-                        showCancelButton: true,
-                        confirmButtonText: '<i class="fa-solid fa-plus me-1"></i> إضافة طالب آخر',
-                        cancelButtonText: '<i class="fa-solid fa-check me-1"></i> تم، إغلاق النافذة',
-                        confirmButtonColor: '#0d5c3a',
-                        cancelButtonColor: '#6c757d'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            showStudentModal(null);
-                        } else {
-                            closeModal();
-                        }
-                    });
-                } else {
-                    showAlert("تم تسجيل الطالب وإنشاء/ربط حساب ولي الأمر بنجاح.", "success");
-                    closeModal();
-                }
+                        </div>
+                        <h4 class="fw-bold text-success mb-2">تم حفظ وتحديث كافة بيانات الطالب بنجاح! 🎉</h4>
+                        <p class="text-muted mb-4">تم تطبيق كافة التعديلات على الطالب <strong>(${escapeXml(name)})</strong> وجدول الطلاب والتقارير في المنظومة.</p>
+                        
+                        <div class="d-flex justify-content-center gap-3 pt-3 border-top">
+                            <button type="button" class="btn btn-primary px-4 py-2 fw-bold shadow-sm" onclick="showStudentModal('${id}')">
+                                <i class="fa-solid fa-pen-to-square me-1"></i> مواصلة التعديل
+                            </button>
+                            <button type="button" class="btn btn-light px-4 py-2 border shadow-sm" onclick="closeModal()">
+                                <i class="fa-solid fa-check me-1"></i> تم، إغلاق النافذة
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Create New Student
+                const res = await apiRequest("/students", "POST", dto, 1, true);
+                
+                // Refresh cached data
+                try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(err) {}
+                try { cachedStudents = await apiRequest("/students", "GET", null, 0, true); } catch(err) {}
+                if (typeof loadAdminStudents === "function") loadAdminStudents();
+                if (typeof loadAdminCircles === "function") loadAdminCircles();
+
+                const circleObj = cachedCircles.find(c => c.id == circleIdVal);
+                const circleName = circleObj ? circleObj.name : (circleIdVal ? 'الحلقة المحددة' : 'بدون حلقة حالياً');
+                const studentUserVal = dto.username || stIdNum || '-';
+                const studentPassVal = dto.password || '123456';
+                
+                const parentNameFinal = (res && res.createdParent) ? res.createdParent.fullName : (parentNameVal || 'ولي الأمر المسجل');
+                const parentUserVal = (res && res.createdParent) ? res.createdParent.username : (pIdNum || 'مسجل مسبقاً');
+                const parentPassVal = '123456';
+
+                // Change Modal Title
+                document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> 🎉 تم تسجيل الطالب وتوليد الحساب بنجاح';
+
+                // Render In-Modal Success Details
+                content.innerHTML = `
+                    <div class="text-center p-2 animate-zoom" dir="rtl">
+                        <div class="mb-3">
+                            <div style="width: 70px; height: 70px; margin: 0 auto; background: #e8f5e9; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(13,92,58,0.15);">
+                                <i class="fa-solid fa-circle-check text-success" style="font-size: 2.3rem;"></i>
+                            </div>
+                        </div>
+                        
+                        <h4 class="fw-bold mb-1" style="color: #0d5c3a;">🎉 تمت إضافة الطالب بنجاح!</h4>
+                        <p class="text-muted small mb-4">تم حفظ كافة البيانات الشخصية والعائلية وإنشاء حسابات الدخول بالمنظومة فورياً.</p>
+                        
+                        <div class="row g-3 text-start mb-4">
+                            <!-- Student Card -->
+                            <div class="col-md-6">
+                                <div class="card p-3 h-100 shadow-sm" style="border-radius: 12px; border: 1.5px solid #a7f3d0; background: #f0fdf4;">
+                                    <h6 class="fw-bold text-success mb-2 border-bottom pb-2">
+                                        <i class="fa-solid fa-user-graduate me-1"></i> بيانات حساب الطالب للدخول
+                                    </h6>
+                                    <ul class="list-unstyled mb-0 small" style="line-height: 2.2;">
+                                        <li><b>اسم الطالب:</b> <span class="text-dark fw-bold">${escapeXml(name)}</span></li>
+                                        <li><b>الحلقة:</b> <span class="badge bg-success">${escapeXml(circleName)}</span></li>
+                                        <li><b>اسم المستخدم:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-0.5 rounded border border-success">${escapeXml(studentUserVal)}</code></li>
+                                        <li><b>كلمة المرور:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-0.5 rounded border border-success">${escapeXml(studentPassVal)}</code></li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Parent Card -->
+                            <div class="col-md-6">
+                                <div class="card p-3 h-100 shadow-sm" style="border-radius: 12px; border: 1.5px solid #bfdbfe; background: #eff6ff;">
+                                    <h6 class="fw-bold text-primary mb-2 border-bottom pb-2">
+                                        <i class="fa-solid fa-person-shelter me-1"></i> بيانات حساب ولي الأمر (المتابعة)
+                                    </h6>
+                                    <ul class="list-unstyled mb-0 small" style="line-height: 2.2;">
+                                        <li><b>اسم ولي الأمر:</b> <span class="text-dark fw-bold">${escapeXml(parentNameFinal)}</span></li>
+                                        <li><b>رقم الهوية:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-0.5 rounded border border-primary">${escapeXml(parentUserVal)}</code></li>
+                                        <li><b>كلمة المرور:</b> <code class="fs-6 fw-bold bg-white text-dark px-2 py-0.5 rounded border border-primary">${escapeXml(parentPassVal)}</code></li>
+                                        <li><b>الحالة:</b> ${res && res.createdParent ? '<span class="badge bg-primary">حساب جديد تم إنشاؤه تلقائياً</span>' : '<span class="badge bg-secondary">مرتبط بحساب العائلة الحالي</span>'}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WhatsApp Copy Helper -->
+                        <div class="alert alert-light border shadow-xs p-2.5 mb-4 text-center d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <span class="small text-muted"><i class="fa-brands fa-whatsapp text-success fs-5 me-1"></i> مشاركة بيانات الدخول مع ولي الأمر فوراً:</span>
+                            <button type="button" class="btn btn-outline-success btn-sm fw-bold px-3" onclick="copyStudentCredentials('${escapeXml(name)}', '${escapeXml(studentUserVal)}', '${escapeXml(studentPassVal)}', '${escapeXml(parentNameFinal)}', '${escapeXml(parentUserVal)}', '${escapeXml(parentPassVal)}', '${escapeXml(circleName)}')">
+                                <i class="fa-solid fa-copy me-1"></i> نسخ رسالة الدخول لواتساب
+                            </button>
+                        </div>
+
+                        <!-- Action Buttons Inside Modal -->
+                        <div class="d-flex justify-content-center gap-3 pt-3 border-top">
+                            <button type="button" class="btn btn-success btn-lg px-4 fw-bold shadow-sm" id="btn-add-another-student" onclick="showStudentModal(null)">
+                                <i class="fa-solid fa-user-plus me-1"></i> ➕ إضافة طالب آخر
+                            </button>
+                            <button type="button" class="btn btn-light btn-lg px-4 border shadow-sm" id="btn-close-student-success-modal" onclick="closeModal()">
+                                <i class="fa-solid fa-check me-1"></i> ✔️ تم، إغلاق النافذة
+                            </button>
+                        </div>
+                    </div>
+                `;
             }
         } catch(err) {
             console.error(err);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-save me-1"></i> حفظ كافة البيانات الكلية';
+            }
+            if (alertBox) {
+                alertBox.innerHTML = `
+                    <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
+                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> 
+                        <strong>تعذر الحفظ:</strong> ${escapeXml(err.message || 'حدث خطأ أثناء حفظ بيانات الطالب. يرجى التحقق من الحقول المطلوبة.')}
+                    </div>
+                `;
+                const modalBody = document.getElementById("modal-body-content");
+                if (modalBody) modalBody.scrollTop = 0;
+            }
         }
     });
 }
+
+// Helper to copy student and parent credentials to clipboard for WhatsApp sharing
+window.copyStudentCredentials = function(stName, stUser, stPass, pName, pUser, pPass, circleName) {
+    const text = `السلام عليكم ورحمة الله وبركاته،\nتم تسجيل الطالب: *${stName}* في *${circleName}*.\n\n📱 *بيانات دخول الطالب للمنظومة:*\nاسم المستخدم: ${stUser}\nكلمة المرور: ${stPass}\n\n👨‍👦 *بيانات دخول ولي الأمر للمتابعة:*\nاسم المستخدم: ${pUser}\nكلمة المرور: ${pPass}\n\nرابط المنظومة: ${window.location.origin + window.location.pathname}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (typeof Swal !== "undefined") {
+                Swal.fire({
+                    title: 'تم النسخ بنجاح! 📋',
+                    text: 'تم نسخ رسالة بيانات الدخول إلى الحافظة. يمكنك الآن لصقها وإرسالها لولي الأمر عبر واتساب.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            } else {
+                showAlert("تم نسخ بيانات الدخول إلى الحافظة بنجاح!", "success");
+            }
+        }).catch(() => {
+            alert("بيانات الدخول:\n\n" + text);
+        });
+    } else {
+        alert("بيانات الدخول:\n\n" + text);
+    }
+};
 
 // ------ Profile Update Requests (Student / Parent Edit Approval Workflow) ------
 async function showProfileEditModalForRole(role) {
