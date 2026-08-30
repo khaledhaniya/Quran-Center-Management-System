@@ -489,6 +489,7 @@ function setupNavigation() {
 
 function handleRouting() {
     if (!authToken) return; // Stop routing if not authenticated
+    fetchAndApplySystemSettings(); // Silently ensure latest CMS settings are active on every navigation
 
     let defaultHash = "#admin-dashboard";
     if (currentRole === "Teacher") defaultHash = "#teacher-attendance";
@@ -8841,7 +8842,7 @@ function normalizeSettings(s) {
     };
 }
 
-async function fetchAndApplySystemSettings() {
+async function fetchAndApplySystemSettings(silent = true) {
     // 1. Instant load from localStorage or default to prevent flicker
     try {
         const localSaved = localStorage.getItem("system_settings_cache");
@@ -8857,11 +8858,12 @@ async function fetchAndApplySystemSettings() {
         applySystemSettingsToUI(cachedSystemSettings);
     }
 
-    // 2. Fetch fresh live settings from API silently
+    // 2. Fetch fresh live settings from API with cross-browser cache-busting
     try {
-        let response = await fetch(`${API_BASE}/settings`);
+        const timestamp = Date.now();
+        let response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
         if (!response.ok && isLocalEnv && API_BASE.includes("localhost")) {
-            response = await fetch("https://albayan-quran.onrender.com/api/settings");
+            response = await fetch(`https://albayan-quran.onrender.com/api/settings?t=${timestamp}`, { cache: "no-store" });
         }
         if (response && response.ok) {
             const settings = await response.json();
@@ -8932,6 +8934,20 @@ function applySystemSettingsToUI(rawSettings) {
     window.SYS_ALLOW_PUBLIC_ANNOUNCEMENTS = settings.allowPublicAnnouncements !== false;
     window.SYS_ENABLE_ABSENCE_ALERT = settings.enableAbsenceAutoAlert !== false;
     window.SYS_ABSENCE_ALERT_TEMPLATE = settings.absenceAlertTemplate || '';
+
+    // H. Immediate DOM element visibility synchronization across all views
+    document.querySelectorAll(".teacher-enroll-action-btn, #btn-teacher-enroll-existing, #btn-teacher-add-new-student").forEach(el => {
+        el.style.display = window.SYS_ALLOW_TEACHER_ENROLL ? "inline-flex" : "none";
+    });
+
+    const teacherStudentsNavSpan = document.querySelector("#btn-teacher-students span");
+    if (teacherStudentsNavSpan) {
+        teacherStudentsNavSpan.textContent = window.SYS_ALLOW_TEACHER_ENROLL ? "تنسيب وإدارة طلاب حلقاتي" : "إدارة طلاب حلقاتي";
+    }
+
+    document.querySelectorAll(".parent-edit-profile-btn, .btn-request-profile-edit").forEach(el => {
+        el.style.display = window.SYS_ALLOW_PROFILE_REQUESTS ? "inline-flex" : "none";
+    });
 }
 
 function livePreviewSettings() {

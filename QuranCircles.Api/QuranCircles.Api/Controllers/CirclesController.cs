@@ -110,6 +110,25 @@ public class CirclesController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> AddStudent(int id, [FromBody] AssignStudentDto dto)
     {
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+
+        if (currentUser?.Role == UserRole.Teacher)
+        {
+            if (!settings.AllowTeacherSelfEnrollment)
+            {
+                return BadRequest(new { error = "عذراً، تنسيب الطلاب بواسطة المعلم معطل حالياً من قبل إدارة المركز." });
+            }
+
+            var circle = await _db.Circles.FindAsync(id);
+            if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
+            if (circle.TeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
+            {
+                return Forbid();
+            }
+        }
+
         var (ok, error) = await _svc.AddStudentAsync(id, dto.StudentId);
         if (!ok) return BadRequest(new { error });
         return NoContent();
@@ -119,6 +138,25 @@ public class CirclesController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> RemoveStudent(int id, int studentId)
     {
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+
+        if (currentUser?.Role == UserRole.Teacher)
+        {
+            if (!settings.AllowTeacherSelfEnrollment)
+            {
+                return BadRequest(new { error = "عذراً، فك ارتباط وتنسيب الطلاب بواسطة المعلم معطل حالياً من قبل إدارة المركز." });
+            }
+
+            var circle = await _db.Circles.FindAsync(id);
+            if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
+            if (circle.TeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
+            {
+                return Forbid();
+            }
+        }
+
         var (ok, error) = await _svc.RemoveStudentAsync(id, studentId);
         if (!ok) return BadRequest(new { error });
         return NoContent();
