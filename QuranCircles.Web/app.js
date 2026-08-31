@@ -1808,9 +1808,9 @@ async function loadAdminTeachers(search = "") {
                 ? `<a href="https://wa.me/${waNumClean}" target="_blank" class="teacher-wa-link" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> <span class="phone-val">${t.whatsappNumber}</span></a>` 
                 : '';
 
-            const roleBadge = t.taskRole 
+            const roleBadge = (t.taskRole && t.taskRole.trim()) 
                 ? `<span class="teacher-task-pill">${t.taskRole}</span>` 
-                : '<span class="text-muted small">-</span>';
+                : '<span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">بدون تكليف</span>';
 
             const qualStr = t.qualification 
                 ? `<span class="text-dark fw-bold small">${t.qualification}</span>` 
@@ -2094,9 +2094,9 @@ async function manageTeacherRoles(teacherId) {
         }
     });
 
-    if (result.isConfirmed && result.value) {
+    if (result.isConfirmed) {
         try {
-            const updatedTaskRole = result.value;
+            const updatedTaskRole = (typeof result.value === 'string' ? result.value : "").trim();
             const payload = {
                 fullName: teacher.fullName,
                 identityNumber: teacher.identityNumber,
@@ -2115,7 +2115,7 @@ async function manageTeacherRoles(teacherId) {
             };
 
             await apiRequest(`/teachers/${teacher.id}`, 'PUT', payload);
-            showAlert(`تم تحديث صلاحيات ومهام الشيخ (${teacher.fullName}) بنجاح! 🎉`, "success");
+            showAlert(`تم تحديث وحفظ مهام وصلاحيات الشيخ (${teacher.fullName}) بنجاح! 🎉`, "success");
             await loadAdminTeachers();
         } catch(err) {
             showAlert(err.message || "حدث خطأ أثناء حفظ الصلاحيات", "danger");
