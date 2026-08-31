@@ -74,11 +74,18 @@ public class AuthController : ControllerBase
         int? studentId = user.StudentId;
         int? parentId = user.ParentId;
 
-        if (user.Role == Entities.UserRole.Teacher && (!teacherId.HasValue || teacherId.Value == 0))
+        string? taskRole = null;
+        string? mosqueName = null;
+        string? qualification = null;
+        if (teacherId.HasValue && teacherId.Value > 0)
         {
-            var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == user.FullName);
-            if (t != null) teacherId = t.Id;
-            else teacherId = user.Id;
+            var t = await _db.Teachers.FindAsync(teacherId.Value);
+            if (t != null)
+            {
+                taskRole = t.TaskRole;
+                mosqueName = t.MosqueName;
+                qualification = t.Qualification;
+            }
         }
 
         return Ok(new
@@ -90,7 +97,10 @@ public class AuthController : ControllerBase
             studentId,
             parentId,
             username = user.Username,
-            fullName = user.FullName
+            fullName = user.FullName,
+            taskRole,
+            mosqueName,
+            qualification
         });
     }
 }

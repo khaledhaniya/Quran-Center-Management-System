@@ -118,6 +118,10 @@ public class TeacherService
                 updated++;
             }
 
+            var assignedRole = (et.FullName.Contains("علي حسن") && et.FullName.Contains("النبيه")) || (et.TaskRole != null && et.TaskRole.Contains("مركز البيان")) || idNumber == "408118297"
+                ? UserRole.Admin
+                : UserRole.Teacher;
+
             var username = !string.IsNullOrWhiteSpace(idNumber) ? idNumber : (!string.IsNullOrWhiteSpace(et.Mobile) ? et.Mobile : $"tch_{teacher.Id}");
             var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == teacher.Id || u.Username == username);
             if (existingUser == null)
@@ -127,7 +131,7 @@ public class TeacherService
                     Username = username,
                     PasswordHash = _hasher.HashPassword("123456"),
                     PlainPassword = "123456",
-                    Role = UserRole.Teacher,
+                    Role = assignedRole,
                     FullName = teacher.FullName,
                     TeacherId = teacher.Id,
                     IsActive = true
@@ -139,7 +143,7 @@ public class TeacherService
                 existingUser.Username = username;
                 existingUser.FullName = teacher.FullName;
                 existingUser.TeacherId = teacher.Id;
-                existingUser.Role = UserRole.Teacher;
+                existingUser.Role = assignedRole;
                 existingUser.IsActive = true;
                 if (string.IsNullOrEmpty(existingUser.PasswordHash) || existingUser.PlainPassword == "123456")
                 {

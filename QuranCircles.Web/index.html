@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260831_5">
+    <link rel="stylesheet" href="styles.css?v=20260831_6">
 </head>
 <body>
     <!-- App Container -->
@@ -106,6 +106,22 @@
                             <i class="fa-solid fa-chart-line text-success"></i>
                             <span>مُولد التقارير والفلترة الذكية</span>
                         </a>
+                        <a href="#financial-management" class="nav-item" id="btn-admin-financial">
+                            <i class="fa-solid fa-wallet text-warning"></i>
+                            <span>الملف المالي وكشوفات المحافظ</span>
+                        </a>
+                        <a href="#quality-management" class="nav-item" id="btn-admin-quality">
+                            <i class="fa-solid fa-award text-info"></i>
+                            <span>ملف الجودة والرقابة والتوجيه</span>
+                        </a>
+                        <a href="#memorization-forum" class="nav-item" id="btn-admin-memorization">
+                            <i class="fa-solid fa-book-quran text-primary"></i>
+                            <span>شؤون التحفيظ ومنتدى الحفاظ</span>
+                        </a>
+                        <a href="#preacher-youth" class="nav-item" id="btn-admin-preacher">
+                            <i class="fa-solid fa-microphone-lines text-danger"></i>
+                            <span>الفتى الواعظ والأصوات الندية</span>
+                        </a>
                         <a href="#system-settings" class="nav-item" id="btn-admin-system-settings">
                             <i class="fa-solid fa-sliders text-warning"></i>
                             <span>لوحة التحكم والإعدادات المتقدمة</span>
@@ -126,26 +142,51 @@
 
                     <!-- Teacher Links -->
                     <div class="nav-group teacher-links hidden">
-                        <a href="#teacher-attendance" class="nav-item" id="btn-teacher-attendance">
-                            <i class="fa-solid fa-clipboard-user"></i>
-                            <span>تسجيل الحضور اليومي</span>
+                        <!-- Specialized Task Dynamic Links -->
+                        <a href="#financial-management" class="nav-item teacher-task-finance hidden" id="btn-teacher-financial">
+                            <i class="fa-solid fa-wallet text-warning"></i>
+                            <span>الملف المالي وكشوفات المحافظ</span>
                         </a>
-                        <a href="#teacher-sessions" class="nav-item" id="btn-teacher-sessions">
-                            <i class="fa-solid fa-book-open-reader"></i>
-                            <span>سجل تسميع الحفظ</span>
+                        <a href="#quality-management" class="nav-item teacher-task-quality hidden" id="btn-teacher-quality">
+                            <i class="fa-solid fa-award text-info"></i>
+                            <span>ملف الجودة والرقابة والتوجيه</span>
                         </a>
-                        <a href="#teacher-students" class="nav-item" id="btn-teacher-students">
-                            <i class="fa-solid fa-user-plus text-success"></i>
-                            <span>تنسيب وإدارة طلاب حلقاتي</span>
+                        <a href="#memorization-forum" class="nav-item teacher-task-memorization hidden" id="btn-teacher-memorization">
+                            <i class="fa-solid fa-book-quran text-primary"></i>
+                            <span>شؤون التحفيظ ومنتدى الحفاظ</span>
                         </a>
-                        <a href="#teacher-comprehensive-report" class="nav-item" id="btn-teacher-comprehensive-report">
-                            <i class="fa-solid fa-table-list text-primary"></i>
-                            <span>كشف متابعة وتسميع الطلاب الشامل</span>
+                        <a href="#courses" class="nav-item teacher-task-courses hidden" id="btn-teacher-courses-nav">
+                            <i class="fa-solid fa-graduation-cap text-success"></i>
+                            <span>إدارة الدورات العلمية والتجويد</span>
                         </a>
-                        <a href="#teacher-lottery" class="nav-item" id="btn-teacher-lottery">
-                            <i class="fa-solid fa-dice"></i>
-                            <span>قرعة التسميع العشوائية</span>
+                        <a href="#preacher-youth" class="nav-item teacher-task-preacher hidden" id="btn-teacher-preacher">
+                            <i class="fa-solid fa-microphone-lines text-danger"></i>
+                            <span>الفتى الواعظ والأصوات الندية</span>
                         </a>
+
+                        <!-- Circle Teacher Core Tools -->
+                        <div id="teacher-circle-tools-wrapper">
+                            <a href="#teacher-attendance" class="nav-item" id="btn-teacher-attendance">
+                                <i class="fa-solid fa-clipboard-user"></i>
+                                <span>تسجيل الحضور اليومي</span>
+                            </a>
+                            <a href="#teacher-sessions" class="nav-item" id="btn-teacher-sessions">
+                                <i class="fa-solid fa-book-open-reader"></i>
+                                <span>سجل تسميع الحفظ</span>
+                            </a>
+                            <a href="#teacher-students" class="nav-item" id="btn-teacher-students">
+                                <i class="fa-solid fa-user-plus text-success"></i>
+                                <span>تنسيب وإدارة طلاب حلقاتي</span>
+                            </a>
+                            <a href="#teacher-comprehensive-report" class="nav-item" id="btn-teacher-comprehensive-report">
+                                <i class="fa-solid fa-table-list text-primary"></i>
+                                <span>كشف متابعة وتسميع الطلاب الشامل</span>
+                            </a>
+                            <a href="#teacher-lottery" class="nav-item" id="btn-teacher-lottery">
+                                <i class="fa-solid fa-dice"></i>
+                                <span>قرعة التسميع العشوائية</span>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Parent Links -->
@@ -1473,6 +1514,301 @@
                         <!-- Dynamically rendered and populated by loadSystemSettingsForm() -->
                     </div>
                 </section>
+
+                <!-- SECTION: Financial Management & Teacher Wallets -->
+                <section id="financial-management-section" class="content-section hidden">
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                            <div class="header-titles">
+                                <span class="badge bg-warning bg-opacity-10 text-dark fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-wallet text-warning"></i> الإدارة المالية
+                                </span>
+                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-wallet text-warning"></i> الملف المالي وكشوفات المحافظ ومكافآت المعلمين
+                                </h2>
+                                <p class="text-muted small mb-0">إدارة الحسابات البنكية، المحافظ الرقمية (Jawwal Pay / Bank)، بيانات أرباب الأسر، وإصدار كشوفات المستحقات.</p>
+                            </div>
+                            <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-success shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="exportFinancialReportToExcel()">
+                                    <i class="fa-solid fa-file-excel me-1"></i> تصدير الكشف المالي (Excel)
+                                </button>
+                                <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="printFinancialReport()">
+                                    <i class="fa-solid fa-print me-1"></i> طباعة كشف المستحقات
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial KPIs -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 12px;">
+                                <h3 id="financial-stat-total-teachers" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">إجمالي الكادر التعليمي والإداري</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
+                                <h3 id="financial-stat-wallets-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">المحافظ والحسابات المعتمدة</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
+                                <h3 id="financial-stat-family-members" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">إجمالي أفراد أسر المعلمين المستفيدة</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search Toolbar -->
+                    <div class="requests-toolbar-card shadow-sm">
+                        <div class="requests-search-box w-100">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="financial-search-input" class="requests-search-input" placeholder="ابحث باسم المعلم، رقم الهوية، المحفظة، أو صاحب الحساب..." oninput="filterFinancialTable(this.value)">
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="table-responsive">
+                            <table class="teachers-modern-table table-hover" id="financial-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم المعلم الكامل</th>
+                                        <th>رقم الهوية (اسم المستخدم)</th>
+                                        <th>المهمة / التكليف</th>
+                                        <th>رقم المحفظة / الحساب</th>
+                                        <th>صاحب المحفظة / الحساب</th>
+                                        <th>الحالة الاجتماعية</th>
+                                        <th>أفراد الأسرة</th>
+                                        <th>رقم الجوال</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="financial-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Quality Management & Supervision -->
+                <section id="quality-management-section" class="content-section hidden">
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                            <div class="header-titles">
+                                <span class="badge bg-info bg-opacity-10 text-info fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-award text-info"></i> الجودة والرقابة
+                                </span>
+                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-award text-info"></i> ملف الجودة والرقابة ومتابعة أداء الحلقات
+                                </h2>
+                                <p class="text-muted small mb-0">متابعة معايير جودة التسميع، التزام المعلمين والطلاب، تقييمات المشرفين، وتحليل مؤشرات التميز القرآني.</p>
+                            </div>
+                            <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadQualityManagementScreen()">
+                                    <i class="fa-solid fa-rotate me-1"></i> تحديث مؤشرات الجودة
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quality KPIs -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
+                                <h3 id="quality-stat-excellence-rate" class="fw-bold mb-1">0%</h3>
+                                <span class="fw-bold">نسبة تقييمات الامتياز</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
+                                <h3 id="quality-stat-active-circles" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">حلقات ملتزمة بالجدول</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
+                                <h3 id="quality-stat-total-sessions" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">جلسات التسميع المدققة</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; border-radius: 12px;">
+                                <h3 id="quality-stat-avg-attendance" class="fw-bold mb-1">0%</h3>
+                                <span class="fw-bold">معدل الانضباط والالتزام</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-primary fw-bold"><i class="fa-solid fa-list-check me-2"></i> تقرير الرقابة الإشرافية وترتيب أداء الحلقات</h5>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="quality-circles-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم الحلقة</th>
+                                        <th>الشيخ المشرف</th>
+                                        <th>عدد الطلاب</th>
+                                        <th>جلسات التسميع المنجزة</th>
+                                        <th>نسبة الالتزام بالحضور</th>
+                                        <th>مستوى الجودة العام</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quality-circles-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Memorization Forum & Hafiz Affairs -->
+                <section id="memorization-forum-section" class="content-section hidden">
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                            <div class="header-titles">
+                                <span class="badge bg-primary bg-opacity-10 text-primary fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-book-quran text-primary"></i> شؤون التحفيظ
+                                </span>
+                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-book-quran text-primary"></i> شؤون التحفيظ ومنتدى الحفاظ ومتابعة الخاتمين
+                                </h2>
+                                <p class="text-muted small mb-0">متابعة طلاب الأجزاء المتقدمة، الخاتمين للقرآن الكريم كاملاً، اختبارات الأجزاء، وأنشطة منتدى الحفاظ المتميزين.</p>
+                            </div>
+                            <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadMemorizationForumScreen()">
+                                    <i class="fa-solid fa-rotate me-1"></i> تحديث قائمة الحفاظ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Memorization Stats -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
+                                <h3 id="forum-stat-khatim-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">👑 الخاتمون للقرآن كاملاً</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
+                                <h3 id="forum-stat-20plus-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">حفاظ 20 جزءاً فأكثر</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
+                                <h3 id="forum-stat-10plus-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">حفاظ 10 أجزاء فأكثر</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 12px;">
+                                <h3 id="forum-stat-nominations-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">ترشيحات الاختبارات</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hafiz Table -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-success fw-bold"><i class="fa-solid fa-crown text-warning me-2"></i> سجل منتدى الحفاظ وطلاب الإنجاز القرآني المتقدم</h5>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="memorization-forum-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم الطالب</th>
+                                        <th>الحلقة القرآنية</th>
+                                        <th>الشيخ المعلم</th>
+                                        <th>مستوى الحفظ السابق</th>
+                                        <th>الأجزاء المنجزة</th>
+                                        <th>حالة الختم</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="memorization-forum-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: Preacher Youth & Melodious Voices -->
+                <section id="preacher-youth-section" class="content-section hidden">
+                    <div class="dashboard-header-card shadow-sm mb-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                            <div class="header-titles">
+                                <span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-microphone-lines text-danger"></i> الفتى الواعظ والأصوات الندية
+                                </span>
+                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-microphone-lines text-danger"></i> برنامج الفتى الواعظ والأصوات الندية
+                                </h2>
+                                <p class="text-muted small mb-0">تأهيل وصقل مهارات الطلاب الموهوبين في الخطابة، إلقاء المواعظ الدعوية، وجمال الصوت في الأذان وتلاوة القرآن.</p>
+                            </div>
+                            <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadPreacherYouthScreen()">
+                                    <i class="fa-solid fa-rotate me-1"></i> تحديث الأنشطة
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preacher Youth KPIs -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; border-radius: 12px;">
+                                <h3 id="preacher-stat-total-youth" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">الطلاب المنتسبين للبرنامج</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
+                                <h3 id="preacher-stat-speeches" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">المواعظ والخطب الملقاة</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
+                                <h3 id="preacher-stat-voices" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">نماذج الأصوات الندية (أذان وتلاوة)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-danger fw-bold"><i class="fa-solid fa-microphone-lines me-2"></i> سجل فرسان الخطابة والأصوات الندية بمسجد علي بن أبي طالب</h5>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="preacher-youth-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم الفتى الواعظ</th>
+                                        <th>الحلقة القرآنية</th>
+                                        <th>الشيخ المشرف</th>
+                                        <th>الموهبة والتخصص</th>
+                                        <th>عدد المشاركات المنبرية</th>
+                                        <th>ملاحظات الأداء</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="preacher-youth-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
                 
             </main>
         </div>
@@ -1543,7 +1879,7 @@
 
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="assets/logo_base64.js?v=20260831_5"></script>
-    <script src="app.js?v=20260831_5"></script>
+    <script src="assets/logo_base64.js?v=20260831_6"></script>
+    <script src="app.js?v=20260831_6"></script>
 </body>
 </html>
