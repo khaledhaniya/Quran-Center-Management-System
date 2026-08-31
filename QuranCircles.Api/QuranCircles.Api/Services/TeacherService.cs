@@ -53,7 +53,18 @@ public class TeacherService
             DateOfBirth = dto.DateOfBirth ?? DateOnly.FromDateTime(DateTime.Today),
             Contact = dto.Contact?.Trim() ?? "",
             RegistrationDate = DateOnly.FromDateTime(DateTime.Today),
-            IsActive = true
+            IsActive = true,
+            IdentityNumber = dto.IdentityNumber?.Trim(),
+            WhatsappNumber = dto.WhatsappNumber?.Trim(),
+            SocialStatus = dto.SocialStatus?.Trim(),
+            FamilyMembersCount = dto.FamilyMembersCount,
+            MosqueName = dto.MosqueName?.Trim(),
+            Qualification = dto.Qualification?.Trim(),
+            TaskRole = dto.TaskRole?.Trim(),
+            WalletNumber = dto.WalletNumber?.Trim(),
+            WalletOwner = dto.WalletOwner?.Trim(),
+            MemorizedAjzaa = dto.MemorizedAjzaa?.Trim(),
+            StudentsCountTarget = dto.StudentsCountTarget?.Trim()
         };
         _db.Teachers.Add(t);
         await _db.SaveChangesAsync();
@@ -79,12 +90,29 @@ public class TeacherService
         var t = await _db.Teachers.FindAsync(id);
         if (t is null) return (false, "المعلّم غير موجود.");
 
-        var err = Validate(dto.FullName, dto.Contact, t.DateOfBirth);
-        if (err is not null) return (false, err);
+        if (!string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            var err = Validate(dto.FullName, dto.Contact, t.DateOfBirth);
+            if (err is not null) return (false, err);
+            t.FullName = dto.FullName.Trim();
+        }
 
-        t.FullName = dto.FullName.Trim();
         if (dto.Address != null) t.Address = dto.Address.Trim();
         if (dto.Contact != null) t.Contact = dto.Contact.Trim();
+        if (dto.DateOfBirth.HasValue) t.DateOfBirth = dto.DateOfBirth.Value;
+        if (dto.IsActive.HasValue) t.IsActive = dto.IsActive.Value;
+
+        if (dto.IdentityNumber != null) t.IdentityNumber = dto.IdentityNumber.Trim();
+        if (dto.WhatsappNumber != null) t.WhatsappNumber = dto.WhatsappNumber.Trim();
+        if (dto.SocialStatus != null) t.SocialStatus = dto.SocialStatus.Trim();
+        if (dto.FamilyMembersCount.HasValue) t.FamilyMembersCount = dto.FamilyMembersCount.Value;
+        if (dto.MosqueName != null) t.MosqueName = dto.MosqueName.Trim();
+        if (dto.Qualification != null) t.Qualification = dto.Qualification.Trim();
+        if (dto.TaskRole != null) t.TaskRole = dto.TaskRole.Trim();
+        if (dto.WalletNumber != null) t.WalletNumber = dto.WalletNumber.Trim();
+        if (dto.WalletOwner != null) t.WalletOwner = dto.WalletOwner.Trim();
+        if (dto.MemorizedAjzaa != null) t.MemorizedAjzaa = dto.MemorizedAjzaa.Trim();
+        if (dto.StudentsCountTarget != null) t.StudentsCountTarget = dto.StudentsCountTarget.Trim();
 
         var u = await _db.Users.FirstOrDefaultAsync(x => x.TeacherId == id);
         if (u != null) u.FullName = t.FullName;
@@ -156,6 +184,17 @@ public class TeacherService
         t.DateOfBirth,
         t.Contact,
         t.RegistrationDate,
-        t.IsActive
+        t.IsActive,
+        t.IdentityNumber,
+        t.WhatsappNumber,
+        t.SocialStatus,
+        t.FamilyMembersCount,
+        t.MosqueName,
+        t.Qualification,
+        t.TaskRole,
+        t.WalletNumber,
+        t.WalletOwner,
+        t.MemorizedAjzaa,
+        t.StudentsCountTarget
     );
 }

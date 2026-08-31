@@ -111,15 +111,37 @@ public record CreateTeacherDto(
     DateOnly? DateOfBirth,
     string? Contact,
     string? Username,
-    string? Password
+    string? Password,
+    string? IdentityNumber = null,
+    string? WhatsappNumber = null,
+    string? SocialStatus = null,
+    int? FamilyMembersCount = null,
+    string? MosqueName = null,
+    string? Qualification = null,
+    string? TaskRole = null,
+    string? WalletNumber = null,
+    string? WalletOwner = null,
+    string? MemorizedAjzaa = null,
+    string? StudentsCountTarget = null
 );
 
 public record UpdateTeacherDto(
-    string FullName,
-    string? Address,
-    DateOnly? DateOfBirth,
-    string? Contact,
-    bool IsActive
+    string? FullName = null,
+    string? Address = null,
+    DateOnly? DateOfBirth = null,
+    string? Contact = null,
+    bool? IsActive = null,
+    string? IdentityNumber = null,
+    string? WhatsappNumber = null,
+    string? SocialStatus = null,
+    int? FamilyMembersCount = null,
+    string? MosqueName = null,
+    string? Qualification = null,
+    string? TaskRole = null,
+    string? WalletNumber = null,
+    string? WalletOwner = null,
+    string? MemorizedAjzaa = null,
+    string? StudentsCountTarget = null
 );
 
 public record TeacherDto(
@@ -129,7 +151,18 @@ public record TeacherDto(
     DateOnly? DateOfBirth,
     string? Contact,
     DateOnly RegistrationDate,
-    bool IsActive
+    bool IsActive,
+    string? IdentityNumber = null,
+    string? WhatsappNumber = null,
+    string? SocialStatus = null,
+    int? FamilyMembersCount = null,
+    string? MosqueName = null,
+    string? Qualification = null,
+    string? TaskRole = null,
+    string? WalletNumber = null,
+    string? WalletOwner = null,
+    string? MemorizedAjzaa = null,
+    string? StudentsCountTarget = null
 );
 
 // ====================== Circle ======================

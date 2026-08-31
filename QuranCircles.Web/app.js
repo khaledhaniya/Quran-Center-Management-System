@@ -1369,19 +1369,34 @@ async function loadAdminTeachers(search = "") {
         tbody.innerHTML = "";
         
         if (teachers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">لا يوجد معلّمون يطابقون البحث.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">لا يوجد معلّمون يطابقون البحث.</td></tr>`;
             return;
         }
         
-        teachers.forEach(t => {
+        teachers.forEach((t, idx) => {
             const tr = document.createElement("tr");
+            const idBadge = t.identityNumber ? `<span class="badge bg-light text-dark font-monospace border"><i class="fa-solid fa-id-card text-primary me-1"></i>${t.identityNumber}</span>` : '<span class="text-muted small">-</span>';
+            const phoneStr = t.contact || t.whatsappNumber || '-';
+            const roleBadge = t.taskRole ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">${t.taskRole}</span>` : '<span class="text-muted small">-</span>';
+            const qualStr = t.qualification || '-';
+            const juzBadge = t.memorizedAjzaa ? `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"><i class="fa-solid fa-book-quran me-1"></i>${t.memorizedAjzaa}</span>` : '<span class="text-muted small">-</span>';
+
             tr.innerHTML = `
-                <td>${t.id}</td>
-                <td><strong>${t.fullName}</strong></td>
-                <td>${t.address || '-'}</td>
-                <td>${t.contact}</td>
-                <td>${t.dateOfBirth}</td>
-                <td>${t.registrationDate}</td>
+                <td><strong>${idx + 1}</strong></td>
+                <td>
+                    <div class="fw-bold text-dark">${t.fullName}</div>
+                    ${t.mosqueName ? `<small class="text-muted"><i class="fa-solid fa-mosque me-1"></i>${t.mosqueName}</small>` : ''}
+                </td>
+                <td>${idBadge}</td>
+                <td>
+                    <div class="d-flex flex-column gap-1">
+                        <span class="font-monospace small"><i class="fa-solid fa-phone text-muted me-1"></i>${t.contact || '-'}</span>
+                        ${t.whatsappNumber && t.whatsappNumber !== t.contact ? `<span class="font-monospace small text-success"><i class="fa-brands fa-whatsapp text-success me-1"></i>${t.whatsappNumber}</span>` : ''}
+                    </div>
+                </td>
+                <td>${roleBadge}</td>
+                <td><small>${qualStr}</small></td>
+                <td>${juzBadge}</td>
                 <td>
                     <span class="badge ${t.isActive ? 'badge-success' : 'badge-danger'}">
                         ${t.isActive ? 'نشط' : 'معطّل'}
@@ -1389,12 +1404,12 @@ async function loadAdminTeachers(search = "") {
                 </td>
                 <td>
                     <div class="d-flex gap-1 flex-wrap">
-                        <button class="btn btn-outline-primary btn-sm btn-edit-teacher" data-id="${t.id}"><i class="fa-solid fa-pen"></i> تعديل</button>
-                        <button class="btn ${t.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-teacher" data-id="${t.id}">
-                            <i class="fa-solid ${t.isActive ? 'fa-ban' : 'fa-check'}"></i> ${t.isActive ? 'تعطيل' : 'تنشيط'}
+                        <button class="btn btn-outline-primary btn-sm btn-edit-teacher" data-id="${t.id}" title="تعديل"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn ${t.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-teacher" data-id="${t.id}" title="${t.isActive ? 'تعطيل' : 'تنشيط'}">
+                            <i class="fa-solid ${t.isActive ? 'fa-ban' : 'fa-check'}"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm btn-hard-delete-teacher" data-id="${t.id}" data-name="${t.fullName}">
-                            <i class="fa-solid fa-trash-can"></i> حذف نهائي
+                        <button class="btn btn-danger btn-sm btn-hard-delete-teacher" data-id="${t.id}" data-name="${t.fullName}" title="حذف نهائي">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
                 </td>
@@ -2809,54 +2824,110 @@ async function showTeacherModal(teacherId = null) {
         <form id="teacher-form">
             <input type="hidden" id="form-teacher-id" value="${teacherId || ''}">
             
-            <div class="modal-form-grid">
-                <div class="form-group">
-                    <label for="teacher-name">اسم الشيخ / المعلّم الكامل:</label>
-                    <input type="text" id="teacher-name" class="form-control" value="${teacher ? teacher.fullName : ''}" required>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="teacher-name" class="fw-bold">اسم الشيخ / المعلّم الكامل (رباعي):</label>
+                    <input type="text" id="teacher-name" class="form-control" value="${teacher ? (teacher.fullName || '') : ''}" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="teacher-address">العنوان / السكن:</label>
-                    <input type="text" id="teacher-address" class="form-control" value="${teacher ? teacher.address : ''}">
+                <div class="col-md-6">
+                    <label for="teacher-id-num" class="fw-bold">رقم الهوية الوطنية (اسم المستخدم):</label>
+                    <input type="text" id="teacher-id-num" class="form-control font-monospace" placeholder="9 أرقام" value="${teacher ? (teacher.identityNumber || '') : ''}">
                 </div>
                 
-                <div class="form-group">
-                    <label for="teacher-contact">رقم الهاتف / للتواصل:</label>
-                    <input type="text" id="teacher-contact" class="form-control" value="${teacher ? teacher.contact : ''}" required>
+                <div class="col-md-6">
+                    <label for="teacher-contact" class="fw-bold">رقم الجوال:</label>
+                    <input type="text" id="teacher-contact" class="form-control font-monospace" value="${teacher ? (teacher.contact || '') : ''}" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="teacher-whatsapp" class="fw-bold">رقم الواتساب مع المقدمة:</label>
+                    <input type="text" id="teacher-whatsapp" class="form-control font-monospace" placeholder="مثلاً: 0097259..." value="${teacher ? (teacher.whatsappNumber || '') : ''}">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="teacher-task" class="fw-bold">المهمة / التكليف:</label>
+                    <input type="text" id="teacher-task" class="form-control" placeholder="معلم حلقة، معلم دورات..." value="${teacher ? (teacher.taskRole || '') : ''}">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="teacher-mosque" class="fw-bold">المسجد التابع له:</label>
+                    <input type="text" id="teacher-mosque" class="form-control" value="${teacher ? (teacher.mosqueName || 'علي بن أبي طالب') : 'علي بن أبي طالب'}">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="teacher-qual" class="fw-bold">المؤهل العلمي:</label>
+                    <input type="text" id="teacher-qual" class="form-control" placeholder="بكالوريوس، ماجستير، دبلوم..." value="${teacher ? (teacher.qualification || '') : ''}">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="teacher-memorized" class="fw-bold">عدد أجزاء الحفظ:</label>
+                    <input type="text" id="teacher-memorized" class="form-control" placeholder="القرآن كاملاً، 14 جزء..." value="${teacher ? (teacher.memorizedAjzaa || '') : ''}">
+                </div>
+
+                <div class="col-md-4">
+                    <label for="teacher-social" class="fw-bold">الحالة الاجتماعية:</label>
+                    <select id="teacher-social" class="form-control">
+                        <option value="أعزب" ${teacher && teacher.socialStatus === 'أعزب' ? 'selected' : ''}>أعزب</option>
+                        <option value="متزوج" ${teacher && teacher.socialStatus === 'متزوج' ? 'selected' : ''}>متزوج</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="teacher-family" class="fw-bold">عدد أفراد الأسرة:</label>
+                    <input type="number" id="teacher-family" class="form-control" min="1" value="${teacher && teacher.familyMembersCount ? teacher.familyMembersCount : ''}">
+                </div>
+
+                <div class="col-md-6">
+                    <label for="teacher-wallet-num" class="fw-bold">رقم المحفظة / الحساب:</label>
+                    <input type="text" id="teacher-wallet-num" class="form-control font-monospace" value="${teacher ? (teacher.walletNumber || '') : ''}">
+                </div>
+
+                <div class="col-md-6">
+                    <label for="teacher-wallet-owner" class="fw-bold">صاحب المحفظة:</label>
+                    <input type="text" id="teacher-wallet-owner" class="form-control" value="${teacher ? (teacher.walletOwner || '') : ''}">
+                </div>
+
+                <div class="col-md-6">
+                    <label for="teacher-dob" class="fw-bold">تاريخ الميلاد:</label>
+                    <input type="date" id="teacher-dob" class="form-control" value="${teacher ? (teacher.dateOfBirth || '') : ''}">
                 </div>
                 
-                <div class="form-group">
-                    <label for="teacher-dob">تاريخ الميلاد:</label>
-                    <input type="date" id="teacher-dob" class="form-control" value="${teacher ? teacher.dateOfBirth : ''}" required>
+                <div class="col-md-6">
+                    <label for="teacher-address" class="fw-bold">العنوان / السكن:</label>
+                    <input type="text" id="teacher-address" class="form-control" value="${teacher ? (teacher.address || '') : ''}">
                 </div>
                 
                 ${!teacherId ? `
-                <div class="modal-form-grid-full">
+                <div class="col-12">
                     <hr style="border: 0; border-top: 1px dashed var(--border-color); margin: 15px 0;">
-                    <h4 class="mb-3" style="font-size:1rem; color:var(--primary-color)"><i class="fa-solid fa-key"></i> بيانات حساب الدخول للمعلم</h4>
+                    <h5 class="text-primary mb-2"><i class="fa-solid fa-key"></i> بيانات حساب الدخول للنظام</h5>
+                    <small class="text-muted d-block mb-3">اسم المستخدم التلقائي هو رقم الهوية، وكلمة المرور الافتراضية هي 123456</small>
                 </div>
                 
-                <div class="form-group">
-                    <label for="teacher-username">اسم المستخدم (Username):</label>
-                    <input type="text" id="teacher-username" class="form-control" placeholder="اسم مستخدم فريد للدخول..." required>
+                <div class="col-md-6">
+                    <label for="teacher-username" class="fw-bold">اسم المستخدم (Username):</label>
+                    <input type="text" id="teacher-username" class="form-control font-monospace" placeholder="رقم الهوية...">
                 </div>
                 
-                <div class="form-group">
-                    <label for="teacher-password">كلمة المرور (Password):</label>
-                    <input type="password" id="teacher-password" class="form-control" placeholder="أدخل كلمة مرور قوية..." required>
+                <div class="col-md-6">
+                    <label for="teacher-password" class="fw-bold">كلمة المرور (Password):</label>
+                    <input type="password" id="teacher-password" class="form-control" placeholder="الافتراضي: 123456" value="123456">
                 </div>
                 ` : ''}
                 
                 ${teacherId ? `
-                <div class="form-group flex-row align-items-center gap-2 modal-form-grid-full">
-                    <input type="checkbox" id="teacher-active" ${teacher.isActive ? 'checked' : ''}>
-                    <label for="teacher-active" style="margin-bottom:0">المعلم نشط ومفعّل</label>
+                <div class="col-12 mt-2">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="teacher-active" ${teacher.isActive ? 'checked' : ''}>
+                        <label class="form-check-label fw-bold" for="teacher-active">المعلم نشط ومفعّل في المنظومة</label>
+                    </div>
                 </div>
                 ` : ''}
             </div>
             
             <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ البيانات</button>
+                <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-save me-1"></i> حفظ البيانات</button>
                 <button type="button" class="btn btn-light" id="btn-cancel-teacher">إلغاء</button>
             </div>
         </form>
@@ -2869,22 +2940,42 @@ async function showTeacherModal(teacherId = null) {
         
         const id = document.getElementById("form-teacher-id").value;
         const name = document.getElementById("teacher-name").value;
-        const address = document.getElementById("teacher-address").value;
+        const idNum = document.getElementById("teacher-id-num").value;
         const contact = document.getElementById("teacher-contact").value;
+        const whatsapp = document.getElementById("teacher-whatsapp").value;
+        const task = document.getElementById("teacher-task").value;
+        const mosque = document.getElementById("teacher-mosque").value;
+        const qual = document.getElementById("teacher-qual").value;
+        const memorized = document.getElementById("teacher-memorized").value;
+        const social = document.getElementById("teacher-social").value;
+        const family = document.getElementById("teacher-family").value;
+        const walletNum = document.getElementById("teacher-wallet-num").value;
+        const walletOwner = document.getElementById("teacher-wallet-owner").value;
         const dob = document.getElementById("teacher-dob").value;
+        const address = document.getElementById("teacher-address").value;
         
         const dto = {
             fullName: name,
-            address: address,
+            identityNumber: idNum,
             contact: contact,
-            dateOfBirth: dob
+            whatsappNumber: whatsapp,
+            taskRole: task,
+            mosqueName: mosque,
+            qualification: qual,
+            memorizedAjzaa: memorized,
+            socialStatus: social,
+            familyMembersCount: family ? parseInt(family) : null,
+            walletNumber: walletNum,
+            walletOwner: walletOwner,
+            address: address,
+            dateOfBirth: dob || null
         };
         
         if (id) {
             dto.isActive = document.getElementById("teacher-active").checked;
         } else {
-            dto.username = document.getElementById("teacher-username").value;
-            dto.password = document.getElementById("teacher-password").value;
+            dto.username = document.getElementById("teacher-username").value || idNum || contact;
+            dto.password = document.getElementById("teacher-password").value || "123456";
         }
         
         try {

@@ -10,5 +10,18 @@ public class Teacher
     public DateOnly RegistrationDate { get; set; }
     public bool IsActive { get; set; } = true;
 
+    // Full 29-8 Center Database Columns
+    public string? IdentityNumber { get; set; }
+    public string? WhatsappNumber { get; set; }
+    public string? SocialStatus { get; set; }
+    public int? FamilyMembersCount { get; set; }
+    public string? MosqueName { get; set; }
+    public string? Qualification { get; set; }
+    public string? TaskRole { get; set; }
+    public string? WalletNumber { get; set; }
+    public string? WalletOwner { get; set; }
+    public string? MemorizedAjzaa { get; set; }
+    public string? StudentsCountTarget { get; set; }
+
     public ICollection<Circle> Circles { get; set; } = new List<Circle>();
 }
