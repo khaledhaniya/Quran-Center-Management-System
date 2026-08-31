@@ -1785,9 +1785,10 @@ async function loadAdminTeachers(search = "") {
                         ${t.isActive ? 'نشط' : 'معطّل'}
                     </span>
                 </td>
-                <td class="text-center" style="width: 140px;">
-                    <div class="d-flex gap-1 justify-content-center">
-                        <button class="btn btn-outline-primary btn-sm btn-edit-teacher shadow-xs" data-id="${t.id}" title="تعديل"><i class="fa-solid fa-pen"></i></button>
+                <td class="text-center" style="width: 175px;">
+                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                        <button class="btn btn-success btn-sm btn-manage-teacher-roles shadow-xs" data-id="${t.id}" title="تحديد الصلاحيات والمهام الإدارية"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
+                        <button class="btn btn-outline-primary btn-sm btn-edit-teacher shadow-xs" data-id="${t.id}" title="تعديل كافة البيانات"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn ${t.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-teacher shadow-xs" data-id="${t.id}" title="${t.isActive ? 'تعطيل' : 'تنشيط'}">
                             <i class="fa-solid ${t.isActive ? 'fa-ban' : 'fa-check'}"></i>
                         </button>
@@ -1801,6 +1802,9 @@ async function loadAdminTeachers(search = "") {
         });
         
         // Bind Actions
+        document.querySelectorAll(".btn-manage-teacher-roles").forEach(btn => {
+            btn.addEventListener("click", (e) => manageTeacherRoles(e.target.closest("button").dataset.id));
+        });
         document.querySelectorAll(".btn-edit-teacher").forEach(btn => {
             btn.addEventListener("click", (e) => showTeacherModal(e.target.closest("button").dataset.id));
         });
@@ -1898,6 +1902,153 @@ async function hardDeleteTeacher(id, name) {
             await loadAdminTeachers();
         } catch(err) {
             showAlert(err.message || "حدث خطأ أثناء حذف المعلم", "danger");
+        }
+    }
+}
+
+async function manageTeacherRoles(teacherId) {
+    let teacher = (cachedTeachers || []).find(t => t.id == teacherId);
+    if (!teacher) {
+        try {
+            teacher = await apiRequest(`/teachers/${teacherId}`);
+        } catch(e) {
+            showAlert("تعذر العثور على بيانات المعلم", "danger");
+            return;
+        }
+    }
+
+    const currentTask = (teacher.taskRole || "").trim();
+
+    const rolesList = [
+        { id: "role-emir", name: "أمير المركز (الإدارة العامة)", val: "مركز البيان", icon: "fa-crown", color: "text-warning", desc: "صلاحيات الإدارة الكاملة للتقارير والإعدادات والمنظومة" },
+        { id: "role-fin", name: "المسؤول المالي والمحافظ", val: "الملف المالي", icon: "fa-wallet", color: "text-success", desc: "إدارة كشوفات المحافظ البنكية، المكافآت، وتصدير إكسل مالي" },
+        { id: "role-qual", name: "مسؤول الجودة والرقابة", val: "الجودة", icon: "fa-magnifying-glass-chart", color: "text-info", desc: "متابعة مؤشرات الأداء والتقييم الإشرافي للحلقات" },
+        { id: "role-mem", name: "مشرف شؤون التحفيظ ومنتدى الحفاظ", val: "التحفيظ + ملف منتدى الحفاظ", icon: "fa-book-quran", color: "text-primary", desc: "متابعة الخاتمين، أجزاء الحفظ المتقدمة، وترشيحات الاختبارات" },
+        { id: "role-courses", name: "معلم الدورات العلمية والتجويد", val: "معلم دورات", icon: "fa-award", color: "text-secondary", desc: "إدارة دورات التجويد، رصد العلامات وإصدار الشهادات" },
+        { id: "role-preacher", name: "مشرف الفتى الواعظ والأصوات الندية", val: "الفتى الواعظ + الأصوات الندية", icon: "fa-microphone", color: "text-danger", desc: "سجل فرسان الخطابة، المواعظ الدعوية، والأذان والتلاوة" },
+        { id: "role-circle", name: "شيخ ومحفّظ حلقة قرآنية", val: "معلم حلقة", icon: "fa-mosque", color: "text-success", desc: "رصد الحضور اليومي، التسميع، والقرعة وإدارة الطلاب" },
+        { id: "role-assistant", name: "مساعد حلقة قرآنية", val: "مساعد حلقة", icon: "fa-handshake-angle", color: "text-info", desc: "مشاركة نفس الحلقة مع المحفظ بنفس الصلاحيات التامة" }
+    ];
+
+    const rolesCardsHtml = rolesList.map(r => {
+        const isChecked = currentTask.includes(r.val) || (r.val === "مركز البيان" && currentTask.includes("البيان"));
+        return `
+            <div class="col-md-6 mb-2">
+                <div class="role-card-item border rounded-3 p-3 h-100 ${isChecked ? 'role-card-active' : ''}" data-val="${r.val}" style="cursor: pointer; transition: all 0.2s ease; background: ${isChecked ? '#f0fdf4' : '#ffffff'}; border-color: ${isChecked ? '#22c55e' : '#e2e8f0'} !important;">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="form-check mt-1">
+                            <input class="form-check-input role-checkbox" type="checkbox" value="${r.val}" ${isChecked ? 'checked' : ''} style="cursor: pointer; transform: scale(1.2);">
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold d-flex align-items-center gap-2 mb-1" style="font-size: 0.95rem;">
+                                <i class="fa-solid ${r.icon} ${r.color}"></i>
+                                <span>${r.name}</span>
+                            </div>
+                            <small class="text-muted d-block" style="font-size: 0.8rem; line-height: 1.4;">${r.desc}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    const htmlContent = `
+        <div class="text-start" style="direction: rtl;">
+            <!-- Teacher Header Info -->
+            <div class="p-3 bg-light border rounded-3 mb-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1 fw-bold text-primary"><i class="fa-solid fa-user-tie me-1"></i> فضيلة الشيخ / ${teacher.fullName}</h5>
+                    <div class="small text-muted font-monospace"><i class="fa-solid fa-id-card me-1"></i> رقم الهوية: <strong>${teacher.identityNumber || '-'}</strong> | الجوال: <strong>${teacher.contact || '-'}</strong></div>
+                </div>
+                <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 border border-success rounded-pill">تعديل الصلاحيات الفوري</span>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label fw-bold text-dark mb-2"><i class="fa-solid fa-shield-halved text-primary me-1"></i> حدد المهام والصلاحيات الموكلة للشيخ (يمكن اختيار أكثر من مهمة):</label>
+                <div class="row g-2" id="roles-cards-grid">
+                    ${rolesCardsHtml}
+                </div>
+            </div>
+
+            <div class="mt-3 p-2 bg-light border rounded-3">
+                <label class="form-label fw-bold small text-muted mb-1"><i class="fa-solid fa-file-signature text-secondary me-1"></i> نص التكليف المجمع النهائي:</label>
+                <input id="swal-roles-summary-input" class="form-control form-control-sm fw-bold font-monospace text-primary" value="${currentTask}" placeholder="مثال: الملف المالي + معلم دورات">
+            </div>
+        </div>
+    `;
+
+    const result = await Swal.fire({
+        title: `🛡️ إدارة صلاحيات ومهام الشيخ / ${teacher.fullName}`,
+        html: htmlContent,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتطبيق الصلاحيات فوراً',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#0d5c3a',
+        width: '780px',
+        focusConfirm: false,
+        didOpen: () => {
+            const summaryInput = document.getElementById("swal-roles-summary-input");
+            const updateSummary = () => {
+                const checkedVals = [];
+                document.querySelectorAll(".role-checkbox:checked").forEach(cb => {
+                    if (cb.value) checkedVals.push(cb.value);
+                });
+                summaryInput.value = checkedVals.join(" + ");
+            };
+
+            document.querySelectorAll(".role-card-item").forEach(card => {
+                card.addEventListener("click", (e) => {
+                    if (e.target.tagName !== 'INPUT') {
+                        const cb = card.querySelector(".role-checkbox");
+                        cb.checked = !cb.checked;
+                    }
+                    const cb = card.querySelector(".role-checkbox");
+                    if (cb.checked) {
+                        card.style.background = '#f0fdf4';
+                        card.style.borderColor = '#22c55e';
+                    } else {
+                        card.style.background = '#ffffff';
+                        card.style.borderColor = '#e2e8f0';
+                    }
+                    updateSummary();
+                });
+            });
+        },
+        preConfirm: () => {
+            const summary = document.getElementById("swal-roles-summary-input").value.trim();
+            if (!summary) {
+                Swal.showValidationMessage("يرجى تحديد مهمة واحدة على الأقل للشيخ.");
+                return false;
+            }
+            return summary;
+        }
+    });
+
+    if (result.isConfirmed && result.value) {
+        try {
+            const updatedTaskRole = result.value;
+            const payload = {
+                fullName: teacher.fullName,
+                identityNumber: teacher.identityNumber,
+                contact: teacher.contact,
+                whatsappNumber: teacher.whatsappNumber,
+                qualification: teacher.qualification,
+                mosqueName: teacher.mosqueName,
+                socialStatus: teacher.socialStatus,
+                familyMembersCount: teacher.familyMembersCount,
+                walletNumber: teacher.walletNumber,
+                walletOwner: teacher.walletOwner,
+                memorizedAjzaa: teacher.memorizedAjzaa,
+                studentsCountTarget: teacher.studentsCountTarget,
+                taskRole: updatedTaskRole,
+                isActive: teacher.isActive
+            };
+
+            await apiRequest(`/teachers/${teacher.id}`, 'PUT', payload);
+            showAlert(`تم تحديث صلاحيات ومهام الشيخ (${teacher.fullName}) بنجاح! 🎉`, "success");
+            await loadAdminTeachers();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حفظ الصلاحيات", "danger");
         }
     }
 }
@@ -3379,313 +3530,7 @@ function debounce(func, delay) {
     };
 }
 
-// ------ Add/Edit Circle Modal ------
-async function showCircleModal(circleId = null) {
-    openModal(circleId ? "تعديل الحلقة القرآنيّة" : "إضافة حلقة جديدة");
-    
-    if (cachedTeachers.length === 0) {
-        try { cachedTeachers = await apiRequest("/teachers"); } catch(e) {}
-    }
-    
-    const teachersOptions = cachedTeachers
-        .filter(t => t.isActive || (circleId && cachedCircles.find(c => c.id == circleId)?.teacherId == t.id))
-        .map(t => `<option value="${t.id}">${t.fullName}</option>`)
-        .join('');
-        
-    let circle = null;
-    if (circleId) {
-        circle = cachedCircles.find(c => c.id == circleId);
-    }
-    
-    const content = document.getElementById("modal-body-content");
-    content.innerHTML = `
-        <form id="circle-form">
-            <input type="hidden" id="form-circle-id" value="${circleId || ''}">
-            
-            <div class="modal-form-grid">
-                <div class="form-group">
-                    <label for="circle-name">اسم الحلقة:</label>
-                    <input type="text" id="circle-name" class="form-control" value="${circle ? circle.name : ''}" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="circle-timing">التوقيت:</label>
-                    <select id="circle-timing" class="form-control" required>
-                        <option value="Fajr" ${circle && circle.timing === 'Fajr' ? 'selected' : ''}>بعد الفجر</option>
-                        <option value="Aser" ${circle && circle.timing === 'Aser' ? 'selected' : ''}>بعد العصر</option>
-                        <option value="Maghrib" ${circle && circle.timing === 'Maghrib' ? 'selected' : ''}>بعد المغرب</option>
-                        <option value="Isha" ${circle && circle.timing === 'Isha' ? 'selected' : ''}>بعد العشاء</option>
-                    </select>
-                </div>
-                
-                <div class="form-group modal-form-grid-full">
-                    <label for="circle-teacher">المعلّم المشرف:</label>
-                    <select id="circle-teacher" class="form-control">
-                        <option value="">-- اختر معلّم الحلقة --</option>
-                        ${teachersOptions}
-                    </select>
-                </div>
-                
-                ${circleId ? `
-                <div class="form-group flex-row align-items-center gap-2 modal-form-grid-full">
-                    <input type="checkbox" id="circle-active" ${circle.isActive ? 'checked' : ''}>
-                    <label for="circle-active" style="margin-bottom:0">الحلقة نشطة ومفعّلة</label>
-                </div>
-                ` : ''}
-            </div>
-            
-            <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ البيانات</button>
-                <button type="button" class="btn btn-light" id="btn-cancel-circle">إلغاء</button>
-            </div>
-        </form>
-    `;
-    
-    if (circle && circle.teacherId) {
-        document.getElementById("circle-teacher").value = circle.teacherId;
-    }
-    
-    document.getElementById("btn-cancel-circle").addEventListener("click", closeModal);
-    
-    document.getElementById("circle-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        
-        const id = document.getElementById("form-circle-id").value;
-        const name = document.getElementById("circle-name").value;
-        const timing = document.getElementById("circle-timing").value;
-        const teacherIdVal = document.getElementById("circle-teacher").value;
-        
-        const dto = {
-            name: name,
-            timing: timing,
-            teacherId: teacherIdVal ? parseInt(teacherIdVal) : null
-        };
-        
-        if (id) {
-            dto.isActive = document.getElementById("circle-active").checked;
-        }
-        
-        try {
-            if (id) {
-                await apiRequest(`/circles/${id}`, "PUT", dto);
-                showAlert("تم تحديث الحلقة القرآنيّة بنجاح.", "success");
-            } else {
-                await apiRequest("/circles", "POST", dto);
-                showAlert("تم إنشاء الحلقة القرآنيّة بنجاح.", "success");
-            }
-            closeModal();
-            loadAdminCircles();
-        } catch(e) {
-            console.error(e);
-        }
-    });
-}
-
-async function deactivateCircle(id) {
-    if (!confirm("هل أنت متأكد من تعطيل هذه الحلقة؟")) return;
-    try {
-        await apiRequest(`/circles/${id}`, "DELETE");
-        showAlert("تم إلغاء تفعيل الحلقة بنجاح.", "success");
-        loadAdminCircles();
-    } catch(e) {
-        console.error(e);
-    }
-}
-
-// ------ Add/Edit Teacher Modal (With credentials fields) ------
-async function showTeacherModal(teacherId = null) {
-    openModal(teacherId ? "تعديل بيانات المعلّم" : "إضافة معلّم جديد وحساب دخول");
-    
-    let teacher = null;
-    if (teacherId) {
-        teacher = cachedTeachers.find(t => t.id == teacherId);
-    }
-    
-    const content = document.getElementById("modal-body-content");
-    content.innerHTML = `
-        <form id="teacher-form">
-            <input type="hidden" id="form-teacher-id" value="${teacherId || ''}">
-            
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="teacher-name" class="fw-bold">اسم الشيخ / المعلّم الكامل (رباعي):</label>
-                    <input type="text" id="teacher-name" class="form-control" value="${teacher ? (teacher.fullName || '') : ''}" required>
-                </div>
-                
-                <div class="col-md-6">
-                    <label for="teacher-id-num" class="fw-bold">رقم الهوية الوطنية (اسم المستخدم):</label>
-                    <input type="text" id="teacher-id-num" class="form-control font-monospace" placeholder="9 أرقام" value="${teacher ? (teacher.identityNumber || '') : ''}">
-                </div>
-                
-                <div class="col-md-6">
-                    <label for="teacher-contact" class="fw-bold">رقم الجوال:</label>
-                    <input type="text" id="teacher-contact" class="form-control font-monospace" value="${teacher ? (teacher.contact || '') : ''}" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label for="teacher-whatsapp" class="fw-bold">رقم الواتساب مع المقدمة:</label>
-                    <input type="text" id="teacher-whatsapp" class="form-control font-monospace" placeholder="مثلاً: 0097259..." value="${teacher ? (teacher.whatsappNumber || '') : ''}">
-                </div>
-
-                <div class="col-md-4">
-                    <label for="teacher-task" class="fw-bold">المهمة / التكليف:</label>
-                    <input type="text" id="teacher-task" class="form-control" placeholder="معلم حلقة، معلم دورات..." value="${teacher ? (teacher.taskRole || '') : ''}">
-                </div>
-
-                <div class="col-md-4">
-                    <label for="teacher-mosque" class="fw-bold">المسجد التابع له:</label>
-                    <input type="text" id="teacher-mosque" class="form-control" value="${teacher ? (teacher.mosqueName || 'علي بن أبي طالب') : 'علي بن أبي طالب'}">
-                </div>
-
-                <div class="col-md-4">
-                    <label for="teacher-qual" class="fw-bold">المؤهل العلمي:</label>
-                    <input type="text" id="teacher-qual" class="form-control" placeholder="بكالوريوس، ماجستير، دبلوم..." value="${teacher ? (teacher.qualification || '') : ''}">
-                </div>
-
-                <div class="col-md-4">
-                    <label for="teacher-memorized" class="fw-bold">عدد أجزاء الحفظ:</label>
-                    <input type="text" id="teacher-memorized" class="form-control" placeholder="القرآن كاملاً، 14 جزء..." value="${teacher ? (teacher.memorizedAjzaa || '') : ''}">
-                </div>
-
-                <div class="col-md-4">
-                    <label for="teacher-social" class="fw-bold">الحالة الاجتماعية:</label>
-                    <select id="teacher-social" class="form-control">
-                        <option value="أعزب" ${teacher && teacher.socialStatus === 'أعزب' ? 'selected' : ''}>أعزب</option>
-                        <option value="متزوج" ${teacher && teacher.socialStatus === 'متزوج' ? 'selected' : ''}>متزوج</option>
-                    </select>
-                </div>
-
-                <div class="col-md-4">
-                    <label for="teacher-family" class="fw-bold">عدد أفراد الأسرة:</label>
-                    <input type="number" id="teacher-family" class="form-control" min="1" value="${teacher && teacher.familyMembersCount ? teacher.familyMembersCount : ''}">
-                </div>
-
-                <div class="col-md-6">
-                    <label for="teacher-wallet-num" class="fw-bold">رقم المحفظة / الحساب:</label>
-                    <input type="text" id="teacher-wallet-num" class="form-control font-monospace" value="${teacher ? (teacher.walletNumber || '') : ''}">
-                </div>
-
-                <div class="col-md-6">
-                    <label for="teacher-wallet-owner" class="fw-bold">صاحب المحفظة:</label>
-                    <input type="text" id="teacher-wallet-owner" class="form-control" value="${teacher ? (teacher.walletOwner || '') : ''}">
-                </div>
-
-                <div class="col-md-6">
-                    <label for="teacher-dob" class="fw-bold">تاريخ الميلاد:</label>
-                    <input type="date" id="teacher-dob" class="form-control" value="${teacher ? (teacher.dateOfBirth || '') : ''}">
-                </div>
-                
-                <div class="col-md-6">
-                    <label for="teacher-address" class="fw-bold">العنوان / السكن:</label>
-                    <input type="text" id="teacher-address" class="form-control" value="${teacher ? (teacher.address || '') : ''}">
-                </div>
-                
-                ${!teacherId ? `
-                <div class="col-12">
-                    <hr style="border: 0; border-top: 1px dashed var(--border-color); margin: 15px 0;">
-                    <h5 class="text-primary mb-2"><i class="fa-solid fa-key"></i> بيانات حساب الدخول للنظام</h5>
-                    <small class="text-muted d-block mb-3">اسم المستخدم التلقائي هو رقم الهوية، وكلمة المرور الافتراضية هي 123456</small>
-                </div>
-                
-                <div class="col-md-6">
-                    <label for="teacher-username" class="fw-bold">اسم المستخدم (Username):</label>
-                    <input type="text" id="teacher-username" class="form-control font-monospace" placeholder="رقم الهوية...">
-                </div>
-                
-                <div class="col-md-6">
-                    <label for="teacher-password" class="fw-bold">كلمة المرور (Password):</label>
-                    <input type="password" id="teacher-password" class="form-control" placeholder="الافتراضي: 123456" value="123456">
-                </div>
-                ` : ''}
-                
-                ${teacherId ? `
-                <div class="col-12 mt-2">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="teacher-active" ${teacher.isActive ? 'checked' : ''}>
-                        <label class="form-check-label fw-bold" for="teacher-active">المعلم نشط ومفعّل في المنظومة</label>
-                    </div>
-                </div>
-                ` : ''}
-            </div>
-            
-            <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-save me-1"></i> حفظ البيانات</button>
-                <button type="button" class="btn btn-light" id="btn-cancel-teacher">إلغاء</button>
-            </div>
-        </form>
-    `;
-    
-    document.getElementById("btn-cancel-teacher").addEventListener("click", closeModal);
-    
-    document.getElementById("teacher-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        
-        const id = document.getElementById("form-teacher-id").value;
-        const name = document.getElementById("teacher-name").value;
-        const idNum = document.getElementById("teacher-id-num").value;
-        const contact = document.getElementById("teacher-contact").value;
-        const whatsapp = document.getElementById("teacher-whatsapp").value;
-        const task = document.getElementById("teacher-task").value;
-        const mosque = document.getElementById("teacher-mosque").value;
-        const qual = document.getElementById("teacher-qual").value;
-        const memorized = document.getElementById("teacher-memorized").value;
-        const social = document.getElementById("teacher-social").value;
-        const family = document.getElementById("teacher-family").value;
-        const walletNum = document.getElementById("teacher-wallet-num").value;
-        const walletOwner = document.getElementById("teacher-wallet-owner").value;
-        const dob = document.getElementById("teacher-dob").value;
-        const address = document.getElementById("teacher-address").value;
-        
-        const dto = {
-            fullName: name,
-            identityNumber: idNum,
-            contact: contact,
-            whatsappNumber: whatsapp,
-            taskRole: task,
-            mosqueName: mosque,
-            qualification: qual,
-            memorizedAjzaa: memorized,
-            socialStatus: social,
-            familyMembersCount: family ? parseInt(family) : null,
-            walletNumber: walletNum,
-            walletOwner: walletOwner,
-            address: address,
-            dateOfBirth: dob || null
-        };
-        
-        if (id) {
-            dto.isActive = document.getElementById("teacher-active").checked;
-        } else {
-            dto.username = document.getElementById("teacher-username").value || idNum || contact;
-            dto.password = document.getElementById("teacher-password").value || "123456";
-        }
-        
-        try {
-            if (id) {
-                await apiRequest(`/teachers/${id}`, "PUT", dto);
-                showAlert("تم تحديث بيانات المعلّم بنجاح.", "success");
-            } else {
-                await apiRequest("/teachers", "POST", dto);
-                showAlert("تم تسجيل المعلم وإنشاء حسابه الشخصي بنجاح.", "success");
-            }
-            closeModal();
-            loadAdminTeachers();
-        } catch(e) {
-            console.error(e);
-        }
-    });
-}
-
-async function deactivateTeacher(id) {
-    if (!confirm("هل أنت متأكد من تعطيل هذا المعلّم؟")) return;
-    try {
-        await apiRequest(`/teachers/${id}`, "DELETE");
-        showAlert("تم إلغاء تفعيل المعلم بنجاح.", "success");
-        loadAdminTeachers();
-    } catch(e) {
-        console.error(e);
-    }
-}
+// ------ Circle and Teacher Modals are handled via dynamic SweetAlert2 modals (showCircleModal, showTeacherModal, manageTeacherRoles) ------
 
 // ------ Add/Edit Student Modal (With all 26 Excel fields & Parent assignment) ------
 async function showStudentModal(studentId = null) {

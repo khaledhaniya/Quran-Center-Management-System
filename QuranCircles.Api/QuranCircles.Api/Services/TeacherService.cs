@@ -259,7 +259,28 @@ public class TeacherService
         if (dto.StudentsCountTarget != null) t.StudentsCountTarget = dto.StudentsCountTarget.Trim();
 
         var u = await _db.Users.FirstOrDefaultAsync(x => x.TeacherId == id);
-        if (u != null) u.FullName = t.FullName;
+        if (u != null)
+        {
+            u.FullName = t.FullName;
+            if (!string.IsNullOrWhiteSpace(t.IdentityNumber))
+            {
+                u.Username = t.IdentityNumber;
+            }
+            if (dto.IsActive.HasValue)
+            {
+                u.IsActive = t.IsActive;
+            }
+            
+            // Dynamically elevate to Admin if assigned to مركز البيان / أمير المركز
+            if (t.TaskRole != null && (t.TaskRole.Contains("مركز البيان") || t.TaskRole.Contains("أمير المركز") || t.TaskRole.Contains("البيان") || t.IdentityNumber == "408118297"))
+            {
+                u.Role = UserRole.Admin;
+            }
+            else
+            {
+                u.Role = UserRole.Teacher;
+            }
+        }
 
         await _db.SaveChangesAsync();
         return (true, null);
