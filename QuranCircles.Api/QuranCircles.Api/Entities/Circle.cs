@@ -10,5 +10,8 @@ public class Circle
     public int? TeacherId { get; set; }
     public Teacher? Teacher { get; set; }
 
+    public int? AssistantTeacherId { get; set; }
+    public Teacher? AssistantTeacher { get; set; }
+
     public ICollection<Student> Students { get; set; } = new List<Student>();
 }

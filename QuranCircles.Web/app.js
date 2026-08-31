@@ -1364,32 +1364,37 @@ async function toggleCircleActive(id) {
 async function loadAdminCircles() {
     try {
         const circles = await apiRequest("/circles");
-        cachedCircles = circles;
+        cachedCircles = circles || [];
         
         // Load teachers if not already loaded
-        if (cachedTeachers.length === 0) {
+        if (!cachedTeachers || cachedTeachers.length === 0) {
             cachedTeachers = await apiRequest("/teachers");
         }
         
         const tbody = document.getElementById("circles-table-body");
+        if (!tbody) return;
         tbody.innerHTML = "";
         
-        if (circles.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">لا يوجد حلقات مضافة حالياً.</td></tr>`;
+        if (cachedCircles.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4">لا توجد حلقات مضافة حالياً.</td></tr>`;
             return;
         }
         
-        circles.forEach(c => {
+        cachedCircles.forEach(c => {
             const tr = document.createElement("tr");
+            const leadTeacher = c.teacherName ? `<strong class="text-success"><i class="fa-solid fa-user-tie me-1"></i> ${c.teacherName}</strong>` : '<span class="text-danger">غير معين</span>';
+            const assistantTeacher = c.assistantTeacherName ? `<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-handshake-angle me-1 text-info"></i> ${c.assistantTeacherName}</span>` : '<span class="text-muted small">بدون مساعد</span>';
+
             tr.innerHTML = `
-                <td>${c.id}</td>
+                <td class="text-center font-monospace">${c.id}</td>
                 <td><strong>${c.name}</strong></td>
-                <td>${getTimingArabic(c.timing)}</td>
-                <td>${c.teacherName || '<span class="text-danger">غير معين</span>'}</td>
-                <td><span class="badge badge-info">${c.studentCount} طلاب</span></td>
+                <td><span class="badge bg-light text-dark border">${getTimingArabic(c.timing)}</span></td>
+                <td>${leadTeacher}</td>
+                <td>${assistantTeacher}</td>
+                <td><span class="badge bg-primary bg-opacity-10 text-primary font-monospace fw-bold">${c.studentCount} طلاب</span></td>
                 <td>
-                    <span class="badge ${c.isActive ? 'badge-success' : 'badge-danger'}">
-                        ${c.isActive ? 'نشط' : 'ملغى تفعيلها'}
+                    <span class="badge ${c.isActive ? 'bg-success' : 'bg-danger'}">
+                        ${c.isActive ? 'نشط' : 'معطّل'}
                     </span>
                 </td>
                 <td>
@@ -1424,9 +1429,279 @@ async function loadAdminCircles() {
                 hardDeleteCircle(b.dataset.id, b.dataset.name);
             });
         });
+
+        const btnAddCircle = document.getElementById("btn-add-circle");
+        if (btnAddCircle && !btnAddCircle._bound) {
+            btnAddCircle._bound = true;
+            btnAddCircle.addEventListener("click", () => showCircleModal());
+        }
         
     } catch(e) {
         console.error(e);
+    }
+}
+
+async function toggleCircleActive(id) {
+    try {
+        const res = await apiRequest(`/circles/${id}/toggle-active`, "POST");
+        showAlert(res.message || "تم تحديث حالة الحلقة بنجاح", "success");
+        loadAdminCircles();
+    } catch (e) {
+        showAlert(e.message, "danger");
+    }
+}
+
+async function hardDeleteCircle(id, name) {
+    const result = await Swal.fire({
+        title: '⚠️ تأكيد حذف الحلقة القرآنية',
+        html: `هل أنت متأكد من حذف حلقة <strong>${name}</strong> نهائياً وفك ارتباط الطلاب بها؟`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، حذف نهائي',
+        cancelButtonText: 'تراجع',
+        confirmButtonColor: '#d33'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await apiRequest(`/circles/${id}/permanent`, 'DELETE');
+            showAlert(res.message || "تم حذف الحلقة بنجاح.", "success");
+            await loadAdminCircles();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حذف الحلقة", "danger");
+        }
+    }
+}
+
+async function showCircleModal(circleId = null) {
+    let circle = null;
+    if (circleId) {
+        circle = (cachedCircles || []).find(c => c.id == circleId);
+        if (!circle) {
+            try {
+                circle = await apiRequest(`/circles/${circleId}`);
+            } catch(e) {}
+        }
+    }
+
+    if (!cachedTeachers || cachedTeachers.length === 0) {
+        try {
+            cachedTeachers = await apiRequest("/teachers");
+        } catch(e) {
+            cachedTeachers = [];
+        }
+    }
+
+    const validTeachers = (cachedTeachers || []).filter(t => t.isActive);
+
+    let teacherOptions = '<option value="">-- بدون معلم مشرف --</option>';
+    let assistantOptions = '<option value="">-- بدون معلم مساعد (اختياري) --</option>';
+
+    validTeachers.forEach(t => {
+        const isTSelected = (circle && circle.teacherId == t.id) ? 'selected' : '';
+        const isASelected = (circle && circle.assistantTeacherId == t.id) ? 'selected' : '';
+        teacherOptions += `<option value="${t.id}" ${isTSelected}>${t.fullName} (${t.taskRole || 'معلم'})</option>`;
+        assistantOptions += `<option value="${t.id}" ${isASelected}>${t.fullName} (${t.taskRole || 'معلم'})</option>`;
+    });
+
+    const timingOptions = `
+        <option value="Fajr" ${circle && circle.timing === 'Fajr' ? 'selected' : ''}>بعد الفجر</option>
+        <option value="Aser" ${circle && circle.timing === 'Aser' ? 'selected' : ''}>بعد العصر</option>
+        <option value="Maghrib" ${circle && circle.timing === 'Maghrib' ? 'selected' : ''}>بعد المغرب</option>
+        <option value="Isha" ${circle && circle.timing === 'Isha' ? 'selected' : ''}>بعد العشاء</option>
+    `;
+
+    const htmlContent = `
+        <div class="text-start" style="direction: rtl;">
+            <div class="mb-3">
+                <label class="form-label fw-bold"><i class="fa-solid fa-mosque text-success me-1"></i> اسم الحلقة القرآنية <span class="text-danger">*</span></label>
+                <input id="swal-circle-name" class="form-control" placeholder="مثال: حلقة الفجر النموذجية / حلقة التميز" value="${circle ? (circle.name || '') : ''}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold"><i class="fa-solid fa-clock text-primary me-1"></i> موعد ووقت الانعقاد <span class="text-danger">*</span></label>
+                <select id="swal-circle-timing" class="form-select">
+                    ${timingOptions}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold"><i class="fa-solid fa-user-tie text-primary me-1"></i> المعلم والمحفّظ المشرف الرئيسي <span class="text-danger">*</span></label>
+                <select id="swal-circle-teacher" class="form-select">
+                    ${teacherOptions}
+                </select>
+                <div class="form-text text-muted">المعلم المسؤول الأول عن متابعة الحلقة.</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold"><i class="fa-solid fa-handshake-angle text-info me-1"></i> مساعد الحلقة (المعلم المساعد) <span class="badge bg-light text-muted border">نفس الصلاحيات والحلقة</span></label>
+                <select id="swal-circle-assistant" class="form-select">
+                    ${assistantOptions}
+                </select>
+                <div class="form-text text-success"><i class="fa-solid fa-circle-check me-1"></i> يتمكن المساعد من رصد الحضور والتسميع لنفس طلاب الحلقة المشتركة.</div>
+            </div>
+        </div>
+    `;
+
+    const result = await Swal.fire({
+        title: circleId ? '✏️ تعديل بيانات الحلقة القرآنية' : '➕ إضافة حلقة قرآنية جديدة',
+        html: htmlContent,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتثبيت الحلقة',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#0d5c3a',
+        width: '580px',
+        focusConfirm: false,
+        preConfirm: () => {
+            const name = document.getElementById("swal-circle-name").value.trim();
+            const timing = document.getElementById("swal-circle-timing").value;
+            const teacherIdVal = document.getElementById("swal-circle-teacher").value;
+            const assistantIdVal = document.getElementById("swal-circle-assistant").value;
+
+            if (!name) {
+                Swal.showValidationMessage("يرجى إدخال اسم الحلقة القرآنية.");
+                return false;
+            }
+
+            return {
+                name,
+                timing,
+                teacherId: teacherIdVal ? parseInt(teacherIdVal) : null,
+                assistantTeacherId: assistantIdVal ? parseInt(assistantIdVal) : null,
+                isActive: circle ? circle.isActive : true
+            };
+        }
+    });
+
+    if (result.isConfirmed && result.value) {
+        try {
+            if (circleId) {
+                await apiRequest(`/circles/${circleId}`, 'PUT', result.value);
+                showAlert("تم تعديل وتحديث بيانات الحلقة والمساعد بنجاح! ✨", "success");
+            } else {
+                await apiRequest('/circles', 'POST', result.value);
+                showAlert("تمت إضافة الحلقة القرآنية وإسناد المشايخ بنجاح! 🎉", "success");
+            }
+            await loadAdminCircles();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حفظ الحلقة", "danger");
+        }
+    }
+}
+
+async function showManageStudentsModal(circleId) {
+    try {
+        let circle = (cachedCircles || []).find(c => c.id == circleId);
+        if (!circle) circle = await apiRequest(`/circles/${circleId}`);
+
+        let allStudents = cachedStudents;
+        if (!allStudents || allStudents.length === 0) {
+            allStudents = await apiRequest("/students");
+            cachedStudents = allStudents || [];
+        }
+
+        const circleStudents = (allStudents || []).filter(s => s.circleId == circleId);
+        const availableStudents = (allStudents || []).filter(s => !s.circleId || s.circleId == 0);
+
+        let studentRowsHtml = circleStudents.map((s, idx) => `
+            <tr>
+                <td class="text-center font-monospace">${idx + 1}</td>
+                <td><strong>${s.fullName}</strong></td>
+                <td>${s.studentIdentityNumber || '-'}</td>
+                <td class="text-center">
+                    <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="removeStudentFromCircleModal(${circleId}, ${s.id})">
+                        <i class="fa-solid fa-user-minus"></i> إزالة
+                    </button>
+                </td>
+            </tr>
+        `).join("");
+
+        if (!studentRowsHtml) {
+            studentRowsHtml = '<tr><td colspan="4" class="text-center text-muted p-3">لا يوجد طلاب ملتحقون بهذه الحلقة حالياً.</td></tr>';
+        }
+
+        let studentOptions = '<option value="">-- اختر طالباً لإضافته للحلقة --</option>';
+        availableStudents.forEach(s => {
+            studentOptions += `<option value="${s.id}">${s.fullName} (${s.studentIdentityNumber || 'بدون هوية'})</option>`;
+        });
+
+        const htmlContent = `
+            <div class="text-start" style="direction: rtl; font-size: 0.92rem;">
+                <div class="p-3 bg-light border rounded-3 mb-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0 fw-bold text-success"><i class="fa-solid fa-mosque me-1"></i> ${circle.name}</h6>
+                        <small class="text-muted">المحفّظ المشرف: ${circle.teacherName || 'غير معين'} | المساعد: ${circle.assistantTeacherName || 'بدون مساعد'}</small>
+                    </div>
+                    <span class="badge bg-primary px-3 py-2 fs-6 font-monospace">${circleStudents.length} طلاب</span>
+                </div>
+
+                <div class="mb-3 p-3 border rounded-3 bg-white shadow-xs">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user-plus text-success me-1"></i> إضافة طالب جديد للحلقة</label>
+                    <div class="d-flex gap-2">
+                        <select id="swal-add-student-select" class="form-select form-select-sm">
+                            ${studentOptions}
+                        </select>
+                        <button type="button" class="btn btn-success btn-sm px-3 fw-bold flex-shrink-0" onclick="addStudentToCircleModal(${circleId})">
+                            <i class="fa-solid fa-plus me-1"></i> تنسيب
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive border rounded-3" style="max-height: 280px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th class="text-center" style="width: 40px;">#</th>
+                                <th>اسم الطالب</th>
+                                <th>رقم الهوية</th>
+                                <th class="text-center" style="width: 80px;">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${studentRowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        await Swal.fire({
+            title: `👥 إدارة طلاب حلقة (${circle.name})`,
+            html: htmlContent,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: '680px'
+        });
+
+    } catch(err) {
+        showAlert("تعذر فتح إدارة طلاب الحلقة", "danger");
+    }
+}
+
+async function addStudentToCircleModal(circleId) {
+    const select = document.getElementById("swal-add-student-select");
+    if (!select || !select.value) {
+        showAlert("يرجى اختيار طالب أولاً", "warning");
+        return;
+    }
+    const studentId = parseInt(select.value);
+    try {
+        await apiRequest(`/circles/${circleId}/students`, 'POST', { studentId });
+        showAlert("تمت إضافة الطالب للحلقة بنجاح! ✅", "success");
+        cachedStudents = await apiRequest("/students");
+        await loadAdminCircles();
+        showManageStudentsModal(circleId);
+    } catch(err) {
+        showAlert(err.message || "حدث خطأ أثناء إضافة الطالب", "danger");
+    }
+}
+
+async function removeStudentFromCircleModal(circleId, studentId) {
+    try {
+        await apiRequest(`/circles/${circleId}/students/${studentId}`, 'DELETE');
+        showAlert("تمت إزالة الطالب من الحلقة بنجاح.", "info");
+        cachedStudents = await apiRequest("/students");
+        await loadAdminCircles();
+        showManageStudentsModal(circleId);
+    } catch(err) {
+        showAlert(err.message || "حدث خطأ أثناء إزالة الطالب", "danger");
     }
 }
 
@@ -1592,6 +1867,254 @@ async function loadAdminTeachers(search = "") {
         
     } catch(e) {
         console.error(e);
+    }
+}
+
+async function toggleTeacherActive(id) {
+    try {
+        const res = await apiRequest(`/teachers/${id}/toggle-active`, 'POST');
+        showAlert(res.message || "تم تغيير حالة المعلم بنجاح.", "success");
+        await loadAdminTeachers();
+    } catch(err) {
+        showAlert(err.message || "حدث خطأ أثناء تغيير حالة المعلم", "danger");
+    }
+}
+
+async function hardDeleteTeacher(id, name) {
+    const result = await Swal.fire({
+        title: '⚠️ تأكيد الحذف النهائي للمعلم',
+        html: `هل أنت متأكد من حذف الشيخ / <strong>${name}</strong> نهائياً من قاعدة البيانات وحذف حسابه وربط حلقاته؟`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، حذف نهائي',
+        cancelButtonText: 'تراجع',
+        confirmButtonColor: '#d33'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await apiRequest(`/teachers/${id}/permanent`, 'DELETE');
+            showAlert(res.message || "تم حذف المعلم نهائياً بنجاح.", "success");
+            await loadAdminTeachers();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حذف المعلم", "danger");
+        }
+    }
+}
+
+async function showTeacherModal(teacherId = null) {
+    let teacher = null;
+    if (teacherId) {
+        teacher = (cachedTeachers || []).find(t => t.id == teacherId);
+        if (!teacher) {
+            try {
+                teacher = await apiRequest(`/teachers/${teacherId}`);
+            } catch(e) {}
+        }
+    }
+
+    const t = teacher || {
+        fullName: "",
+        identityNumber: "",
+        contact: "",
+        whatsappNumber: "",
+        mosqueName: "علي بن أبي طالب",
+        qualification: "",
+        socialStatus: "أعزب",
+        familyMembersCount: "",
+        walletNumber: "",
+        walletOwner: "",
+        memorizedAjzaa: "",
+        studentsCountTarget: "",
+        taskRole: "معلم حلقة",
+        isActive: true
+    };
+
+    const currentTask = t.taskRole || "";
+
+    const htmlContent = `
+        <div class="text-start" style="direction: rtl; font-size: 0.92rem;">
+            <!-- Main Details Row -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user text-primary me-1"></i> الاسم الكامل (الرباعي) <span class="text-danger">*</span></label>
+                    <input id="swal-tch-name" class="form-control form-control-sm" placeholder="الاسم الرباعي الكامل" value="${t.fullName || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-id-card text-primary me-1"></i> رقم الهوية الوطنية (اسم المستخدم) <span class="text-danger">*</span></label>
+                    <input id="swal-tch-id" class="form-control form-control-sm font-monospace" placeholder="رقم الهوية (9 أرقام)" value="${t.identityNumber || ''}">
+                </div>
+            </div>
+
+            <!-- Contact Row -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-phone text-success me-1"></i> رقم الجوال (اتصال)</label>
+                    <input id="swal-tch-phone" class="form-control form-control-sm font-monospace" placeholder="059xxxxxxx" value="${t.contact || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-brands fa-whatsapp text-success me-1"></i> رقم الواتساب</label>
+                    <input id="swal-tch-whatsapp" class="form-control form-control-sm font-monospace" placeholder="0097259xxxxxxx" value="${t.whatsappNumber || ''}">
+                </div>
+            </div>
+
+            <!-- Qualification & Mosque -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-graduation-cap text-info me-1"></i> المؤهل العلمي / التخصص</label>
+                    <input id="swal-tch-qual" class="form-control form-control-sm" placeholder="مثال: بكالوريوس شريعة / دبلوم IT" value="${t.qualification || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-mosque text-success me-1"></i> المسجد التابع له</label>
+                    <input id="swal-tch-mosque" class="form-control form-control-sm" placeholder="مسجد علي بن أبي طالب" value="${t.mosqueName || 'علي بن أبي طالب'}">
+                </div>
+            </div>
+
+            <!-- Social & Family -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-ring text-warning me-1"></i> الحالة الاجتماعية</label>
+                    <select id="swal-tch-social" class="form-select form-select-sm">
+                        <option value="أعزب" ${t.socialStatus === 'أعزب' ? 'selected' : ''}>أعزب</option>
+                        <option value="متزوج" ${t.socialStatus === 'متزوج' ? 'selected' : ''}>متزوج</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-users text-primary me-1"></i> عدد أفراد الأسرة</label>
+                    <input id="swal-tch-family" type="number" class="form-control form-control-sm" placeholder="عدد الأفراد" value="${t.familyMembersCount || ''}">
+                </div>
+            </div>
+
+            <!-- Financial Wallet Row -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-wallet text-warning me-1"></i> رقم المحفظة / الحساب البنكي</label>
+                    <input id="swal-tch-wallet" class="form-control form-control-sm font-monospace" placeholder="رقم المحفظة أو الحساب" value="${t.walletNumber || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user-check text-dark me-1"></i> اسم صاحب المحفظة</label>
+                    <input id="swal-tch-wallet-owner" class="form-control form-control-sm" placeholder="اسم صاحب الحساب/المحفظة" value="${t.walletOwner || ''}">
+                </div>
+            </div>
+
+            <!-- Memorized & Target -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-book-quran text-success me-1"></i> الأجزاء المحفوظة</label>
+                    <input id="swal-tch-memorized" class="form-control form-control-sm" placeholder="مثال: القرآن كاملاً / 15 جزء" value="${t.memorizedAjzaa || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-bullseye text-danger me-1"></i> العدد المستهدف للطلاب</label>
+                    <input id="swal-tch-target" class="form-control form-control-sm" placeholder="مثال: 15 / -" value="${t.studentsCountTarget || ''}">
+                </div>
+            </div>
+
+            <!-- DYNAMIC ROLE & TASK SELECTOR -->
+            <div class="p-3 border rounded-3 bg-light">
+                <label class="form-label fw-bold d-flex justify-content-between align-items-center mb-2">
+                    <span><i class="fa-solid fa-briefcase text-primary me-1"></i> الوظيفة والتكليف المخصص (الصلاحيات والصفحات) <span class="text-danger">*</span></span>
+                    <span class="badge bg-primary bg-opacity-10 text-primary">تحديد مرن وديناميكي</span>
+                </label>
+                <div class="d-flex flex-wrap gap-2 mb-2" id="role-pill-tags">
+                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="مركز البيان"><i class="fa-solid fa-crown me-1"></i> أمير المركز</button>
+                    <button type="button" class="btn btn-sm btn-outline-warning text-dark role-picker-btn" data-role="الملف المالي"><i class="fa-solid fa-wallet me-1"></i> الملف المالي</button>
+                    <button type="button" class="btn btn-sm btn-outline-info text-dark role-picker-btn" data-role="الجودة"><i class="fa-solid fa-magnifying-glass me-1"></i> الجودة والرقابة</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary role-picker-btn" data-role="التحفيظ + ملف منتدى الحفاظ"><i class="fa-solid fa-book-quran me-1"></i> شؤون التحفيظ</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="معلم دورات"><i class="fa-solid fa-award me-1"></i> معلم دورات</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger role-picker-btn" data-role="الفتى الواعظ + الأصوات الندية"><i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ</button>
+                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="معلم حلقة"><i class="fa-solid fa-mosque me-1"></i> معلم حلقة</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="مساعد حلقة"><i class="fa-solid fa-handshake-angle me-1"></i> مساعد حلقة</button>
+                </div>
+                <input id="swal-tch-task" class="form-control fw-bold" placeholder="مثال: الملف المالي + معلم دورات" value="${currentTask}">
+                <div class="form-text small text-muted mt-1"><i class="fa-solid fa-circle-info text-primary me-1"></i> يمكنك الضغط على الأزرار بالأعلى لإضافة أو تبديل المهام، أو كتابة أي تكليف مخصص مباشرة. سيتم حفظ هذا التكليف بشكل دائم وتحديث واجهة الشيخ فور تسجيل دخوله!</div>
+            </div>
+        </div>
+    `;
+
+    const result = await Swal.fire({
+        title: teacherId ? `✏️ تعديل بيانات الشيخ / ${t.fullName}` : '➕ إضافة معلم جديد للكادر',
+        html: htmlContent,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتثبيت التعديلات',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#0d5c3a',
+        width: '740px',
+        focusConfirm: false,
+        didOpen: () => {
+            const taskInput = document.getElementById("swal-tch-task");
+            document.querySelectorAll(".role-picker-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const roleVal = btn.dataset.role;
+                    let current = (taskInput.value || "").trim();
+                    if (!current) {
+                        taskInput.value = roleVal;
+                    } else if (current.includes(roleVal)) {
+                        // Toggle remove
+                        let parts = current.split("+").map(p => p.trim()).filter(p => p !== roleVal && p !== "");
+                        taskInput.value = parts.join(" + ");
+                    } else {
+                        // Append
+                        taskInput.value = current + " + " + roleVal;
+                    }
+                });
+            });
+        },
+        preConfirm: () => {
+            const fullName = document.getElementById("swal-tch-name").value.trim();
+            const identityNumber = document.getElementById("swal-tch-id").value.trim();
+            const contact = document.getElementById("swal-tch-phone").value.trim();
+            const whatsappNumber = document.getElementById("swal-tch-whatsapp").value.trim();
+            const qualification = document.getElementById("swal-tch-qual").value.trim();
+            const mosqueName = document.getElementById("swal-tch-mosque").value.trim();
+            const socialStatus = document.getElementById("swal-tch-social").value;
+            const familyMembersCount = document.getElementById("swal-tch-family").value.trim();
+            const walletNumber = document.getElementById("swal-tch-wallet").value.trim();
+            const walletOwner = document.getElementById("swal-tch-wallet-owner").value.trim();
+            const memorizedAjzaa = document.getElementById("swal-tch-memorized").value.trim();
+            const studentsCountTarget = document.getElementById("swal-tch-target").value.trim();
+            const taskRole = document.getElementById("swal-tch-task").value.trim();
+
+            if (!fullName) {
+                Swal.showValidationMessage("يرجى إدخال الاسم الرباعي للمعلم.");
+                return false;
+            }
+            if (!identityNumber) {
+                Swal.showValidationMessage("يرجى إدخال رقم الهوية الوطنية (يُستخدم كاسم مستخدم للدخول).");
+                return false;
+            }
+
+            return {
+                fullName,
+                identityNumber,
+                contact,
+                whatsappNumber,
+                qualification,
+                mosqueName,
+                socialStatus,
+                familyMembersCount: familyMembersCount ? parseInt(familyMembersCount) : null,
+                walletNumber,
+                walletOwner,
+                memorizedAjzaa,
+                studentsCountTarget,
+                taskRole,
+                isActive: t.isActive
+            };
+        }
+    });
+
+    if (result.isConfirmed && result.value) {
+        try {
+            if (teacherId) {
+                await apiRequest(`/teachers/${teacherId}`, 'PUT', result.value);
+                showAlert("تم حفظ وتحديث بيانات الشيخ ومهامه الإدارية بنجاح دائم! 🎉", "success");
+            } else {
+                await apiRequest('/teachers', 'POST', result.value);
+                showAlert("تمت إضافة المعلم الجديد وتعيين حسابه بنجاح! 🌟", "success");
+            }
+            await loadAdminTeachers();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حفظ بيانات المعلم", "danger");
+        }
     }
 }
 

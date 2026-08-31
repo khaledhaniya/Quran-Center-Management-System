@@ -14,6 +14,7 @@ public class CircleService
     {
         var circles = await _db.Circles
             .Include(c => c.Teacher)
+            .Include(c => c.AssistantTeacher)
             .Include(c => c.Students)
             .ToListAsync();
         return circles.Select(Map).ToList();
@@ -23,8 +24,9 @@ public class CircleService
     {
         var circles = await _db.Circles
             .Include(c => c.Teacher)
+            .Include(c => c.AssistantTeacher)
             .Include(c => c.Students)
-            .Where(c => c.TeacherId == teacherId)
+            .Where(c => c.TeacherId == teacherId || c.AssistantTeacherId == teacherId)
             .ToListAsync();
         return circles.Select(Map).ToList();
     }
@@ -33,6 +35,7 @@ public class CircleService
     {
         var c = await _db.Circles
             .Include(x => x.Teacher)
+            .Include(x => x.AssistantTeacher)
             .Include(x => x.Students)
             .FirstOrDefaultAsync(x => x.Id == id);
         return c is null ? null : Map(c);
@@ -50,17 +53,26 @@ public class CircleService
             if (!t.IsActive) return (null, "لا يمكن إسناد معلّم غير مفعّل.");
         }
 
+        if (dto.AssistantTeacherId is not null)
+        {
+            var at = await _db.Teachers.FindAsync(dto.AssistantTeacherId);
+            if (at is null) return (null, "المعلّم المساعد المحدد غير موجود.");
+            if (!at.IsActive) return (null, "لا يمكن إسناد معلّم مساعد غير مفعّل.");
+        }
+
         var c = new Circle
         {
             Name = dto.Name.Trim(),
             Timing = dto.Timing,
             TeacherId = dto.TeacherId,
+            AssistantTeacherId = dto.AssistantTeacherId,
             IsActive = true
         };
         _db.Circles.Add(c);
         await _db.SaveChangesAsync();
 
         await _db.Entry(c).Reference(x => x.Teacher).LoadAsync();
+        await _db.Entry(c).Reference(x => x.AssistantTeacher).LoadAsync();
         await _db.Entry(c).Collection(x => x.Students).LoadAsync();
         return (Map(c), null);
     }
@@ -78,9 +90,17 @@ public class CircleService
             if (!t.IsActive) return (false, "لا يمكن إسناد معلّم غير مفعّل.");
         }
 
+        if (dto.AssistantTeacherId is not null)
+        {
+            var at = await _db.Teachers.FindAsync(dto.AssistantTeacherId);
+            if (at is null) return (false, "المعلّم المساعد المحدد غير موجود.");
+            if (!at.IsActive) return (false, "لا يمكن إسناد معلّم مساعد غير مفعّل.");
+        }
+
         c.Name = dto.Name.Trim();
         c.Timing = dto.Timing;
         c.TeacherId = dto.TeacherId;
+        c.AssistantTeacherId = dto.AssistantTeacherId;
         c.IsActive = dto.IsActive;
         await _db.SaveChangesAsync();
         return (true, null);
@@ -148,6 +168,7 @@ public class CircleService
     private static CircleDto Map(Circle c) => new(
         c.Id, c.Name, c.Timing, c.IsActive,
         c.TeacherId, c.Teacher?.FullName,
+        c.AssistantTeacherId, c.AssistantTeacher?.FullName,
         c.Students.Count,
         c.Students.Select(s => new StudentBriefDto(s.Id, s.FullName)).ToList()
     );

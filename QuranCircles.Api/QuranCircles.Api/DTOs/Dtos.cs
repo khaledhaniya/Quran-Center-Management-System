@@ -169,14 +169,16 @@ public record TeacherDto(
 public record CreateCircleDto(
     string Name,
     SessionTiming Timing,
-    int? TeacherId
+    int? TeacherId,
+    int? AssistantTeacherId = null
 );
 
 public record UpdateCircleDto(
     string Name,
     SessionTiming Timing,
     int? TeacherId,
-    bool IsActive
+    bool IsActive,
+    int? AssistantTeacherId = null
 );
 
 public record CircleDto(
@@ -186,6 +188,8 @@ public record CircleDto(
     bool IsActive,
     int? TeacherId,
     string? TeacherName,
+    int? AssistantTeacherId,
+    string? AssistantTeacherName,
     int StudentCount,
     List<StudentBriefDto>? Students
 );

@@ -48,6 +48,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(c => c.TeacherId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        b.Entity<Circle>()
+            .HasOne(c => c.AssistantTeacher)
+            .WithMany()
+            .HasForeignKey(c => c.AssistantTeacherId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         b.Entity<Student>()
             .HasOne(s => s.Circle)
             .WithMany(c => c.Students)

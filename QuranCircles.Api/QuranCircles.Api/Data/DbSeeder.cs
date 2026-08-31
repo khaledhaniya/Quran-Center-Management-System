@@ -163,6 +163,13 @@ public static class DbSeeder
                 }
             }
 
+            // Ensure Circles table has AssistantTeacherId column
+            try
+            {
+                db.Database.ExecuteSqlRaw("ALTER TABLE Circles ADD COLUMN AssistantTeacherId INTEGER;");
+            }
+            catch { /* Column already exists */ }
+
             // 2. Ensure SystemSettings table exists and has all new columns
             try
             {
@@ -463,23 +470,16 @@ public static class DbSeeder
                     }
                     else
                     {
-                        // Ensure all columns are populated with official data
-                        if (!string.IsNullOrWhiteSpace(idNumber)) teacher.IdentityNumber = idNumber;
-                        if (!string.IsNullOrWhiteSpace(et.Mobile)) teacher.Contact = et.Mobile;
-                        if (!string.IsNullOrWhiteSpace(et.Whatsapp)) teacher.WhatsappNumber = et.Whatsapp;
-                        if (!string.IsNullOrWhiteSpace(et.SocialStatus)) teacher.SocialStatus = et.SocialStatus;
-                        if (et.FamilyCount.HasValue) teacher.FamilyMembersCount = et.FamilyCount;
-                        if (!string.IsNullOrWhiteSpace(et.Mosque)) teacher.MosqueName = et.Mosque;
-                        if (!string.IsNullOrWhiteSpace(et.Qualification)) teacher.Qualification = et.Qualification;
-                        if (!string.IsNullOrWhiteSpace(et.TaskRole)) teacher.TaskRole = et.TaskRole;
-                        if (!string.IsNullOrWhiteSpace(et.WalletNum)) teacher.WalletNumber = et.WalletNum;
-                        if (!string.IsNullOrWhiteSpace(et.WalletOwner)) teacher.WalletOwner = et.WalletOwner;
-                        if (!string.IsNullOrWhiteSpace(et.Memorized)) teacher.MemorizedAjzaa = et.Memorized;
-                        if (!string.IsNullOrWhiteSpace(et.StudentsTarget)) teacher.StudentsCountTarget = et.StudentsTarget;
-                        db.SaveChanges();
+                        // Teacher already exists in database: PRESERVE all user edits and modifications!
+                        // Only ensure IdentityNumber is present if it was previously empty
+                        if (string.IsNullOrWhiteSpace(teacher.IdentityNumber) && !string.IsNullOrWhiteSpace(idNumber))
+                        {
+                            teacher.IdentityNumber = idNumber;
+                            db.SaveChanges();
+                        }
                     }
 
-                    // Create or update User account: Username = Identity Number, Password = 123456
+                    // Create User account if not exists
                     var assignedRole = (et.FullName.Contains("علي حسن") && et.FullName.Contains("النبيه")) || (et.TaskRole != null && et.TaskRole.Contains("مركز البيان")) || idNumber == "408118297"
                         ? UserRole.Admin
                         : UserRole.Teacher;
@@ -498,21 +498,8 @@ public static class DbSeeder
                             TeacherId = teacher.Id,
                             IsActive = true
                         });
+                        db.SaveChanges();
                     }
-                    else
-                    {
-                        existingUser.Username = username;
-                        existingUser.FullName = teacher.FullName;
-                        existingUser.TeacherId = teacher.Id;
-                        existingUser.Role = assignedRole;
-                        existingUser.IsActive = true;
-                        if (string.IsNullOrEmpty(existingUser.PasswordHash) || existingUser.PlainPassword == "123456")
-                        {
-                            existingUser.PasswordHash = teacherHasher.HashPassword("123456");
-                            existingUser.PlainPassword = "123456";
-                        }
-                    }
-                    db.SaveChanges();
 
                     if (et.TaskRole.Contains("حلقة") && !db.Circles.Any(c => c.TeacherId == teacher.Id))
                     {
