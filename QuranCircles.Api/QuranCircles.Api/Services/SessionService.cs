@@ -112,7 +112,7 @@ public class SessionService
         if (string.IsNullOrWhiteSpace(surah)) return "اسم السورة مطلوب.";
         if (from <= 0 || to <= 0) return "أرقام الآيات يجب أن تكون موجبة.";
         if (to < from) return "آية النهاية يجب ألا تسبق آية البداية.";
-        if (date > DateOnly.FromDateTime(DateTime.Today)) return "تاريخ الجلسة في المستقبل.";
+        if (date > DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2))) return "تاريخ الجلسة غير صالح (في المستقبل البعيد).";
         return null;
     }
 

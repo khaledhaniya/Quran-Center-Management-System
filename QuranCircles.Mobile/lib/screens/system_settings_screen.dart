@@ -77,22 +77,22 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> with Single
     try {
       final s = await ApiService.getSystemSettings();
       if (s != null) {
-        _centerNameCtrl.text = s['centerName'] ?? s['CenterName'] ?? 'مركز البيان لتعليم القرآن الكريم';
-        _mosqueNameCtrl.text = s['mosqueName'] ?? s['MosqueName'] ?? 'مسجد علي بن أبي طالب';
-        _centerAddressCtrl.text = s['centerAddress'] ?? s['CenterAddress'] ?? 'فلسطين - غزة';
-        _supportPhoneCtrl.text = s['supportPhone'] ?? s['SupportPhone'] ?? '+970599000000';
-        _supportEmailCtrl.text = s['supportEmail'] ?? s['SupportEmail'] ?? 'info@albayan.quran';
-        _welcomeMsgCtrl.text = s['welcomeMessage'] ?? s['WelcomeMessage'] ?? '';
-        _logoUrlCtrl.text = s['logoUrl'] ?? s['LogoUrl'] ?? '';
+        _centerNameCtrl.text = (s['centerName'] ?? s['CenterName'] ?? '').toString();
+        _mosqueNameCtrl.text = (s['mosqueName'] ?? s['MosqueName'] ?? '').toString();
+        _centerAddressCtrl.text = (s['centerAddress'] ?? s['CenterAddress'] ?? '').toString();
+        _supportPhoneCtrl.text = (s['supportPhone'] ?? s['SupportPhone'] ?? '').toString();
+        _supportEmailCtrl.text = (s['supportEmail'] ?? s['SupportEmail'] ?? '').toString();
+        _welcomeMsgCtrl.text = (s['welcomeMessage'] ?? s['WelcomeMessage'] ?? '').toString();
+        _logoUrlCtrl.text = (s['logoUrl'] ?? s['LogoUrl'] ?? '').toString();
 
         _passingScoreCtrl.text = (s['passingScoreThreshold'] ?? s['PassingScoreThreshold'] ?? 70).toString();
         _minAttendanceExamCtrl.text = (s['minAttendancePercentForExam'] ?? s['MinAttendancePercentForExam'] ?? 75).toString();
         _maxStudentsCircleCtrl.text = (s['maxStudentsPerCircle'] ?? s['MaxStudentsPerCircle'] ?? 20).toString();
         _maxAbsenceWarningCtrl.text = (s['maxAbsenceDaysWarning'] ?? s['MaxAbsenceDaysWarning'] ?? 3).toString();
 
-        _signatoryNameCtrl.text = s['signatoryName'] ?? s['SignatoryName'] ?? 'فضيلة الشيخ / رئيس المركز';
-        _signatoryTitleCtrl.text = s['signatoryTitle'] ?? s['SignatoryTitle'] ?? 'المشرف العام على حلقات التحفيظ';
-        _absenceTemplateCtrl.text = s['absenceAlertTemplate'] ?? s['AbsenceAlertTemplate'] ?? 'نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.';
+        _signatoryNameCtrl.text = (s['signatoryName'] ?? s['SignatoryName'] ?? '').toString();
+        _signatoryTitleCtrl.text = (s['signatoryTitle'] ?? s['SignatoryTitle'] ?? '').toString();
+        _absenceTemplateCtrl.text = (s['absenceAlertTemplate'] ?? s['AbsenceAlertTemplate'] ?? '').toString();
 
         _allowTeacherEditPlan = s['allowTeacherEditStudentPlan'] ?? s['AllowTeacherEditStudentPlan'] ?? true;
         _allowTeacherEnrollment = s['allowTeacherSelfEnrollment'] ?? s['AllowTeacherSelfEnrollment'] ?? true;

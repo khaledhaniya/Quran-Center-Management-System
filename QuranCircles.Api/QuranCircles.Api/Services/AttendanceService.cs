@@ -18,8 +18,8 @@ public class AttendanceService
         var circle = await _db.Circles.FindAsync(dto.CircleId);
         if (circle is null) return (null, "الحلقة غير موجودة.");
 
-        if (dto.SessionDate > DateOnly.FromDateTime(DateTime.Today))
-            return (null, "تاريخ الجلسة في المستقبل.");
+        if (dto.SessionDate > DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2)))
+            return (null, "تاريخ الجلسة غير صالح (في المستقبل البعيد).");
 
         var existing = await _db.Attendances.FirstOrDefaultAsync(a =>
             a.StudentId == dto.StudentId &&

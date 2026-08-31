@@ -3269,8 +3269,10 @@ async function showStudentModal(studentId = null) {
                 // Update Existing Student
                 await apiRequest(`/students/${id}`, "PUT", dto, 1, true);
                 
-                // Refresh data in background
+                // Refresh cached data immediately
+                try { cachedStudents = await apiRequest("/students", "GET", null, 0, true); } catch(err) {}
                 if (typeof loadAdminStudents === "function") loadAdminStudents();
+                if (typeof loadAdminCircles === "function") loadAdminCircles();
                 
                 // Show In-Modal Success Card
                 document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> تم تحديث بيانات الطالب بنجاح';
