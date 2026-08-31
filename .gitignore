@@ -14,9 +14,11 @@
 **/obj/
 *.user
 *.suo
+*.db
 *.db-shm
 *.db-wal
 *.db-journal
+**/quran.db
 
 # IDE & OS
 .vscode/

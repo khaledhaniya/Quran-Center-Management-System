@@ -446,9 +446,25 @@ function updateSidebarMenu() {
 
         const hasAnyTask = hasCircle || taskRole.includes("الملف المالي") || taskRole.includes("الجودة") || taskRole.includes("التحفيظ") || taskRole.includes("الدورات") || taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية");
         
-        // Only show shared links (competitions, courses, exams, announcements) if the teacher has active tasks/circle
+        // Handle shared links: keep announcements visible as requested, hide other tools for teachers without tasks
         if (sharedEl) {
-            sharedEl.classList.toggle("hidden", !hasAnyTask || isNoTask);
+            sharedEl.classList.remove("hidden");
+            const btnAnn = document.getElementById("btn-announcements");
+            const btnComp = document.getElementById("btn-competitions");
+            const btnCourses = document.getElementById("btn-courses");
+            const btnExams = document.getElementById("btn-exams");
+
+            if (isNoTask || !hasAnyTask) {
+                if (btnAnn) btnAnn.classList.remove("hidden");
+                if (btnComp) btnComp.classList.add("hidden");
+                if (btnCourses) btnCourses.classList.add("hidden");
+                if (btnExams) btnExams.classList.add("hidden");
+            } else {
+                if (btnAnn) btnAnn.classList.remove("hidden");
+                if (btnComp) btnComp.classList.remove("hidden");
+                if (btnCourses) btnCourses.classList.remove("hidden");
+                if (btnExams) btnExams.classList.remove("hidden");
+            }
         }
 
         let noTaskNotice = document.getElementById("teacher-no-task-notice");
@@ -615,10 +631,16 @@ function handleRouting() {
     document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
     document.querySelectorAll(".content-section").forEach(sec => sec.classList.add("hidden"));
     
-    // If teacher has no assigned tasks or circles, lock view exclusively to empty state
+    // If teacher has no assigned tasks or circles, allow announcements or lock view to empty state
     const tRoleForRouting = (getAuthStorage("taskRole") || "").trim();
     const isTeacherWithoutTask = currentRole === "Teacher" && (tRoleForRouting === "بدون تكليف" || tRoleForRouting === "معلق" || tRoleForRouting === "بدون مهام" || tRoleForRouting === "-" || tRoleForRouting === "");
     if (isTeacherWithoutTask) {
+        if (hash === "#announcements") {
+            document.getElementById("btn-announcements")?.classList.add("active");
+            document.getElementById("announcements-section")?.classList.remove("hidden");
+            loadAnnouncements();
+            return;
+        }
         const sec = document.getElementById("teacher-empty-state-section");
         if (sec) sec.classList.remove("hidden");
         const nameEl = document.getElementById("teacher-empty-state-name");
