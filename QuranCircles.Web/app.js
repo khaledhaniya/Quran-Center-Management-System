@@ -398,11 +398,13 @@ function getRoleArabicName(role) {
 
 function updateSidebarMenu() {
     // Hide all navigation groups safely
-    ['.admin-links', '.developer-links', '.teacher-links', '.parent-links', '.student-links'].forEach(cls => {
+    ['.admin-links', '.developer-links', '.teacher-links', '.parent-links', '.student-links', '.shared-links'].forEach(cls => {
         const el = document.querySelector(cls);
         if (el) el.classList.add("hidden");
     });
     
+    const sharedEl = document.querySelector(".shared-links");
+
     // Show active role group (Developer shares all Admin links)
     if (currentRole === "Admin" || currentRole === "Developer") {
         const adminEl = document.querySelector(".admin-links");
@@ -412,13 +414,14 @@ function updateSidebarMenu() {
             const devEl = document.querySelector(".developer-links");
             if (devEl) devEl.classList.remove("hidden");
         }
+        if (sharedEl) sharedEl.classList.remove("hidden");
     } else if (currentRole === "Teacher") {
         const teacherEl = document.querySelector(".teacher-links");
         if (teacherEl) teacherEl.classList.remove("hidden");
 
         const taskRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = taskRole === "بدون تكليف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "-";
-        const hasCircle = !isNoTask && (taskRole.includes("حلقة") || !taskRole);
+        const isNoTask = taskRole === "بدون تكليف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "-" || taskRole === "";
+        const hasCircle = !isNoTask && (taskRole.includes("حلقة") || taskRole.includes("مساعد"));
         
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
         if (circleTools) {
@@ -443,6 +446,11 @@ function updateSidebarMenu() {
 
         const hasAnyTask = hasCircle || taskRole.includes("الملف المالي") || taskRole.includes("الجودة") || taskRole.includes("التحفيظ") || taskRole.includes("الدورات") || taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية");
         
+        // Only show shared links (competitions, courses, exams, announcements) if the teacher has active tasks/circle
+        if (sharedEl) {
+            sharedEl.classList.toggle("hidden", !hasAnyTask || isNoTask);
+        }
+
         let noTaskNotice = document.getElementById("teacher-no-task-notice");
         if (!hasAnyTask || isNoTask) {
             if (!noTaskNotice && teacherEl) {
@@ -460,9 +468,11 @@ function updateSidebarMenu() {
     } else if (currentRole === "Parent") {
         const parentEl = document.querySelector(".parent-links");
         if (parentEl) parentEl.classList.remove("hidden");
+        if (sharedEl) sharedEl.classList.remove("hidden");
     } else if (currentRole === "Student") {
         const studentEl = document.querySelector(".student-links");
         if (studentEl) studentEl.classList.remove("hidden");
+        if (sharedEl) sharedEl.classList.remove("hidden");
     }
 }
 
@@ -605,6 +615,17 @@ function handleRouting() {
     document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
     document.querySelectorAll(".content-section").forEach(sec => sec.classList.add("hidden"));
     
+    // If teacher has no assigned tasks or circles, lock view exclusively to empty state
+    const tRoleForRouting = (getAuthStorage("taskRole") || "").trim();
+    const isTeacherWithoutTask = currentRole === "Teacher" && (tRoleForRouting === "بدون تكليف" || tRoleForRouting === "معلق" || tRoleForRouting === "بدون مهام" || tRoleForRouting === "-" || tRoleForRouting === "");
+    if (isTeacherWithoutTask) {
+        const sec = document.getElementById("teacher-empty-state-section");
+        if (sec) sec.classList.remove("hidden");
+        const nameEl = document.getElementById("teacher-empty-state-name");
+        if (nameEl) nameEl.textContent = `فضيلة الشيخ / ${getAuthStorage("fullName") || "المعلّم"}`;
+        return;
+    }
+
     // Activate target based on role
     const isAdminOrDev = (currentRole === "Admin" || currentRole === "Developer");
 
