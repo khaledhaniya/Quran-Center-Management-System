@@ -282,6 +282,17 @@ public class TeacherService
             }
         }
 
+        // If teacher is stripped of circle roles (e.g. empty or without حلقة / مساعد), unassign from circles
+        if (t.TaskRole == null || (!t.TaskRole.Contains("حلقة") && !t.TaskRole.Contains("مساعد")))
+        {
+            var circlesToUnlink = await _db.Circles.Where(c => c.TeacherId == id || c.AssistantTeacherId == id).ToListAsync();
+            foreach (var c in circlesToUnlink)
+            {
+                if (c.TeacherId == id) c.TeacherId = null;
+                if (c.AssistantTeacherId == id) c.AssistantTeacherId = null;
+            }
+        }
+
         await _db.SaveChangesAsync();
         return (true, null);
     }

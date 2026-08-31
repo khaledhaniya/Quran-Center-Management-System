@@ -144,6 +144,27 @@ function setupAuth() {
         triggerFaithToast();
         resetInactivityTimer();
 
+        // If logged in as Teacher, silently refresh live profile and tasks from backend
+        if (currentRole === "Teacher") {
+            const currentTchId = getAuthStorage("teacherId");
+            if (currentTchId) {
+                apiRequest(`/teachers/${currentTchId}`, "GET", null, 0, true)
+                    .then(tch => {
+                        if (tch) {
+                            const newRole = tch.taskRole || "";
+                            if (newRole !== getAuthStorage("taskRole")) {
+                                setAuthStorage("taskRole", newRole);
+                                const rEl = document.getElementById("profile-display-role");
+                                if (rEl) rEl.textContent = getRoleArabicName(currentRole);
+                                updateSidebarMenu();
+                                handleRouting();
+                            }
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }
+
         if (currentRole === "Admin" || currentRole === "Developer") {
             updateNotificationBadgeAndBanner();
             if (!window.notifIntervalId) {
@@ -554,12 +575,25 @@ function handleRouting() {
     let defaultHash = "#admin-dashboard";
     if (currentRole === "Teacher") {
         const tRole = (getAuthStorage("taskRole") || "").trim();
-        if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) defaultHash = "#financial-management";
-        else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) defaultHash = "#quality-management";
-        else if ((tRole.includes("التحفيظ") || tRole.includes("منتدى الحفاظ")) && !tRole.includes("حلقة")) defaultHash = "#memorization-forum";
-        else if (tRole.includes("الدورات") && !tRole.includes("حلقة")) defaultHash = "#courses";
-        else if ((tRole.includes("الفتى الواعظ") || tRole.includes("الأصوات الندية")) && !tRole.includes("حلقة")) defaultHash = "#preacher-youth";
-        else defaultHash = "#teacher-attendance";
+        const isNoTask = tRole === "بدون تكليف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
+        
+        if (isNoTask) {
+            defaultHash = "#teacher-empty-state";
+        } else if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) {
+            defaultHash = "#financial-management";
+        } else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) {
+            defaultHash = "#quality-management";
+        } else if ((tRole.includes("التحفيظ") || tRole.includes("منتدى الحفاظ")) && !tRole.includes("حلقة")) {
+            defaultHash = "#memorization-forum";
+        } else if (tRole.includes("الدورات") && !tRole.includes("حلقة")) {
+            defaultHash = "#courses";
+        } else if ((tRole.includes("الفتى الواعظ") || tRole.includes("الأصوات الندية")) && !tRole.includes("حلقة")) {
+            defaultHash = "#preacher-youth";
+        } else if (tRole.includes("حلقة") || tRole.includes("مساعد")) {
+            defaultHash = "#teacher-attendance";
+        } else {
+            defaultHash = "#teacher-empty-state";
+        }
     }
     else if (currentRole === "Parent") defaultHash = "#parent-progress";
     else if (currentRole === "Student") defaultHash = "#student-progress";
@@ -622,54 +656,60 @@ function handleRouting() {
         if (sec) sec.classList.remove("hidden");
         loadDynamicReportsScreen();
     } 
-    else if (hash === "#financial-management") {
+    else if (hash === "#financial-management" && (isAdminOrDev || (currentRole === "Teacher" && (getAuthStorage("taskRole") || "").includes("الملف المالي")))) {
         document.getElementById("btn-admin-financial")?.classList.add("active");
         document.getElementById("btn-teacher-financial")?.classList.add("active");
         document.getElementById("financial-management-section")?.classList.remove("hidden");
         loadFinancialManagementScreen();
     }
-    else if (hash === "#quality-management") {
+    else if (hash === "#quality-management" && (isAdminOrDev || (currentRole === "Teacher" && (getAuthStorage("taskRole") || "").includes("الجودة")))) {
         document.getElementById("btn-admin-quality")?.classList.add("active");
         document.getElementById("btn-teacher-quality")?.classList.add("active");
         document.getElementById("quality-management-section")?.classList.remove("hidden");
         loadQualityManagementScreen();
     }
-    else if (hash === "#memorization-forum") {
+    else if (hash === "#memorization-forum" && (isAdminOrDev || (currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("التحفيظ") || (getAuthStorage("taskRole") || "").includes("منتدى الحفاظ"))))) {
         document.getElementById("btn-admin-memorization")?.classList.add("active");
         document.getElementById("btn-teacher-memorization")?.classList.add("active");
         document.getElementById("memorization-forum-section")?.classList.remove("hidden");
         loadMemorizationForumScreen();
     }
-    else if (hash === "#preacher-youth") {
+    else if (hash === "#preacher-youth" && (isAdminOrDev || (currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("الفتى الواعظ") || (getAuthStorage("taskRole") || "").includes("الأصوات الندية"))))) {
         document.getElementById("btn-admin-preacher")?.classList.add("active");
         document.getElementById("btn-teacher-preacher")?.classList.add("active");
         document.getElementById("preacher-youth-section")?.classList.remove("hidden");
         loadPreacherYouthScreen();
     }
-    else if (hash === "#teacher-attendance" && currentRole === "Teacher") {
+    else if (hash === "#teacher-attendance" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
         document.getElementById("btn-teacher-attendance")?.classList.add("active");
         document.getElementById("teacher-attendance-section")?.classList.remove("hidden");
         loadTeacherAttendanceSetup();
     } 
-    else if (hash === "#teacher-sessions" && currentRole === "Teacher") {
+    else if (hash === "#teacher-sessions" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
         document.getElementById("btn-teacher-sessions")?.classList.add("active");
         document.getElementById("teacher-sessions-section")?.classList.remove("hidden");
         loadTeacherSessionsSetup();
     } 
-    else if (hash === "#teacher-students" && currentRole === "Teacher") {
+    else if (hash === "#teacher-students" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
         document.getElementById("btn-teacher-students")?.classList.add("active");
         document.getElementById("teacher-students-section")?.classList.remove("hidden");
         loadTeacherStudentsSetup();
     }
-    else if (hash === "#teacher-comprehensive-report" && (currentRole === "Teacher" || isAdminOrDev)) {
+    else if (hash === "#teacher-comprehensive-report" && (isAdminOrDev || (currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))))) {
         document.getElementById("btn-teacher-comprehensive-report")?.classList.add("active");
         document.getElementById("teacher-comprehensive-report-section")?.classList.remove("hidden");
         loadTeacherComprehensiveReport();
     }
-    else if (hash === "#teacher-lottery" && currentRole === "Teacher") {
+    else if (hash === "#teacher-lottery" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
         document.getElementById("btn-teacher-lottery")?.classList.add("active");
         document.getElementById("teacher-lottery-section")?.classList.remove("hidden");
         loadTeacherLotterySetup();
+    }
+    else if (hash === "#teacher-empty-state" && currentRole === "Teacher") {
+        const sec = document.getElementById("teacher-empty-state-section");
+        if (sec) sec.classList.remove("hidden");
+        const nameEl = document.getElementById("teacher-empty-state-name");
+        if (nameEl) nameEl.textContent = `فضيلة الشيخ / ${getAuthStorage("fullName") || "المعلّم"}`;
     } 
     else if (hash === "#system-settings" && isAdminOrDev) {
         document.getElementById("btn-admin-system-settings")?.classList.add("active");
