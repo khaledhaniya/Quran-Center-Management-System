@@ -23,8 +23,9 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // 2. Database Context with WAL mode & multi-provider readiness
 var baseDir = AppContext.BaseDirectory;
-var candidate1 = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
-var candidate2 = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
+var projectDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
+var localApiCandidate = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "quran.db"));
+var baseDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
 var envDataDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? Environment.GetEnvironmentVariable("PERSISTENT_DATA_PATH");
 
 string dbPath;
@@ -33,17 +34,23 @@ if (!string.IsNullOrWhiteSpace(envDataDir))
     Directory.CreateDirectory(envDataDir);
     dbPath = Path.Combine(envDataDir, "quran.db");
 }
-else if (File.Exists(candidate1))
+else if (File.Exists(projectDirCandidate))
 {
-    dbPath = candidate1;
+    dbPath = projectDirCandidate;
+}
+else if (File.Exists(localApiCandidate))
+{
+    dbPath = localApiCandidate;
 }
 else
 {
-    dbPath = candidate2;
+    dbPath = baseDirCandidate;
 }
 
+Console.WriteLine($"[Database] Connected to persistent SQLite database at: {dbPath}");
+
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? $"Data Source={dbPath};Cache=Shared;"));
+    opt.UseSqlite($"Data Source={dbPath};Cache=Shared;"));
 
 // 3. Enterprise Services & In-Memory Caching
 builder.Services.AddMemoryCache();
