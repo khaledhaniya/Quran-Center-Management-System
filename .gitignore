@@ -14,14 +14,9 @@
 **/obj/
 *.user
 *.suo
-*.db
 *.db-shm
 *.db-wal
 *.db-journal
-*.sqlite
-*.sqlite3
-**/quran.db
-quran.db
 
 # IDE & OS
 .vscode/
