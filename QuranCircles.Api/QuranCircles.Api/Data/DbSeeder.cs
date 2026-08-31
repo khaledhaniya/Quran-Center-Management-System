@@ -517,6 +517,13 @@ public static class DbSeeder
             {
                 Console.WriteLine($"[Seeder Notice] Syncing teachers: {ex.Message}");
             }
+
+            // 6. Force immediate SQLite WAL Checkpoint to flush all recent changes directly into the main quran.db file
+            try
+            {
+                db.Database.ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE);");
+            }
+            catch { }
         }
         catch (Exception ex)
         {
