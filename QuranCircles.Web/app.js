@@ -396,7 +396,8 @@ function updateSidebarMenu() {
         if (teacherEl) teacherEl.classList.remove("hidden");
 
         const taskRole = (getAuthStorage("taskRole") || "").trim();
-        const hasCircle = taskRole.includes("حلقة") || !taskRole; // Default to circle tools if not specified
+        const isNoTask = taskRole === "بدون تكليف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "-";
+        const hasCircle = !isNoTask && (taskRole.includes("حلقة") || !taskRole);
         
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
         if (circleTools) {
@@ -418,6 +419,23 @@ function updateSidebarMenu() {
 
         const taskPreacher = document.querySelectorAll(".teacher-task-preacher");
         taskPreacher.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية"))));
+
+        const hasAnyTask = hasCircle || taskRole.includes("الملف المالي") || taskRole.includes("الجودة") || taskRole.includes("التحفيظ") || taskRole.includes("الدورات") || taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية");
+        
+        let noTaskNotice = document.getElementById("teacher-no-task-notice");
+        if (!hasAnyTask || isNoTask) {
+            if (!noTaskNotice && teacherEl) {
+                noTaskNotice = document.createElement("div");
+                noTaskNotice.id = "teacher-no-task-notice";
+                noTaskNotice.className = "p-3 text-center text-muted small bg-light rounded-3 my-2 border";
+                noTaskNotice.innerHTML = `<i class="fa-solid fa-user-clock text-warning d-block mb-1 fs-5"></i> لا توجد مهام أو حلقات مسندة لحسابك حالياً.`;
+                teacherEl.appendChild(noTaskNotice);
+            } else if (noTaskNotice) {
+                noTaskNotice.style.display = "block";
+            }
+        } else if (noTaskNotice) {
+            noTaskNotice.style.display = "none";
+        }
     } else if (currentRole === "Parent") {
         const parentEl = document.querySelector(".parent-links");
         if (parentEl) parentEl.classList.remove("hidden");
@@ -1964,7 +1982,10 @@ async function manageTeacherRoles(teacherId) {
             </div>
 
             <div class="mb-2">
-                <label class="form-label fw-bold text-dark mb-2"><i class="fa-solid fa-shield-halved text-primary me-1"></i> حدد المهام والصلاحيات الموكلة للشيخ (يمكن اختيار أكثر من مهمة):</label>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold text-dark mb-0"><i class="fa-solid fa-shield-halved text-primary me-1"></i> حدد المهام والصلاحيات الموكلة للشيخ (يمكن اختيار أكثر من مهمة أو إبقاؤه بدون تكليف):</label>
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" id="btn-clear-all-roles" style="font-size: 0.8rem;"><i class="fa-solid fa-ban me-1"></i> تفريغ كافة المهام</button>
+                </div>
                 <div class="row g-2" id="roles-cards-grid">
                     ${rolesCardsHtml}
                 </div>
@@ -1972,7 +1993,8 @@ async function manageTeacherRoles(teacherId) {
 
             <div class="mt-3 p-2 bg-light border rounded-3">
                 <label class="form-label fw-bold small text-muted mb-1"><i class="fa-solid fa-file-signature text-secondary me-1"></i> نص التكليف المجمع النهائي:</label>
-                <input id="swal-roles-summary-input" class="form-control form-control-sm fw-bold font-monospace text-primary" value="${currentTask}" placeholder="مثال: الملف المالي + معلم دورات">
+                <input id="swal-roles-summary-input" class="form-control form-control-sm fw-bold font-monospace text-primary" value="${currentTask}" placeholder="بدون مهام / بدون تكليف">
+                <small class="text-muted d-block mt-1"><i class="fa-solid fa-info-circle text-primary me-1"></i> إذا تركت الحقل فارغاً أو بدون مهام، فلن تظهر للشيخ أي صفحات أو صلاحيات إدارية عند دخوله.</small>
             </div>
         </div>
     `;
@@ -1996,6 +2018,18 @@ async function manageTeacherRoles(teacherId) {
                 summaryInput.value = checkedVals.join(" + ");
             };
 
+            const clearBtn = document.getElementById("btn-clear-all-roles");
+            if (clearBtn) {
+                clearBtn.addEventListener("click", () => {
+                    document.querySelectorAll(".role-checkbox").forEach(cb => cb.checked = false);
+                    document.querySelectorAll(".role-card-item").forEach(card => {
+                        card.style.background = '#ffffff';
+                        card.style.borderColor = '#e2e8f0';
+                    });
+                    summaryInput.value = "";
+                });
+            }
+
             document.querySelectorAll(".role-card-item").forEach(card => {
                 card.addEventListener("click", (e) => {
                     if (e.target.tagName !== 'INPUT') {
@@ -2016,11 +2050,7 @@ async function manageTeacherRoles(teacherId) {
         },
         preConfirm: () => {
             const summary = document.getElementById("swal-roles-summary-input").value.trim();
-            if (!summary) {
-                Swal.showValidationMessage("يرجى تحديد مهمة واحدة على الأقل للشيخ.");
-                return false;
-            }
-            return summary;
+            return summary; // Can be empty or any custom combination
         }
     });
 
