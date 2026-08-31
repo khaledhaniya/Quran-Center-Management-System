@@ -1430,6 +1430,57 @@ async function loadAdminTeachers(search = "") {
                 hardDeleteTeacher(b.dataset.id, b.dataset.name);
             });
         });
+
+        const btnAddTeacher = document.getElementById("btn-add-teacher");
+        if (btnAddTeacher && !btnAddTeacher._bound) {
+            btnAddTeacher._bound = true;
+            btnAddTeacher.addEventListener("click", () => showTeacherModal());
+        }
+
+        const btnImportExcel = document.getElementById("btn-import-teachers-excel");
+        if (btnImportExcel && !btnImportExcel._bound) {
+            btnImportExcel._bound = true;
+            btnImportExcel.addEventListener("click", async () => {
+                let confirmed = false;
+                if (typeof Swal !== 'undefined') {
+                    const result = await Swal.fire({
+                        title: 'استيراد كادر المعلمين (29-8)',
+                        text: 'هل ترغب في استيراد وتحديث كافة المعلمين (35 معلماً) مع حسابات الدخول (رقم الهوية) والحلقات؟',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'نعم، استيراد وتحديث الآن',
+                        cancelButtonText: 'إلغاء',
+                        confirmButtonColor: '#0d5c3a'
+                    });
+                    confirmed = result.isConfirmed;
+                } else {
+                    confirmed = confirm('هل ترغب في استيراد كادر المعلمين وتحديث بياناتهم؟');
+                }
+
+                if (!confirmed) return;
+
+                try {
+                    btnImportExcel.disabled = true;
+                    btnImportExcel.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري الاستيراد...';
+                    const res = await apiRequest('/teachers/import-excel', 'POST');
+                    showAlert(res.message || 'تم استيراد كادر المعلمين بنجاح!', 'success');
+                    await loadAdminTeachers();
+                } catch(err) {
+                    showAlert(err.message || 'حدث خطأ أثناء استيراد البيانات', 'danger');
+                } finally {
+                    btnImportExcel.disabled = false;
+                    btnImportExcel.innerHTML = '<i class="fa-solid fa-file-excel me-1"></i> استيراد كادر المعلمين (29-8)';
+                }
+            });
+        }
+
+        const searchInput = document.getElementById("teacher-search-input");
+        if (searchInput && !searchInput._bound) {
+            searchInput._bound = true;
+            searchInput.addEventListener("input", (e) => {
+                loadAdminTeachers(e.target.value.trim());
+            });
+        }
         
     } catch(e) {
         console.error(e);
