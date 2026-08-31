@@ -360,22 +360,9 @@ public static class DbSeeder
             }
             catch { }
 
-            // 5. Cleanup obsolete placeholder/dummy teachers (without identity number) and sync all 35 official center teachers
+            // 5. Complete Purge of any dummy / legacy teachers and sync all 35 official center teachers
             try
             {
-                // Remove obsolete single-name dummy teachers with no identity number
-                var dummyTeachers = db.Teachers.Where(t => string.IsNullOrEmpty(t.IdentityNumber) && (t.FullName == "أحمد" || t.FullName == "خالد" || t.FullName == "أبو البراء" || t.FullName == "عيسى محمود" || t.FullName == "بلال" || t.FullName == "الشيخ أحمد" || t.FullName == "الشيخ خالد")).ToList();
-                if (dummyTeachers.Any())
-                {
-                    foreach (var dt in dummyTeachers)
-                    {
-                        var u = db.Users.FirstOrDefault(usr => usr.TeacherId == dt.Id);
-                        if (u != null) db.Users.Remove(u);
-                        db.Teachers.Remove(dt);
-                    }
-                    db.SaveChanges();
-                }
-
                 var excelTeachers = new List<(string FullName, string IdNum, string Dob, string Mobile, string Whatsapp, string SocialStatus, int? FamilyCount, string Mosque, string Qualification, string TaskRole, string WalletNum, string WalletOwner, string Memorized, string StudentsTarget)>
                 {
                     ("علي حسن أحمد النبيه", "408118297", "2002-06-12", "592479669", "00972592479669", "أعزب", 7, "علي بن أبي طالب", "خريج بكالوريوس IT", "مركز البيان", "592479669", "بنك/ علي حسن النبيه", "14", "-"),
@@ -414,6 +401,30 @@ public static class DbSeeder
                     ("محمود فلاح سليمان بدوي", "403762180", "1998-03-30", "597235692", "00972597235692", "متزوج", 4, "علي بن أبي طالب", "توجيهي", "معلم حلقة", "597235692", "محمود فلاح بدوي", "-", ""),
                     ("عبدالله وسيم  خالد هنية", "421055427", "2004-11-10", "567799345", "", "أعزب", 8, "علي بن أبي طالب", "توجيهي", "مساعد حلقة", "567799456", "بنك/ كاملة هنية", "-", "")
                 };
+
+                var officialIds = excelTeachers.Select(x => x.IdNum.Trim()).ToHashSet();
+
+                // Unconditionally delete ANY teacher who has no Identity Number or whose ID is not in the official 35 list
+                var allCurrentTeachers = db.Teachers.ToList();
+                var invalidTeachers = allCurrentTeachers.Where(t => 
+                    string.IsNullOrWhiteSpace(t.IdentityNumber) || 
+                    !officialIds.Contains(t.IdentityNumber.Trim())
+                ).ToList();
+
+                if (invalidTeachers.Any())
+                {
+                    foreach (var it in invalidTeachers)
+                    {
+                        var usersToRemove = db.Users.Where(u => u.TeacherId == it.Id).ToList();
+                        if (usersToRemove.Any()) db.Users.RemoveRange(usersToRemove);
+
+                        var circles = db.Circles.Where(c => c.TeacherId == it.Id).ToList();
+                        foreach (var c in circles) c.TeacherId = null;
+
+                        db.Teachers.Remove(it);
+                    }
+                    db.SaveChanges();
+                }
 
                 var teacherHasher = new PasswordHasher();
 

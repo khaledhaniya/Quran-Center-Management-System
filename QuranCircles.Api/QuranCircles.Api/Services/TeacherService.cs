@@ -18,9 +18,9 @@ public class TeacherService
 
     public async Task<List<TeacherDto>> GetAllAsync(string? search)
     {
-        var q = _db.Teachers.AsQueryable();
+        var q = _db.Teachers.Where(t => !string.IsNullOrEmpty(t.IdentityNumber)).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
-            q = q.Where(t => t.FullName.Contains(search));
+            q = q.Where(t => t.FullName.Contains(search) || (t.IdentityNumber != null && t.IdentityNumber.Contains(search)) || (t.Contact != null && t.Contact.Contains(search)));
         return await q.Select(t => Map(t)).ToListAsync();
     }
 

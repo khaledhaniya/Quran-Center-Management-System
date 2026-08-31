@@ -1444,17 +1444,18 @@ function getTimingArabic(timing) {
 async function loadAdminTeachers(search = "") {
     try {
         const teachers = await apiRequest(`/teachers?search=${search}`);
-        cachedTeachers = teachers;
+        const validTeachers = (teachers || []).filter(t => t.identityNumber && t.identityNumber.trim() !== "");
+        cachedTeachers = validTeachers;
         
         const tbody = document.getElementById("teachers-table-body");
         tbody.innerHTML = "";
         
-        if (teachers.length === 0) {
+        if (validTeachers.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">لا يوجد معلّمون يطابقون البحث.</td></tr>`;
             return;
         }
         
-        teachers.forEach((t, idx) => {
+        validTeachers.forEach((t, idx) => {
             const tr = document.createElement("tr");
             
             const idBadge = t.identityNumber 
