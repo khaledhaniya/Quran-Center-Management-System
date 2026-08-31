@@ -1375,40 +1375,66 @@ async function loadAdminTeachers(search = "") {
         
         teachers.forEach((t, idx) => {
             const tr = document.createElement("tr");
-            const idBadge = t.identityNumber ? `<span class="badge bg-light text-dark font-monospace border"><i class="fa-solid fa-id-card text-primary me-1"></i>${t.identityNumber}</span>` : '<span class="text-muted small">-</span>';
-            const phoneStr = t.contact || t.whatsappNumber || '-';
-            const roleBadge = t.taskRole ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">${t.taskRole}</span>` : '<span class="text-muted small">-</span>';
-            const qualStr = t.qualification || '-';
-            const juzBadge = t.memorizedAjzaa ? `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"><i class="fa-solid fa-book-quran me-1"></i>${t.memorizedAjzaa}</span>` : '<span class="text-muted small">-</span>';
+            
+            const idBadge = t.identityNumber 
+                ? `<div class="teacher-id-badge"><i class="fa-solid fa-id-card text-primary"></i> <span class="id-val">${t.identityNumber}</span></div>` 
+                : '<span class="text-muted small">-</span>';
+
+            const mosqueStr = t.mosqueName 
+                ? `<span class="teacher-mosque-tag"><i class="fa-solid fa-mosque text-muted"></i> ${t.mosqueName}</span>` 
+                : '';
+
+            const phoneStr = t.contact 
+                ? `<div class="teacher-contact-pill"><i class="fa-solid fa-phone text-muted"></i> <span class="phone-val">${t.contact}</span></div>` 
+                : '';
+
+            const waNumClean = (t.whatsappNumber || '').replace(/[^0-9]/g, '');
+            const waStr = t.whatsappNumber 
+                ? `<a href="https://wa.me/${waNumClean}" target="_blank" class="teacher-wa-link" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> <span class="phone-val">${t.whatsappNumber}</span></a>` 
+                : '';
+
+            const roleBadge = t.taskRole 
+                ? `<span class="teacher-task-pill">${t.taskRole}</span>` 
+                : '<span class="text-muted small">-</span>';
+
+            const qualStr = t.qualification 
+                ? `<span class="text-dark fw-bold small">${t.qualification}</span>` 
+                : '<span class="text-muted small">-</span>';
+
+            const juzBadge = t.memorizedAjzaa 
+                ? `<span class="teacher-juz-pill"><i class="fa-solid fa-book-quran text-warning"></i> ${t.memorizedAjzaa}</span>` 
+                : '<span class="text-muted small">-</span>';
 
             tr.innerHTML = `
-                <td><strong>${idx + 1}</strong></td>
+                <td class="text-center fw-bold text-muted" style="width: 50px;">${idx + 1}</td>
                 <td>
-                    <div class="fw-bold text-dark">${t.fullName}</div>
-                    ${t.mosqueName ? `<small class="text-muted"><i class="fa-solid fa-mosque me-1"></i>${t.mosqueName}</small>` : ''}
+                    <div class="teacher-name-cell">
+                        <span class="teacher-title-text">${t.fullName}</span>
+                        ${mosqueStr}
+                    </div>
                 </td>
                 <td>${idBadge}</td>
                 <td>
-                    <div class="d-flex flex-column gap-1">
-                        <span class="font-monospace small"><i class="fa-solid fa-phone text-muted me-1"></i>${t.contact || '-'}</span>
-                        ${t.whatsappNumber && t.whatsappNumber !== t.contact ? `<span class="font-monospace small text-success"><i class="fa-brands fa-whatsapp text-success me-1"></i>${t.whatsappNumber}</span>` : ''}
+                    <div class="teacher-contact-stack">
+                        ${phoneStr}
+                        ${waStr}
                     </div>
                 </td>
                 <td>${roleBadge}</td>
-                <td><small>${qualStr}</small></td>
+                <td>${qualStr}</td>
                 <td>${juzBadge}</td>
-                <td>
-                    <span class="badge ${t.isActive ? 'badge-success' : 'badge-danger'}">
+                <td class="text-center">
+                    <span class="teacher-status-pill ${t.isActive ? 'teacher-status-active' : 'teacher-status-inactive'}">
                         ${t.isActive ? 'نشط' : 'معطّل'}
                     </span>
                 </td>
-                <td>
-                    <div class="d-flex gap-1 flex-wrap">
-                        <button class="btn btn-outline-primary btn-sm btn-edit-teacher" data-id="${t.id}" title="تعديل"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn ${t.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-teacher" data-id="${t.id}" title="${t.isActive ? 'تعطيل' : 'تنشيط'}">
+                <td class="text-center" style="width: 140px;">
+                    <div class="d-flex gap-1 justify-content-center">
+                        <button class="btn btn-outline-primary btn-sm btn-edit-teacher shadow-xs" data-id="${t.id}" title="تعديل"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn ${t.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-teacher shadow-xs" data-id="${t.id}" title="${t.isActive ? 'تعطيل' : 'تنشيط'}">
                             <i class="fa-solid ${t.isActive ? 'fa-ban' : 'fa-check'}"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm btn-hard-delete-teacher" data-id="${t.id}" data-name="${t.fullName}" title="حذف نهائي">
+                        <button class="btn btn-danger btn-sm btn-hard-delete-teacher shadow-xs" data-id="${t.id}" data-name="${t.fullName}" title="حذف نهائي">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>

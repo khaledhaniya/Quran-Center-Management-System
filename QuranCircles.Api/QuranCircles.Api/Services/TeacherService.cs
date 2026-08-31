@@ -18,11 +18,6 @@ public class TeacherService
 
     public async Task<List<TeacherDto>> GetAllAsync(string? search)
     {
-        if (!await _db.Teachers.AnyAsync())
-        {
-            await ImportExcelTeachersAsync();
-        }
-
         var q = _db.Teachers.AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             q = q.Where(t => t.FullName.Contains(search));
