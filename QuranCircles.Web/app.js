@@ -8970,15 +8970,22 @@ function toBoolean(val, defaultVal) {
     return defaultVal;
 }
 
+function cleanArabicText(val, fallback) {
+    if (!val || typeof val !== 'string') return fallback;
+    const trimmed = val.trim();
+    if (trimmed === "" || trimmed.includes("?") || trimmed.includes("")) return fallback;
+    return trimmed;
+}
+
 function normalizeSettings(s) {
     if (!s) return Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
     return {
-        centerName: s.centerName || s.CenterName || DEFAULT_SYSTEM_SETTINGS.centerName,
-        mosqueName: s.mosqueName || s.MosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName,
-        centerAddress: s.centerAddress || s.CenterAddress || DEFAULT_SYSTEM_SETTINGS.centerAddress,
+        centerName: cleanArabicText(s.centerName || s.CenterName, DEFAULT_SYSTEM_SETTINGS.centerName),
+        mosqueName: cleanArabicText(s.mosqueName || s.MosqueName, DEFAULT_SYSTEM_SETTINGS.mosqueName),
+        centerAddress: cleanArabicText(s.centerAddress || s.CenterAddress, DEFAULT_SYSTEM_SETTINGS.centerAddress),
         supportPhone: s.supportPhone || s.SupportPhone || DEFAULT_SYSTEM_SETTINGS.supportPhone,
         supportEmail: s.supportEmail || s.SupportEmail || DEFAULT_SYSTEM_SETTINGS.supportEmail,
-        welcomeMessage: s.welcomeMessage || s.WelcomeMessage || DEFAULT_SYSTEM_SETTINGS.welcomeMessage,
+        welcomeMessage: cleanArabicText(s.welcomeMessage || s.WelcomeMessage, DEFAULT_SYSTEM_SETTINGS.welcomeMessage),
         logoUrl: s.logoUrl || s.LogoUrl || "",
         themeStyle: s.themeStyle || s.ThemeStyle || DEFAULT_SYSTEM_SETTINGS.themeStyle,
         passingScoreThreshold: Number(s.passingScoreThreshold ?? s.PassingScoreThreshold ?? DEFAULT_SYSTEM_SETTINGS.passingScoreThreshold),
@@ -8993,12 +9000,12 @@ function normalizeSettings(s) {
         showStudentCountToTeacher: toBoolean(s.showStudentCountToTeacher ?? s.ShowStudentCountToTeacher, DEFAULT_SYSTEM_SETTINGS.showStudentCountToTeacher),
         showCumulativeAttendance: toBoolean(s.showCumulativeAttendance ?? s.ShowCumulativeAttendance, DEFAULT_SYSTEM_SETTINGS.showCumulativeAttendance),
         enableCertificates: toBoolean(s.enableCertificates ?? s.EnableCertificates, DEFAULT_SYSTEM_SETTINGS.enableCertificates),
-        signatoryName: s.signatoryName || s.SignatoryName || DEFAULT_SYSTEM_SETTINGS.signatoryName,
-        signatoryTitle: s.signatoryTitle || s.SignatoryTitle || DEFAULT_SYSTEM_SETTINGS.signatoryTitle,
+        signatoryName: cleanArabicText(s.signatoryName || s.SignatoryName, DEFAULT_SYSTEM_SETTINGS.signatoryName),
+        signatoryTitle: cleanArabicText(s.signatoryTitle || s.SignatoryTitle, DEFAULT_SYSTEM_SETTINGS.signatoryTitle),
         showHonorsBoard: toBoolean(s.showHonorsBoard ?? s.ShowHonorsBoard, DEFAULT_SYSTEM_SETTINGS.showHonorsBoard),
         allowPublicAnnouncements: toBoolean(s.allowPublicAnnouncements ?? s.AllowPublicAnnouncements, DEFAULT_SYSTEM_SETTINGS.allowPublicAnnouncements),
         enableAbsenceAutoAlert: toBoolean(s.enableAbsenceAutoAlert ?? s.EnableAbsenceAutoAlert, DEFAULT_SYSTEM_SETTINGS.enableAbsenceAutoAlert),
-        absenceAlertTemplate: s.absenceAlertTemplate || s.AbsenceAlertTemplate || DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate,
+        absenceAlertTemplate: cleanArabicText(s.absenceAlertTemplate || s.AbsenceAlertTemplate, DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate),
         maintenanceMode: toBoolean(s.maintenanceMode ?? s.MaintenanceMode, DEFAULT_SYSTEM_SETTINGS.maintenanceMode)
     };
 }

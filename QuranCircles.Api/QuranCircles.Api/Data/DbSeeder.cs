@@ -403,10 +403,11 @@ public static class DbSeeder
             }
             catch { }
 
-            // 3. Ensure default SystemSettings row exists
+            // 3. Ensure default SystemSettings row exists and is healthy
             try
             {
-                if (!db.SystemSettings.Any())
+                var existingSettings = db.SystemSettings.FirstOrDefault();
+                if (existingSettings == null)
                 {
                     db.SystemSettings.Add(new SystemSettings
                     {
@@ -440,40 +441,40 @@ public static class DbSeeder
                     });
                     db.SaveChanges();
                 }
-                // Only seed initial default SystemSettings if table is completely empty
-                if (!db.SystemSettings.Any())
+                else
                 {
-                    db.SystemSettings.Add(new SystemSettings
+                    // Automatic self-healing: if any Arabic field got corrupted with question marks, restore clean Arabic
+                    bool repaired = false;
+                    if (string.IsNullOrWhiteSpace(existingSettings.CenterName) || existingSettings.CenterName.Contains("?"))
                     {
-                        CenterName = "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
-                        MosqueName = "مسجد علي بن أبي طالب",
-                        CenterAddress = "فلسطين - غزة - المقر الرئيسي",
-                        SupportPhone = "+970599000000",
-                        SupportEmail = "info@albayan.quran",
-                        WelcomeMessage = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية",
-                        ThemeStyle = "Classic",
-                        PassingScoreThreshold = 70,
-                        MinAttendancePercentForExam = 75,
-                        MaxStudentsPerCircle = 20,
-                        MaxAbsenceDaysWarning = 3,
-                        AllowTeacherEditStudentPlan = true,
-                        AllowTeacherSelfEnrollment = true,
-                        HideParentPhoneFromTeacher = false,
-                        AllowStudentProfileEditRequests = true,
-                        EnforceDailyAttendanceRecording = true,
-                        ShowStudentCountToTeacher = true,
-                        ShowCumulativeAttendance = true,
-                        EnableCertificates = true,
-                        SignatoryName = "فضيلة الشيخ / رئيس المركز",
-                        SignatoryTitle = "المشرف العام على حلقات تحفيظ القرآن الكريم",
-                        ShowHonorsBoard = true,
-                        AllowPublicAnnouncements = true,
-                        EnableAbsenceAutoAlert = true,
-                        AbsenceAlertTemplate = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.",
-                        MaintenanceMode = false,
-                        UpdatedAt = DateTime.UtcNow
-                    });
-                    db.SaveChanges();
+                        existingSettings.CenterName = "مركز البيان لتعليم القرآن الكريم وتدريس علومه";
+                        repaired = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existingSettings.MosqueName) || existingSettings.MosqueName.Contains("?"))
+                    {
+                        existingSettings.MosqueName = "مسجد علي بن أبي طالب";
+                        repaired = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existingSettings.WelcomeMessage) || existingSettings.WelcomeMessage.Contains("?"))
+                    {
+                        existingSettings.WelcomeMessage = "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية";
+                        repaired = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existingSettings.SignatoryName) || existingSettings.SignatoryName.Contains("?"))
+                    {
+                        existingSettings.SignatoryName = "فضيلة الشيخ / رئيس المركز";
+                        repaired = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existingSettings.SignatoryTitle) || existingSettings.SignatoryTitle.Contains("?"))
+                    {
+                        existingSettings.SignatoryTitle = "المشرف العام على حلقات تحفيظ القرآن الكريم";
+                        repaired = true;
+                    }
+                    if (repaired)
+                    {
+                        existingSettings.UpdatedAt = DateTime.UtcNow;
+                        db.SaveChanges();
+                    }
                 }
             }
             catch { }
