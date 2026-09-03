@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
+using QuranCircles.Api.Entities;
 using QuranCircles.Api.Services;
 
 namespace QuranCircles.Api.Controllers;

@@ -65,7 +65,7 @@ if (!string.IsNullOrWhiteSpace(postgresConnStr))
 else
 {
     var baseDir = AppContext.BaseDirectory;
-    var contentRootCandidate = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "quran.db"));
+    var contentRootCandidate = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "quran.db"));
     var baseDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
     var localApiCandidate = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "quran.db"));
     var projectDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
