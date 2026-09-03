@@ -7,6 +7,7 @@ echo ========================================================
 git status
 echo.
 git add .
+git reset -- QuranCircles.Api/QuranCircles.Api/quran.db 2>nul
 git commit -m "Update and sync project changes to GitHub Pages"
 git push origin main
 echo.
