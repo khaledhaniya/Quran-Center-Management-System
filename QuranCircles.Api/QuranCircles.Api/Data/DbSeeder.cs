@@ -488,17 +488,6 @@ public static partial class DbSeeder
                             IsActive = true
                         });
                         db.SaveChanges();
-
-                        if (et.TaskRole.Contains("حلقة"))
-                        {
-                            db.Circles.Add(new Circle
-                            {
-                                Name = $"حلقة {teacher.FullName}",
-                                Timing = SessionTiming.Aser,
-                                TeacherId = teacher.Id
-                            });
-                            db.SaveChanges();
-                        }
                     }
                 }
             }

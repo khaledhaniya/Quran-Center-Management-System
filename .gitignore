@@ -14,9 +14,13 @@
 **/obj/
 *.user
 *.suo
+# Database files (Never commit or push database files to GitHub)
+*.db
 *.db-shm
 *.db-wal
 *.db-journal
+quran.db
+**/quran.db
 
 # IDE & OS
 .vscode/

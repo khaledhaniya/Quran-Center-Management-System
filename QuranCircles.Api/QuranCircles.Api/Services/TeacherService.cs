@@ -152,17 +152,6 @@ public class TeacherService
                 }
                 await _db.SaveChangesAsync();
             }
-
-            if (et.TaskRole.Contains("حلقة") && !await _db.Circles.AnyAsync(c => c.TeacherId == teacher.Id))
-            {
-                _db.Circles.Add(new Circle
-                {
-                    Name = $"حلقة {teacher.FullName}",
-                    Timing = SessionTiming.Aser,
-                    TeacherId = teacher.Id
-                });
-                await _db.SaveChangesAsync();
-            }
         }
 
         return (imported, updated, null);
