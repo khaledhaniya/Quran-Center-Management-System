@@ -10781,126 +10781,95 @@ function renderFinancialTransactionsTable(list) {
 // -------------------------------------------------------------------------
 async function openCreateTransactionModal(defaultType = 'Income') {
     const isIncome = defaultType === 'Income';
-    const modalTitle = isIncome ? '🟢 إضافة سند قبض / وارد مالي (تبرع)' : '🔴 إضافة سند صرف / صادر مالي (مصروف)';
-    const defaultCat = isIncome ? 'تبرعات عامة للمركز' : 'مكافآت كادر المعلمين';
+    const modalTitle = isIncome ? '🟢 تسجيل وارد مالي / تبرع' : '🔴 تسجيل مصروف / صادر مالي';
     const todayStr = new Date().toISOString().slice(0, 10);
 
     const { value: formValues } = await Swal.fire({
         title: modalTitle,
-        width: '650px',
+        width: '540px',
         html: `
-            <div class="text-start" dir="rtl">
+            <div style="text-align: right; font-family: 'Cairo', sans-serif;" dir="rtl">
                 <!-- Type Selection -->
-                <div class="mb-3 text-center">
-                    <div class="btn-group w-100" role="group">
-                        <input type="radio" class="btn-check" name="swal-trans-type" id="swal-type-income" value="1" ${isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(1)">
-                        <label class="btn btn-outline-success fw-bold py-2" for="swal-type-income"><i class="fa-solid fa-circle-down me-1"></i> سند قبض / وارد وتبرع</label>
-
-                        <input type="radio" class="btn-check" name="swal-trans-type" id="swal-type-expense" value="2" ${!isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(2)">
-                        <label class="btn btn-outline-danger fw-bold py-2" for="swal-type-expense"><i class="fa-solid fa-circle-up me-1"></i> سند صرف / مصروف ونفقات</label>
-                    </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+                    <label id="swal-lbl-income" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${isIncome ? '#10b981' : '#e2e8f0'}; background: ${isIncome ? '#dcfce7' : '#ffffff'}; cursor: pointer; text-align: center; font-weight: 700; color: #16a34a; font-size: 0.9rem;">
+                        <input type="radio" name="swal-trans-type" value="1" ${isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(1)" style="margin-left: 6px;">
+                        <i class="fa-solid fa-circle-down"></i> وارد / تبرع
+                    </label>
+                    <label id="swal-lbl-expense" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${!isIncome ? '#ef4444' : '#e2e8f0'}; background: ${!isIncome ? '#fee2e2' : '#ffffff'}; cursor: pointer; text-align: center; font-weight: 700; color: #dc2626; font-size: 0.9rem;">
+                        <input type="radio" name="swal-trans-type" value="2" ${!isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(2)" style="margin-left: 6px;">
+                        <i class="fa-solid fa-circle-up"></i> مصروف
+                    </label>
                 </div>
 
-                <!-- Amount & Currency & Date -->
-                <div class="row g-2 mb-3">
-                    <div class="col-md-5">
-                        <label class="form-label small fw-bold">المبلغ <span class="text-danger">*</span></label>
-                        <input type="number" id="swal-trans-amount" class="form-control form-control-lg fw-bold text-center text-primary" placeholder="0.00" step="0.5" required>
+                <!-- Amount & Date -->
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">المبلغ (شيكل ₪) <span style="color: #ef4444;">*</span></label>
+                        <input type="number" id="swal-trans-amount" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 1.25rem; font-weight: 800; text-align: center; color: #0d5c3a; box-sizing: border-box;" placeholder="0.00" step="0.5" required>
+                        <input type="hidden" id="swal-trans-currency" value="ILS">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold">العملة</label>
-                        <select id="swal-trans-currency" class="form-select form-select-lg fw-bold">
-                            <option value="ILS">شيكل ₪</option>
-                            <option value="USD">دولار $</option>
-                            <option value="JOD">دينار JD</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">تاريخ المعاملة <span class="text-danger">*</span></label>
-                        <input type="date" id="swal-trans-date" class="form-control form-control-lg" value="${todayStr}">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">التاريخ <span style="color: #ef4444;">*</span></label>
+                        <input type="date" id="swal-trans-date" value="${todayStr}" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;">
                     </div>
                 </div>
 
                 <!-- Title / Description -->
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">البيان / عنوان المعاملة <span class="text-danger">*</span></label>
-                    <input type="text" id="swal-trans-title" class="form-control fw-bold" placeholder="مثال: تبرع كفالة حلقة قرآنية / شراء قرطاسية / مكافأة شهر أغسطس..." required>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">البيان / الشرح <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="swal-trans-title" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;" placeholder="مثال: تبرع كفالة حلقة / شراء قرطاسية / مكافأة شهر..." required>
                 </div>
 
-                <!-- Category & Payment Method -->
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold">التصنيف / البند</label>
-                        <select id="swal-trans-category" class="form-select">
-                            <option value="تبرعات عامة للمركز">تبرعات عامة للمركز</option>
-                            <option value="كفالة حلقات قرآنية">كفالة حلقات قرآنية</option>
-                            <option value="مكافآت كادر المعلمين">مكافآت كادر المعلمين</option>
-                            <option value="جوائز وتكريم الطلاب">جوائز وتكريم الطلاب</option>
-                            <option value="مطبوعات وقرطاسية وشهادات">مطبوعات وقرطاسية وشهادات</option>
-                            <option value="ضيافة وأنشطة مركزية">ضيافة وأنشطة مركزية</option>
-                            <option value="صيانة وتجهيزات وتأهيل">صيانة وتجهيزات وتأهيل</option>
-                            <option value="فواتير وخدمات">فواتير وخدمات</option>
-                            <option value="أخرى">أخرى</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold">طريقة الاستلام / الصرف <span class="text-danger">*</span></label>
-                        <select id="swal-trans-method" class="form-select" onchange="togglePaymentDetailsInput(this.value)">
+                <!-- Payment Method & Detail -->
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">طريقة الدفع <span style="color: #ef4444;">*</span></label>
+                        <select id="swal-trans-method" onchange="togglePaymentDetailsInput(this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; background: #fff; font-size: 0.88rem;">
                             <option value="1">💵 كاش (نقداً)</option>
-                            <option value="2">📱 تطبيق ومحفظة إلكترونية (Jawwal Pay / PalPay)</option>
-                            <option value="3">🏦 تحويل / حساب بنكي</option>
+                            <option value="2">📱 تطبيق ومحفظة (Jawwal Pay / PalPay)</option>
+                            <option value="3">🏦 تحويل بنكي</option>
                         </select>
                     </div>
-                </div>
-
-                <!-- Payment Details (App / Bank Name) -->
-                <div class="mb-3" id="swal-payment-details-box" style="display: none;">
-                    <label class="form-label small fw-bold">تفاصيل التطبيق / البنك / رقم العملية</label>
-                    <input type="text" id="swal-trans-payment-details" class="form-control" placeholder="مثال: Jawwal Pay / بنك فلسطين - حساب رقم 1234...">
+                    <div style="flex: 1; display: none;" id="swal-payment-details-box">
+                        <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">اسم التطبيق / رقم الحساب</label>
+                        <input type="text" id="swal-trans-payment-details" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.88rem;" placeholder="مثال: Jawwal Pay...">
+                    </div>
                 </div>
 
                 <!-- Donor Fields (for Income) -->
-                <div id="swal-donor-fields" class="p-3 bg-light rounded-3 border mb-3" style="${isIncome ? '' : 'display: none;'}">
-                    <h6 class="fw-bold text-success mb-2"><i class="fa-solid fa-hand-holding-heart me-1"></i> بيانات المتبرع وجهة التبرع</h6>
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">اسم المتبرع</label>
-                            <input type="text" id="swal-trans-donor-name" class="form-control" placeholder="فاعل خير / الاسم...">
+                <div id="swal-donor-fields" style="padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 12px; ${isIncome ? '' : 'display: none;'}">
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.78rem; font-weight: 700; display: block; margin-bottom: 3px; color: #16a34a;">اسم المتبرع</label>
+                            <input type="text" id="swal-trans-donor-name" style="width: 100%; padding: 7px 10px; border: 1px solid #86efac; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;" placeholder="فاعل خير / الاسم...">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">طرف مين التبرع / الواسطة أو الجهة</label>
-                            <input type="text" id="swal-trans-donor-source" class="form-control" placeholder="مثال: طرف الشيخ فلان / جمعية كذا...">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.78rem; font-weight: 700; display: block; margin-bottom: 3px; color: #16a34a;">طرف مين التبرع؟</label>
+                            <input type="text" id="swal-trans-donor-source" style="width: 100%; padding: 7px 10px; border: 1px solid #86efac; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;" placeholder="مثال: طرف الشيخ فلان...">
                         </div>
                     </div>
                 </div>
 
                 <!-- Recipient Fields (for Expense) -->
-                <div id="swal-expense-fields" class="p-3 bg-light rounded-3 border mb-3" style="${!isIncome ? '' : 'display: none;'}">
-                    <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-user-tag me-1"></i> المستلم / الجهة المصروف لها</h6>
-                    <div class="row g-2">
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold">اسم المستلم أو الجهة المصروف لها</label>
-                            <input type="text" id="swal-trans-recipient" class="form-control" placeholder="مثال: الشيخ فلان / مكتبة الأقصى / شركة الكهرباء...">
-                        </div>
-                    </div>
+                <div id="swal-expense-fields" style="padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin-bottom: 12px; ${!isIncome ? '' : 'display: none;'}">
+                    <label style="font-size: 0.78rem; font-weight: 700; display: block; margin-bottom: 3px; color: #dc2626;">المستلم / لمن صُرفت المصاري؟</label>
+                    <input type="text" id="swal-trans-recipient" style="width: 100%; padding: 7px 10px; border: 1px solid #fca5a5; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;" placeholder="اسم المستلم أو المحل أو الجهة...">
                 </div>
 
-                <!-- Reference Number & Notes -->
-                <div class="row g-2">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">رقم السند / الإيصال</label>
-                        <input type="text" id="swal-trans-ref" class="form-control" placeholder="مثال: REC-102">
+                <!-- Notes / Reference -->
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <input type="text" id="swal-trans-ref" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 0.8rem;" placeholder="رقم السند/الإيصال (اختياري)">
                     </div>
-                    <div class="col-md-8">
-                        <label class="form-label small fw-bold">ملاحظات إضافية</label>
-                        <input type="text" id="swal-trans-notes" class="form-control" placeholder="أي تفاصيل أو ملاحظات أخرى...">
+                    <div style="flex: 2;">
+                        <input type="text" id="swal-trans-notes" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 0.8rem;" placeholder="ملاحظة إضافية (اختياري)">
                     </div>
                 </div>
             </div>
         `,
         focusConfirm: false,
         showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> حفظ وتسجيل السند',
+        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> حفظ السند',
         cancelButtonText: 'إلغاء',
         confirmButtonColor: isIncome ? '#10b981' : '#ef4444',
         preConfirm: () => {
@@ -10956,12 +10925,18 @@ async function openCreateTransactionModal(defaultType = 'Income') {
 function toggleSwalFinanceFields(typeVal) {
     const donorFields = document.getElementById('swal-donor-fields');
     const expenseFields = document.getElementById('swal-expense-fields');
+    const lblIncome = document.getElementById('swal-lbl-income');
+    const lblExpense = document.getElementById('swal-lbl-expense');
     if (typeVal === 1) {
         if (donorFields) donorFields.style.display = 'block';
         if (expenseFields) expenseFields.style.display = 'none';
+        if (lblIncome) { lblIncome.style.borderColor = '#10b981'; lblIncome.style.backgroundColor = '#dcfce7'; }
+        if (lblExpense) { lblExpense.style.borderColor = '#e2e8f0'; lblExpense.style.backgroundColor = '#ffffff'; }
     } else {
         if (donorFields) donorFields.style.display = 'none';
         if (expenseFields) expenseFields.style.display = 'block';
+        if (lblIncome) { lblIncome.style.borderColor = '#e2e8f0'; lblIncome.style.backgroundColor = '#ffffff'; }
+        if (lblExpense) { lblExpense.style.borderColor = '#ef4444'; lblExpense.style.backgroundColor = '#fee2e2'; }
     }
 }
 
