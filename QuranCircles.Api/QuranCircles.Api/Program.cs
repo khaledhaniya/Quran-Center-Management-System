@@ -188,7 +188,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Serve QuranCircles.Web directly if present locally
+string? webDir = null;
 try
 {
     var candidates = new[]
@@ -199,7 +199,7 @@ try
         @"c:\xampp\htdocs\Quran Center\QuranCircles.Web"
     };
 
-    var webDir = candidates.FirstOrDefault(Directory.Exists);
+    webDir = candidates.FirstOrDefault(Directory.Exists);
     if (webDir != null)
     {
         var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webDir);
@@ -246,7 +246,7 @@ app.Use(async (context, next) =>
 });
 
 // 5. Root & Health Check Endpoints
-app.MapGet("/", () => Results.Ok(new
+app.MapGet("/api/status", () => Results.Ok(new
 {
     status = "online",
     center = "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
@@ -254,6 +254,18 @@ app.MapGet("/", () => Results.Ok(new
     version = "1.1.0",
     engine = "ASP.NET Core 9.0 Enterprise Edition"
 }));
+
+if (webDir == null)
+{
+    app.MapGet("/", () => Results.Ok(new
+    {
+        status = "online",
+        center = "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
+        timestamp = DateTime.UtcNow,
+        version = "1.1.0",
+        engine = "ASP.NET Core 9.0 Enterprise Edition"
+    }));
+}
 
 app.MapGet("/healthz", async (AppDbContext db) =>
 {
