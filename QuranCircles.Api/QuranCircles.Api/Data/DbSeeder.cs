@@ -4,47 +4,50 @@ using QuranCircles.Api.Services;
 
 namespace QuranCircles.Api.Data;
 
-public static class DbSeeder
+public static partial class DbSeeder
 {
     public static void Seed(AppDbContext db, PasswordHasher hasher)
     {
-        // إذا كان هناك أي مستخدم مسجل في النظام، لا تقم بإضافة أي بيانات تجريبية
-        if (db.Users.Any()) return;
+        // 1. إضافة المستخدمين الإداريين الأساسيين فقط عند تشغيل النظام لأول مرة على قاعدة بيانات فارغة
+        if (!db.Users.Any())
+        {
+            db.Users.AddRange(
+                // المطور (Developer)
+                new User 
+                { 
+                    Username = "dev", 
+                    PasswordHash = hasher.HashPassword("dev123"), 
+                    PlainPassword = "dev123",
+                    Role = UserRole.Developer, 
+                    FullName = "مطور النظام", 
+                    IsActive = true 
+                },
+                // مدير المركز (Admin)
+                new User 
+                { 
+                    Username = "admin", 
+                    PasswordHash = hasher.HashPassword("admin123"), 
+                    PlainPassword = "admin123",
+                    Role = UserRole.Admin, 
+                    FullName = "مدير المركز", 
+                    IsActive = true 
+                },
+                // حساب مشرف ومقيم الاختبارات
+                new User
+                {
+                    Username = "wael",
+                    PasswordHash = hasher.HashPassword("wael123"),
+                    PlainPassword = "wael123",
+                    Role = UserRole.ExamSupervisor,
+                    FullName = "المشرف وائل هلية",
+                    IsActive = true
+                }
+            );
+            db.SaveChanges();
+        }
 
-        // إضافة المستخدمين الإداريين الأساسيين فقط عند تشغيل النظام لأول مرة على قاعدة بيانات فارغة تماماً
-        db.Users.AddRange(
-            // المطور (Developer)
-            new User 
-            { 
-                Username = "dev", 
-                PasswordHash = hasher.HashPassword("dev123"), 
-                PlainPassword = "dev123",
-                Role = UserRole.Developer, 
-                FullName = "مطور النظام", 
-                IsActive = true 
-            },
-            // مدير المركز (Admin)
-            new User 
-            { 
-                Username = "admin", 
-                PasswordHash = hasher.HashPassword("admin123"), 
-                PlainPassword = "admin123",
-                Role = UserRole.Admin, 
-                FullName = "مدير المركز", 
-                IsActive = true 
-            },
-            // حساب مشرف ومقيم الاختبارات
-            new User
-            {
-                Username = "wael",
-                PasswordHash = hasher.HashPassword("wael123"),
-                PlainPassword = "wael123",
-                Role = UserRole.ExamSupervisor,
-                FullName = "المشرف وائل هلية",
-                IsActive = true
-            }
-        );
-        db.SaveChanges();
+        // 2. استيراد بيانات الطلاب الأساسية لمرة واحدة فقط إذا كان جدول الطلاب فارغاً
+        SeedStudents(db, hasher);
     }
 
     public static void MigrateSchema(AppDbContext db)

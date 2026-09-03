@@ -138,6 +138,7 @@ using (var scope = app.Services.CreateScope())
 
         DbSeeder.MigrateSchema(db);
         DbSeeder.Seed(db, hasher);
+        Console.WriteLine($"[Database Status] Teachers: {db.Teachers.Count()}, Students: {db.Students.Count()}, Users: {db.Users.Count()}");
     }
     catch (Exception ex)
     {
