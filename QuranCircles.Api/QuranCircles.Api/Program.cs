@@ -224,6 +224,11 @@ try
     if (mobileDir != null)
     {
         var mobileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(mobileDir);
+        app.UseDefaultFiles(new DefaultFilesOptions
+        {
+            FileProvider = mobileProvider,
+            RequestPath = "/mobile"
+        });
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = mobileProvider,
