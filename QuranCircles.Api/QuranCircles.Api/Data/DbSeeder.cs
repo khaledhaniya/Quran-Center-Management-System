@@ -52,6 +52,8 @@ public static partial class DbSeeder
 
     public static void MigrateSchema(AppDbContext db)
     {
+        if (!db.Database.IsSqlite()) return;
+
         try
         {
             // 1. Add missing columns to Students table safely

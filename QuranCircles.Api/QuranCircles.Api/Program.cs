@@ -21,36 +21,78 @@ builder.Host.ConfigureAppConfiguration((hostingContext, config) =>
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5070";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// 2. Database Context with WAL mode & multi-provider readiness
-var baseDir = AppContext.BaseDirectory;
-var projectDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
-var localApiCandidate = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "quran.db"));
-var baseDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
-var envDataDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? Environment.GetEnvironmentVariable("PERSISTENT_DATA_PATH");
+// 2. Database Context with Dual Provider (Cloud PostgreSQL / Local SQLite)
+var postgresUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
+               ?? Environment.GetEnvironmentVariable("POSTGRES_URL")
+               ?? Environment.GetEnvironmentVariable("POSTGRESQL_URL")
+               ?? builder.Configuration.GetConnectionString("PostgreSql");
 
-string dbPath;
-if (!string.IsNullOrWhiteSpace(envDataDir))
+string? postgresConnStr = null;
+if (!string.IsNullOrWhiteSpace(postgresUrl))
 {
-    Directory.CreateDirectory(envDataDir);
-    dbPath = Path.Combine(envDataDir, "quran.db");
+    if (postgresUrl.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+        postgresUrl.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var uri = new Uri(postgresUrl);
+            var userInfo = uri.UserInfo.Split(':');
+            var user = userInfo[0];
+            var password = userInfo.Length > 1 ? userInfo[1] : "";
+            var host = uri.Host;
+            var portNum = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.TrimStart('/');
+            postgresConnStr = $"Host={host};Port={portNum};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Database] Warning parsing PostgreSQL URI: {ex.Message}. Using raw string.");
+            postgresConnStr = postgresUrl;
+        }
+    }
+    else
+    {
+        postgresConnStr = postgresUrl;
+    }
 }
-else if (File.Exists(projectDirCandidate))
+
+if (!string.IsNullOrWhiteSpace(postgresConnStr))
 {
-    dbPath = projectDirCandidate;
-}
-else if (File.Exists(localApiCandidate))
-{
-    dbPath = localApiCandidate;
+    Console.WriteLine("[Database] 🚀 Connected to Cloud PostgreSQL database (Permanent Cloud Storage)!");
+    builder.Services.AddDbContext<AppDbContext>(opt =>
+        opt.UseNpgsql(postgresConnStr));
 }
 else
 {
-    dbPath = baseDirCandidate;
+    var baseDir = AppContext.BaseDirectory;
+    var projectDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
+    var localApiCandidate = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "quran.db"));
+    var baseDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
+    var envDataDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? Environment.GetEnvironmentVariable("PERSISTENT_DATA_PATH");
+
+    string dbPath;
+    if (!string.IsNullOrWhiteSpace(envDataDir))
+    {
+        Directory.CreateDirectory(envDataDir);
+        dbPath = Path.Combine(envDataDir, "quran.db");
+    }
+    else if (File.Exists(projectDirCandidate))
+    {
+        dbPath = projectDirCandidate;
+    }
+    else if (File.Exists(localApiCandidate))
+    {
+        dbPath = localApiCandidate;
+    }
+    else
+    {
+        dbPath = baseDirCandidate;
+    }
+
+    Console.WriteLine($"[Database] Connected to local SQLite database at: {dbPath}");
+    builder.Services.AddDbContext<AppDbContext>(opt =>
+        opt.UseSqlite($"Data Source={dbPath};Cache=Shared;"));
 }
-
-Console.WriteLine($"[Database] Connected to persistent SQLite database at: {dbPath}");
-
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite($"Data Source={dbPath};Cache=Shared;"));
 
 // 3. Enterprise Services & In-Memory Caching
 builder.Services.AddMemoryCache();
