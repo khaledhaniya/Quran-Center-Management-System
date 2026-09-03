@@ -212,6 +212,8 @@ class Circle {
   final String? timing;
   final int? teacherId;
   final String? teacherName;
+  final int? assistantTeacherId;
+  final String? assistantTeacherName;
   final int studentCount;
   final bool isActive;
 
@@ -221,6 +223,8 @@ class Circle {
     this.timing,
     this.teacherId,
     this.teacherName,
+    this.assistantTeacherId,
+    this.assistantTeacherName,
     this.studentCount = 0,
     required this.isActive,
   });
@@ -232,6 +236,8 @@ class Circle {
       timing: json['timing']?.toString(),
       teacherId: json['teacherId'],
       teacherName: json['teacherName'],
+      assistantTeacherId: json['assistantTeacherId'],
+      assistantTeacherName: json['assistantTeacherName'],
       studentCount: json['studentCount'] ?? 0,
       isActive: json['isActive'] ?? true,
     );

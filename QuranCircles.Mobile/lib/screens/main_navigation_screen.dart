@@ -21,6 +21,8 @@ import 'student_360_screen.dart';
 import 'students_management_screen.dart';
 import 'teachers_management_screen.dart';
 import 'system_settings_screen.dart';
+import 'financial_management_screen.dart';
+import 'quality_management_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -272,6 +274,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)),
+                title: Text('سجل الصندوق والمالية والتبرعات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
+                subtitle: Text('كشف حركة الصندوق، سندات القبض والصرف', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const FinancialManagementScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.verified_user, color: Color(0xFF0D5C3A)),
+                title: Text('ملف الجودة والرقابة والتوجيه', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('تقارير الزيارات التفتيشية وتقييم الحلقات', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const QualityManagementScreen()));
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.notifications_active, color: AppTheme.primary),
                 title: Text('طلبات تعديل ملفات الطلاب والأولياء', style: AppTheme.cairoStyle()),
                 trailing: _pendingRequestsCount > 0
@@ -373,6 +393,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)),
+                title: Text('سجل الصندوق والمالية والتبرعات', style: AppTheme.cairoStyle()),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const FinancialManagementScreen()));
                 },
               ),
             ],

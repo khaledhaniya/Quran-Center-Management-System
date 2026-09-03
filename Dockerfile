@@ -10,6 +10,8 @@ RUN cp quran.db /app/publish/quran.db || true
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+COPY ["QuranCircles.Web/", "/app/QuranCircles.Web/"]
+COPY ["QuranCircles.Mobile/build/web/", "/app/QuranCircles.Mobile/build/web/"]
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV ASPNETCORE_ENVIRONMENT=Production

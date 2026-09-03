@@ -6,9 +6,18 @@ import 'notification_service.dart';
 import 'offline_sync_manager.dart';
 
 class ApiService {
-  static String baseUrl = 'https://albayan-quran.onrender.com/api';
+  static String baseUrl = 'http://localhost:5070/api';
   static User? currentUser;
   static String? authToken;
+
+  static void setBaseUrl(String url) {
+    if (url.isNotEmpty) {
+      baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+      if (!baseUrl.endsWith('/api') && !baseUrl.contains('/api')) {
+        baseUrl = '$baseUrl/api';
+      }
+    }
+  }
 
   // Fast In-Memory Cache for Instant UI
   static List<Student>? _cachedStudents;
@@ -875,6 +884,98 @@ class ApiService {
     } catch (_) {
       return false;
     }
+  }
+
+  // --- Financial Management & Treasury Ledger ---
+  static Future<Map<String, dynamic>> getFinancialSummary() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/finance/summary'), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {
+      'totalIncome': 0.0,
+      'totalExpense': 0.0,
+      'netBalance': 0.0,
+      'cashBalance': 0.0,
+      'appBalance': 0.0,
+      'bankBalance': 0.0,
+      'totalDonors': 0,
+      'totalTransactions': 0,
+    };
+  }
+
+  static Future<List<dynamic>> getFinancialTransactions({
+    int? type,
+    int? paymentMethod,
+    String? category,
+    String? search,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (type != null) queryParams['type'] = type.toString();
+      if (paymentMethod != null) queryParams['paymentMethod'] = paymentMethod.toString();
+      if (category != null && category.isNotEmpty) queryParams['category'] = category;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (startDate != null && startDate.isNotEmpty) queryParams['startDate'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) queryParams['endDate'] = endDate;
+
+      final uri = Uri.parse('$baseUrl/finance/transactions').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> createFinancialTransaction(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/finance/transactions'),
+        headers: _headers(),
+        body: jsonEncode(data),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteFinancialTransaction(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/finance/transactions/$id'),
+        headers: _headers(),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<String>> getFinancialCategories() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/finance/categories'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
+        return list.map((x) => x.toString()).toList();
+      }
+    } catch (_) {}
+    return [
+      'تبرعات عامة للمركز',
+      'كفالة حلقات قرآنية',
+      'مكافآت كادر المعلمين',
+      'جوائز وتكريم الطلاب',
+      'مطبوعات وقرطاسية وشهادات',
+      'ضيافة وأنشطة مركزية',
+      'صيانة وتجهيزات وتأهيل',
+      'فواتير وخدمات',
+      'أخرى',
+    ];
   }
 }
 

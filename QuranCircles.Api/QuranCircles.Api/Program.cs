@@ -65,9 +65,10 @@ if (!string.IsNullOrWhiteSpace(postgresConnStr))
 else
 {
     var baseDir = AppContext.BaseDirectory;
-    var projectDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
-    var localApiCandidate = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "quran.db"));
+    var contentRootCandidate = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "quran.db"));
     var baseDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "quran.db"));
+    var localApiCandidate = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "quran.db"));
+    var projectDirCandidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "quran.db"));
     var envDataDir = Environment.GetEnvironmentVariable("DATA_DIR") ?? Environment.GetEnvironmentVariable("PERSISTENT_DATA_PATH");
 
     string dbPath;
@@ -76,20 +77,28 @@ else
         Directory.CreateDirectory(envDataDir);
         dbPath = Path.Combine(envDataDir, "quran.db");
     }
-    else if (File.Exists(projectDirCandidate))
+    else if (File.Exists(contentRootCandidate))
     {
-        dbPath = projectDirCandidate;
+        dbPath = contentRootCandidate;
+    }
+    else if (File.Exists(baseDirCandidate))
+    {
+        dbPath = baseDirCandidate;
     }
     else if (File.Exists(localApiCandidate))
     {
         dbPath = localApiCandidate;
+    }
+    else if (File.Exists(projectDirCandidate))
+    {
+        dbPath = projectDirCandidate;
     }
     else
     {
         dbPath = baseDirCandidate;
     }
 
-    Console.WriteLine($"[Database] Connected to local SQLite database at: {dbPath}");
+    Console.WriteLine($"[Database] Connected to SQLite database at: {dbPath}");
     builder.Services.AddDbContext<AppDbContext>(opt =>
         opt.UseSqlite($"Data Source={dbPath};Cache=Shared;"));
 }
@@ -188,11 +197,23 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".wasm"] = "application/wasm";
+contentTypeProvider.Mappings[".json"] = "application/json";
+contentTypeProvider.Mappings[".js"] = "application/javascript";
+contentTypeProvider.Mappings[".mjs"] = "application/javascript";
+contentTypeProvider.Mappings[".otf"] = "font/otf";
+contentTypeProvider.Mappings[".ttf"] = "font/ttf";
+contentTypeProvider.Mappings[".woff"] = "font/woff";
+contentTypeProvider.Mappings[".woff2"] = "font/woff2";
+
 string? webDir = null;
 try
 {
     var candidates = new[]
     {
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "QuranCircles.Web")),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "QuranCircles.Web")),
@@ -204,7 +225,11 @@ try
     {
         var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webDir);
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
-        app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
+        app.UseStaticFiles(new StaticFileOptions 
+        { 
+            FileProvider = fileProvider,
+            ContentTypeProvider = contentTypeProvider
+        });
     }
 }
 catch { }
@@ -214,6 +239,8 @@ try
 {
     var mobileCandidates = new[]
     {
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "QuranCircles.Mobile", "build", "web")),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "QuranCircles.Mobile", "build", "web")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "QuranCircles.Mobile", "build", "web")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "QuranCircles.Mobile", "build", "web")),
         Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "QuranCircles.Mobile", "build", "web")),
@@ -232,7 +259,8 @@ try
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = mobileProvider,
-            RequestPath = "/mobile"
+            RequestPath = "/mobile",
+            ContentTypeProvider = contentTypeProvider
         });
         app.MapGet("/mobile", () => Results.Redirect("/mobile/index.html"));
     }

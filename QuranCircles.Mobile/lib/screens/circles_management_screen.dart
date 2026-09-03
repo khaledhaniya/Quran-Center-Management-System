@@ -210,6 +210,8 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
                                   Text(c.name, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   const SizedBox(height: 2),
                                   Text('المعلم المسؤول: ${c.teacherName ?? "غير مسند"}', style: AppTheme.cairoStyle(fontSize: 13, color: AppTheme.primaryDark)),
+                                  if (c.assistantTeacherName != null && c.assistantTeacherName!.isNotEmpty)
+                                    Text('مساعد الحلقة: ${c.assistantTeacherName}', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.teal.shade700, fontWeight: FontWeight.w600)),
                                 ],
                               ),
                             ),
