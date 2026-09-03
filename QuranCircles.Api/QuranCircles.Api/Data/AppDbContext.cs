@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<CourseAttendance> CourseAttendances => Set<CourseAttendance>();
     public DbSet<ProfileUpdateRequest> ProfileUpdateRequests => Set<ProfileUpdateRequest>();
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public DbSet<FinancialTransaction> FinancialTransactions => Set<FinancialTransaction>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

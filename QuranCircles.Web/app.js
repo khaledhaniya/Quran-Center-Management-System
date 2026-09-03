@@ -10533,14 +10533,788 @@ async function loadSystemSettingsForm() {
 }
 
 // =========================================================================
-// 1. FINANCIAL MANAGEMENT MODULE (الملف المالي وكشوفات المحافظ)
+// 1. FINANCIAL MANAGEMENT & TREASURY LEDGER MODULE (السجل المالي وسندات الصندوق)
 // =========================================================================
+let allFinancialTransactions = [];
 let allFinancialTeachers = [];
+let currentFinanceTab = "ledger";
+let financeSearchTimer = null;
 
 async function loadFinancialManagementScreen() {
+    await Promise.all([
+        loadFinancialSummaryKPIs(),
+        loadFinancialCategoriesDropdown(),
+        loadFinancialTransactions(),
+        loadFinancialTeachersData()
+    ]);
+}
+
+function switchFinanceTab(tab) {
+    currentFinanceTab = tab;
+    const tabLedger = document.getElementById("finance-tab-ledger");
+    const tabWallets = document.getElementById("finance-tab-wallets");
+    const btnLedger = document.getElementById("tab-btn-ledger");
+    const btnWallets = document.getElementById("tab-btn-teacher-wallets");
+
+    if (tab === "ledger") {
+        if (tabLedger) tabLedger.classList.remove("hidden");
+        if (tabWallets) tabWallets.classList.add("hidden");
+        if (btnLedger) { btnLedger.classList.add("active"); btnLedger.classList.remove("text-dark"); }
+        if (btnWallets) { btnWallets.classList.remove("active"); btnWallets.classList.add("text-dark"); }
+        loadFinancialTransactions();
+    } else {
+        if (tabLedger) tabLedger.classList.add("hidden");
+        if (tabWallets) tabWallets.classList.remove("hidden");
+        if (btnLedger) { btnLedger.classList.remove("active"); btnLedger.classList.add("text-dark"); }
+        if (btnWallets) { btnWallets.classList.add("active"); btnWallets.classList.remove("text-dark"); }
+        loadFinancialTeachersData();
+    }
+}
+
+async function loadFinancialSummaryKPIs() {
+    try {
+        const sDate = document.getElementById("finance-filter-start-date")?.value || "";
+        const eDate = document.getElementById("finance-filter-end-date")?.value || "";
+        let url = "/finance/summary";
+        const params = [];
+        if (sDate) params.push(`startDate=${encodeURIComponent(sDate)}`);
+        if (eDate) params.push(`endDate=${encodeURIComponent(eDate)}`);
+        if (params.length) url += "?" + params.join("&");
+
+        const data = await apiRequest(url);
+        if (!data) return;
+
+        const elIncome = document.getElementById("finance-stat-total-income");
+        const elDonors = document.getElementById("finance-stat-donors-count");
+        const elExpense = document.getElementById("finance-stat-total-expense");
+        const elExpensesCount = document.getElementById("finance-stat-expenses-count");
+        const elNet = document.getElementById("finance-stat-net-balance");
+        const elCashBal = document.getElementById("finance-stat-cash-bal");
+        const elAppBal = document.getElementById("finance-stat-app-bal");
+
+        const curSym = "₪";
+        if (elIncome) elIncome.textContent = `${Number(data.totalIncome || 0).toLocaleString()} ${curSym}`;
+        if (elDonors) elDonors.textContent = `${data.donorsCount || 0} متبرع / ${data.totalTransactions || 0} عملية`;
+        if (elExpense) elExpense.textContent = `${Number(data.totalExpense || 0).toLocaleString()} ${curSym}`;
+        if (elExpensesCount) elExpensesCount.textContent = `إجمالي النفقات والمكافآت`;
+        if (elNet) {
+            const netVal = Number(data.netBalance || 0);
+            elNet.textContent = `${netVal.toLocaleString()} ${curSym}`;
+            if (netVal < 0) elNet.className = "fw-bold mb-1 text-danger bg-white px-2 rounded-2";
+            else elNet.className = "fw-bold mb-1";
+        }
+        if (elCashBal) elCashBal.textContent = `${Number(data.cashBalance || 0).toLocaleString()} ${curSym}`;
+        if (elAppBal) {
+            const electronicBal = (Number(data.appWalletBalance || 0) + Number(data.bankBalance || 0));
+            elAppBal.textContent = `${electronicBal.toLocaleString()} ${curSym}`;
+        }
+    } catch (err) {
+        console.error("Error loading financial summary:", err);
+    }
+}
+
+async function loadFinancialCategoriesDropdown() {
+    try {
+        const cats = await apiRequest("/finance/categories");
+        const select = document.getElementById("finance-filter-category");
+        if (select && cats && Array.isArray(cats)) {
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">كل بنود الصرف والتبرع</option>' + 
+                cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+            if (currentVal) select.value = currentVal;
+        }
+    } catch (err) {}
+}
+
+function debounceFinanceSearch() {
+    clearTimeout(financeSearchTimer);
+    financeSearchTimer = setTimeout(() => {
+        loadFinancialTransactions();
+    }, 300);
+}
+
+function resetFinanceFilters() {
+    const elSearch = document.getElementById("finance-filter-search");
+    const elType = document.getElementById("finance-filter-type");
+    const elMethod = document.getElementById("finance-filter-payment-method");
+    const elCategory = document.getElementById("finance-filter-category");
+    const elStart = document.getElementById("finance-filter-start-date");
+    const elEnd = document.getElementById("finance-filter-end-date");
+
+    if (elSearch) elSearch.value = "";
+    if (elType) elType.value = "";
+    if (elMethod) elMethod.value = "";
+    if (elCategory) elCategory.value = "";
+    if (elStart) elStart.value = "";
+    if (elEnd) elEnd.value = "";
+
+    loadFinancialTransactions();
+}
+
+async function loadFinancialTransactions() {
+    const tbody = document.getElementById("finance-transactions-tbody");
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل سجل المعاملات المالية...</td></tr>';
+    }
+
+    try {
+        const search = document.getElementById("finance-filter-search")?.value || "";
+        const type = document.getElementById("finance-filter-type")?.value || "";
+        const method = document.getElementById("finance-filter-payment-method")?.value || "";
+        const category = document.getElementById("finance-filter-category")?.value || "";
+        const startDate = document.getElementById("finance-filter-start-date")?.value || "";
+        const endDate = document.getElementById("finance-filter-end-date")?.value || "";
+
+        const params = [];
+        if (search) params.push(`search=${encodeURIComponent(search)}`);
+        if (type) params.push(`type=${encodeURIComponent(type)}`);
+        if (method) params.push(`paymentMethod=${encodeURIComponent(method)}`);
+        if (category) params.push(`category=${encodeURIComponent(category)}`);
+        if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+        if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+        let url = "/finance/transactions";
+        if (params.length) url += "?" + params.join("&");
+
+        const data = await apiRequest(url);
+        allFinancialTransactions = data || [];
+
+        renderFinancialTransactionsTable(allFinancialTransactions);
+        loadFinancialSummaryKPIs();
+    } catch (err) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger p-4"><i class="fa-solid fa-triangle-exclamation me-1"></i> تعذر تحميل المعاملات المالية.</td></tr>';
+    }
+}
+
+function renderFinancialTransactionsTable(list) {
+    const tbody = document.getElementById("finance-transactions-tbody");
+    if (!tbody) return;
+
+    if (!list || !list.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center p-5 text-muted">
+                    <i class="fa-solid fa-receipt fs-1 d-block mb-3 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold">لا توجد حركات مالية مسجلة حتى الآن</h6>
+                    <p class="small text-muted mb-3">يمكنك البدء بإضافة سند قبض/تبرع جديد أو سند صرف باستخدام الأزرار أعلاه.</p>
+                    <button class="btn btn-sm btn-success me-2" onclick="openCreateTransactionModal('Income')"><i class="fa-solid fa-plus me-1"></i> إضافة وارد / تبرع</button>
+                    <button class="btn btn-sm btn-danger" onclick="openCreateTransactionModal('Expense')"><i class="fa-solid fa-minus me-1"></i> إضافة مصروف</button>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = list.map((item, idx) => {
+        const isIncome = item.type === 1 || item.type === "Income";
+        const typeBadge = isIncome 
+            ? `<span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fa-solid fa-arrow-down me-1"></i>سند قبض (وارد)</span>`
+            : `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-1"><i class="fa-solid fa-arrow-up me-1"></i>سند صرف (صادر)</span>`;
+
+        const cur = item.currency || "ILS";
+        const curLabel = cur === "ILS" ? "₪" : (cur === "USD" ? "$" : cur);
+        const amountClass = isIncome ? "text-success fw-bold" : "text-danger fw-bold";
+        const amountSign = isIncome ? "+" : "-";
+
+        let methodBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary">غير محدد</span>';
+        if (item.paymentMethod === 1 || item.paymentMethod === "Cash") {
+            methodBadge = `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning px-2 py-1"><i class="fa-solid fa-money-bill-wave text-success me-1"></i>كاش (نقداً)</span>`;
+        } else if (item.paymentMethod === 2 || item.paymentMethod === "AppWallet") {
+            const detailText = item.paymentDetails ? ` (${escapeHtml(item.paymentDetails)})` : "";
+            methodBadge = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><i class="fa-solid fa-mobile-screen-button me-1"></i>تطبيق / محفظة${detailText}</span>`;
+        } else if (item.paymentMethod === 3 || item.paymentMethod === "Bank") {
+            const detailText = item.paymentDetails ? ` (${escapeHtml(item.paymentDetails)})` : "";
+            methodBadge = `<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-building-columns text-primary me-1"></i>بنك${detailText}</span>`;
+        }
+
+        // Party Info (Donor vs Recipient)
+        let partyHtml = "-";
+        if (isIncome) {
+            const donor = item.donorName ? `<strong class="text-dark d-block"><i class="fa-solid fa-hand-holding-dollar text-success me-1"></i>${escapeHtml(item.donorName)}</strong>` : '<span class="text-muted">فاعل خير</span>';
+            const source = item.donorSource ? `<small class="text-muted d-block"><span class="badge bg-light text-secondary border">طرف: ${escapeHtml(item.donorSource)}</span></small>` : '';
+            partyHtml = donor + source;
+        } else {
+            partyHtml = item.recipientName ? `<strong class="text-danger d-block"><i class="fa-solid fa-user-tag me-1"></i>${escapeHtml(item.recipientName)}</strong>` : '<span class="text-muted">-</span>';
+        }
+
+        const dateStr = item.transactionDate ? item.transactionDate.substring(0, 10) : "-";
+        const catBadge = item.category ? `<span class="badge bg-secondary bg-opacity-10 text-secondary d-block mt-1">${escapeHtml(item.category)}</span>` : "";
+        const refStr = item.referenceNumber ? `<span class="badge bg-light text-dark border font-monospace me-1">#${escapeHtml(item.referenceNumber)}</span>` : "";
+        const notesStr = item.notes ? `<small class="text-muted d-block text-truncate" style="max-width: 200px;">${escapeHtml(item.notes)}</small>` : "";
+
+        return `
+            <tr>
+                <td class="text-center font-monospace text-muted">${idx + 1}</td>
+                <td>${typeBadge}</td>
+                <td class="font-monospace text-nowrap">${dateStr}</td>
+                <td class="${amountClass} fs-6 text-nowrap">${amountSign} ${Number(item.amount).toLocaleString()} ${curLabel}</td>
+                <td>${methodBadge}</td>
+                <td>
+                    <strong>${escapeHtml(item.title || "")}</strong>
+                    ${catBadge}
+                </td>
+                <td>${partyHtml}</td>
+                <td>
+                    ${refStr}
+                    ${notesStr}
+                </td>
+                <td class="text-nowrap">
+                    <div class="d-inline-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary" onclick="printSingleReceipt(${item.id})" title="طباعة سند رسمي">
+                            <i class="fa-solid fa-print"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditTransactionModal(${item.id})" title="تعديل السند">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteFinancialTransaction(${item.id})" title="حذف السند">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+// -------------------------------------------------------------------------
+// TRANSACTION MODALS (إنشاء وتعديل السندات المالية)
+// -------------------------------------------------------------------------
+async function openCreateTransactionModal(defaultType = 'Income') {
+    const isIncome = defaultType === 'Income';
+    const modalTitle = isIncome ? '🟢 إضافة سند قبض / وارد مالي (تبرع)' : '🔴 إضافة سند صرف / صادر مالي (مصروف)';
+    const defaultCat = isIncome ? 'تبرعات عامة للمركز' : 'مكافآت كادر المعلمين';
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const { value: formValues } = await Swal.fire({
+        title: modalTitle,
+        width: '650px',
+        html: `
+            <div class="text-start" dir="rtl">
+                <!-- Type Selection -->
+                <div class="mb-3 text-center">
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="swal-trans-type" id="swal-type-income" value="1" ${isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(1)">
+                        <label class="btn btn-outline-success fw-bold py-2" for="swal-type-income"><i class="fa-solid fa-circle-down me-1"></i> سند قبض / وارد وتبرع</label>
+
+                        <input type="radio" class="btn-check" name="swal-trans-type" id="swal-type-expense" value="2" ${!isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(2)">
+                        <label class="btn btn-outline-danger fw-bold py-2" for="swal-type-expense"><i class="fa-solid fa-circle-up me-1"></i> سند صرف / مصروف ونفقات</label>
+                    </div>
+                </div>
+
+                <!-- Amount & Currency & Date -->
+                <div class="row g-2 mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold">المبلغ <span class="text-danger">*</span></label>
+                        <input type="number" id="swal-trans-amount" class="form-control form-control-lg fw-bold text-center text-primary" placeholder="0.00" step="0.5" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">العملة</label>
+                        <select id="swal-trans-currency" class="form-select form-select-lg fw-bold">
+                            <option value="ILS">شيكل ₪</option>
+                            <option value="USD">دولار $</option>
+                            <option value="JOD">دينار JD</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">تاريخ المعاملة <span class="text-danger">*</span></label>
+                        <input type="date" id="swal-trans-date" class="form-control form-control-lg" value="${todayStr}">
+                    </div>
+                </div>
+
+                <!-- Title / Description -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">البيان / عنوان المعاملة <span class="text-danger">*</span></label>
+                    <input type="text" id="swal-trans-title" class="form-control fw-bold" placeholder="مثال: تبرع كفالة حلقة قرآنية / شراء قرطاسية / مكافأة شهر أغسطس..." required>
+                </div>
+
+                <!-- Category & Payment Method -->
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">التصنيف / البند</label>
+                        <select id="swal-trans-category" class="form-select">
+                            <option value="تبرعات عامة للمركز">تبرعات عامة للمركز</option>
+                            <option value="كفالة حلقات قرآنية">كفالة حلقات قرآنية</option>
+                            <option value="مكافآت كادر المعلمين">مكافآت كادر المعلمين</option>
+                            <option value="جوائز وتكريم الطلاب">جوائز وتكريم الطلاب</option>
+                            <option value="مطبوعات وقرطاسية وشهادات">مطبوعات وقرطاسية وشهادات</option>
+                            <option value="ضيافة وأنشطة مركزية">ضيافة وأنشطة مركزية</option>
+                            <option value="صيانة وتجهيزات وتأهيل">صيانة وتجهيزات وتأهيل</option>
+                            <option value="فواتير وخدمات">فواتير وخدمات</option>
+                            <option value="أخرى">أخرى</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">طريقة الاستلام / الصرف <span class="text-danger">*</span></label>
+                        <select id="swal-trans-method" class="form-select" onchange="togglePaymentDetailsInput(this.value)">
+                            <option value="1">💵 كاش (نقداً)</option>
+                            <option value="2">📱 تطبيق ومحفظة إلكترونية (Jawwal Pay / PalPay)</option>
+                            <option value="3">🏦 تحويل / حساب بنكي</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Payment Details (App / Bank Name) -->
+                <div class="mb-3" id="swal-payment-details-box" style="display: none;">
+                    <label class="form-label small fw-bold">تفاصيل التطبيق / البنك / رقم العملية</label>
+                    <input type="text" id="swal-trans-payment-details" class="form-control" placeholder="مثال: Jawwal Pay / بنك فلسطين - حساب رقم 1234...">
+                </div>
+
+                <!-- Donor Fields (for Income) -->
+                <div id="swal-donor-fields" class="p-3 bg-light rounded-3 border mb-3" style="${isIncome ? '' : 'display: none;'}">
+                    <h6 class="fw-bold text-success mb-2"><i class="fa-solid fa-hand-holding-heart me-1"></i> بيانات المتبرع وجهة التبرع</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">اسم المتبرع</label>
+                            <input type="text" id="swal-trans-donor-name" class="form-control" placeholder="فاعل خير / الاسم...">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">طرف مين التبرع / الواسطة أو الجهة</label>
+                            <input type="text" id="swal-trans-donor-source" class="form-control" placeholder="مثال: طرف الشيخ فلان / جمعية كذا...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recipient Fields (for Expense) -->
+                <div id="swal-expense-fields" class="p-3 bg-light rounded-3 border mb-3" style="${!isIncome ? '' : 'display: none;'}">
+                    <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-user-tag me-1"></i> المستلم / الجهة المصروف لها</h6>
+                    <div class="row g-2">
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold">اسم المستلم أو الجهة المصروف لها</label>
+                            <input type="text" id="swal-trans-recipient" class="form-control" placeholder="مثال: الشيخ فلان / مكتبة الأقصى / شركة الكهرباء...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reference Number & Notes -->
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">رقم السند / الإيصال</label>
+                        <input type="text" id="swal-trans-ref" class="form-control" placeholder="مثال: REC-102">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">ملاحظات إضافية</label>
+                        <input type="text" id="swal-trans-notes" class="form-control" placeholder="أي تفاصيل أو ملاحظات أخرى...">
+                    </div>
+                </div>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> حفظ وتسجيل السند',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: isIncome ? '#10b981' : '#ef4444',
+        preConfirm: () => {
+            const amount = parseFloat(document.getElementById('swal-trans-amount').value);
+            const title = document.getElementById('swal-trans-title').value.trim();
+            const dateVal = document.getElementById('swal-trans-date').value;
+
+            if (!amount || amount <= 0) {
+                Swal.showValidationMessage('يرجى إدخال مبلغ صحيح أكبر من صفر.');
+                return false;
+            }
+            if (!title) {
+                Swal.showValidationMessage('يرجى كتابة البيان / عنوان المعاملة.');
+                return false;
+            }
+
+            const typeVal = parseInt(document.querySelector('input[name="swal-trans-type"]:checked').value);
+            return {
+                type: typeVal,
+                amount: amount,
+                currency: document.getElementById('swal-trans-currency').value,
+                transactionDate: dateVal ? new Date(dateVal).toISOString() : new Date().toISOString(),
+                title: title,
+                category: document.getElementById('swal-trans-category').value,
+                paymentMethod: parseInt(document.getElementById('swal-trans-method').value),
+                paymentDetails: document.getElementById('swal-trans-payment-details').value.trim(),
+                donorName: document.getElementById('swal-trans-donor-name').value.trim(),
+                donorSource: document.getElementById('swal-trans-donor-source').value.trim(),
+                recipientName: document.getElementById('swal-trans-recipient').value.trim(),
+                referenceNumber: document.getElementById('swal-trans-ref').value.trim(),
+                notes: document.getElementById('swal-trans-notes').value.trim(),
+                createdByName: getAuthStorage("fullName") || "الإدارة المالية"
+            };
+        }
+    });
+
+    if (formValues) {
+        try {
+            showLoading("جاري تسجيل السند في الخزينة...");
+            const res = await apiRequest("/finance/transactions", "POST", formValues);
+            hideLoading();
+            if (res) {
+                showAlert("تم تسجيل السند المالي بنجاح في الصندوق! 💰", "success");
+                loadFinancialTransactions();
+            }
+        } catch (err) {
+            hideLoading();
+            showAlert("حدث خطأ أثناء حفظ السند: " + err.message, "danger");
+        }
+    }
+}
+
+function toggleSwalFinanceFields(typeVal) {
+    const donorFields = document.getElementById('swal-donor-fields');
+    const expenseFields = document.getElementById('swal-expense-fields');
+    if (typeVal === 1) {
+        if (donorFields) donorFields.style.display = 'block';
+        if (expenseFields) expenseFields.style.display = 'none';
+    } else {
+        if (donorFields) donorFields.style.display = 'none';
+        if (expenseFields) expenseFields.style.display = 'block';
+    }
+}
+
+function togglePaymentDetailsInput(methodVal) {
+    const box = document.getElementById('swal-payment-details-box');
+    if (box) {
+        box.style.display = (methodVal === "2" || methodVal === "3") ? 'block' : 'none';
+    }
+}
+
+async function openEditTransactionModal(id) {
+    const item = allFinancialTransactions.find(t => t.id === id);
+    if (!item) return;
+
+    const isIncome = item.type === 1 || item.type === "Income";
+    const dateOnly = item.transactionDate ? item.transactionDate.substring(0, 10) : "";
+
+    const { value: formValues } = await Swal.fire({
+        title: `✏️ تعديل السند المالي #${item.id}`,
+        width: '650px',
+        html: `
+            <div class="text-start" dir="rtl">
+                <div class="mb-3 text-center">
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="swal-edit-type" id="swal-edit-income" value="1" ${isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(1)">
+                        <label class="btn btn-outline-success fw-bold py-2" for="swal-edit-income"><i class="fa-solid fa-circle-down me-1"></i> سند قبض / وارد وتبرع</label>
+
+                        <input type="radio" class="btn-check" name="swal-edit-type" id="swal-edit-expense" value="2" ${!isIncome ? 'checked' : ''} onchange="toggleSwalFinanceFields(2)">
+                        <label class="btn btn-outline-danger fw-bold py-2" for="swal-edit-expense"><i class="fa-solid fa-circle-up me-1"></i> سند صرف / مصروف ونفقات</label>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold">المبلغ <span class="text-danger">*</span></label>
+                        <input type="number" id="swal-edit-amount" class="form-control form-control-lg fw-bold text-center text-primary" value="${item.amount}" step="0.5" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">العملة</label>
+                        <select id="swal-edit-currency" class="form-select form-select-lg fw-bold">
+                            <option value="ILS" ${item.currency === 'ILS' ? 'selected' : ''}>شيكل ₪</option>
+                            <option value="USD" ${item.currency === 'USD' ? 'selected' : ''}>دولار $</option>
+                            <option value="JOD" ${item.currency === 'JOD' ? 'selected' : ''}>دينار JD</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">تاريخ المعاملة <span class="text-danger">*</span></label>
+                        <input type="date" id="swal-edit-date" class="form-control form-control-lg" value="${dateOnly}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">البيان / عنوان المعاملة <span class="text-danger">*</span></label>
+                    <input type="text" id="swal-edit-title" class="form-control fw-bold" value="${escapeHtml(item.title || '')}" required>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">التصنيف / البند</label>
+                        <input type="text" id="swal-edit-category" class="form-control" value="${escapeHtml(item.category || '')}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">طريقة الاستلام / الصرف</label>
+                        <select id="swal-edit-method" class="form-select" onchange="togglePaymentDetailsInput(this.value)">
+                            <option value="1" ${item.paymentMethod === 1 ? 'selected' : ''}>💵 كاش (نقداً)</option>
+                            <option value="2" ${item.paymentMethod === 2 ? 'selected' : ''}>📱 تطبيق ومحفظة إلكترونية</option>
+                            <option value="3" ${item.paymentMethod === 3 ? 'selected' : ''}>🏦 تحويل / حساب بنكي</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="swal-payment-details-box" style="${(item.paymentMethod === 2 || item.paymentMethod === 3) ? 'display:block;' : 'display:none;'}">
+                    <label class="form-label small fw-bold">تفاصيل التطبيق / البنك / رقم العملية</label>
+                    <input type="text" id="swal-edit-payment-details" class="form-control" value="${escapeHtml(item.paymentDetails || '')}">
+                </div>
+
+                <div id="swal-donor-fields" class="p-3 bg-light rounded-3 border mb-3" style="${isIncome ? '' : 'display: none;'}">
+                    <h6 class="fw-bold text-success mb-2"><i class="fa-solid fa-hand-holding-heart me-1"></i> بيانات المتبرع</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">اسم المتبرع</label>
+                            <input type="text" id="swal-edit-donor-name" class="form-control" value="${escapeHtml(item.donorName || '')}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">طرف مين التبرع / الواسطة أو الجهة</label>
+                            <input type="text" id="swal-edit-donor-source" class="form-control" value="${escapeHtml(item.donorSource || '')}">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="swal-expense-fields" class="p-3 bg-light rounded-3 border mb-3" style="${!isIncome ? '' : 'display: none;'}">
+                    <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-user-tag me-1"></i> المستلم / الجهة المصروف لها</h6>
+                    <input type="text" id="swal-edit-recipient" class="form-control" value="${escapeHtml(item.recipientName || '')}">
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">رقم السند / الإيصال</label>
+                        <input type="text" id="swal-edit-ref" class="form-control" value="${escapeHtml(item.referenceNumber || '')}">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">ملاحظات</label>
+                        <input type="text" id="swal-edit-notes" class="form-control" value="${escapeHtml(item.notes || '')}">
+                    </div>
+                </div>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> تحديث السند',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#3b82f6',
+        preConfirm: () => {
+            const amount = parseFloat(document.getElementById('swal-edit-amount').value);
+            const title = document.getElementById('swal-edit-title').value.trim();
+            const dateVal = document.getElementById('swal-edit-date').value;
+
+            if (!amount || amount <= 0) {
+                Swal.showValidationMessage('يرجى إدخال مبلغ صحيح.');
+                return false;
+            }
+            if (!title) {
+                Swal.showValidationMessage('يرجى إدخال البيان.');
+                return false;
+            }
+
+            return {
+                id: item.id,
+                type: parseInt(document.querySelector('input[name="swal-edit-type"]:checked').value),
+                amount: amount,
+                currency: document.getElementById('swal-edit-currency').value,
+                transactionDate: dateVal ? new Date(dateVal).toISOString() : item.transactionDate,
+                title: title,
+                category: document.getElementById('swal-edit-category').value.trim(),
+                paymentMethod: parseInt(document.getElementById('swal-edit-method').value),
+                paymentDetails: document.getElementById('swal-edit-payment-details') ? document.getElementById('swal-edit-payment-details').value.trim() : "",
+                donorName: document.getElementById('swal-edit-donor-name') ? document.getElementById('swal-edit-donor-name').value.trim() : "",
+                donorSource: document.getElementById('swal-edit-donor-source') ? document.getElementById('swal-edit-donor-source').value.trim() : "",
+                recipientName: document.getElementById('swal-edit-recipient') ? document.getElementById('swal-edit-recipient').value.trim() : "",
+                referenceNumber: document.getElementById('swal-edit-ref').value.trim(),
+                notes: document.getElementById('swal-edit-notes').value.trim()
+            };
+        }
+    });
+
+    if (formValues) {
+        try {
+            showLoading("جاري تحديث السند...");
+            await apiRequest(`/finance/transactions/${item.id}`, "PUT", formValues);
+            hideLoading();
+            showAlert("تم تحديث السند المالي بنجاح! ✅", "success");
+            loadFinancialTransactions();
+        } catch (err) {
+            hideLoading();
+            showAlert("حدث خطأ أثناء التحديث: " + err.message, "danger");
+        }
+    }
+}
+
+async function deleteFinancialTransaction(id) {
+    const item = allFinancialTransactions.find(t => t.id === id);
+    const title = item ? item.title : `السند رقم #${id}`;
+
+    const res = await Swal.fire({
+        title: 'هل أنت متأكد من حذف هذا السند؟',
+        text: `سيتم حذف (${title}) وقيمته (${item ? item.amount : ''} ₪) نهائياً من سجل الصندوق.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، احذف السند',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#d33'
+    });
+
+    if (res.isConfirmed) {
+        try {
+            showLoading("جاري حذف السند...");
+            await apiRequest(`/finance/transactions/${id}`, "DELETE");
+            hideLoading();
+            showAlert("تم حذف السند المالي بنجاح.", "success");
+            loadFinancialTransactions();
+        } catch (err) {
+            hideLoading();
+            showAlert("حدث خطأ أثناء الحذف: " + err.message, "danger");
+        }
+    }
+}
+
+// -------------------------------------------------------------------------
+// PRINTING & EXPORTS (طباعة السندات والكشوفات المالية)
+// -------------------------------------------------------------------------
+function printSingleReceipt(id) {
+    const item = allFinancialTransactions.find(t => t.id === id);
+    if (!item) return;
+
+    const isIncome = item.type === 1 || item.type === "Income";
+    const receiptTypeTitle = isIncome ? "سند قبض وتبرع" : "سند صرف ونفقات";
+    const receiptColor = isIncome ? "#059669" : "#dc2626";
+    const curLabel = item.currency === "ILS" ? "شيكل" : (item.currency === "USD" ? "دولار أمريكي" : item.currency);
+    const dateStr = item.transactionDate ? item.transactionDate.substring(0, 10) : new Date().toISOString().slice(0, 10);
+    
+    let methodText = "كاش (نقداً)";
+    if (item.paymentMethod === 2) methodText = `تطبيق / محفظة إلكترونية (${item.paymentDetails || ''})`;
+    else if (item.paymentMethod === 3) methodText = `حساب / تحويل بنكي (${item.paymentDetails || ''})`;
+
+    const partyLabel = isIncome ? "استلمنا من الأخ/الأخت (المتبرع)" : "صُرف للأخ/الأخت (المستلم)";
+    const partyName = isIncome 
+        ? (item.donorName || "فاعل خير") + (item.donorSource ? ` (طرف: ${item.donorSource})` : "")
+        : (item.recipientName || "غير محدد");
+
+    const printWin = window.open('', '_blank', 'width=800,height=650');
+    if (!printWin) {
+        showAlert("يرجى السماح بالنوافذ المنبثقة لطباعة السند.", "warning");
+        return;
+    }
+
+    printWin.document.write(`
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <title>${receiptTypeTitle} - #${item.id}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+            <style>
+                body { font-family: 'Tajawal', sans-serif; background: #fff; color: #1e293b; padding: 25px; margin: 0; }
+                .receipt-card { border: 3px double ${receiptColor}; border-radius: 12px; padding: 25px; max-width: 700px; margin: 0 auto; position: relative; }
+                .receipt-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; }
+                .receipt-header h2 { margin: 0; color: #065f46; font-size: 20px; }
+                .receipt-header h4 { margin: 5px 0 0 0; color: ${receiptColor}; font-size: 18px; }
+                .receipt-num { font-size: 16px; font-weight: bold; background: #f1f5f9; padding: 6px 14px; border-radius: 8px; border: 1px solid #cbd5e1; }
+                .receipt-body { font-size: 15px; line-height: 2; margin-bottom: 30px; }
+                .receipt-field { display: flex; align-items: baseline; margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; }
+                .field-label { font-weight: bold; color: #475569; min-width: 170px; }
+                .field-val { font-weight: 700; color: #0f172a; flex-grow: 1; }
+                .amount-box { background: #f8fafc; border: 2px solid ${receiptColor}; border-radius: 8px; padding: 12px; font-size: 18px; font-weight: 800; text-align: center; color: ${receiptColor}; margin: 15px 0; }
+                .signatures { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; text-align: center; }
+                .sig-box { width: 45%; }
+                .sig-line { border-top: 1px solid #64748b; margin-top: 50px; font-weight: bold; font-size: 14px; padding-top: 5px; }
+                @media print { body { padding: 0; } .receipt-card { border: 2px solid #000; } }
+            </style>
+        </head>
+        <body>
+            <div class="receipt-card">
+                <div class="receipt-header">
+                    <div>
+                        <h2>مركز البيان لتعليم القرآن الكريم وتدريس علومه</h2>
+                        <small>مسجد علي بن أبي طالب - غزة</small>
+                        <h4>${receiptTypeTitle}</h4>
+                    </div>
+                    <div class="text-start">
+                        <div class="receipt-num">سند رقم: #${item.id}</div>
+                        <div style="font-size: 13px; margin-top: 6px; color: #64748b;">التاريخ: ${dateStr}</div>
+                    </div>
+                </div>
+
+                <div class="amount-box">
+                    المبلغ: ${Number(item.amount).toLocaleString()} ${curLabel} فقط لا غير
+                </div>
+
+                <div class="receipt-body">
+                    <div class="receipt-field">
+                        <span class="field-label">${partyLabel}:</span>
+                        <span class="field-val">${escapeHtml(partyName)}</span>
+                    </div>
+                    <div class="receipt-field">
+                        <span class="field-label">وذلك عن (البيان):</span>
+                        <span class="field-val">${escapeHtml(item.title || '')} ${item.category ? `[${escapeHtml(item.category)}]` : ''}</span>
+                    </div>
+                    <div class="receipt-field">
+                        <span class="field-label">طريقة الاستلام / الدفع:</span>
+                        <span class="field-val">${escapeHtml(methodText)}</span>
+                    </div>
+                    ${item.referenceNumber ? `
+                    <div class="receipt-field">
+                        <span class="field-label">رقم المرجع / الإيصال:</span>
+                        <span class="field-val">${escapeHtml(item.referenceNumber)}</span>
+                    </div>` : ''}
+                    ${item.notes ? `
+                    <div class="receipt-field">
+                        <span class="field-label">ملاحظات:</span>
+                        <span class="field-val">${escapeHtml(item.notes)}</span>
+                    </div>` : ''}
+                </div>
+
+                <div class="signatures">
+                    <div class="sig-box">
+                        <div class="sig-line">توقيع المستلم / المحاسب</div>
+                    </div>
+                    <div class="sig-box">
+                        <div class="sig-line">ختم وتوقيع إدارة المركز</div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                window.onload = function() { window.print(); }
+            </script>
+        </body>
+        </html>
+    `);
+    printWin.document.close();
+}
+
+function exportFinancialTransactionsToExcel() {
+    if (!allFinancialTransactions || !allFinancialTransactions.length) {
+        showAlert("لا توجد حركات مالية لتصديرها.", "warning");
+        return;
+    }
+
+    const rows = allFinancialTransactions.map((t, idx) => {
+        const isInc = t.type === 1 || t.type === "Income";
+        let methodStr = "كاش";
+        if (t.paymentMethod === 2) methodStr = `تطبيق/محفظة (${t.paymentDetails || ''})`;
+        else if (t.paymentMethod === 3) methodStr = `بنك (${t.paymentDetails || ''})`;
+
+        return {
+            "م": idx + 1,
+            "نوع السند": isInc ? "وارد / تبرع" : "صادر / مصروف",
+            "التاريخ": t.transactionDate ? t.transactionDate.substring(0, 10) : "",
+            "المبلغ": t.amount,
+            "العملة": t.currency || "ILS",
+            "طريقة الدفع": methodStr,
+            "البيان": t.title || "",
+            "التصنيف": t.category || "",
+            "المتبرع": isInc ? (t.donorName || "فاعل خير") : "",
+            "طرف / جهة التبرع": isInc ? (t.donorSource || "") : "",
+            "المستلم": !isInc ? (t.recipientName || "") : "",
+            "رقم السند": t.referenceNumber || "",
+            "الملاحظات": t.notes || "",
+            "مسجل السند": t.createdByName || ""
+        };
+    });
+
+    if (typeof XLSX !== "undefined") {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "سجل حركة الصندوق");
+        XLSX.writeFile(wb, `كشف_الصندوق_والتبرعات_مركز_البيان_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        showAlert("تم تصدير سجل حركة الصندوق بنجاح! 📊", "success");
+    } else {
+        showAlert("مكتبة Excel غير متوفرة حالياً.", "danger");
+    }
+}
+
+function printFinancialLedgerReport() {
+    window.print();
+}
+
+// -------------------------------------------------------------------------
+// TAB 2: TEACHER WALLETS (كشوفات محافظ وحسابات المعلمين)
+// -------------------------------------------------------------------------
+async function loadFinancialTeachersData() {
     const tbody = document.getElementById("financial-table-body");
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل السجلات المالية...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل كشوفات المحافظ...</td></tr>';
     }
 
     try {
@@ -10550,27 +11324,9 @@ async function loadFinancialManagementScreen() {
             cachedTeachers = teachers || [];
         }
         allFinancialTeachers = teachers || [];
-
-        // Compute KPIs
-        let totalWallets = 0;
-        let totalFamilyMembers = 0;
-
-        allFinancialTeachers.forEach(t => {
-            if (t.walletNumber && t.walletNumber.trim() !== "" && t.walletNumber !== "-") totalWallets++;
-            if (t.familyMembersCount) totalFamilyMembers += parseInt(t.familyMembersCount) || 0;
-        });
-
-        const elTotal = document.getElementById("financial-stat-total-teachers");
-        const elWallets = document.getElementById("financial-stat-wallets-count");
-        const elFamily = document.getElementById("financial-stat-family-members");
-
-        if (elTotal) elTotal.textContent = allFinancialTeachers.length;
-        if (elWallets) elWallets.textContent = totalWallets;
-        if (elFamily) elFamily.textContent = totalFamilyMembers;
-
         renderFinancialTable(allFinancialTeachers);
-    } catch(err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger p-4"><i class="fa-solid fa-triangle-exclamation me-1"></i> تعذر تحميل السجل المالي.</td></tr>';
+    } catch (err) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger p-4"><i class="fa-solid fa-triangle-exclamation me-1"></i> تعذر تحميل كشوفات المحافظ.</td></tr>';
     }
 }
 
@@ -10579,13 +11335,13 @@ function renderFinancialTable(teachersList) {
     if (!tbody) return;
 
     if (!teachersList || !teachersList.length) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted">لا توجد بيانات مالية مطابقة.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted">لا توجد بيانات مطابقة.</td></tr>';
         return;
     }
 
     tbody.innerHTML = teachersList.map((t, idx) => {
-        const idNum = t.identityNumber ? `<span class="id-val" style="font-family: monospace; font-weight: 700;">${t.identityNumber}</span>` : '<span class="text-muted">-</span>';
-        const walletNum = t.walletNumber ? `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning px-2 py-1" style="font-family: monospace; font-weight: 700;"><i class="fa-solid fa-wallet text-warning me-1"></i>${t.walletNumber}</span>` : '<span class="text-muted">-</span>';
+        const idNum = t.identityNumber ? `<span class="id-val font-monospace fw-bold">${t.identityNumber}</span>` : '<span class="text-muted">-</span>';
+        const walletNum = t.walletNumber ? `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning px-2 py-1 font-monospace fw-bold"><i class="fa-solid fa-wallet text-warning me-1"></i>${t.walletNumber}</span>` : '<span class="text-muted">-</span>';
         const walletOwner = t.walletOwner ? `<span class="fw-bold text-dark">${t.walletOwner}</span>` : '<span class="text-muted">-</span>';
         const social = t.socialStatus ? `<span class="badge bg-secondary bg-opacity-10 text-secondary">${t.socialStatus}</span>` : '<span class="text-muted">-</span>';
         const familyCount = t.familyMembersCount ? `<span class="badge bg-info bg-opacity-10 text-info fw-bold">${t.familyMembersCount} أفراد</span>` : '<span class="text-muted">-</span>';
@@ -10597,9 +11353,9 @@ function renderFinancialTable(teachersList) {
             const waPhone = rawPhone.startsWith("05") ? ("972" + rawPhone.substring(1)) : rawPhone;
             phoneHtml = `
                 <div class="d-inline-flex align-items-center gap-2">
-                    <span class="phone-val" style="font-family: monospace;">${t.contact}</span>
+                    <span class="phone-val font-monospace">${t.contact}</span>
                     <a href="https://wa.me/${waPhone}" target="_blank" class="teacher-wa-link" title="مراسلة عبر واتساب">
-                        <i class="fa-brands fa-whatsapp"></i>
+                        <i class="fa-brands fa-whatsapp text-success"></i>
                     </a>
                 </div>
             `;
@@ -10638,42 +11394,6 @@ function filterFinancialTable(query) {
     });
 
     renderFinancialTable(filtered);
-}
-
-function exportFinancialReportToExcel() {
-    if (!allFinancialTeachers || !allFinancialTeachers.length) {
-        showAlert("لا توجد بيانات مالية لتصديرها.", "warning");
-        return;
-    }
-
-    const rows = allFinancialTeachers.map((t, idx) => ({
-        "م": idx + 1,
-        "الاسم الكامل": t.FullName || t.fullName,
-        "رقم الهوية الوطنية": t.IdentityNumber || t.identityNumber || "",
-        "المسجد التابع له": t.MosqueName || t.mosqueName || "علي بن أبي طالب",
-        "المهمة والتكليف": t.TaskRole || t.taskRole || "",
-        "المؤهل العلمي": t.Qualification || t.qualification || "",
-        "الحالة الاجتماعية": t.SocialStatus || t.socialStatus || "",
-        "عدد أفراد الأسرة": t.FamilyMembersCount || t.familyMembersCount || "",
-        "رقم المحفظة / الحساب": t.WalletNumber || t.walletNumber || "",
-        "اسم صاحب المحفظة": t.WalletOwner || t.walletOwner || "",
-        "رقم الجوال": t.Contact || t.contact || "",
-        "رقم الواتساب": t.WhatsappNumber || t.whatsappNumber || ""
-    }));
-
-    if (typeof XLSX !== "undefined") {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "الكشف المالي للمعلمين");
-        XLSX.writeFile(wb, `الكشف_المالي_مركز_البيان_${new Date().toISOString().slice(0, 10)}.xlsx`);
-        showAlert("تم تصدير الكشف المالي بنجاح! 📊", "success");
-    } else {
-        showAlert("مكتبة Excel غير محملة حالياً.", "danger");
-    }
-}
-
-function printFinancialReport() {
-    window.print();
 }
 
 // =========================================================================

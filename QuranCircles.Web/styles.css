@@ -3572,4 +3572,37 @@ body.theme-dark {
     border: 1px solid #fca5a5;
 }
 
+/* =========================================================================
+   FINANCIAL MANAGEMENT & TREASURY LEDGER STYLING
+   ========================================================================= */
+#finance-tabs-nav .nav-link {
+    transition: all 0.25s ease-in-out;
+    border-radius: 8px;
+}
+#finance-tabs-nav .nav-link.active {
+    background: linear-gradient(135deg, #0d5c3a, #15803d) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(13, 92, 58, 0.25);
+}
+#finance-transactions-table th {
+    background-color: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+#finance-transactions-table td {
+    vertical-align: middle;
+    font-size: 0.88rem;
+}
+@media print {
+    .sidebar, .dashboard-banner, .action-buttons-group, .requests-toolbar-card, #finance-tabs-nav, .card:has(#finance-filter-search), .btn, button {
+        display: none !important;
+    }
+    #financial-management-section, #financial-management-section * {
+        visibility: visible !important;
+    }
+}
+
+
 

@@ -173,6 +173,33 @@ public static partial class DbSeeder
             }
             catch { /* Column already exists */ }
 
+            // 1.8 Ensure FinancialTransactions table exists
+            try
+            {
+                db.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE IF NOT EXISTS FinancialTransactions (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Type INTEGER NOT NULL,
+                        Amount REAL NOT NULL,
+                        Currency TEXT DEFAULT 'ILS',
+                        Title TEXT NOT NULL,
+                        Category TEXT,
+                        DonorName TEXT,
+                        DonorSource TEXT,
+                        RecipientName TEXT,
+                        PaymentMethod INTEGER NOT NULL,
+                        PaymentDetails TEXT,
+                        TransactionDate TEXT NOT NULL,
+                        ReferenceNumber TEXT,
+                        Notes TEXT,
+                        CreatedByUserId INTEGER,
+                        CreatedByName TEXT,
+                        CreatedAt TEXT NOT NULL
+                    );
+                ");
+            }
+            catch { }
+
             // 2. Ensure SystemSettings table exists and has all new columns
             try
             {
