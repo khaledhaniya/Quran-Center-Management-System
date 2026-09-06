@@ -92,6 +92,65 @@ function clearAllAuthStorage() {
     });
 }
 
+function getToken() {
+    return authToken || getAuthStorage("token") || "";
+}
+window.getToken = getToken;
+
+function showConfirmModal(message, title = "تأكيد الإجراء") {
+    return new Promise((resolve) => {
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                title: title,
+                text: message,
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#0d5c3a",
+                cancelButtonColor: "#64748b",
+                confirmButtonText: "نعم، متأكد وموافق",
+                cancelButtonText: "إلغاء التراجع",
+                reverseButtons: true
+            }).then((res) => resolve(res.isConfirmed));
+        } else {
+            resolve(window.confirm(message));
+        }
+    });
+}
+window.showConfirmModal = showConfirmModal;
+
+function showLoading(msg = "جاري معالجة الطلب...") {
+    let loader = document.getElementById("global-system-loading-modal");
+    if (!loader) {
+        loader = document.createElement("div");
+        loader.id = "global-system-loading-modal";
+        loader.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:Cairo,sans-serif;";
+        document.body.appendChild(loader);
+    }
+    loader.innerHTML = `
+        <div style="background:#0f172a;padding:24px 32px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.5);text-align:center;border:1px solid rgba(255,255,255,0.1);max-width:90%;">
+            <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+            <div style="font-size:1.1rem;font-weight:700;">${escapeHtml(msg)}</div>
+            <div style="font-size:0.85rem;color:#94a3b8;margin-top:6px;">يرجى الانتظار، جاري المزامنة مع المنظومة...</div>
+        </div>
+    `;
+    loader.style.display = "flex";
+}
+window.showLoading = showLoading;
+
+function hideLoading() {
+    const loader = document.getElementById("global-system-loading-modal");
+    if (loader) loader.style.display = "none";
+}
+window.hideLoading = hideLoading;
+
+window.showStudentProgressModal = function(id) {
+    if (typeof showStudent360Modal === "function") {
+        showStudent360Modal(id);
+    } else {
+        console.warn("showStudent360Modal is not loaded yet");
+    }
+};
+
 // Inactivity Auto-Logout Watchdog (15 minutes idle timeout)
 let inactivityTimer = null;
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
@@ -497,7 +556,14 @@ function updateSidebarMenu() {
         const taskPreacher = document.querySelectorAll(".teacher-task-preacher");
         taskPreacher.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية"))));
 
-        const hasAnyTask = hasCircle || taskRole.includes("الملف المالي") || taskRole.includes("الجودة") || taskRole.includes("التحفيظ") || taskRole.includes("الدورات") || taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية");
+        const hasAnyTask = hasCircle || 
+            taskRole.includes("الملف المالي") || 
+            taskRole.includes("الجودة") || 
+            taskRole.includes("التحفيظ") || 
+            taskRole.includes("الدورات") || 
+            taskRole.includes("الفتى الواعظ") || 
+            taskRole.includes("الأصوات الندية") || 
+            taskRole.includes("اختبار");
         
         // Handle shared links: keep announcements visible as requested, hide other tools for teachers without tasks
         if (sharedEl) {
@@ -587,6 +653,12 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
         } catch (error) {
             const isNetworkError = (error.name === "TypeError" || (error.message && (error.message.includes("fetch") || error.message.includes("network") || error.message.includes("Failed to fetch"))));
             
+            if (isNetworkError && isLocalEnv && API_BASE.includes("localhost") && API_BASE !== "https://albayan-quran.onrender.com/api") {
+                console.warn(`[Failover] Localhost API unreachable for ${path}. Switching to Render Cloud API...`);
+                API_BASE = "https://albayan-quran.onrender.com/api";
+                continue;
+            }
+
             if (isNetworkError && attempt < retries && method === "GET") {
                 console.warn(`[Auto-Retry ${attempt + 1}/${retries}] Retrying ${path}...`);
                 await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
@@ -658,6 +730,8 @@ function handleRouting() {
         
         if (isNoTask) {
             defaultHash = "#teacher-empty-state";
+        } else if (tRole.includes("اختبار") && !tRole.includes("حلقة")) {
+            defaultHash = "#exams";
         } else if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) {
             defaultHash = "#financial-management";
         } else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) {
@@ -678,7 +752,9 @@ function handleRouting() {
     else if (currentRole === "Student") defaultHash = "#student-progress";
     else if (currentRole === "ExamSupervisor") defaultHash = "#exams";
 
-    const hash = window.location.hash || defaultHash;
+    let hash = window.location.hash || defaultHash;
+    if (hash === "#dashboard" || hash === "#home") hash = "#admin-dashboard";
+    if (hash === "#settings" || hash === "#control-panel" || hash === "#system") hash = "#system-settings";
 
     // Deactivate all links & sections
     document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
@@ -705,8 +781,8 @@ function handleRouting() {
     const isAdminOrDev = (currentRole === "Admin" || currentRole === "Developer");
 
     if (hash === "#admin-dashboard" && isAdminOrDev) {
-        document.getElementById("btn-admin-dashboard").classList.add("active");
-        document.getElementById("admin-dashboard-section").classList.remove("hidden");
+        document.getElementById("btn-admin-dashboard")?.classList.add("active");
+        document.getElementById("admin-dashboard-section")?.classList.remove("hidden");
         loadAdminDashboard();
     } 
     else if (hash === "#profile-requests" && isAdminOrDev) {
@@ -719,23 +795,23 @@ function handleRouting() {
         loadAdminProfileRequests();
     }
     else if (hash === "#developer-users" && currentRole === "Developer") {
-        document.getElementById("btn-developer-users").classList.add("active");
-        document.getElementById("developer-users-section").classList.remove("hidden");
+        document.getElementById("btn-developer-users")?.classList.add("active");
+        document.getElementById("developer-users-section")?.classList.remove("hidden");
         loadDeveloperUsers();
     }
     else if (hash === "#admin-circles" && isAdminOrDev) {
-        document.getElementById("btn-admin-circles").classList.add("active");
-        document.getElementById("admin-circles-section").classList.remove("hidden");
+        document.getElementById("btn-admin-circles")?.classList.add("active");
+        document.getElementById("admin-circles-section")?.classList.remove("hidden");
         loadAdminCircles();
     } 
     else if (hash === "#admin-teachers" && isAdminOrDev) {
-        document.getElementById("btn-admin-teachers").classList.add("active");
-        document.getElementById("admin-teachers-section").classList.remove("hidden");
+        document.getElementById("btn-admin-teachers")?.classList.add("active");
+        document.getElementById("admin-teachers-section")?.classList.remove("hidden");
         loadAdminTeachers();
     } 
     else if (hash === "#admin-students" && isAdminOrDev) {
-        document.getElementById("btn-admin-students").classList.add("active");
-        document.getElementById("admin-students-section").classList.remove("hidden");
+        document.getElementById("btn-admin-students")?.classList.add("active");
+        document.getElementById("admin-students-section")?.classList.remove("hidden");
         loadAdminStudents();
     } 
     else if (hash === "#parent-audit" && isAdminOrDev) {
@@ -854,7 +930,8 @@ function handleRouting() {
             window.location.hash = "#admin-dashboard";
         } else if (currentRole === "Teacher") {
             const tRole = (getAuthStorage("taskRole") || "").trim();
-            if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) window.location.hash = "#financial-management";
+            if (tRole.includes("اختبار") && !tRole.includes("حلقة")) window.location.hash = "#exams";
+            else if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) window.location.hash = "#financial-management";
             else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) window.location.hash = "#quality-management";
             else if ((tRole.includes("التحفيظ") || tRole.includes("منتدى الحفاظ")) && !tRole.includes("حلقة")) window.location.hash = "#memorization-forum";
             else if (tRole.includes("الدورات") && !tRole.includes("حلقة")) window.location.hash = "#courses";
@@ -939,11 +1016,10 @@ function setDashboardDatePreset(preset) {
         fromDate = new Date(2024, 0, 1);
     }
 
-    const formatDateStr = (d) => d.toISOString().split('T')[0];
     const fromInput = document.getElementById("report-from-date");
     const toInput = document.getElementById("report-to-date");
-    if (fromInput) fromInput.value = formatDateStr(fromDate);
-    if (toInput) toInput.value = formatDateStr(toDate);
+    if (fromInput) fromInput.value = formatDateString(fromDate);
+    if (toInput) toInput.value = formatDateString(toDate);
 
     const targetBtn = Array.from(document.querySelectorAll(".date-preset-btn")).find(b => b.getAttribute("onclick")?.includes(preset));
     if (targetBtn) targetBtn.classList.add("active");
@@ -958,9 +1034,17 @@ async function loadAdminDashboard() {
     if (fromDateInput && toDateInput && (!fromDateInput.value || !toDateInput.value)) {
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const formatDateStr = (d) => d.toISOString().split('T')[0];
-        fromDateInput.value = formatDateStr(firstDayOfMonth);
-        toDateInput.value = formatDateStr(today);
+        fromDateInput.value = formatDateString(firstDayOfMonth);
+        toDateInput.value = formatDateString(today);
+    }
+
+    if (fromDateInput && !fromDateInput.dataset.bound) {
+        fromDateInput.dataset.bound = "true";
+        fromDateInput.addEventListener("change", () => loadAdminDashboard());
+    }
+    if (toDateInput && !toDateInput.dataset.bound) {
+        toDateInput.dataset.bound = "true";
+        toDateInput.addEventListener("change", () => loadAdminDashboard());
     }
 
     const fromDate = fromDateInput?.value || '';
@@ -974,10 +1058,10 @@ async function loadAdminDashboard() {
             apiRequest("/courses")
         ]);
 
-        const data = dataRes.status === 'fulfilled' ? dataRes.value : {};
-        const students = studentsRes.status === 'fulfilled' ? studentsRes.value : [];
-        const circles = circlesRes.status === 'fulfilled' ? circlesRes.value : [];
-        const courses = coursesRes.status === 'fulfilled' ? coursesRes.value : [];
+        const data = dataRes.status === 'fulfilled' && dataRes.value ? dataRes.value : {};
+        const students = studentsRes.status === 'fulfilled' && Array.isArray(studentsRes.value) ? studentsRes.value : [];
+        const circles = circlesRes.status === 'fulfilled' && Array.isArray(circlesRes.value) ? circlesRes.value : [];
+        const courses = coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value) ? coursesRes.value : [];
 
         // Populate KPIs
         const stCountEl = document.getElementById("stat-total-students");
@@ -1009,6 +1093,12 @@ async function loadAdminDashboard() {
         const snapCourses = document.getElementById("snap-courses-count");
         if (snapCourses) snapCourses.textContent = `${courses.length || 5} مساقات`;
 
+        const snapJuz = document.getElementById("snap-juz-count");
+        if (snapJuz) {
+            const totalAjzaa = students.reduce((acc, s) => acc + (Number(s.completedAjzaa) || 0), 0);
+            snapJuz.textContent = `${totalAjzaa} جزء`;
+        }
+
         // Calculate attendance rate (default 98.5% if clean baseline)
         const attendanceRateVal = 98.5;
         const snapAttRate = document.getElementById("snap-attendance-rate");
@@ -1031,11 +1121,12 @@ async function loadAdminDashboard() {
         const socTentsEl = document.getElementById("soc-stat-tents");
         if (socTentsEl) socTentsEl.textContent = `${tentStudents} طالب`;
 
-        // Render Social & Housing Chart.js Chart
+        // Render Social & Housing Chart.js Chart safely
         const socialCanvas = document.getElementById("dashboard-social-chart");
         if (socialCanvas && window.Chart) {
             const ctxSocial = socialCanvas.getContext("2d");
-            if (window.dashboardSocialChartInstance) window.dashboardSocialChartInstance.destroy();
+            const existingSocialChart = Chart.getChart(socialCanvas) || window.dashboardSocialChartInstance;
+            if (existingSocialChart) existingSocialChart.destroy();
 
             window.dashboardSocialChartInstance = new Chart(ctxSocial, {
                 type: 'doughnut',
@@ -1081,7 +1172,8 @@ async function loadAdminDashboard() {
         const canvas = document.getElementById("dashboard-assessment-chart");
         if (canvas && window.Chart) {
             const ctx = canvas.getContext("2d");
-            if (dashboardChartInstance) dashboardChartInstance.destroy();
+            const existingAssessmentChart = Chart.getChart(canvas) || dashboardChartInstance;
+            if (existingAssessmentChart) existingAssessmentChart.destroy();
 
             const chartLabels = entries.length > 0 ? entries.map(([k, _]) => levels[k] || k) : ["ممتاز", "جيد جداً", "جيد", "مقبول", "بحاجة لإعادة"];
             const chartData = entries.length > 0 ? entries.map(([_, v]) => v) : [0, 0, 0, 0, 0];
@@ -1222,7 +1314,7 @@ async function exportExecutiveExcelReport() {
             <table>
                 <tr>
                     <td colspan="16" style="text-align: center; background-color: #0d5c3a; color: #ffffff; font-size: 18px; font-weight: bold; padding: 15px;">
-                        🕌 مركز البيان لتعليم القرآن الكريم - مسجد علي بن أبي طالب
+                        🕌 ${escapeXml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)} - ${escapeXml(cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}
                     </td>
                 </tr>
                 <tr>
@@ -8936,7 +9028,7 @@ function exportDynamicReportToExcel() {
         <body dir="rtl">
             <table>
                 <tr>
-                    <td colspan="37" class="title-header">مركز البيان لتعليم القرآن الكريم - مسجد علي بن أبي طالب</td>
+                    <td colspan="37" class="title-header">${escapeXml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)} - ${escapeXml(cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}</td>
                 </tr>
                 <tr>
                     <td colspan="37" class="meta-header">
@@ -9309,7 +9401,7 @@ function printDynamicReport() {
         <html lang="ar" dir="rtl">
         <head>
             <meta charset="UTF-8">
-            <title>تقرير الطلاب الشامل - مركز البيان لتعليم القرآن</title>
+            <title>تقرير الطلاب الشامل - ${escapeHtml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}</title>
             <style>
                 @page { size: A3 landscape; margin: 6mm; }
                 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; padding: 8px; color: #111; font-size: 10px; }
@@ -9332,8 +9424,8 @@ function printDynamicReport() {
                     <img src="${logoSrc}" alt="شعار المركز">
                 </div>
                 <div class="title-box">
-                    <h1>مركز البيان لتعليم القرآن الكريم</h1>
-                    <h2>مسجد علي بن أبي طالب</h2>
+                    <h1>${escapeHtml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}</h1>
+                    <h2>${escapeHtml(cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}</h2>
                     <h3>${tagText}</h3>
                 </div>
                 <div class="logo-box" style="visibility: hidden;">
@@ -9382,7 +9474,7 @@ function printDynamicReport() {
 
             <div class="footer-signatures">
                 <div>مشرف المركز والمنظومة: .........................</div>
-                <div>اعتماد مدير مركز البيان: .........................</div>
+                <div>اعتماد مدير المركز (${escapeHtml(cachedSystemSettings?.signatoryName || 'الإدارة العامة')}): .........................</div>
             </div>
 
             <script>
@@ -9901,7 +9993,7 @@ function printTeacherRoster() {
         </head>
         <body>
             <div class="header">
-                <h2>مركز البيان لتعليم القرآن الكريم والعلوم الشرعية</h2>
+                <h2>${escapeHtml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}</h2>
                 <h3>كشف متابعة التسميع والحضور الشامل لطلاب الحلقة</h3>
             </div>
             <div class="meta">
@@ -9929,7 +10021,7 @@ function printTeacherRoster() {
             </table>
             <div class="footer-sig">
                 <div>توقيع المعلم المحفظ: ....................</div>
-                <div>اعتماد مدير المركز: ....................</div>
+                <div>اعتماد مدير المركز (${escapeHtml(cachedSystemSettings?.signatoryName || 'الإدارة العامة')}): ....................</div>
             </div>
             <script>window.onload = function() { window.print(); }</script>
         </body>
@@ -9981,7 +10073,8 @@ function toBoolean(val, defaultVal) {
 function cleanArabicText(val, fallback) {
     if (!val || typeof val !== 'string') return fallback;
     const trimmed = val.trim();
-    if (trimmed === "" || trimmed.includes("?") || trimmed.includes("")) return fallback;
+    if (!trimmed) return fallback;
+    if (/^\?+$/.test(trimmed)) return fallback;
     return trimmed;
 }
 
@@ -10034,12 +10127,25 @@ async function fetchAndApplySystemSettings(silent = true) {
         applySystemSettingsToUI(cachedSystemSettings);
     }
 
-    // 2. Fetch fresh live settings from API with cross-browser cache-busting
+    // 2. Fetch fresh live settings from API with cross-browser cache-busting and seamless cloud failover
     try {
         const timestamp = Date.now();
-        let response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
-        if (!response.ok && isLocalEnv && API_BASE.includes("localhost")) {
-            response = await fetch(`https://albayan-quran.onrender.com/api/settings?t=${timestamp}`, { cache: "no-store" });
+        let response = null;
+        try {
+            response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
+        } catch(netErr) {
+            if (isLocalEnv && API_BASE !== "https://albayan-quran.onrender.com/api") {
+                response = await fetch(`https://albayan-quran.onrender.com/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
+                if (response && response.ok) {
+                    API_BASE = "https://albayan-quran.onrender.com/api";
+                }
+            }
+        }
+        if ((!response || !response.ok) && isLocalEnv && API_BASE !== "https://albayan-quran.onrender.com/api") {
+            response = await fetch(`https://albayan-quran.onrender.com/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
+            if (response && response.ok) {
+                API_BASE = "https://albayan-quran.onrender.com/api";
+            }
         }
         if (response && response.ok) {
             const settings = await response.json();
@@ -10156,7 +10262,7 @@ function handleLogoFileUpload(event) {
     reader.onload = function(e) {
         const base64Url = e.target.result;
         const logoInput = document.getElementById("setting-logo-url");
-        const logoPreview = document.getElementById("setting-logo-preview");
+        const logoPreview = document.getElementById("setting-logo-preview") || document.getElementById("setting-logo-preview-img");
         if (logoInput) logoInput.value = base64Url;
         if (logoPreview) {
             logoPreview.src = base64Url;
@@ -10265,6 +10371,16 @@ async function handleRestoreBackupFile(event) {
 async function loadSystemSettingsForm() {
     const container = document.getElementById("system-settings-content");
     if (!container) return;
+
+    if (!container.hasChildNodes() || container.innerHTML.trim() === "") {
+        container.innerHTML = `
+            <div class="text-center p-5 bg-white rounded-3 border shadow-sm">
+                <div class="spinner-border text-success mb-3" style="width: 2.5rem; height: 2.5rem;" role="status"></div>
+                <h6 class="fw-bold text-dark">جاري فتح لوحة تحكم إعدادات المنظومة الشاملة...</h6>
+                <p class="text-muted small mb-0">يرجى الانتظار ثوانٍ لمزامنة أحدث إعدادات وهوية المركز</p>
+            </div>
+        `;
+    }
 
     let settings = Object.assign({}, DEFAULT_SYSTEM_SETTINGS);
     let isOfflineMode = false;
