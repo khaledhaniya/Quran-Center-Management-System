@@ -1481,14 +1481,17 @@ async function loadAdminCircles() {
             return;
         }
         
-        cachedCircles.forEach(c => {
+        cachedCircles.forEach((c, index) => {
             const tr = document.createElement("tr");
             const leadTeacher = c.teacherName ? `<strong class="text-success"><i class="fa-solid fa-user-tie me-1"></i> ${c.teacherName}</strong>` : '<span class="text-danger">غير معين</span>';
             const assistantTeacher = c.assistantTeacherName ? `<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-handshake-angle me-1 text-info"></i> ${c.assistantTeacherName}</span>` : '<span class="text-muted small">بدون مساعد</span>';
 
             tr.innerHTML = `
-                <td class="text-center font-monospace">${c.id}</td>
-                <td><strong>${c.name}</strong></td>
+                <td class="text-center font-monospace fw-bold text-muted" style="width: 50px;">${index + 1}</td>
+                <td>
+                    <strong>${c.name}</strong>
+                    <span class="badge bg-light text-secondary border font-monospace ms-1" title="معرف الحلقة في قاعدة البيانات" style="font-size: 0.72rem;">#${c.id}</span>
+                </td>
                 <td><span class="badge bg-light text-dark border">${getTimingArabic(c.timing)}</span></td>
                 <td>${leadTeacher}</td>
                 <td>${assistantTeacher}</td>

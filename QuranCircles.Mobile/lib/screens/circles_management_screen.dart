@@ -198,9 +198,12 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
                       children: [
                         Row(
                           children: [
-                            const CircleAvatar(
+                            CircleAvatar(
                               backgroundColor: AppTheme.primary,
-                              child: Icon(Icons.groups, color: Colors.white),
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(

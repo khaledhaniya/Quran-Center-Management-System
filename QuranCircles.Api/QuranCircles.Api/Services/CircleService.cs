@@ -127,18 +127,39 @@ public class CircleService
 
     public async Task<(bool ok, string circleName, string? error)> HardDeleteAsync(int id)
     {
-        var c = await _db.Circles.Include(x => x.Students).FirstOrDefaultAsync(x => x.Id == id);
-        if (c is null) return (false, "", "الحلقة غير موجودة.");
-
-        var circleName = c.Name;
-        foreach (var s in c.Students)
+        try
         {
-            s.CircleId = null;
-        }
+            var c = await _db.Circles.Include(x => x.Students).FirstOrDefaultAsync(x => x.Id == id);
+            if (c is null) return (false, "", "الحلقة غير موجودة.");
 
-        _db.Circles.Remove(c);
-        await _db.SaveChangesAsync();
-        return (true, circleName, null);
+            var circleName = c.Name;
+            foreach (var s in c.Students)
+            {
+                s.CircleId = null;
+            }
+
+            // 1. Remove linked attendances before deleting circle (to satisfy FK Restrict constraint)
+            var attendances = await _db.Attendances.Where(a => a.CircleId == id).ToListAsync();
+            if (attendances.Count > 0)
+            {
+                _db.Attendances.RemoveRange(attendances);
+            }
+
+            // 2. Remove any announcements targeting this circle
+            var announcements = await _db.Announcements.Where(a => a.TargetType == AnnouncementTarget.Circle && a.TargetId == id).ToListAsync();
+            if (announcements.Count > 0)
+            {
+                _db.Announcements.RemoveRange(announcements);
+            }
+
+            _db.Circles.Remove(c);
+            await _db.SaveChangesAsync();
+            return (true, circleName, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, "", $"تعذر حذف الحلقة بسبب ارتباطات بيانات: {ex.Message}");
+        }
     }
 
     public async Task<(bool ok, string? error)> AddStudentAsync(int circleId, int studentId)
