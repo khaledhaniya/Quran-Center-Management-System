@@ -11652,16 +11652,6 @@ async function loadQualityManagementScreen() {
 }
 
 // =========================================================================
-// 3. MEMORIZATION FORUM MODULE (شؤون التحفيظ ومنتدى الحفاظ)
-// =========================================================================
-async function loadMemorizationForumScreen() {
-    const tbody = document.getElementById("memorization-forum-table-body");
-    if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري استخراج بيانات الحفاظ...</td></tr>';
-    }
-
-    try {
-// =========================================================================
 // 3. MEMORIZATION FORUM & HUFFAZ MODULE (شؤون التحفيظ ومنتدى الحفاظ)
 // =========================================================================
 let cachedHuffazData = null;
@@ -12380,7 +12370,7 @@ async function showAddEditTalentModal(talentId = null) {
                         formData.append("file", file);
 
                         const token = getAuthStorage("token");
-                        const res = await fetch(`${API_BASE_URL}/talents/upload`, {
+                        const res = await fetch(`${API_BASE}/talents/upload`, {
                             method: "POST",
                             headers: {
                                 "Authorization": token ? `Bearer ${token}` : ""
