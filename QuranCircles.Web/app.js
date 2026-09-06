@@ -369,6 +369,66 @@ function handleLogout(isSilent = false) {
     }
 }
 
+// Helper: Format multi-role badges for teachers based on their assigned tasks and permissions
+function getTeacherRolesList(taskRole) {
+    if (!taskRole || typeof taskRole !== "string") {
+        return [{ title: "معلّم ومحفّظ حلقة", badgeClass: "bg-success bg-opacity-10 text-success border border-success", icon: "fa-mosque", color: "text-success" }];
+    }
+    const t = taskRole.trim();
+    if (t === "بدون تكليف" || t === "معلق" || t === "بدون مهام" || t === "-" || t === "") {
+        return [{ title: "بدون تكليف", badgeClass: "bg-secondary bg-opacity-10 text-secondary border", icon: "fa-user-slash", color: "text-secondary" }];
+    }
+
+    const roles = [];
+    if (t.includes("مركز البيان") || t.includes("أمير المركز") || t.includes("البيان")) {
+        roles.push({ title: "أمير المركز (المدير العام)", badgeClass: "bg-warning bg-opacity-10 text-dark border border-warning", icon: "fa-crown", color: "text-warning" });
+    }
+    if (t.includes("معلم حلقة") || t.includes("شيخ ومحفّظ") || t.includes("محفظ حلقة") || t.includes("محفّظ")) {
+        roles.push({ title: "معلّم ومحفّظ حلقة", badgeClass: "bg-success bg-opacity-10 text-success border border-success", icon: "fa-mosque", color: "text-success" });
+    }
+    if (t.includes("مساعد حلقة")) {
+        roles.push({ title: "مساعد حلقة قرآنية", badgeClass: "bg-info bg-opacity-10 text-dark border border-info", icon: "fa-handshake-angle", color: "text-info" });
+    }
+    if (t.includes("الفتى الواعظ") || t.includes("الأصوات الندية")) {
+        roles.push({ title: "مشرف الفتى الواعظ والأصوات الندية", badgeClass: "bg-danger bg-opacity-10 text-danger border border-danger", icon: "fa-microphone-lines", color: "text-danger" });
+    }
+    if (t.includes("اختبار") || t.includes("مشرف اختبارات")) {
+        roles.push({ title: "مشرف اختبارات", badgeClass: "bg-warning bg-opacity-10 text-dark border border-warning", icon: "fa-clipboard-check", color: "text-warning" });
+    }
+    if (t.includes("التحفيظ") || t.includes("منتدى الحفاظ")) {
+        roles.push({ title: "مشرف شؤون التحفيظ ومنتدى الحفاظ", badgeClass: "bg-primary bg-opacity-10 text-primary border border-primary", icon: "fa-book-quran", color: "text-primary" });
+    }
+    if (t.includes("الجودة")) {
+        roles.push({ title: "مسؤول الجودة والرقابة والتوجيه", badgeClass: "bg-info bg-opacity-10 text-info border border-info", icon: "fa-magnifying-glass-chart", color: "text-info" });
+    }
+    if (t.includes("الملف المالي") || t.includes("المالي")) {
+        roles.push({ title: "المسؤول المالي ومسؤول المحافظ", badgeClass: "bg-success bg-opacity-10 text-success border border-success", icon: "fa-wallet", color: "text-success" });
+    }
+    if (t.includes("معلم دورات") || (t.includes("الدورات") && !t.includes("حلقة"))) {
+        roles.push({ title: "معلم الدورات العلمية والتجويد", badgeClass: "bg-secondary bg-opacity-10 text-secondary border border-secondary", icon: "fa-graduation-cap", color: "text-secondary" });
+    }
+
+    if (roles.length === 0) {
+        return [{ title: t, badgeClass: "bg-secondary bg-opacity-10 text-secondary border", icon: "fa-user-tie", color: "text-secondary" }];
+    }
+    return roles;
+}
+
+function formatTeacherRolesHtml(taskRole) {
+    const roles = getTeacherRolesList(taskRole);
+    return `<div class="d-flex flex-wrap gap-1 align-items-center">` + 
+        roles.map(r => `
+            <span class="badge ${r.badgeClass} d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs" style="white-space: nowrap !important; font-size: 0.78rem;">
+                <i class="fa-solid ${r.icon} ${r.color}"></i> ${r.title}
+            </span>
+        `).join("") + `</div>`;
+}
+
+function getTeacherRolesText(taskRole) {
+    const roles = getTeacherRolesList(taskRole);
+    return roles.map(r => r.title).join(" | ");
+}
+
 function getRoleArabicName(role) {
     const taskRole = (getAuthStorage("taskRole") || "").trim();
     const fullName = (getAuthStorage("fullName") || "").trim();
@@ -381,14 +441,7 @@ function getRoleArabicName(role) {
             }
             return "مدير المركز العام";
         case "Teacher": 
-            if (taskRole.includes("الملف المالي")) return "المسؤول المالي ومحفّظ";
-            if (taskRole.includes("الجودة")) return "مسؤول الجودة والرقابة والتوجيه";
-            if (taskRole.includes("التحفيظ") || taskRole.includes("منتدى الحفاظ")) return "مشرف التحفيظ ومنتدى الحفاظ";
-            if (taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية")) return "مشرف الفتى الواعظ والأصوات الندية";
-            if (taskRole.includes("معلم دورات") || (taskRole.includes("الدورات") && !taskRole.includes("حلقة"))) return "معلم دورات العلوم الشرعية والتجويد";
-            if (taskRole.includes("مساعد حلقة")) return "مساعد حلقة قرآنية";
-            if (taskRole.includes("معلم حلقة")) return "شيخ ومحفّظ حلقة قرآنية";
-            return taskRole || "معلّم ومحفّظ حلقة";
+            return getTeacherRolesText(taskRole);
         case "Student": return "طالب حلقة تحفيظ";
         case "Parent": return "ولي أمر طالب";
         case "ExamSupervisor": return "مشرف ومقوّم اختبارات";
@@ -1854,9 +1907,7 @@ async function loadAdminTeachers(search = "") {
                 ? `<a href="https://wa.me/${waNumClean}" target="_blank" class="teacher-wa-link" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> <span class="phone-val">${t.whatsappNumber}</span></a>` 
                 : '';
 
-            const roleBadge = (t.taskRole && t.taskRole.trim()) 
-                ? `<span class="teacher-task-pill">${t.taskRole}</span>` 
-                : '<span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">بدون تكليف</span>';
+            const roleBadge = formatTeacherRolesHtml(t.taskRole);
 
             const qualStr = t.qualification 
                 ? `<span class="text-dark fw-bold small">${t.qualification}</span>` 
@@ -1872,6 +1923,9 @@ async function loadAdminTeachers(search = "") {
                     <div class="teacher-name-cell">
                         <span class="teacher-title-text">${t.fullName}</span>
                         ${mosqueStr}
+                        <div class="teacher-roles-subtext mt-1">
+                            ${formatTeacherRolesHtml(t.taskRole)}
+                        </div>
                     </div>
                 </td>
                 <td>${idBadge}</td>
@@ -2024,14 +2078,15 @@ async function manageTeacherRoles(teacherId) {
     const currentTask = (teacher.taskRole || "").trim();
 
     const rolesList = [
-        { id: "role-emir", name: "أمير المركز (الإدارة العامة)", val: "مركز البيان", icon: "fa-crown", color: "text-warning", desc: "صلاحيات الإدارة الكاملة للتقارير والإعدادات والمنظومة" },
-        { id: "role-fin", name: "المسؤول المالي والمحافظ", val: "الملف المالي", icon: "fa-wallet", color: "text-success", desc: "إدارة كشوفات المحافظ البنكية، المكافآت، وتصدير إكسل مالي" },
-        { id: "role-qual", name: "مسؤول الجودة والرقابة", val: "الجودة", icon: "fa-magnifying-glass-chart", color: "text-info", desc: "متابعة مؤشرات الأداء والتقييم الإشرافي للحلقات" },
-        { id: "role-mem", name: "مشرف شؤون التحفيظ ومنتدى الحفاظ", val: "التحفيظ + ملف منتدى الحفاظ", icon: "fa-book-quran", color: "text-primary", desc: "متابعة الخاتمين، أجزاء الحفظ المتقدمة، وترشيحات الاختبارات" },
-        { id: "role-courses", name: "معلم الدورات العلمية والتجويد", val: "معلم دورات", icon: "fa-award", color: "text-secondary", desc: "إدارة دورات التجويد، رصد العلامات وإصدار الشهادات" },
+        { id: "role-circle", name: "شيخ ومحفّظ حلقة قرآنية", val: "معلم حلقة", icon: "fa-mosque", color: "text-success", desc: "رصد الحضور اليومي، التسميع، والقرعة وإدارة طلاب حلقاتي" },
         { id: "role-preacher", name: "مشرف الفتى الواعظ والأصوات الندية", val: "الفتى الواعظ + الأصوات الندية", icon: "fa-microphone", color: "text-danger", desc: "سجل فرسان الخطابة، المواعظ الدعوية، والأذان والتلاوة" },
-        { id: "role-circle", name: "شيخ ومحفّظ حلقة قرآنية", val: "معلم حلقة", icon: "fa-mosque", color: "text-success", desc: "رصد الحضور اليومي، التسميع، والقرعة وإدارة الطلاب" },
-        { id: "role-assistant", name: "مساعد حلقة قرآنية", val: "مساعد حلقة", icon: "fa-handshake-angle", color: "text-info", desc: "مشاركة نفس الحلقة مع المحفظ بنفس الصلاحيات التامة" }
+        { id: "role-exam", name: "مشرف ومقوّم اختبارات", val: "مشرف اختبارات", icon: "fa-clipboard-check", color: "text-warning", desc: "تقييم واختبار الطلاب في فروع وأجزاء القرآن الكريم" },
+        { id: "role-mem", name: "مشرف شؤون التحفيظ ومنتدى الحفاظ", val: "التحفيظ + ملف منتدى الحفاظ", icon: "fa-book-quran", color: "text-primary", desc: "متابعة الخاتمين، أجزاء الحفظ المتقدمة، وترشيحات الاختبارات" },
+        { id: "role-qual", name: "مسؤول الجودة والرقابة", val: "الجودة", icon: "fa-magnifying-glass-chart", color: "text-info", desc: "متابعة مؤشرات الأداء والتقييم الإشرافي للحلقات" },
+        { id: "role-fin", name: "المسؤول المالي والمحافظ", val: "الملف المالي", icon: "fa-wallet", color: "text-success", desc: "إدارة كشوفات المحافظ البنكية، المكافآت، وتصدير إكسل مالي" },
+        { id: "role-courses", name: "معلم الدورات العلمية والتجويد", val: "معلم دورات", icon: "fa-award", color: "text-secondary", desc: "إدارة دورات التجويد، رصد العلامات وإصدار الشهادات" },
+        { id: "role-assistant", name: "مساعد حلقة قرآنية", val: "مساعد حلقة", icon: "fa-handshake-angle", color: "text-info", desc: "مشاركة نفس الحلقة مع المحفظ بنفس الصلاحيات التامة" },
+        { id: "role-emir", name: "أمير المركز (الإدارة العامة)", val: "مركز البيان", icon: "fa-crown", color: "text-warning", desc: "صلاحيات الإدارة الكاملة للتقارير والإعدادات والمنظومة" }
     ];
 
     const rolesCardsHtml = rolesList.map(r => {
@@ -8230,23 +8285,28 @@ async function showStudent360View(studentId) {
         let ajzaaChipsHtml = "";
         for (let i = 1; i <= 30; i++) {
             const isDone = completedAjzaaSet.has(i);
-            const juzName = getJuzName(i);
-            const clickAttr = canEditPlan ? `onclick="toggleCompleteJuz(${student.id}, ${i}, ${!isDone})" style="cursor: pointer; transition: all 0.2s ease;"` : `style="cursor: default;"`;
+            const rawJuzName = getJuzName(i);
+            const cleanJuzName = rawJuzName.replace(/\s*\(جزء\s*\d+\)/, '').trim();
+            const clickAttr = canEditPlan ? `onclick="toggleCompleteJuz(${student.id}, ${i}, ${!isDone})" style="cursor: pointer;"` : `style="cursor: default;"`;
             
             if (isDone) {
                 ajzaaChipsHtml += `
-                    <div class="badge bg-success text-white p-2 d-flex align-items-center gap-1 shadow-xs" ${clickAttr} title="${canEditPlan ? 'انقر لتغيير حالة الجزء' : ''}">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span>جزء ${i} (${juzName})</span>
-                        ${canEditPlan ? '<i class="fa-solid fa-pen-to-square ms-1 opacity-75" style="font-size:0.7rem;"></i>' : ''}
+                    <div class="ajzaa-card-chip completed" ${clickAttr} title="${canEditPlan ? 'انقر لإلغاء توثيق هذا الجزء' : 'جزء مكتمل ومتقن'}">
+                        <div class="ajzaa-chip-title">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>الجزء ${i}: ${cleanJuzName}</span>
+                        </div>
+                        <span class="badge bg-white text-success px-2 py-0.5 rounded-pill ajzaa-chip-status">مكتمل</span>
                     </div>
                 `;
             } else {
                 ajzaaChipsHtml += `
-                    <div class="badge bg-light text-muted border p-2 d-flex align-items-center gap-1 shadow-xs" ${clickAttr} title="${canEditPlan ? 'انقر لتوثيق إتمام هذا الجزء' : ''}">
-                        <i class="fa-regular fa-circle text-muted"></i>
-                        <span>جزء ${i} (${juzName})</span>
-                        ${canEditPlan ? '<i class="fa-solid fa-plus ms-1 text-success" style="font-size:0.7rem;"></i>' : ''}
+                    <div class="ajzaa-card-chip pending" ${clickAttr} title="${canEditPlan ? 'انقر لتوثيق إتمام هذا الجزء' : 'قيد الحفظ والتسميع'}">
+                        <div class="ajzaa-chip-title">
+                            <i class="fa-regular fa-circle text-muted"></i>
+                            <span>الجزء ${i}: ${cleanJuzName}</span>
+                        </div>
+                        <span class="ajzaa-chip-status text-muted">${canEditPlan ? '<i class="fa-solid fa-plus text-success"></i>' : '-'}</span>
                     </div>
                 `;
             }
@@ -8522,7 +8582,7 @@ async function showStudent360View(studentId) {
                         <span class="badge bg-success fs-6 p-2">المكتمل: ${completedCount} جزء</span>
                     </div>
 
-                    <div class="d-flex flex-wrap gap-2" style="line-height: 2;">
+                    <div class="ajzaa-tracker-grid">
                         ${ajzaaChipsHtml}
                     </div>
                 </div>

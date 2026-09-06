@@ -1043,6 +1043,7 @@ button, input, select, textarea {
     font-weight: 700;
     border-radius: 50px;
     text-align: center;
+    white-space: nowrap !important;
 }
 
 .badge-success { background-color: #d1e7dd; color: #0f5132; }
@@ -4010,6 +4011,168 @@ body.theme-dark {
     color: #64748b;
     max-width: 480px;
     margin: 0 auto 16px auto;
+}
+
+/* ==========================================================================
+   ROOT RESPONSIVE & ANTI-VERTICAL TEXT SHIELD (حماية شاملة ضد النصوص والكلمات العمودية)
+   ========================================================================== */
+
+/* 1. Prevent any badges, tags, pills, chips, or action buttons from wrapping text vertically */
+.badge,
+.badge *,
+.teacher-task-pill,
+.teacher-contact-pill,
+.teacher-wa-link,
+.teacher-juz-pill,
+.teacher-status-pill,
+.teacher-mosque-tag,
+.role-card-item,
+.talent-filter-btn,
+.huffaz-filter-btn,
+.date-preset-btn,
+.ajzaa-card-chip,
+.btn-sm,
+.nav-item span,
+.kpi-tag,
+.user-role-badge,
+.snapshot-label {
+    white-space: nowrap !important;
+}
+
+/* 2. Tables: Default to nowrap for table headers and standard cells to prevent character/word stacking */
+.data-table th,
+.data-table td {
+    white-space: nowrap !important;
+    vertical-align: middle;
+}
+
+/* 3. Allow wrapping ONLY for long narrative content columns, with a safe, generous minimum width */
+.data-table td.cell-wrap,
+.data-table td.notes-cell,
+.data-table td.speech-content-cell,
+.data-table td.topic-cell {
+    white-space: normal !important;
+    min-width: 240px !important;
+    max-width: 400px !important;
+    line-height: 1.6 !important;
+    word-break: normal !important;
+}
+
+/* 4. Table Responsive Container: Always guarantee smooth touch scrolling on tablets and phones */
+.table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    display: block !important;
+    position: relative !important;
+}
+
+/* 5. 30 Ajzaa Tracker Grid for Student 360 & Progress screens */
+.ajzaa-tracker-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)) !important;
+    gap: 10px !important;
+    width: 100% !important;
+    margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+    .ajzaa-tracker-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+        gap: 8px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .ajzaa-tracker-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 6px !important;
+    }
+}
+
+.ajzaa-card-chip {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 9px 12px !important;
+    border-radius: 10px !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    user-select: none !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 1.5px solid !important;
+    text-align: right !important;
+    box-sizing: border-box;
+}
+
+.ajzaa-card-chip.completed {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: #ffffff !important;
+    border-color: #059669 !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25) !important;
+}
+
+.ajzaa-card-chip.pending {
+    background: #ffffff !important;
+    color: #334155 !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+}
+
+.ajzaa-card-chip.pending:hover {
+    border-color: #94a3b8 !important;
+    background: #f8fafc !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+.ajzaa-card-chip.completed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4) !important;
+}
+
+.ajzaa-chip-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.ajzaa-chip-status {
+    flex-shrink: 0 !important;
+    font-size: 0.75rem !important;
+}
+
+/* 6. Modals on Mobile */
+.modal-overlay {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 12px !important;
+}
+.modal-card {
+    width: 100% !important;
+    max-width: 650px;
+    margin: auto !important;
+}
+.modal-lg .modal-card {
+    max-width: 1060px !important;
+    width: 100% !important;
+}
+@media (max-width: 768px) {
+    .modal-card {
+        max-width: 98vw !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+    }
+    .modal-lg .modal-card {
+        max-width: 98vw !important;
+    }
+    .modal-body {
+        padding: 10px !important;
+    }
 }
 
 
