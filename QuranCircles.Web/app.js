@@ -12010,15 +12010,24 @@ async function showAddEditHuffazMemberModal(memberId = null) {
                     <i class="fa-solid fa-user-tag me-1"></i> السؤال الأول: ما هي صفة هذا الشخص في منتدى الحفاظ؟ <span style="color: #ef4444;">*</span>
                 </label>
                 <div class="huffaz-type-selector-box" id="huffaz-type-selector">
-                    <button type="button" class="huffaz-type-btn ${currentType === 'Teacher' ? 'active' : ''}" data-type="Teacher">
-                        <i class="fa-solid fa-user-tie"></i> معلم قرآن في المركز
-                    </button>
-                    <button type="button" class="huffaz-type-btn ${currentType === 'Student' ? 'active' : ''}" data-type="Student">
-                        <i class="fa-solid fa-graduation-cap"></i> طالب مسجل في المركز
-                    </button>
-                    <button type="button" class="huffaz-type-btn ${currentType === 'External' ? 'active' : ''}" data-type="External">
-                        <i class="fa-solid fa-earth-americas"></i> شخص وحافظ خارجي جديد
-                    </button>
+                    <div class="huffaz-type-btn ${currentType === 'Teacher' ? 'active' : ''}" data-type="Teacher">
+                        <div class="type-check-badge"><i class="fa-solid fa-check"></i></div>
+                        <div class="type-icon-wrapper"><i class="fa-solid fa-user-tie"></i></div>
+                        <div class="type-title">معلم قرآن</div>
+                        <div class="type-subtitle">من كادر المركز</div>
+                    </div>
+                    <div class="huffaz-type-btn ${currentType === 'Student' ? 'active' : ''}" data-type="Student">
+                        <div class="type-check-badge"><i class="fa-solid fa-check"></i></div>
+                        <div class="type-icon-wrapper"><i class="fa-solid fa-graduation-cap"></i></div>
+                        <div class="type-title">طالب مسجل</div>
+                        <div class="type-subtitle">في حلقات المركز</div>
+                    </div>
+                    <div class="huffaz-type-btn ${currentType === 'External' ? 'active' : ''}" data-type="External">
+                        <div class="type-check-badge"><i class="fa-solid fa-check"></i></div>
+                        <div class="type-icon-wrapper"><i class="fa-solid fa-earth-americas"></i></div>
+                        <div class="type-title">حافظ خارجي</div>
+                        <div class="type-subtitle">شخص وحافظ جديد</div>
+                    </div>
                 </div>
                 <input type="hidden" id="swal-huffaz-type" value="${currentType}">
             </div>
