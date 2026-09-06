@@ -554,7 +554,139 @@ public static partial class DbSeeder
                 Console.WriteLine($"[Seeder Notice] Syncing teachers: {ex.Message}");
             }
 
-            // 6. Force immediate SQLite WAL Checkpoint to flush all recent changes directly into the main quran.db file
+            // 5. Seed sample talents if empty
+            try
+            {
+                if (!db.TalentRecords.Any())
+                {
+                    var student1 = db.Students.Include(s => s.Circle).FirstOrDefault();
+                    var student2 = db.Students.Include(s => s.Circle).Skip(1).FirstOrDefault();
+                    var teacher = db.Teachers.FirstOrDefault();
+
+                    if (student1 != null)
+                    {
+                        db.TalentRecords.Add(new QuranCircles.Api.Entities.TalentRecord
+                        {
+                            StudentId = student1.Id,
+                            TalentType = "الفتى الواعظ (فن الخطابة والوعظ)",
+                            Title = "بر الوالدين وأثره في توفيق العبد وصلاحه",
+                            PreparationMethod = "بحث ومطالعة ذاتية مع إشراف وتدريب من الشيخ المحفظ",
+                            SpeechContent = "الحمد لله الذي وصانا بالوالدين إحسانا، وجعل رضاهما من رضاه سبحانه وتعالى. أيها الإخوة الكرام، إن بر الوالدين طاعة لله وقربة، ومفتاح لكل خير وبركة في الدنيا والآخرة...",
+                            Occasion = "درس الجمعة الأسبوعي في المسجد",
+                            EventDate = DateOnly.FromDateTime(DateTime.Today),
+                            SupervisorTeacherId = teacher?.Id,
+                            MediaUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                            MediaType = "video",
+                            EvaluationScore = "95%",
+                            PerformanceNotes = "فصاحة ممتازة، نبرة واثقة، ومخارج حروف متقنة ومؤثرة تبارك الله.",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    if (student2 != null)
+                    {
+                        db.TalentRecords.Add(new QuranCircles.Api.Entities.TalentRecord
+                        {
+                            StudentId = student2.Id,
+                            TalentType = "أصوات ندية (تلاوة القرآن)",
+                            Title = "تلاوة خاشعة مرتلة من سورة الرحمن",
+                            PreparationMethod = "مقرأة الصوت والخشوع وضبط المقامات القرآنية",
+                            SpeechContent = "ترتيل وتجويد سورة الرحمن بصوت ندي ومتقن في حلقة المساء",
+                            Occasion = "المسابقة القرآنية الرمضانية",
+                            EventDate = DateOnly.FromDateTime(DateTime.Today),
+                            SupervisorTeacherId = teacher?.Id,
+                            MediaUrl = "",
+                            MediaType = "audio",
+                            EvaluationScore = "98%",
+                            PerformanceNotes = "صوت ندي مؤثر وخشوع رائع مع التزام تام بأحكام التجويد والمدود.",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    db.SaveChanges();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Seeder Notice] Seeding Talents: {ex.Message}");
+            }
+
+            // 6. Seed sample Huffaz members if empty
+            try
+            {
+                if (!db.HuffazMembers.Any())
+                {
+                    var teacher = db.Teachers.FirstOrDefault();
+                    var student = db.Students.FirstOrDefault();
+
+                    if (teacher != null)
+                    {
+                        db.HuffazMembers.Add(new QuranCircles.Api.Entities.HuffazMember
+                        {
+                            MemberType = "Teacher",
+                            TeacherId = teacher.Id,
+                            FullName = teacher.FullName,
+                            IdentityNumber = teacher.IdentityNumber,
+                            PhoneNumber = teacher.Contact,
+                            MemorizedAjzaaCount = 30,
+                            IsKhatim = true,
+                            Riwayah = "حفص عن عاصم من طريق الشاطبية",
+                            SupervisorTeacherId = teacher.Id,
+                            RevisionPlan = "مراجعة 3 أجزاء يومياً وتثبيت الإتقان مع مشايخ السند",
+                            Notes = "شيخ ومعلم بالمركز مجاز بالقراءات ويشرف على الحفاظ",
+                            JoinDate = DateOnly.FromDateTime(DateTime.Today),
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    if (student != null)
+                    {
+                        db.HuffazMembers.Add(new QuranCircles.Api.Entities.HuffazMember
+                        {
+                            MemberType = "Student",
+                            StudentId = student.Id,
+                            FullName = student.FullName,
+                            IdentityNumber = student.StudentIdentityNumber ?? "400111222",
+                            PhoneNumber = student.StudentMobile ?? student.FamilyContact,
+                            MemorizedAjzaaCount = 25,
+                            IsKhatim = false,
+                            Riwayah = "حفص عن عاصم",
+                            SupervisorTeacherId = teacher?.Id,
+                            RevisionPlan = "تثبيت الأجزاء الخمسة الأخيرة لبلوغ الختمة المباركة قريباً",
+                            Notes = "طالب متميز في حفظ القرآن ومواظب في الحلقة",
+                            JoinDate = DateOnly.FromDateTime(DateTime.Today),
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    db.HuffazMembers.Add(new QuranCircles.Api.Entities.HuffazMember
+                    {
+                        MemberType = "External",
+                        FullName = "بلال محمود سالم قاسم",
+                        IdentityNumber = "401928374",
+                        PhoneNumber = "+970599112233",
+                        MemorizedAjzaaCount = 30,
+                        IsKhatim = true,
+                        Riwayah = "قراءة عاصم بروايتي شعبة وحفص",
+                        SupervisorTeacherId = teacher?.Id,
+                        RevisionPlan = "جلسة تثبيت أسبوعية كل يوم جمعة بعد صلاة الفجر",
+                        Notes = "حافظ خارجي منتسب لمنتدى الحفاظ ومتميز في الضبط والإتقان",
+                        JoinDate = DateOnly.FromDateTime(DateTime.Today),
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+
+                    db.SaveChanges();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Seeder Notice] Seeding Huffaz: {ex.Message}");
+            }
+
+            // 7. Force immediate SQLite WAL Checkpoint to flush all recent changes directly into the main quran.db file
             try
             {
                 db.Database.ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE);");

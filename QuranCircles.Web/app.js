@@ -11711,7 +11711,21 @@ function renderHuffazTable() {
     }
 
     if (!list.length) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted">لا يوجد حفاظ يطابقون الفلتر المحدد حالياً.</td></tr>';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="p-0">
+                    <div class="table-empty-state-box">
+                        <div class="table-empty-icon bg-success bg-opacity-10 text-success">
+                            <i class="fa-solid fa-book-quran"></i>
+                        </div>
+                        <div class="empty-title">لا توجد سجلات مطابقة في منتدى الحفاظ</div>
+                        <div class="empty-desc">لم يتم العثور على أعضاء مطابقين للفلتر المختار حالياً. يمكنك تسجيل مشايخ، طلاب، أو حفاظ خارجيين بسهولة.</div>
+                        <button class="btn btn-success rounded-pill px-4 fw-bold shadow-sm" onclick="showAddEditHuffazMemberModal()">
+                            <i class="fa-solid fa-user-plus me-1"></i> إضافة عضو جديد لمنتدى الحفاظ
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
         return;
     }
 
@@ -12114,7 +12128,21 @@ function renderTalentTable() {
     }
 
     if (!list.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center p-4 text-muted">لا توجد مشاركات مسجلة في هذا المسار حالياً. اضغط على زر "إضافة مشاركة موهبة جديدة" للبدء.</td></tr>';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" class="p-0">
+                    <div class="table-empty-state-box">
+                        <div class="table-empty-icon bg-danger bg-opacity-10 text-danger">
+                            <i class="fa-solid fa-microphone-lines"></i>
+                        </div>
+                        <div class="empty-title">لا توجد مشاركات في هذا المسار حالياً</div>
+                        <div class="empty-desc">لم يتم تسجيل مشاركات للطلاب في هذا القسم حتى الآن. يمكنك إضافة وتوثيق مشاركة جديدة بالصوت أو الفيديو.</div>
+                        <button class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm" onclick="showAddEditTalentModal()">
+                            <i class="fa-solid fa-plus me-1"></i> إضافة مشاركة موهبة جديدة 🎙️
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
         return;
     }
 

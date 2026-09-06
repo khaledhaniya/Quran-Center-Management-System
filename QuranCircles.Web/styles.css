@@ -3862,5 +3862,155 @@ body.theme-dark {
     }
 }
 
+/* ==========================================================================
+   ENHANCED MODULE FILTER TABS & KPI GRIDS (Preacher Youth & Memorization Forum)
+   ========================================================================== */
+
+/* Universal Row & Col safety for custom grids */
+.row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    margin-right: -8px;
+    margin-left: -8px;
+}
+.row.g-3 {
+    gap: 16px !important;
+}
+.col-md-3 {
+    flex: 1 1 calc(25% - 16px) !important;
+    min-width: 220px !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+@media (max-width: 991px) {
+    .col-md-3 {
+        flex: 1 1 calc(50% - 16px) !important;
+    }
+}
+@media (max-width: 576px) {
+    .col-md-3 {
+        flex: 1 1 100% !important;
+    }
+}
+
+/* Talent & Huffaz Pill Filter Buttons */
+.talent-filter-btn, .huffaz-filter-btn {
+    border-radius: 24px !important;
+    padding: 7px 18px !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #475569 !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03) !important;
+}
+
+.talent-filter-btn:hover, .huffaz-filter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Active states for Talent filters */
+.talent-filter-btn.active[data-filter="all"],
+.talent-filter-btn.active {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35) !important;
+}
+.talent-filter-btn.active[data-filter="الواعظ"] {
+    background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
+    color: #ffffff !important;
+    border-color: #991b1b !important;
+    box-shadow: 0 4px 14px rgba(185, 28, 28, 0.35) !important;
+}
+.talent-filter-btn.active[data-filter="تلاوة"] {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    color: #ffffff !important;
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+}
+.talent-filter-btn.active[data-filter="أذان"] {
+    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+    color: #ffffff !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35) !important;
+}
+.talent-filter-btn.active[data-filter="الإمامة"] {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    color: #ffffff !important;
+    border-color: #047857 !important;
+    box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
+}
+
+/* Active states for Huffaz filters */
+.huffaz-filter-btn.active[data-filter="all"],
+.huffaz-filter-btn.active {
+    background: linear-gradient(135deg, #0d5c3a, #073b24) !important;
+    color: #ffffff !important;
+    border-color: #073b24 !important;
+    box-shadow: 0 4px 14px rgba(13, 92, 58, 0.35) !important;
+}
+.huffaz-filter-btn.active[data-filter="khatim"] {
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    color: #ffffff !important;
+    border-color: #b45309 !important;
+    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35) !important;
+}
+.huffaz-filter-btn.active[data-filter="teachers"] {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    color: #ffffff !important;
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+}
+.huffaz-filter-btn.active[data-filter="students"] {
+    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+    color: #ffffff !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35) !important;
+}
+.huffaz-filter-btn.active[data-filter="external"] {
+    background: linear-gradient(135deg, #475569, #334155) !important;
+    color: #ffffff !important;
+    border-color: #334155 !important;
+    box-shadow: 0 4px 14px rgba(71, 85, 105, 0.35) !important;
+}
+
+/* Empty State Styling */
+.table-empty-state-box {
+    padding: 45px 20px;
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 12px;
+    margin: 10px 0;
+}
+.table-empty-icon {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    margin: 0 auto 15px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+.empty-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 6px;
+}
+.empty-desc {
+    font-size: 0.88rem;
+    color: #64748b;
+    max-width: 480px;
+    margin: 0 auto 16px auto;
+}
+
 
 

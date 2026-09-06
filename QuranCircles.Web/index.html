@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260906_v4">
+    <link rel="stylesheet" href="styles.css?v=20260906_v5">
 </head>
 <body>
     <!-- App Container -->
@@ -1732,29 +1732,37 @@
                     </div>
 
                     <!-- Quality KPIs -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
-                                <h3 id="quality-stat-excellence-rate" class="fw-bold mb-1">0%</h3>
-                                <span class="fw-bold">نسبة تقييمات الامتياز</span>
+                    <div class="kpi-grid mb-4">
+                        <div class="glass-kpi color-3">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-award"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="quality-stat-excellence-rate">0%</h3>
+                                <p>نسبة تقييمات الامتياز</p>
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold" style="font-size: 0.72rem;">معيار الجودة</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
-                                <h3 id="quality-stat-active-circles" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">حلقات ملتزمة بالجدول</span>
+                        <div class="glass-kpi color-4">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="quality-stat-active-circles">0</h3>
+                                <p>حلقات ملتزمة بالجدول</p>
+                                <span class="badge bg-info bg-opacity-10 text-info fw-bold" style="font-size: 0.72rem;">خطة التسميع</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
-                                <h3 id="quality-stat-total-sessions" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">جلسات التسميع المدققة</span>
+                        <div class="glass-kpi color-5">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-book-open"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="quality-stat-total-sessions">0</h3>
+                                <p>جلسات التسميع المدققة</p>
+                                <span class="badge bg-primary bg-opacity-10 text-primary fw-bold" style="font-size: 0.72rem;">رصد يومي</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; border-radius: 12px;">
-                                <h3 id="quality-stat-avg-attendance" class="fw-bold mb-1">0%</h3>
-                                <span class="fw-bold">معدل الانضباط والالتزام</span>
+                        <div class="glass-kpi color-1">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-clipboard-user"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="quality-stat-avg-attendance">0%</h3>
+                                <p>معدل الانضباط والالتزام</p>
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold" style="font-size: 0.72rem;">حضور المشايخ</span>
                             </div>
                         </div>
                     </div>
@@ -1809,29 +1817,37 @@
                     </div>
 
                     <!-- Memorization Stats -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
-                                <h3 id="forum-stat-khatim-count" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">👑 الخاتمون للقرآن كاملاً</span>
+                    <div class="kpi-grid mb-4">
+                        <div class="glass-kpi color-3">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-crown text-warning"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="forum-stat-khatim-count">0</h3>
+                                <p>الخاتمون للقرآن كاملاً</p>
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold" style="font-size: 0.72rem;">👑 ختم 30 جزءاً</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
-                                <h3 id="forum-stat-20plus-count" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">حفاظ 20 جزءاً فأكثر</span>
+                        <div class="glass-kpi color-4">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-medal text-info"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="forum-stat-20plus-count">0</h3>
+                                <p>حفاظ 20 جزءاً فأكثر</p>
+                                <span class="badge bg-info bg-opacity-10 text-info fw-bold" style="font-size: 0.72rem;">⭐ فئة المتقدمين</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
-                                <h3 id="forum-stat-10plus-count" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">حفاظ 10 أجزاء فأكثر</span>
+                        <div class="glass-kpi color-5">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-book-bookmark text-primary"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="forum-stat-10plus-count">0</h3>
+                                <p>حفاظ 10 أجزاء فأكثر</p>
+                                <span class="badge bg-primary bg-opacity-10 text-primary fw-bold" style="font-size: 0.72rem;">📖 مسار الإتقان</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 12px;">
-                                <h3 id="forum-stat-nominations-count" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">إجمالي أعضاء المنتدى</span>
+                        <div class="glass-kpi color-2">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-users text-warning"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="forum-stat-nominations-count">0</h3>
+                                <p>إجمالي أعضاء المنتدى</p>
+                                <span class="badge bg-warning bg-opacity-10 text-dark fw-bold" style="font-size: 0.72rem;">مشايخ، طلاب، حفاظ</span>
                             </div>
                         </div>
                     </div>
@@ -1908,29 +1924,37 @@
                     </div>
 
                     <!-- Preacher Youth KPIs -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; border-radius: 12px;">
-                                <h3 id="preacher-stat-total-youth" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">الطلاب المنتسبين للبرنامج</span>
+                    <div class="kpi-grid mb-4">
+                        <div class="glass-kpi color-6">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-user-graduate text-danger"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="preacher-stat-total-youth">0</h3>
+                                <p>الطلاب المنتسبين للبرنامج</p>
+                                <span class="badge bg-danger bg-opacity-10 text-danger fw-bold" style="font-size: 0.72rem;">فرسان المواهب</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
-                                <h3 id="preacher-stat-speeches" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">المواعظ وفنون الخطابة</span>
+                        <div class="glass-kpi color-3">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-microphone text-success"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="preacher-stat-speeches">0</h3>
+                                <p>المواعظ وفنون الخطابة</p>
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold" style="font-size: 0.72rem;">خطب ومشاركات</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
-                                <h3 id="preacher-stat-voices" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">نماذج الأصوات الندية (أذان وتلاوة)</span>
+                        <div class="glass-kpi color-4">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-book-quran text-info"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="preacher-stat-voices">0</h3>
+                                <p>الأصوات الندية (أذان وتلاوة)</p>
+                                <span class="badge bg-info bg-opacity-10 text-info fw-bold" style="font-size: 0.72rem;">تلاوات وأذان</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
-                                <h3 id="preacher-stat-media-count" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">المشاركات الموثقة بفيديو/صوت</span>
+                        <div class="glass-kpi color-5">
+                            <div class="kpi-icon-box"><i class="fa-solid fa-video text-primary"></i></div>
+                            <div class="kpi-details">
+                                <h3 id="preacher-stat-media-count">0</h3>
+                                <p>المشاركات الموثقة بملفات</p>
+                                <span class="badge bg-primary bg-opacity-10 text-primary fw-bold" style="font-size: 0.72rem;">صوت وفيديو</span>
                             </div>
                         </div>
                     </div>
@@ -2051,7 +2075,7 @@
 
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="assets/logo_base64.js?v=20260906_v4"></script>
-    <script src="app.js?v=20260906_v4"></script>
+    <script src="assets/logo_base64.js?v=20260906_v5"></script>
+    <script src="app.js?v=20260906_v5"></script>
 </body>
 </html>
