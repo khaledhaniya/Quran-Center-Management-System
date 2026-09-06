@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<ProfileUpdateRequest> ProfileUpdateRequests => Set<ProfileUpdateRequest>();
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public DbSet<FinancialTransaction> FinancialTransactions => Set<FinancialTransaction>();
+    public DbSet<TalentRecord> TalentRecords => Set<TalentRecord>();
+    public DbSet<HuffazMember> HuffazMembers => Set<HuffazMember>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -145,5 +147,35 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(ca => ca.CourseId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<TalentRecord>()
+            .HasOne(tr => tr.Student)
+            .WithMany()
+            .HasForeignKey(tr => tr.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<TalentRecord>()
+            .HasOne(tr => tr.SupervisorTeacher)
+            .WithMany()
+            .HasForeignKey(tr => tr.SupervisorTeacherId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        b.Entity<HuffazMember>()
+            .HasOne(hm => hm.Teacher)
+            .WithMany()
+            .HasForeignKey(hm => hm.TeacherId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        b.Entity<HuffazMember>()
+            .HasOne(hm => hm.Student)
+            .WithMany()
+            .HasForeignKey(hm => hm.StudentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        b.Entity<HuffazMember>()
+            .HasOne(hm => hm.SupervisorTeacher)
+            .WithMany()
+            .HasForeignKey(hm => hm.SupervisorTeacherId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

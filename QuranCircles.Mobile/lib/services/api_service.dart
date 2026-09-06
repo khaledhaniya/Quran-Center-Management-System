@@ -977,5 +977,93 @@ class ApiService {
       'أخرى',
     ];
   }
+
+  // --- Talents & Preacher Youth (الفتى الواعظ والأصوات الندية) ---
+  static Future<List<TalentRecord>> getTalents({String? talentType, int? studentId}) async {
+    try {
+      String url = '$baseUrl/talents';
+      List<String> queryParams = [];
+      if (talentType != null && talentType.isNotEmpty) queryParams.add('talentType=${Uri.encodeComponent(talentType)}');
+      if (studentId != null) queryParams.add('studentId=$studentId');
+      if (queryParams.isNotEmpty) url += '?${queryParams.join('&')}';
+
+      final response = await http.get(Uri.parse(url), headers: _headers());
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
+        return list.map((x) => TalentRecord.fromJson(x)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> saveTalent(Map<String, dynamic> data, {int? id}) async {
+    try {
+      final url = id != null ? '$baseUrl/talents/$id' : '$baseUrl/talents';
+      final response = id != null
+          ? await http.put(Uri.parse(url), headers: _headers(), body: jsonEncode(data))
+          : await http.post(Uri.parse(url), headers: _headers(), body: jsonEncode(data));
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteTalent(int id) async {
+    try {
+      final response = await http.delete(Uri.parse('$baseUrl/talents/$id'), headers: _headers());
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // --- Huffaz Forum (منتدى الحفاظ وشؤون التحفيظ) ---
+  static Future<Map<String, dynamic>> getHuffaz({String? memberType, bool? isKhatim}) async {
+    try {
+      String url = '$baseUrl/huffaz';
+      List<String> queryParams = [];
+      if (memberType != null && memberType.isNotEmpty) queryParams.add('memberType=${Uri.encodeComponent(memberType)}');
+      if (isKhatim != null) queryParams.add('isKhatim=$isKhatim');
+      if (queryParams.isNotEmpty) url += '?${queryParams.join('&')}';
+
+      final response = await http.get(Uri.parse(url), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {'members': [], 'stats': {}};
+  }
+
+  static Future<List<Teacher>> getHuffazSupervisors() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/huffaz/supervisors'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
+        return list.map((x) => Teacher.fromJson(x)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> saveHuffazMember(Map<String, dynamic> data, {int? id}) async {
+    try {
+      final url = id != null ? '$baseUrl/huffaz/$id' : '$baseUrl/huffaz';
+      final response = id != null
+          ? await http.put(Uri.parse(url), headers: _headers(), body: jsonEncode(data))
+          : await http.post(Uri.parse(url), headers: _headers(), body: jsonEncode(data));
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteHuffazMember(int id) async {
+    try {
+      final response = await http.delete(Uri.parse('$baseUrl/huffaz/$id'), headers: _headers());
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 

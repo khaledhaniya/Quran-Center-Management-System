@@ -3341,9 +3341,16 @@ async function loadParentProgress() {
                             <h3 class="mb-1 fw-bold text-white d-flex align-items-center gap-2" style="font-size: 1.15rem;">
                                 <i class="fa-solid fa-user-graduate text-warning"></i> ${c.studentName}
                             </h3>
-                            <span class="badge bg-white bg-opacity-15 text-white fw-semibold px-3 py-1 rounded-pill border border-white border-opacity-25" style="font-size: 0.78rem;">
-                                <i class="fa-solid fa-mosque me-1 text-warning"></i> الحلقة: ${c.circleName || 'غير منسب لحلقة حالياً'}
-                            </span>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge bg-white bg-opacity-15 text-white fw-semibold px-3 py-1 rounded-pill border border-white border-opacity-25" style="font-size: 0.78rem;">
+                                    <i class="fa-solid fa-mosque me-1 text-warning"></i> الحلقة: ${c.circleName || 'غير منسب لحلقة حالياً'}
+                                </span>
+                                ${(c.isTalented || (c.talents && c.talents.length > 0)) ? `
+                                    <span class="badge bg-danger text-white fw-bold px-3 py-1 rounded-pill shadow-xs" style="font-size: 0.78rem;">
+                                        <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ والأصوات الندية (${(c.talents || []).length})
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
                         
                         <div class="child-quick-stats-grid">
@@ -3378,6 +3385,64 @@ async function loadParentProgress() {
                     </div>
                 </div>
                 <div class="card-body p-3 p-md-4">
+                    <!-- Talents Section for Parent -->
+                    ${(c.talents && c.talents.length > 0) ? `
+                        <div class="p-3 mb-4 rounded-3 border" style="background: #fff8f8; border-color: #fca5a5 !important;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-danger mb-0 d-flex align-items-center gap-2" style="font-size: 1rem;">
+                                    <i class="fa-solid fa-microphone"></i> مشاركات الفتى الواعظ والأصوات الندية (${c.talents.length})
+                                </h6>
+                                <span class="badge bg-danger">موهبة متميزة 🎙️</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>مسار الموهبة</th>
+                                            <th>عنوان الخطبة / التلاوة</th>
+                                            <th>المناسبة والتاريخ</th>
+                                            <th>طريقة التحضير</th>
+                                            <th>التقييم والملاحظات</th>
+                                            <th>الفيديو / تنزيل</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${c.talents.map(t => `
+                                            <tr>
+                                                <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${t.talentType}</span></td>
+                                                <td>
+                                                    <strong class="text-dark d-block">${t.title}</strong>
+                                                    ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:240px; line-height: 1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 80))}${t.speechContent.length > 80 ? '...' : ''}</div>` : ''}
+                                                </td>
+                                                <td>
+                                                    <span class="small fw-bold">${t.occasion || '-'}</span><br>
+                                                    <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
+                                                </td>
+                                                <td><span class="small text-muted">${t.preparationMethod || '-'}</span></td>
+                                                <td>
+                                                    ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1">${t.evaluationScore}</span>` : '-'}
+                                                    ${t.performanceNotes ? `<div class="small text-muted" style="max-width:180px;">${t.performanceNotes}</div>` : ''}
+                                                </td>
+                                                <td>
+                                                    ${t.mediaUrl ? `
+                                                        <div class="d-flex gap-1 align-items-center">
+                                                            <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                                                                <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع' : 'مشاهدة'}
+                                                            </button>
+                                                            <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الفيديو أو المرفق لجهازك">
+                                                                <i class="fa-solid fa-download"></i>
+                                                            </a>
+                                                        </div>
+                                                    ` : '<span class="text-muted small">بدون مرفق</span>'}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ` : ''}
+
                     <h5 class="fw-bold mb-3 text-success d-flex align-items-center gap-2" style="font-size: 1rem;">
                         <i class="fa-solid fa-calendar-days"></i> آخر جلسات الحفظ والتسميع
                     </h5>
@@ -3438,6 +3503,7 @@ async function showStudent360Modal(studentId) {
         const sessions = data.recentSessions || [];
         const centerAttendance = data.centerAttendance || [];
         const completedExams = data.completedExams || [];
+        const talents = data.talents || [];
         
         content.innerHTML = `
             <div class="student-360-container">
@@ -3446,28 +3512,41 @@ async function showStudent360Modal(studentId) {
                         <div class="card p-3 text-center bg-light border-0 shadow-sm">
                             <i class="fa-solid fa-user-graduate mb-2" style="font-size: 2.5rem; color: var(--primary-color)"></i>
                             <h4 class="mb-1">${info.fullName || info.studentName || 'اسم الطالب'}</h4>
-                            <span class="badge bg-primary mb-2">${info.circleName || 'غير مسند حلقة'}</span>
+                            <div class="d-flex justify-content-center align-items-center gap-1 flex-wrap mb-2">
+                                <span class="badge bg-primary">${info.circleName || 'غير مسند حلقة'}</span>
+                                ${(data.isTalented || talents.length > 0) ? `
+                                    <span class="badge bg-danger text-white shadow-xs">
+                                        <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ (${talents.length})
+                                    </span>
+                                ` : ''}
+                            </div>
                             <p class="text-muted small mb-0"><i class="fa-solid fa-phone"></i> التواصل: ${info.familyContact || '-'}</p>
                         </div>
                     </div>
                     <div class="col-md-8">
                         <div class="row g-2">
-                            <div class="col-6 col-sm-4">
+                            <div class="col-6 col-sm-3">
                                 <div class="card p-3 text-center border-0 shadow-sm bg-success text-white">
                                     <h3>${sessions.length}</h3>
                                     <span class="small">جلسات التسميع</span>
                                 </div>
                             </div>
-                            <div class="col-6 col-sm-4">
+                            <div class="col-6 col-sm-3">
                                 <div class="card p-3 text-center border-0 shadow-sm bg-info text-white">
                                     <h3>${centerAttendance.filter(a => a.status === 'Present').length}</h3>
                                     <span class="small">أيام الحضور</span>
                                 </div>
                             </div>
-                            <div class="col-6 col-sm-4">
+                            <div class="col-6 col-sm-3">
                                 <div class="card p-3 text-center border-0 shadow-sm bg-warning text-dark">
                                     <h3>${completedExams.length}</h3>
                                     <span class="small">الاختبارات المجتازة</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="card p-3 text-center border-0 shadow-sm ${talents.length > 0 ? 'bg-danger text-white' : 'bg-light text-muted border'}">
+                                    <h3>${talents.length}</h3>
+                                    <span class="small">مشاركات الموهبة</span>
                                 </div>
                             </div>
                         </div>
@@ -3483,6 +3562,11 @@ async function showStudent360Modal(studentId) {
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="exams-tab" data-bs-toggle="tab" data-bs-target="#tab-exams" type="button"><i class="fa-solid fa-award"></i> الاختبارات والشهادات</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link ${talents.length > 0 ? 'text-danger fw-bold' : ''}" id="talents-tab" data-bs-toggle="tab" data-bs-target="#tab-talents" type="button">
+                            <i class="fa-solid fa-microphone text-danger me-1"></i> الفتى الواعظ والأصوات الندية (${talents.length})
+                        </button>
                     </li>
                 </ul>
 
@@ -3565,6 +3649,66 @@ async function showStudent360Modal(studentId) {
                                                 <td><strong>${e.title || e.courseName}</strong></td>
                                                 <td><span class="badge bg-success">${e.score || e.degree}%</span></td>
                                                 <td>${e.gradeText || 'مجتاز'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Talents Tab (الفتى الواعظ والأصوات الندية) -->
+                    <div class="tab-pane fade" id="tab-talents">
+                        ${talents.length === 0 ? `
+                            <div class="text-center p-5 text-muted">
+                                <i class="fa-solid fa-microphone-lines fa-3x mb-3 text-secondary opacity-50"></i>
+                                <h5>لا توجد مشاركات مسجلة لهذا الطالب في الفتى الواعظ أو الأصوات الندية حتى الآن.</h5>
+                                <p class="small">يمكن لإدارة المركز والمشرفين إدراج الطالب ومشاركاته من صفحة (الفتى الواعظ والأصوات الندية).</p>
+                            </div>
+                        ` : `
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>المسار</th>
+                                            <th>عنوان المشاركة / الخطبة</th>
+                                            <th>طريقة التحضير</th>
+                                            <th>التاريخ والمناسبة</th>
+                                            <th>المشرف المعتمد</th>
+                                            <th>التقييم</th>
+                                            <th>المرفق / تنزيل</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${talents.map(t => `
+                                            <tr>
+                                                <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${t.talentType}</span></td>
+                                                <td>
+                                                    <strong class="text-dark d-block">${t.title}</strong>
+                                                    ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:260px; line-height:1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 90))}${t.speechContent.length > 90 ? '...' : ''}</div>` : ''}
+                                                </td>
+                                                <td><span class="small text-muted">${t.preparationMethod || '-'}</span></td>
+                                                <td>
+                                                    <span class="small fw-bold">${t.occasion || '-'}</span><br>
+                                                    <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
+                                                </td>
+                                                <td><strong class="text-success small">${t.supervisorTeacherName || '-'}</strong></td>
+                                                <td>
+                                                    ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1">${t.evaluationScore}</span>` : '-'}
+                                                    ${t.performanceNotes ? `<div class="small text-muted" style="max-width:160px;">${t.performanceNotes}</div>` : ''}
+                                                </td>
+                                                <td>
+                                                    ${t.mediaUrl ? `
+                                                        <div class="d-flex gap-1 align-items-center">
+                                                            <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                                                                <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع' : 'مشاهدة'}
+                                                            </button>
+                                                            <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الفيديو أو المرفق لجهازك">
+                                                                <i class="fa-solid fa-download"></i>
+                                                            </a>
+                                                        </div>
+                                                    ` : '<span class="text-muted small">بدون مرفق</span>'}
+                                                </td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
@@ -8308,9 +8452,16 @@ async function showStudent360View(studentId) {
                             <h3 style="margin:0 0 5px 0; font-weight:800; color:var(--primary-color);"><i class="fa-solid fa-id-card"></i> ${student.fullName}</h3>
                             <p style="margin:0; font-size:0.85rem;" class="text-muted">الهوية: <b>${student.studentIdentityNumber || '-'}</b> | العنوان: ${student.address || '-'} | تاريخ الميلاد: ${student.dateOfBirth || '-'}</p>
                         </div>
-                        <div class="text-start">
-                            <span class="badge badge-success">حساب نشط</span>
-                            <div style="font-size:0.8rem; margin-top:5px; color:var(--text-muted);">رقم العائلة: <strong>${student.familyContact || '-'}</strong></div>
+                        <div class="text-start d-flex flex-column align-items-end gap-1">
+                            <div class="d-flex gap-1">
+                                <span class="badge badge-success">حساب نشط</span>
+                                ${(progress.isTalented || (progress.talents && progress.talents.length > 0)) ? `
+                                    <span class="badge bg-danger text-white shadow-xs">
+                                        <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ (${(progress.talents || []).length})
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div style="font-size:0.8rem; margin-top:2px; color:var(--text-muted);">رقم العائلة: <strong>${student.familyContact || '-'}</strong></div>
                         </div>
                     </div>
                 </div>
@@ -8410,6 +8561,69 @@ async function showStudent360View(studentId) {
                         <h4 style="margin:0 0 10px 0; color:var(--primary-color); font-weight:700;"><i class="fa-solid fa-award"></i> الإنجازات والشهادات</h4>
                         ${achievementsHtml}
                     </div>
+                </div>
+
+                <!-- Talents & Preacher Youth Section -->
+                <div class="card shadow-sm p-4 mb-4" style="border-radius: 14px; border-right: 5px solid #dc2626; background: #ffffff;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <div>
+                            <h4 style="margin:0; color:#b91c1c; font-weight:800;"><i class="fa-solid fa-microphone text-danger me-2"></i> سجل الفتى الواعظ والأصوات الندية ومواهب الطالب</h4>
+                            <p style="margin:2px 0 0 0; font-size:0.85rem; color:var(--text-muted);">توثيق الخطب والمشاركات الوعظية وتلاوات القرآن والأذان وتنزيل الفيديوهات والصوتيات.</p>
+                        </div>
+                        <span class="badge bg-danger fs-6 p-2">${(progress.talents || []).length} مشاركات مسجلة</span>
+                    </div>
+                    ${(!progress.talents || progress.talents.length === 0) ? `
+                        <p class="text-muted p-3 text-center mb-0">لا توجد مشاركات مسجلة لهذا الطالب في الفتى الواعظ أو الأصوات الندية حتى الآن.</p>
+                    ` : `
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>المسار</th>
+                                        <th>عنوان المشاركة / الخطبة</th>
+                                        <th>طريقة التحضير</th>
+                                        <th>التاريخ والمناسبة</th>
+                                        <th>المشرف المعتمد</th>
+                                        <th>التقييم</th>
+                                        <th>المرفق / تنزيل</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${progress.talents.map(t => `
+                                        <tr>
+                                            <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${t.talentType}</span></td>
+                                            <td>
+                                                <strong class="text-dark d-block">${t.title}</strong>
+                                                ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:260px; line-height:1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 90))}${t.speechContent.length > 90 ? '...' : ''}</div>` : ''}
+                                            </td>
+                                            <td><span class="small text-muted">${t.preparationMethod || '-'}</span></td>
+                                            <td>
+                                                <span class="small fw-bold">${t.occasion || '-'}</span><br>
+                                                <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
+                                            </td>
+                                            <td><strong class="text-success small">${t.supervisorTeacherName || '-'}</strong></td>
+                                            <td>
+                                                ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1">${t.evaluationScore}</span>` : '-'}
+                                                ${t.performanceNotes ? `<div class="small text-muted" style="max-width:160px;">${t.performanceNotes}</div>` : ''}
+                                            </td>
+                                            <td>
+                                                ${t.mediaUrl ? `
+                                                    <div class="d-flex gap-1 align-items-center">
+                                                        <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                                                            <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع' : 'مشاهدة'}
+                                                        </button>
+                                                        <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الفيديو أو المرفق لجهازك">
+                                                            <i class="fa-solid fa-download"></i>
+                                                        </a>
+                                                    </div>
+                                                ` : '<span class="text-muted small">بدون مرفق</span>'}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
                 </div>
 
                 <!-- Detailed Circle Attendance Logs -->
@@ -11447,122 +11661,891 @@ async function loadMemorizationForumScreen() {
     }
 
     try {
-        let students = cachedStudents;
-        if (!students || !students.length) {
-            students = await apiRequest("/students");
-            cachedStudents = students || [];
-        }
+// =========================================================================
+// 3. MEMORIZATION FORUM & HUFFAZ MODULE (شؤون التحفيظ ومنتدى الحفاظ)
+// =========================================================================
+let cachedHuffazData = null;
+let currentHuffazFilter = "all";
 
-        let khatims = 0;
-        let plus20 = 0;
-        let plus10 = 0;
+async function loadMemorizationForumScreen() {
+    const tbody = document.getElementById("memorization-forum-table-body");
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل سجل فرسان منتدى الحفاظ...</td></tr>';
+    }
 
-        // Filter high memorizers
-        const memorizers = (students || []).filter(s => {
-            const mem = (s.previousQuranMemorization || "").toLowerCase();
-            const ajzaa = parseInt(mem.replace(/\D/g, '')) || 0;
-            const isKhatim = mem.includes("كاملا") || mem.includes("30") || mem.includes("خاتم");
-
-            if (isKhatim) khatims++;
-            else if (ajzaa >= 20) plus20++;
-            else if (ajzaa >= 10) plus10++;
-
-            return isKhatim || ajzaa >= 5 || mem.length > 2;
-        });
+    try {
+        const res = await apiRequest("/huffaz");
+        cachedHuffazData = res || { members: [], stats: {} };
+        const members = cachedHuffazData.members || [];
+        const stats = cachedHuffazData.stats || {};
 
         // Update KPIs
         const elKhatim = document.getElementById("forum-stat-khatim-count");
         const el20 = document.getElementById("forum-stat-20plus-count");
         const el10 = document.getElementById("forum-stat-10plus-count");
-        const elNom = document.getElementById("forum-stat-nominations-count");
+        const elTotal = document.getElementById("forum-stat-nominations-count");
 
-        if (elKhatim) elKhatim.textContent = khatims || 4;
-        if (el20) el20.textContent = plus20 || 7;
-        if (el10) el10.textContent = plus10 || 16;
-        if (elNom) elNom.textContent = (khatims + plus20 + plus10) || 27;
+        if (elKhatim) elKhatim.textContent = stats.khatimsCount ?? members.filter(m => m.isKhatim || m.memorizedAjzaaCount >= 30).length;
+        if (el20) el20.textContent = stats.plus20Count ?? members.filter(m => m.memorizedAjzaaCount >= 20 && m.memorizedAjzaaCount < 30).length;
+        if (el10) el10.textContent = stats.plus10Count ?? members.filter(m => m.memorizedAjzaaCount >= 10 && m.memorizedAjzaaCount < 20).length;
+        if (elTotal) elTotal.textContent = stats.totalMembers ?? members.length;
 
-        if (tbody) {
-            if (!memorizers.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted">لا يوجد طلاب مسجلون في منتدى الحفاظ حالياً.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = memorizers.map((s, idx) => {
-                const mem = s.previousQuranMemorization || "جزء عم";
-                const isKhatim = mem.includes("كاملا") || mem.includes("30") || mem.includes("خاتم");
-                const statusBadge = isKhatim 
-                    ? '<span class="badge bg-warning text-dark fw-bold px-2 py-1"><i class="fa-solid fa-crown me-1"></i> خاتم القرآن الكريم</span>'
-                    : '<span class="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1">حافظ مجتهد</span>';
-
-                return `
-                    <tr>
-                        <td class="text-center font-monospace">${idx + 1}</td>
-                        <td><strong class="text-primary">${s.fullName}</strong></td>
-                        <td><span class="badge bg-light text-dark border">${s.circleName || "حلقة الفجر"}</span></td>
-                        <td>${s.teacherName || "الشيخ المشرف"}</td>
-                        <td><span class="fw-bold text-dark">${mem}</span></td>
-                        <td class="text-center font-monospace fw-bold text-success">${isKhatim ? "30 جزء" : mem}</td>
-                        <td>${statusBadge}</td>
-                    </tr>
-                `;
-            }).join("");
-        }
+        renderHuffazTable();
     } catch(err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">تعذر تحميل بيانات منتدى الحفاظ.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger p-4"><i class="fa-solid fa-triangle-exclamation me-2"></i> تعذر تحميل بيانات منتدى الحفاظ: ' + (err.message || "") + '</td></tr>';
     }
 }
+
+function filterHuffazMembers(filter) {
+    currentHuffazFilter = filter;
+    document.querySelectorAll(".huffaz-filter-btn").forEach(btn => {
+        if (btn.dataset.filter === filter) btn.classList.add("active");
+        else btn.classList.remove("active");
+    });
+    renderHuffazTable();
+}
+
+function renderHuffazTable() {
+    const tbody = document.getElementById("memorization-forum-table-body");
+    if (!tbody || !cachedHuffazData) return;
+
+    let list = cachedHuffazData.members || [];
+    if (currentHuffazFilter === "khatim") {
+        list = list.filter(m => m.isKhatim || m.memorizedAjzaaCount >= 30);
+    } else if (currentHuffazFilter === "teachers") {
+        list = list.filter(m => m.memberType === "Teacher");
+    } else if (currentHuffazFilter === "students") {
+        list = list.filter(m => m.memberType === "Student");
+    } else if (currentHuffazFilter === "external") {
+        list = list.filter(m => m.memberType === "External");
+    }
+
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted">لا يوجد حفاظ يطابقون الفلتر المحدد حالياً.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = list.map((m, idx) => {
+        const isKhatim = m.isKhatim || m.memorizedAjzaaCount >= 30;
+        const ajzaaBadge = isKhatim
+            ? '<span class="badge bg-warning text-dark fw-bold px-3 py-2 rounded-pill shadow-sm"><i class="fa-solid fa-crown text-warning me-1"></i> خاتم القرآن (30 جزء)</span>'
+            : `<span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 border border-success rounded-pill font-monospace">${m.memorizedAjzaaCount} جزءاً</span>`;
+
+        let typeBadge = '<span class="badge bg-secondary">غير محدد</span>';
+        if (m.memberType === "Teacher") {
+            typeBadge = '<span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fa-solid fa-user-tie me-1"></i> شيخ ومعلم بالمركز</span>';
+        } else if (m.memberType === "Student") {
+            typeBadge = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><i class="fa-solid fa-graduation-cap me-1"></i> طالب: ${m.circleName || 'حلقة المركز'}</span>`;
+        } else {
+            typeBadge = '<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-earth-americas text-info me-1"></i> حافظ من خارج المركز</span>';
+        }
+
+        return `
+            <tr>
+                <td class="text-center font-monospace fw-bold text-muted" style="width: 40px;">${idx + 1}</td>
+                <td>
+                    <div class="fw-bold text-primary" style="font-size: 1.05rem;">${m.fullName}</div>
+                    <div class="small text-muted font-monospace"><i class="fa-solid fa-id-card me-1"></i> ${m.identityNumber || '-'} | <i class="fa-solid fa-phone me-1"></i> ${m.phoneNumber || '-'}</div>
+                </td>
+                <td>${typeBadge}</td>
+                <td>${ajzaaBadge}</td>
+                <td><span class="badge bg-light text-dark border"><i class="fa-solid fa-scroll text-secondary me-1"></i> ${m.riwayah || 'رواية حفص عن عاصم'}</span></td>
+                <td>
+                    <strong class="text-success"><i class="fa-solid fa-chalkboard-user me-1"></i> ${m.supervisorTeacherName || 'غير معين'}</strong>
+                </td>
+                <td>
+                    <div class="small text-dark fw-bold"><i class="fa-solid fa-route text-primary me-1"></i> ${m.revisionPlan || 'مراجعة وتثبيت دوري'}</div>
+                    ${m.notes ? `<small class="text-muted d-block mt-1"><i class="fa-regular fa-comment-dots me-1"></i> ${m.notes}</small>` : ''}
+                </td>
+                <td class="text-center">
+                    <span class="badge ${m.isActive ? 'bg-success' : 'bg-danger'}">${m.isActive ? 'نشط بالمنتدى' : 'معطل'}</span>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                        <button class="btn btn-outline-primary btn-sm" onclick="showAddEditHuffazMemberModal(${m.id})" title="تعديل بيانات الحافظ">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteHuffazMember(${m.id}, '${escapeXml(m.fullName)}')" title="حذف من المنتدى">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+async function showAddEditHuffazMemberModal(memberId = null) {
+    let member = null;
+    if (memberId && cachedHuffazData) {
+        member = (cachedHuffazData.members || []).find(m => m.id === memberId);
+    }
+
+    // 1. Fetch authorized supervisors (teachers with role 'التحفيظ' or 'منتدى الحفاظ')
+    let supervisors = [];
+    try {
+        supervisors = await apiRequest("/huffaz/supervisors");
+    } catch(e) {
+        supervisors = cachedTeachers || [];
+    }
+    if (!supervisors || !supervisors.length) {
+        supervisors = cachedTeachers || [];
+    }
+
+    // 2. Fetch teachers and students for pickers
+    if (!cachedTeachers || !cachedTeachers.length) {
+        cachedTeachers = await apiRequest("/teachers").catch(() => []);
+    }
+    if (!cachedStudents || !cachedStudents.length) {
+        cachedStudents = await apiRequest("/students").catch(() => []);
+    }
+
+    const currentType = member ? member.memberType : "Student";
+    const currentAjzaa = member ? member.memorizedAjzaaCount : 30;
+    const currentSupervisor = member ? member.supervisorTeacherId : "";
+
+    const supervisorOptions = supervisors.map(s => `
+        <option value="${s.id}" ${currentSupervisor == s.id ? 'selected' : ''}>
+            فضيلة الشيخ / ${s.fullName} ${s.taskRole ? `(${s.taskRole})` : ''}
+        </option>
+    `).join("");
+
+    const teacherOptions = (cachedTeachers || []).map(t => `
+        <option value="${t.id}" ${member && member.teacherId == t.id ? 'selected' : ''}>
+            الشيخ المعلم / ${t.fullName} (${t.identityNumber || '-'})
+        </option>
+    `).join("");
+
+    const studentOptions = (cachedStudents || []).map(s => `
+        <option value="${s.id}" ${member && member.studentId == s.id ? 'selected' : ''}>
+            الطالب / ${s.fullName} (${s.circleName || 'غير مسند'})
+        </option>
+    `).join("");
+
+    const htmlContent = `
+        <div class="text-start" style="direction: rtl;">
+            <!-- Question 1: Member Type -->
+            <div class="p-3 bg-light border rounded-3 mb-3">
+                <label class="form-label fw-bold text-primary mb-2">
+                    <i class="fa-solid fa-user-tag me-1"></i> السؤال الأول: ما هي صفة هذا الشخص في منتدى الحفاظ؟ <span class="text-danger">*</span>
+                </label>
+                <div class="d-flex gap-2 flex-wrap" id="huffaz-type-selector">
+                    <button type="button" class="btn btn-sm ${currentType === 'Teacher' ? 'btn-success' : 'btn-outline-success'} flex-grow-1 huffaz-type-btn" data-type="Teacher">
+                        <i class="fa-solid fa-user-tie me-1"></i> معلم قرآن في المركز
+                    </button>
+                    <button type="button" class="btn btn-sm ${currentType === 'Student' ? 'btn-primary' : 'btn-outline-primary'} flex-grow-1 huffaz-type-btn" data-type="Student">
+                        <i class="fa-solid fa-graduation-cap me-1"></i> طالب مسجل في المركز
+                    </button>
+                    <button type="button" class="btn btn-sm ${currentType === 'External' ? 'btn-info text-dark' : 'btn-outline-info text-dark'} flex-grow-1 huffaz-type-btn" data-type="External">
+                        <i class="fa-solid fa-earth-americas me-1"></i> شخص وحافظ خارجي جديد
+                    </button>
+                </div>
+                <input type="hidden" id="swal-huffaz-type" value="${currentType}">
+            </div>
+
+            <!-- Conditional Picker 1: Teacher -->
+            <div id="huffaz-teacher-row" class="mb-3 ${currentType === 'Teacher' ? '' : 'd-none'}">
+                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user-tie text-success me-1"></i> اختر المعلم من كادر المركز:</label>
+                <select id="swal-huffaz-teacher-id" class="form-select">
+                    <option value="">-- اختر الشيخ المعلم --</option>
+                    ${teacherOptions}
+                </select>
+            </div>
+
+            <!-- Conditional Picker 2: Student -->
+            <div id="huffaz-student-row" class="mb-3 ${currentType === 'Student' ? '' : 'd-none'}">
+                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-graduation-cap text-primary me-1"></i> اختر الطالب من طلاب المركز:</label>
+                <select id="swal-huffaz-student-id" class="form-select">
+                    <option value="">-- اختر الطالب --</option>
+                    ${studentOptions}
+                </select>
+            </div>
+
+            <!-- Conditional Picker 3: External Person Fields -->
+            <div id="huffaz-external-row" class="border p-3 rounded-3 mb-3 bg-white ${currentType === 'External' ? '' : 'd-none'}">
+                <div class="mb-2">
+                    <label class="form-label fw-bold small mb-1">الاسم الرباعي للحافظ الخارجي <span class="text-danger">*</span></label>
+                    <input id="swal-huffaz-external-name" class="form-control form-control-sm" placeholder="أدخل الاسم الرباعي كاملاً..." value="${member && member.memberType === 'External' ? member.fullName : ''}">
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small mb-1">رقم الهوية الوطنية</label>
+                        <input id="swal-huffaz-external-id" class="form-control form-control-sm font-monospace" placeholder="رقم الهوية..." value="${member && member.memberType === 'External' ? (member.identityNumber || '') : ''}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small mb-1">رقم الجوال والواتساب</label>
+                        <input id="swal-huffaz-external-phone" class="form-control form-control-sm font-monospace" placeholder="059xxxxxxx" value="${member && member.memberType === 'External' ? (member.phoneNumber || '') : ''}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question 2: Memorized Ajzaa Count -->
+            <div class="p-3 border rounded-3 mb-3" style="background: #f0fdf4; border-color: #22c55e !important;">
+                <label class="form-label fw-bold text-success mb-2 d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-book-quran me-1"></i> السؤال الثاني: كم يحفظ من أجزاء القرآن الكريم؟ <span class="text-danger">*</span></span>
+                    <span id="huffaz-ajzaa-display-badge" class="badge bg-success fs-6">${currentAjzaa} جزءاً ${currentAjzaa >= 30 ? '(خاتم 👑)' : ''}</span>
+                </label>
+                <div class="d-flex align-items-center gap-3">
+                    <input type="range" class="form-range flex-grow-1" id="swal-huffaz-ajzaa-range" min="1" max="30" step="1" value="${currentAjzaa}">
+                    <input type="number" class="form-control form-control-sm font-monospace fw-bold text-center" id="swal-huffaz-ajzaa-num" min="1" max="30" value="${currentAjzaa}" style="width: 70px;">
+                </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="swal-huffaz-is-khatim" ${currentAjzaa >= 30 || (member && member.isKhatim) ? 'checked' : ''}>
+                    <label class="form-check-label fw-bold text-dark small" for="swal-huffaz-is-khatim">
+                        👑 توثيق واعتماد كـ (خاتم للقرآن الكريم كاملاً)
+                    </label>
+                </div>
+            </div>
+
+            <!-- Supervisor Sheikh & Riwayah -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-7">
+                    <label class="form-label fw-bold mb-1">
+                        <i class="fa-solid fa-chalkboard-user text-primary me-1"></i> الشيخ المشرف على الإتقان:
+                        <small class="text-success fw-bold">(محدد وفق الصلاحيات)</small>
+                    </label>
+                    <select id="swal-huffaz-supervisor-id" class="form-select">
+                        <option value="">-- اختر الشيخ المشرف المعتمد --</option>
+                        ${supervisorOptions}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-scroll text-secondary me-1"></i> الرواية أو القراءة المجاز بها:</label>
+                    <input id="swal-huffaz-riwayah" class="form-control" placeholder="مثال: حفص عن عاصم / ورش..." value="${member ? (member.riwayah || '') : 'حفص عن عاصم'}">
+                </div>
+            </div>
+
+            <!-- Revision Plan & Notes -->
+            <div class="mb-2">
+                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-route text-success me-1"></i> خطة المراجعة والتثبيت المقررة:</label>
+                <input id="swal-huffaz-plan" class="form-control" placeholder="مثال: سرد 5 أجزاء أسبوعياً / جزء يومياً مع الشيخ" value="${member ? (member.revisionPlan || '') : 'سرد جزء يومياً ومراجعة نصف حزب'}">
+            </div>
+
+            <div class="mb-0">
+                <label class="form-label fw-bold small text-muted mb-1">ملاحظات وتوصيات إضافية:</label>
+                <input id="swal-huffaz-notes" class="form-control form-control-sm" placeholder="أي ملاحظات أو تفاصيل أخرى..." value="${member ? (member.notes || '') : ''}">
+            </div>
+        </div>
+    `;
+
+    const result = await Swal.fire({
+        title: memberId ? '✏️ تعديل بيانات عضو منتدى الحفاظ' : '➕ إضافة عضو جديد لمنتدى الحفاظ',
+        html: htmlContent,
+        width: '720px',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتثبيت العضوية',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#0d5c3a',
+        focusConfirm: false,
+        didOpen: () => {
+            const range = document.getElementById("swal-huffaz-ajzaa-range");
+            const num = document.getElementById("swal-huffaz-ajzaa-num");
+            const badge = document.getElementById("huffaz-ajzaa-display-badge");
+            const khatimCb = document.getElementById("swal-huffaz-is-khatim");
+
+            const syncAjzaa = (val) => {
+                const v = parseInt(val) || 1;
+                range.value = v;
+                num.value = v;
+                if (v >= 30) {
+                    badge.innerHTML = `${v} جزءاً (خاتم 👑)`;
+                    badge.className = "badge bg-warning text-dark fs-6";
+                    khatimCb.checked = true;
+                } else {
+                    badge.innerHTML = `${v} جزءاً`;
+                    badge.className = "badge bg-success fs-6";
+                }
+            };
+
+            range.addEventListener("input", (e) => syncAjzaa(e.target.value));
+            num.addEventListener("input", (e) => syncAjzaa(e.target.value));
+
+            // Member type switcher
+            const typeInput = document.getElementById("swal-huffaz-type");
+            const tchRow = document.getElementById("huffaz-teacher-row");
+            const stRow = document.getElementById("huffaz-student-row");
+            const extRow = document.getElementById("huffaz-external-row");
+
+            document.querySelectorAll(".huffaz-type-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const t = btn.dataset.type;
+                    typeInput.value = t;
+                    document.querySelectorAll(".huffaz-type-btn").forEach(b => {
+                        b.classList.remove("btn-success", "btn-primary", "btn-info");
+                        b.classList.add("btn-outline-" + (b.dataset.type === 'Teacher' ? 'success' : (b.dataset.type === 'Student' ? 'primary' : 'info')));
+                    });
+                    btn.classList.remove("btn-outline-success", "btn-outline-primary", "btn-outline-info");
+                    btn.classList.add(t === 'Teacher' ? 'btn-success' : (t === 'Student' ? 'btn-primary' : 'btn-info'));
+
+                    tchRow.classList.toggle("d-none", t !== "Teacher");
+                    stRow.classList.toggle("d-none", t !== "Student");
+                    extRow.classList.toggle("d-none", t !== "External");
+                });
+            });
+        },
+        preConfirm: () => {
+            const memberType = document.getElementById("swal-huffaz-type").value;
+            const teacherId = parseInt(document.getElementById("swal-huffaz-teacher-id").value) || null;
+            const studentId = parseInt(document.getElementById("swal-huffaz-student-id").value) || null;
+            const extName = document.getElementById("swal-huffaz-external-name")?.value.trim() || "";
+            const extId = document.getElementById("swal-huffaz-external-id")?.value.trim() || null;
+            const extPhone = document.getElementById("swal-huffaz-external-phone")?.value.trim() || null;
+            const ajzaa = parseInt(document.getElementById("swal-huffaz-ajzaa-num").value) || 30;
+            const isKhatim = document.getElementById("swal-huffaz-is-khatim").checked;
+            const supervisorId = parseInt(document.getElementById("swal-huffaz-supervisor-id").value) || null;
+            const riwayah = document.getElementById("swal-huffaz-riwayah").value.trim();
+            const plan = document.getElementById("swal-huffaz-plan").value.trim();
+            const notes = document.getElementById("swal-huffaz-notes").value.trim();
+
+            if (memberType === "Teacher" && !teacherId) {
+                Swal.showValidationMessage("يرجى اختيار الشيخ المعلم من قائمة المعلمين.");
+                return false;
+            }
+            if (memberType === "Student" && !studentId) {
+                Swal.showValidationMessage("يرجى اختيار الطالب من قائمة الطلاب.");
+                return false;
+            }
+            if (memberType === "External" && !extName) {
+                Swal.showValidationMessage("يرجى إدخال الاسم الرباعي للحافظ الخارجي.");
+                return false;
+            }
+
+            return {
+                memberType,
+                teacherId,
+                studentId,
+                fullName: extName,
+                identityNumber: extId,
+                phoneNumber: extPhone,
+                memorizedAjzaaCount: ajzaa,
+                isKhatim,
+                supervisorTeacherId: supervisorId,
+                riwayah,
+                revisionPlan: plan,
+                notes
+            };
+        }
+    });
+
+    if (result.isConfirmed) {
+        try {
+            if (memberId) {
+                await apiRequest(`/huffaz/${memberId}`, "PUT", result.value);
+                showAlert("تم تحديث بيانات الحافظ بنجاح! 📖", "success");
+            } else {
+                await apiRequest("/huffaz", "POST", result.value);
+                showAlert("تمت إضافة الحافظ إلى منتدى الحفاظ بنجاح! 👑", "success");
+            }
+            await loadMemorizationForumScreen();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حفظ بيانات العضو", "danger");
+        }
+    }
+}
+
+async function deleteHuffazMember(id, name) {
+    const confirm = await Swal.fire({
+        title: '⚠️ تأكيد إزالة الحافظ',
+        html: `هل أنت متأكد من إزالة <strong>${name}</strong> من منتدى الحفاظ؟`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، إزالة',
+        cancelButtonText: 'تراجع',
+        confirmButtonColor: '#d33'
+    });
+
+    if (confirm.isConfirmed) {
+        try {
+            await apiRequest(`/huffaz/${id}`, "DELETE");
+            showAlert("تمت إزالة العضو من منتدى الحفاظ بنجاح.", "info");
+            await loadMemorizationForumScreen();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء إزالة العضو", "danger");
+        }
+    }
+}
+
 
 // =========================================================================
 // 4. PREACHER YOUTH MODULE (الفتى الواعظ والأصوات الندية)
 // =========================================================================
+let cachedTalents = [];
+let currentTalentFilter = "all";
+
 async function loadPreacherYouthScreen() {
     const tbody = document.getElementById("preacher-youth-table-body");
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل أنشطة الفتى الواعظ...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل أنشطة الفتى الواعظ والأصوات الندية...</td></tr>';
     }
 
     try {
-        let students = cachedStudents;
-        if (!students || !students.length) {
-            students = await apiRequest("/students");
-            cachedStudents = students || [];
-        }
+        const talents = await apiRequest("/talents");
+        cachedTalents = talents || [];
 
-        // Sample talented youth from active students
-        const talented = (students || []).slice(0, 10).map((s, idx) => ({
-            name: s.fullName,
-            circle: s.circleName || "حلقة الفجر",
-            teacher: s.teacherName || "الشيخ محمد السويسي",
-            talent: (idx % 2 === 0) ? "الخطابة والمواعظ الدعوية 🎙️" : "الأصوات الندية (أذان وتلاوة) 📢",
-            speechesCount: 3 + (idx * 2),
-            notes: (idx % 2 === 0) ? "ألقى موعظة مؤثرة بعد صلاة العصر" : "رفع أذان المغرب بصوت خاشع ومتقن"
-        }));
+        // Calculate statistics
+        const totalRecords = cachedTalents.length;
+        const uniqueYouth = new Set(cachedTalents.map(t => t.studentId)).size;
+        const speechesCount = cachedTalents.filter(t => (t.talentType || '').includes("الواعظ") || (t.talentType || '').includes("الخطابة")).length;
+        const voicesCount = cachedTalents.filter(t => (t.talentType || '').includes("الأصوات") || (t.talentType || '').includes("تلاوة") || (t.talentType || '').includes("أذان")).length;
+        const mediaCount = cachedTalents.filter(t => t.mediaUrl && t.mediaUrl.trim() !== "").length;
 
         const elYouth = document.getElementById("preacher-stat-total-youth");
         const elSpeeches = document.getElementById("preacher-stat-speeches");
         const elVoices = document.getElementById("preacher-stat-voices");
+        const elMedia = document.getElementById("preacher-stat-media-count");
 
-        if (elYouth) elYouth.textContent = talented.length;
-        if (elSpeeches) elSpeeches.textContent = talented.reduce((acc, curr) => acc + curr.speechesCount, 0);
-        if (elVoices) elVoices.textContent = talented.filter(t => t.talent.includes("الأصوات")).length;
+        if (elYouth) elYouth.textContent = uniqueYouth;
+        if (elSpeeches) elSpeeches.textContent = speechesCount;
+        if (elVoices) elVoices.textContent = voicesCount;
+        if (elMedia) elMedia.textContent = mediaCount;
 
-        if (tbody) {
-            tbody.innerHTML = talented.map((t, idx) => `
-                <tr>
-                    <td class="text-center font-monospace">${idx + 1}</td>
-                    <td><strong class="text-primary">${t.name}</strong></td>
-                    <td><span class="badge bg-light text-dark border">${t.circle}</span></td>
-                    <td>${t.teacher}</td>
-                    <td><span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1">${t.talent}</span></td>
-                    <td class="text-center font-monospace fw-bold">${t.speechesCount}</td>
-                    <td><span class="text-muted small">${t.notes}</span></td>
-                </tr>
-            `).join("");
-        }
+        renderTalentTable();
     } catch(err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">تعذر تحميل سجل الفتى الواعظ.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger p-4">تعذر تحميل سجل الفتى الواعظ: ' + (err.message || "") + '</td></tr>';
     }
 }
+
+function filterTalentRecords(filter) {
+    currentTalentFilter = filter;
+    document.querySelectorAll(".talent-filter-btn").forEach(btn => {
+        if (btn.dataset.filter === filter) btn.classList.add("active");
+        else btn.classList.remove("active");
+    });
+    renderTalentTable();
+}
+
+function renderTalentTable() {
+    const tbody = document.getElementById("preacher-youth-table-body");
+    if (!tbody) return;
+
+    let list = cachedTalents || [];
+    if (currentTalentFilter !== "all") {
+        list = list.filter(t => (t.talentType || "").includes(currentTalentFilter));
+    }
+
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center p-4 text-muted">لا توجد مشاركات مسجلة في هذا المسار حالياً. اضغط على زر "إضافة مشاركة موهبة جديدة" للبدء.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = list.map((t, idx) => {
+        let talentBadge = '<span class="badge bg-danger">موهبة</span>';
+        if (t.talentType.includes("الواعظ") || t.talentType.includes("الخطابة")) {
+            talentBadge = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-1"><i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ (خطابة)</span>';
+        } else if (t.talentType.includes("تلاوة")) {
+            talentBadge = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><i class="fa-solid fa-book-quran me-1"></i> أصوات ندية (تلاوة)</span>';
+        } else if (t.talentType.includes("أذان")) {
+            talentBadge = '<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-bullhorn text-info me-1"></i> أصوات ندية (أذان)</span>';
+        } else {
+            talentBadge = `<span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fa-solid fa-mosque me-1"></i> ${t.talentType}</span>`;
+        }
+
+        // Media buttons
+        let mediaHtml = '<span class="text-muted small">بدون مرفق</span>';
+        if (t.mediaUrl && t.mediaUrl.trim()) {
+            const isVid = (t.mediaType || 'video') === 'video';
+            const isAud = (t.mediaType || '') === 'audio';
+            const icon = isVid ? 'fa-video' : (isAud ? 'fa-headphones' : 'fa-image');
+            const label = isVid ? 'مشاهدة' : (isAud ? 'استماع' : 'معاينة');
+
+            mediaHtml = `
+                <div class="d-flex gap-1 justify-content-center align-items-center">
+                    <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                        <i class="fa-solid ${icon} me-1"></i> ${label}
+                    </button>
+                    <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الملف للجهاز">
+                        <i class="fa-solid fa-download"></i>
+                    </a>
+                </div>
+            `;
+        }
+
+        return `
+            <tr>
+                <td class="text-center font-monospace fw-bold text-muted" style="width: 40px;">${idx + 1}</td>
+                <td>
+                    <div class="fw-bold text-primary" style="font-size: 1.05rem;">${t.studentName}</div>
+                    <small class="text-muted"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
+                </td>
+                <td><span class="badge bg-light text-dark border">${t.circleName || 'حلقة المركز'}</span></td>
+                <td>${talentBadge}</td>
+                <td>
+                    <strong class="text-dark d-block">${t.title}</strong>
+                    ${t.occasion ? `<span class="badge bg-secondary bg-opacity-10 text-secondary border mt-1"><i class="fa-solid fa-map-pin me-1"></i> ${t.occasion}</span>` : ''}
+                </td>
+                <td>
+                    ${t.preparationMethod ? `<div class="small text-muted mb-1"><i class="fa-solid fa-book-open me-1 text-primary"></i> <strong>التحضير:</strong> ${t.preparationMethod}</div>` : ''}
+                    ${t.speechContent ? `<div class="small text-dark border-top pt-1 mt-1" style="max-width: 250px; line-height: 1.4;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 90))}${t.speechContent.length > 90 ? '...' : ''}</div>` : ''}
+                </td>
+                <td>
+                    <strong class="text-success"><i class="fa-solid fa-user-tie me-1"></i> ${t.supervisorTeacherName || 'غير معين'}</strong>
+                </td>
+                <td class="text-center">${mediaHtml}</td>
+                <td>
+                    ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1 d-inline-block"><i class="fa-solid fa-star text-dark me-1"></i> ${t.evaluationScore}</span>` : ''}
+                    ${t.performanceNotes ? `<div class="small text-muted" style="max-width: 180px;">${t.performanceNotes}</div>` : '-'}
+                </td>
+                <td class="text-center">
+                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                        <button class="btn btn-outline-primary btn-sm" onclick="showAddEditTalentModal(${t.id})" title="تعديل المشاركة">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteTalentRecord(${t.id}, '${escapeXml(t.title)}')" title="حذف المشاركة">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+async function showAddEditTalentModal(talentId = null) {
+    let talent = null;
+    if (talentId && cachedTalents) {
+        talent = cachedTalents.find(t => t.id === talentId);
+    }
+
+    if (!cachedStudents || !cachedStudents.length) {
+        cachedStudents = await apiRequest("/students").catch(() => []);
+    }
+    if (!cachedTeachers || !cachedTeachers.length) {
+        cachedTeachers = await apiRequest("/teachers").catch(() => []);
+    }
+
+    const currentStudentId = talent ? talent.studentId : "";
+    const currentTalentType = talent ? talent.talentType : "الفتى الواعظ (فن الخطابة والوعظ)";
+    const currentSupervisorId = talent ? talent.supervisorTeacherId : "";
+
+    const studentOptions = (cachedStudents || []).map(s => `
+        <option value="${s.id}" ${currentStudentId == s.id ? 'selected' : ''}>
+            ${s.fullName} (${s.circleName || 'غير مسند'})
+        </option>
+    `).join("");
+
+    const teacherOptions = (cachedTeachers || []).map(t => `
+        <option value="${t.id}" ${currentSupervisorId == t.id ? 'selected' : ''}>
+            فضيلة الشيخ / ${t.fullName}
+        </option>
+    `).join("");
+
+    const talentTypes = [
+        "الفتى الواعظ (فن الخطابة والوعظ)",
+        "الأصوات الندية (تلاوة القرآن الكريم)",
+        "الأصوات الندية (الأذان والإقامة)",
+        "الإمامة المحرابية للفتيان",
+        "الإنشاد والابتهال الديني"
+    ];
+
+    const talentTypeOptions = talentTypes.map(type => `
+        <option value="${type}" ${currentTalentType === type ? 'selected' : ''}>${type}</option>
+    `).join("");
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const htmlContent = `
+        <div class="text-start" style="direction: rtl;">
+            <!-- Student & Talent Type -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user-graduate text-primary me-1"></i> اختر الطالب الموهوب <span class="text-danger">*</span></label>
+                    <select id="swal-talent-student-id" class="form-select">
+                        <option value="">-- اختر الطالب --</option>
+                        ${studentOptions}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-microphone text-danger me-1"></i> مسار الموهبة والتخصص <span class="text-danger">*</span></label>
+                    <select id="swal-talent-type" class="form-select">
+                        ${talentTypeOptions}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Title of Speech / Recitation -->
+            <div class="mb-3">
+                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-heading text-success me-1"></i> عنوان وموضوع الخطبة / التلاوة / المشاركة <span class="text-danger">*</span></label>
+                <input id="swal-talent-title" class="form-control" placeholder="مثال: موعظة بر الوالدين، تلاوة خاشعة من سورة الرحمن، أذان الفجر..." value="${talent ? (talent.title || '') : ''}">
+            </div>
+
+            <!-- Preparation Method (طريقة التحضير) -->
+            <div class="p-3 bg-light border rounded-3 mb-3">
+                <label class="form-label fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-book-open text-primary me-1"></i> طريقة التحضير والإعداد:</span>
+                    <span class="badge bg-primary bg-opacity-10 text-primary small">خيارات سريعة</span>
+                </label>
+                <div class="d-flex gap-1 flex-wrap mb-2" id="prep-tags-container">
+                    <button type="button" class="btn btn-sm btn-outline-secondary prep-tag-btn" data-val="بحث ومطالعة ذاتية واختيار المراجع">بحث ومطالعة ذاتية</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary prep-tag-btn" data-val="تدريب وإشراف مباشر مع الشيخ المحفظ">إشراف وتدريب مع الشيخ</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary prep-tag-btn" data-val="تلقين وتدريب منزلي بمتابعة ولي الأمر">تدريب منزلي مع ولي الأمر</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary prep-tag-btn" data-val="مقرأة مسجدية متخصصة في المقامات والصوت">مقرأة الصوت والخشوع</button>
+                </div>
+                <input id="swal-talent-prep" class="form-control form-control-sm" placeholder="اكتب أو اختر طريقة التحضير..." value="${talent ? (talent.preparationMethod || '') : 'تدريب وإشراف مباشر مع الشيخ المحفظ'}">
+            </div>
+
+            <!-- Speech Content / Outline (نص أو عناصر الخطبة) -->
+            <div class="mb-3">
+                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-align-right text-danger me-1"></i> نص أو عناصر ومحاور الخطبة التي سيقولها الطالب:</label>
+                <textarea id="swal-talent-content" rows="3" class="form-control" placeholder="اكتب عناصر الخطبة، الآيات والأحاديث المستشهد بها، ومقدمة وخاتمة الموعظة...">${talent ? (talent.speechContent || '') : ''}</textarea>
+            </div>
+
+            <!-- Occasion, Date, Supervisor Sheikh -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i> المناسبة / المكان</label>
+                    <input id="swal-talent-occasion" class="form-control form-control-sm" placeholder="مثال: منبر الجمعة، بعد العصر..." value="${talent ? (talent.occasion || '') : 'منبر الجمعة التجريبي'}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-calendar-day text-success me-1"></i> تاريخ الإلقاء</label>
+                    <input type="date" id="swal-talent-date" class="form-control form-control-sm font-monospace" value="${talent && talent.eventDate ? talent.eventDate : todayStr}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-user-tie text-info me-1"></i> الشيخ المشرف</label>
+                    <select id="swal-talent-teacher-id" class="form-select form-select-sm">
+                        <option value="">-- غير معين --</option>
+                        ${teacherOptions}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Media Upload & Video/Audio Link -->
+            <div class="p-3 border rounded-3 mb-3" style="background: #fff8f8; border-color: #fca5a5 !important;">
+                <label class="form-label fw-bold text-danger mb-1 d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-video me-1"></i> توثيق الفيديو أو الصوت أو الصورة:</span>
+                    <span class="badge bg-danger">يدعم التنزيل المباشر 📥</span>
+                </label>
+                
+                <div class="mb-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="fa-solid fa-link text-muted"></i></span>
+                        <input id="swal-talent-media-url" class="form-control font-monospace" placeholder="رابط الفيديو أو الملف المرفوع (أو ارفع ملف من الزر أدناه)..." value="${talent ? (talent.mediaUrl || '') : ''}">
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <label class="btn btn-outline-danger btn-sm mb-0 shadow-sm" style="cursor: pointer;">
+                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> رفع ملف فيديو أو صوت أو صورة
+                        <input type="file" id="swal-talent-file-input" accept="video/*,audio/*,image/*" style="display: none;">
+                    </label>
+                    <span id="swal-talent-upload-status" class="small text-muted">يمكنك رفع ملفات mp4، mp3، أو وضع رابط خارجي</span>
+                </div>
+            </div>
+
+            <!-- Evaluation & Notes -->
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-star text-warning me-1"></i> التقييم والدرجة</label>
+                    <input id="swal-talent-score" class="form-control form-control-sm" placeholder="مثال: ممتاز، 95%..." value="${talent ? (talent.evaluationScore || '') : 'ممتاز مرتفع'}">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-comment-dots text-secondary me-1"></i> ملاحظات الأداء والفصاحة والخشوع</label>
+                    <input id="swal-talent-notes" class="form-control form-control-sm" placeholder="ملاحظات توجيهية حول نبرة الصوت، لغة الجسد، سلامة اللغة..." value="${talent ? (talent.performanceNotes || '') : ''}">
+                </div>
+            </div>
+        </div>
+    `;
+
+    const result = await Swal.fire({
+        title: talentId ? '✏️ تعديل مشاركة الفتى الواعظ' : '🎙️ إضافة مشاركة موهبة جديدة (الفتى الواعظ والأصوات الندية)',
+        html: htmlContent,
+        width: '760px',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتوثيق المشاركة',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#b91c1c',
+        focusConfirm: false,
+        didOpen: () => {
+            // Helper prep tags
+            const prepInput = document.getElementById("swal-talent-prep");
+            document.querySelectorAll(".prep-tag-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    prepInput.value = btn.dataset.val;
+                });
+            });
+
+            // File upload handler
+            const fileInput = document.getElementById("swal-talent-file-input");
+            const urlInput = document.getElementById("swal-talent-media-url");
+            const statusLabel = document.getElementById("swal-talent-upload-status");
+
+            if (fileInput) {
+                fileInput.addEventListener("change", async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    statusLabel.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-danger"></i> جاري رفع الملف (${(file.size / (1024*1024)).toFixed(1)} MB)...`;
+
+                    try {
+                        const formData = new FormData();
+                        formData.append("file", file);
+
+                        const token = getAuthStorage("token");
+                        const res = await fetch(`${API_BASE_URL}/talents/upload`, {
+                            method: "POST",
+                            headers: {
+                                "Authorization": token ? `Bearer ${token}` : ""
+                            },
+                            body: formData
+                        });
+
+                        if (!res.ok) {
+                            const errData = await res.json().catch(() => ({}));
+                            throw new Error(errData.error || "فشل رفع الملف");
+                        }
+
+                        const data = await res.json();
+                        urlInput.value = data.url;
+                        statusLabel.innerHTML = `<span class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i> تم الرفع بنجاح!</span>`;
+                    } catch(uploadErr) {
+                        statusLabel.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-xmark me-1"></i> ${uploadErr.message}</span>`;
+                    }
+                });
+            }
+        },
+        preConfirm: () => {
+            const studentId = parseInt(document.getElementById("swal-talent-student-id").value);
+            const talentType = document.getElementById("swal-talent-type").value;
+            const title = document.getElementById("swal-talent-title").value.trim();
+            const prep = document.getElementById("swal-talent-prep").value.trim();
+            const content = document.getElementById("swal-talent-content").value.trim();
+            const occasion = document.getElementById("swal-talent-occasion").value.trim();
+            const eventDate = document.getElementById("swal-talent-date").value;
+            const teacherId = parseInt(document.getElementById("swal-talent-teacher-id").value) || null;
+            const mediaUrl = document.getElementById("swal-talent-media-url").value.trim();
+            const score = document.getElementById("swal-talent-score").value.trim();
+            const notes = document.getElementById("swal-talent-notes").value.trim();
+
+            if (!studentId) {
+                Swal.showValidationMessage("يرجى اختيار الطالب الموهوب.");
+                return false;
+            }
+            if (!title) {
+                Swal.showValidationMessage("يرجى إدخال عنوان وموضوع المشاركة أو الخطبة.");
+                return false;
+            }
+
+            // Deduce media type
+            let mediaType = "video";
+            const lowerUrl = mediaUrl.toLowerCase();
+            if (lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a")) mediaType = "audio";
+            else if (lowerUrl.includes(".jpg") || lowerUrl.includes(".jpeg") || lowerUrl.includes(".png") || lowerUrl.includes(".webp")) mediaType = "image";
+
+            return {
+                studentId,
+                talentType,
+                title,
+                preparationMethod: prep,
+                speechContent: content,
+                occasion,
+                eventDate,
+                supervisorTeacherId: teacherId,
+                mediaUrl,
+                mediaType,
+                evaluationScore: score,
+                performanceNotes: notes
+            };
+        }
+    });
+
+    if (result.isConfirmed) {
+        try {
+            if (talentId) {
+                await apiRequest(`/talents/${talentId}`, "PUT", result.value);
+                showAlert("تم تحديث مشاركة الموهبة بنجاح! 🎙️", "success");
+            } else {
+                await apiRequest("/talents", "POST", result.value);
+                showAlert("تم تسجيل وتوثيق مشاركة الموهبة بنجاح! 🎉", "success");
+            }
+            await loadPreacherYouthScreen();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حفظ المشاركة", "danger");
+        }
+    }
+}
+
+function showMediaViewerModal(mediaUrl, mediaType, title) {
+    if (!mediaUrl) return;
+
+    let playerHtml = "";
+    let fullUrl = mediaUrl;
+    if (mediaUrl.startsWith("/") && !mediaUrl.startsWith("//")) {
+        fullUrl = `${API_BASE_URL.replace('/api', '')}${mediaUrl}`;
+    }
+
+    if (mediaType === "audio" || fullUrl.match(/\.(mp3|wav|m4a|ogg)$/i)) {
+        playerHtml = `
+            <div class="text-center p-4 bg-light rounded-3 mb-3">
+                <i class="fa-solid fa-microphone-lines fa-3x text-danger mb-3"></i>
+                <audio controls autoplay class="w-100 shadow-sm" src="${fullUrl}">
+                    متصفحك لا يدعم مشغل الصوت.
+                </audio>
+            </div>
+        `;
+    } else if (mediaType === "image" || fullUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+        playerHtml = `
+            <div class="text-center mb-3">
+                <img src="${fullUrl}" alt="${title}" class="img-fluid rounded-3 shadow-sm" style="max-height: 480px; object-fit: contain;">
+            </div>
+        `;
+    } else if (fullUrl.includes("youtube.com") || fullUrl.includes("youtu.be")) {
+        const vidId = fullUrl.includes("v=") ? fullUrl.split("v=")[1].split("&")[0] : fullUrl.split("/").pop();
+        playerHtml = `
+            <div class="ratio ratio-16x9 rounded-3 overflow-hidden shadow-sm mb-3">
+                <iframe src="https://www.youtube.com/embed/${vidId}?autoplay=1" allowfullscreen></iframe>
+            </div>
+        `;
+    } else {
+        // Video
+        playerHtml = `
+            <div class="text-center mb-3 rounded-3 overflow-hidden shadow-sm bg-black">
+                <video controls autoplay class="w-100" style="max-height: 480px;" src="${fullUrl}">
+                    متصفحك لا يدعم مشغل الفيديو.
+                </video>
+            </div>
+        `;
+    }
+
+    Swal.fire({
+        title: `🎙️ ${title || 'توثيق المشاركة والخطبة'}`,
+        html: `
+            <div style="direction: rtl;">
+                ${playerHtml}
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <span class="small text-muted font-monospace"><i class="fa-solid fa-link me-1"></i> الرابط: ${fullUrl}</span>
+                    <a href="${fullUrl}" download target="_blank" class="btn btn-danger shadow-sm fw-bold">
+                        <i class="fa-solid fa-cloud-arrow-down me-1"></i> تنزيل الفيديو / المرفق لجهازك
+                    </a>
+                </div>
+            </div>
+        `,
+        width: '720px',
+        showCloseButton: true,
+        showConfirmButton: false
+    });
+}
+
+async function deleteTalentRecord(id, title) {
+    const confirm = await Swal.fire({
+        title: '⚠️ تأكيد حذف المشاركة',
+        html: `هل أنت متأكد من حذف مشاركة <strong>${title}</strong> من سجل الفتى الواعظ؟`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، حذف',
+        cancelButtonText: 'تراجع',
+        confirmButtonColor: '#d33'
+    });
+
+    if (confirm.isConfirmed) {
+        try {
+            await apiRequest(`/talents/${id}`, "DELETE");
+            showAlert("تم حذف مشاركة الموهبة بنجاح.", "info");
+            await loadPreacherYouthScreen();
+        } catch(err) {
+            showAlert(err.message || "حدث خطأ أثناء حذف المشاركة", "danger");
+        }
+    }
+}
+
 
 
 

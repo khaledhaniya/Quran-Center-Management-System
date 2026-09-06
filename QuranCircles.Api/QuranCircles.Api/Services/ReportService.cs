@@ -67,9 +67,31 @@ public class ReportService
                 s.Assessment, SessionService.AssessmentText(s.Assessment), s.Notes, s.ViaLottery
             )).ToList();
 
+            var talents = await _db.TalentRecords
+                .Include(t => t.SupervisorTeacher)
+                .Where(t => t.StudentId == child.Id)
+                .OrderByDescending(t => t.EventDate)
+                .Select(t => (object)new {
+                    t.Id,
+                    t.TalentType,
+                    t.Title,
+                    t.PreparationMethod,
+                    t.SpeechContent,
+                    t.Occasion,
+                    EventDate = t.EventDate.ToString("yyyy-MM-dd"),
+                    t.SupervisorTeacherId,
+                    SupervisorTeacherName = t.SupervisorTeacher != null ? t.SupervisorTeacher.FullName : "غير معين",
+                    t.MediaUrl,
+                    t.MediaType,
+                    t.EvaluationScore,
+                    t.PerformanceNotes
+                })
+                .ToListAsync();
+
             result.Add(new ChildProgressDto(
                 child.Id, child.FullName, child.Circle?.Name,
-                sessions.Count, absence, late, recent
+                sessions.Count, absence, late, recent,
+                talents.Count > 0, talents
             ));
         }
 

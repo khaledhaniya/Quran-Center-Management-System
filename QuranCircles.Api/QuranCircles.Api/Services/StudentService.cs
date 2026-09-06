@@ -495,6 +495,28 @@ public class StudentService
             ExamDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? e.NominationDate.ToString("yyyy-MM-dd")
         }).ToList();
 
+        var talents = await _db.TalentRecords
+            .Include(t => t.SupervisorTeacher)
+            .Where(t => t.StudentId == s.Id)
+            .OrderByDescending(t => t.EventDate)
+            .ToListAsync();
+
+        var talentsDto = talents.Select(t => new {
+            t.Id,
+            t.TalentType,
+            t.Title,
+            t.PreparationMethod,
+            t.SpeechContent,
+            t.Occasion,
+            EventDate = t.EventDate.ToString("yyyy-MM-dd"),
+            t.SupervisorTeacherId,
+            SupervisorTeacherName = t.SupervisorTeacher?.FullName ?? "غير معين",
+            t.MediaUrl,
+            t.MediaType,
+            t.EvaluationScore,
+            t.PerformanceNotes
+        }).ToList();
+
         var juzStatus = new Dictionary<int, string>();
         for (int i = 1; i <= 30; i++)
         {
@@ -567,6 +589,8 @@ public class StudentService
             CenterAttendance = attendancesDto,
             CourseAttendance = courseAttendancesDto,
             CompletedExams = completedExamsDto,
+            Talents = talentsDto,
+            IsTalented = talentsDto.Count > 0,
             JuzStatus = juzStatus
         };
     }

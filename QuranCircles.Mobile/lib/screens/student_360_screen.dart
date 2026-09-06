@@ -227,6 +227,8 @@ class _Student360ScreenState extends State<Student360Screen> {
     final courseAttendance = _profileData?['courseAttendance'] as List? ?? [];
     final completedExams = _profileData?['completedExams'] as List? ?? [];
     final recitationSessions = _profileData?['recitationSessions'] as List? ?? _profileData?['sessions'] as List? ?? [];
+    final talents = _profileData?['talents'] as List? ?? [];
+    final isTalented = (_profileData?['isTalented'] as bool?) ?? talents.isNotEmpty;
 
     final completedAjzaaStr = _profileData?['completedAjzaa']?.toString() ?? '';
     final completedAjzaaSet = completedAjzaaStr
@@ -395,6 +397,28 @@ class _Student360ScreenState extends State<Student360Screen> {
                               'المعلم المحفظ: ${_profileData!['teacherName'] ?? "غير مسند"}',
                               style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted),
                             ),
+                            if (isTalented || talents.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.red.shade300),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.mic, size: 14, color: Colors.red.shade700),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'الفتى الواعظ والأصوات الندية (${talents.length})',
+                                      style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -608,6 +632,126 @@ class _Student360ScreenState extends State<Student360Screen> {
                                     ),
                                     child: Text(assessText, style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeColor)),
                                   ),
+                                );
+                              },
+                            ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Preacher Youth & Talents Card (الفتى الواعظ والأصوات الندية)
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.mic, color: Colors.red, size: 22),
+                              const SizedBox(width: 8),
+                              Text('سجل الفتى الواعظ والأصوات الندية', style: AppTheme.cairoStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.red.shade800)),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text('${talents.length} مشاركات', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade800)),
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      talents.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Text('لا توجد مشاركات مسجلة لهذا الطالب في الفتى الواعظ أو الأصوات الندية بعد.', style: AppTheme.cairoStyle(color: AppTheme.textMuted)),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: talents.length,
+                              separatorBuilder: (_, __) => const Divider(height: 16),
+                              itemBuilder: (ctx, i) {
+                                final t = talents[i];
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            t['title'] ?? 'مشاركة',
+                                            style: AppTheme.cairoStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.shade50,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.red.shade200),
+                                          ),
+                                          child: Text(t['talentType'] ?? 'الفتى الواعظ', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                    if (t['speechContent'] != null && t['speechContent'].toString().isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'عناصر ومحتوى الخطبة: ${t['speechContent']}',
+                                        style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade800),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        if (t['preparationMethod'] != null && t['preparationMethod'].toString().isNotEmpty)
+                                          Expanded(
+                                            child: Text('طريقة التحضير: ${t['preparationMethod']}', style: AppTheme.cairoStyle(fontSize: 10, color: AppTheme.textMuted), overflow: TextOverflow.ellipsis),
+                                          ),
+                                        if (t['eventDate'] != null)
+                                          Text('${t['eventDate']}', style: AppTheme.cairoStyle(fontSize: 10, color: AppTheme.textMuted)),
+                                      ],
+                                    ),
+                                    if (t['mediaUrl'] != null && t['mediaUrl'].toString().isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.shade50,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.play_circle_fill, size: 16, color: Colors.red),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                'مرفق التوثيق (فيديو/صوت/صورة): ${t['mediaUrl']}',
+                                                style: AppTheme.cairoStyle(fontSize: 10, color: Colors.red.shade900),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 );
                               },
                             ),

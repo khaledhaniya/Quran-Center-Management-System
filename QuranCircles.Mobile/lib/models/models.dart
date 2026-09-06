@@ -565,3 +565,125 @@ class SystemSettings {
     );
   }
 }
+
+class TalentRecord {
+  final int id;
+  final int studentId;
+  final String studentName;
+  final String? circleName;
+  final String talentType;
+  final String title;
+  final String? preparationMethod;
+  final String? speechContent;
+  final String? occasion;
+  final String? eventDate;
+  final int? supervisorTeacherId;
+  final String? supervisorTeacherName;
+  final String? mediaUrl;
+  final String? mediaType;
+  final String? evaluationScore;
+  final String? performanceNotes;
+
+  TalentRecord({
+    required this.id,
+    required this.studentId,
+    required this.studentName,
+    this.circleName,
+    required this.talentType,
+    required this.title,
+    this.preparationMethod,
+    this.speechContent,
+    this.occasion,
+    this.eventDate,
+    this.supervisorTeacherId,
+    this.supervisorTeacherName,
+    this.mediaUrl,
+    this.mediaType,
+    this.evaluationScore,
+    this.performanceNotes,
+  });
+
+  factory TalentRecord.fromJson(Map<String, dynamic> json) {
+    return TalentRecord(
+      id: json['id'] ?? 0,
+      studentId: json['studentId'] ?? 0,
+      studentName: json['studentName'] ?? '',
+      circleName: json['circleName'],
+      talentType: json['talentType'] ?? '',
+      title: json['title'] ?? '',
+      preparationMethod: json['preparationMethod'],
+      speechContent: json['speechContent'],
+      occasion: json['occasion'],
+      eventDate: json['eventDate'] != null ? json['eventDate'].toString().split('T')[0] : null,
+      supervisorTeacherId: json['supervisorTeacherId'],
+      supervisorTeacherName: json['supervisorTeacherName'],
+      mediaUrl: json['mediaUrl'],
+      mediaType: json['mediaType'],
+      evaluationScore: json['evaluationScore'],
+      performanceNotes: json['performanceNotes'],
+    );
+  }
+}
+
+class HuffazMember {
+  final int id;
+  final String memberType;
+  final int? teacherId;
+  final int? studentId;
+  final String fullName;
+  final String? identityNumber;
+  final String? phoneNumber;
+  final int memorizedAjzaaCount;
+  final bool isKhatim;
+  final String? riwayah;
+  final int? supervisorTeacherId;
+  final String? supervisorTeacherName;
+  final String? revisionPlan;
+  final String? notes;
+  final String? joinDate;
+  final bool isActive;
+  final String? circleName;
+
+  HuffazMember({
+    required this.id,
+    required this.memberType,
+    this.teacherId,
+    this.studentId,
+    required this.fullName,
+    this.identityNumber,
+    this.phoneNumber,
+    required this.memorizedAjzaaCount,
+    required this.isKhatim,
+    this.riwayah,
+    this.supervisorTeacherId,
+    this.supervisorTeacherName,
+    this.revisionPlan,
+    this.notes,
+    this.joinDate,
+    required this.isActive,
+    this.circleName,
+  });
+
+  factory HuffazMember.fromJson(Map<String, dynamic> json) {
+    return HuffazMember(
+      id: json['id'] ?? 0,
+      memberType: json['memberType'] ?? 'Student',
+      teacherId: json['teacherId'],
+      studentId: json['studentId'],
+      fullName: json['fullName'] ?? '',
+      identityNumber: json['identityNumber'],
+      phoneNumber: json['phoneNumber'],
+      memorizedAjzaaCount: json['memorizedAjzaaCount'] ?? 30,
+      isKhatim: json['isKhatim'] ?? false,
+      riwayah: json['riwayah'],
+      supervisorTeacherId: json['supervisorTeacherId'],
+      supervisorTeacherName: json['supervisorTeacherName'],
+      revisionPlan: json['revisionPlan'],
+      notes: json['notes'],
+      joinDate: json['joinDate'] != null ? json['joinDate'].toString().split('T')[0] : null,
+      isActive: json['isActive'] ?? true,
+      circleName: json['circleName'],
+    );
+  }
+}
+

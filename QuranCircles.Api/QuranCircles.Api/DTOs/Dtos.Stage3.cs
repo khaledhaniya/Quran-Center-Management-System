@@ -85,5 +85,8 @@ public record ChildProgressDto(
     int TotalSessions,
     int AbsenceCount,
     int LateCount,
-    List<SessionDto> RecentSessions
+    List<SessionDto> RecentSessions,
+    bool IsTalented = false,
+    List<object>? Talents = null
 );
+

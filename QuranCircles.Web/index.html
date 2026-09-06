@@ -1789,16 +1789,19 @@
                     <div class="dashboard-header-card shadow-sm mb-4">
                         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                             <div class="header-titles">
-                                <span class="badge bg-primary bg-opacity-10 text-primary fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-book-quran text-primary"></i> شؤون التحفيظ
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-book-quran text-success"></i> شؤون التحفيظ ومنتدى الحفاظ
                                 </span>
                                 <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-book-quran text-primary"></i> شؤون التحفيظ ومنتدى الحفاظ ومتابعة الخاتمين
+                                    <i class="fa-solid fa-crown text-warning"></i> شؤون التحفيظ ومنتدى الحفاظ ومتابعة الخاتمين
                                 </h2>
-                                <p class="text-muted small mb-0">متابعة طلاب الأجزاء المتقدمة، الخاتمين للقرآن الكريم كاملاً، اختبارات الأجزاء، وأنشطة منتدى الحفاظ المتميزين.</p>
+                                <p class="text-muted small mb-0">متابعة الحفاظ المتميزين (مشايخ، طلاب المركز، وحفاظ خارجيون)، رصد الخاتمين، ومتابعة جلسات التثبيت بالسند مع شيوخ الإتقان المعتمدين.</p>
                             </div>
                             <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
-                                <button class="btn btn-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadMemorizationForumScreen()">
+                                <button class="btn btn-success shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="showAddEditHuffazMemberModal()">
+                                    <i class="fa-solid fa-user-plus me-1"></i> إضافة عضو لمنتدى الحفاظ
+                                </button>
+                                <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadMemorizationForumScreen()">
                                     <i class="fa-solid fa-rotate me-1"></i> تحديث قائمة الحفاظ
                                 </button>
                             </div>
@@ -1828,27 +1831,48 @@
                         <div class="col-md-3">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 12px;">
                                 <h3 id="forum-stat-nominations-count" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">ترشيحات الاختبارات</span>
+                                <span class="fw-bold">إجمالي أعضاء المنتدى</span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Filters toolbar -->
+                    <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+                        <button class="btn btn-sm btn-outline-success huffaz-filter-btn active fw-bold" data-filter="all" onclick="filterHuffazMembers('all')">
+                            <i class="fa-solid fa-list me-1"></i> كافّة الأعضاء
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning text-dark huffaz-filter-btn fw-bold" data-filter="khatim" onclick="filterHuffazMembers('khatim')">
+                            <i class="fa-solid fa-crown text-warning me-1"></i> الخاتمون لكتاب الله 👑
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary huffaz-filter-btn fw-bold" data-filter="teachers" onclick="filterHuffazMembers('teachers')">
+                            <i class="fa-solid fa-user-tie me-1"></i> كادر المشايخ والمعلمين
+                        </button>
+                        <button class="btn btn-sm btn-outline-info text-dark huffaz-filter-btn fw-bold" data-filter="students" onclick="filterHuffazMembers('students')">
+                            <i class="fa-solid fa-graduation-cap me-1"></i> طلاب المركز
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary huffaz-filter-btn fw-bold" data-filter="external" onclick="filterHuffazMembers('external')">
+                            <i class="fa-solid fa-earth-americas me-1"></i> حفاظ من خارج المركز
+                        </button>
                     </div>
 
                     <!-- Hafiz Table -->
                     <div class="card shadow-sm">
                         <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0 text-success fw-bold"><i class="fa-solid fa-crown text-warning me-2"></i> سجل منتدى الحفاظ وطلاب الإنجاز القرآني المتقدم</h5>
+                            <h5 class="mb-0 text-success fw-bold"><i class="fa-solid fa-crown text-warning me-2"></i> سجل فرسان منتدى الحفاظ وإتقان القرآن الكريم</h5>
                         </div>
                         <div class="table-responsive">
                             <table class="data-table" id="memorization-forum-table">
                                 <thead>
                                     <tr>
-                                        <th>#</th>
-                                        <th>اسم الطالب</th>
-                                        <th>الحلقة القرآنية</th>
-                                        <th>الشيخ المعلم</th>
-                                        <th>مستوى الحفظ السابق</th>
-                                        <th>الأجزاء المنجزة</th>
-                                        <th>حالة الختم</th>
+                                        <th style="width: 40px;" class="text-center">#</th>
+                                        <th>اسم الحافظ</th>
+                                        <th>الصفة والجهة</th>
+                                        <th>كم يحفظ من القرآن</th>
+                                        <th>الرواية / الإسناد</th>
+                                        <th>الشيخ المشرف على الإتقان</th>
+                                        <th>خطة المراجعة والتثبيت</th>
+                                        <th class="text-center">حالة العضوية</th>
+                                        <th class="text-center">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody id="memorization-forum-table-body">
@@ -1870,9 +1894,12 @@
                                 <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
                                     <i class="fa-solid fa-microphone-lines text-danger"></i> برنامج الفتى الواعظ والأصوات الندية
                                 </h2>
-                                <p class="text-muted small mb-0">تأهيل وصقل مهارات الطلاب الموهوبين في الخطابة، إلقاء المواعظ الدعوية، وجمال الصوت في الأذان وتلاوة القرآن.</p>
+                                <p class="text-muted small mb-0">اكتشاف وصقل مهارات الطلاب في فن الخطابة والوعظ، وطريقة التحضير، وإتقان التلاوة والأذان مع التوثيق بالصوت والفيديو وتنزيل المشاركات.</p>
                             </div>
                             <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-danger shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="showAddEditTalentModal()">
+                                    <i class="fa-solid fa-plus me-1"></i> إضافة مشاركة موهبة جديدة
+                                </button>
                                 <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadPreacherYouthScreen()">
                                     <i class="fa-solid fa-rotate me-1"></i> تحديث الأنشطة
                                 </button>
@@ -1882,24 +1909,49 @@
 
                     <!-- Preacher Youth KPIs -->
                     <div class="row g-3 mb-4">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; border-radius: 12px;">
                                 <h3 id="preacher-stat-total-youth" class="fw-bold mb-1">0</h3>
                                 <span class="fw-bold">الطلاب المنتسبين للبرنامج</span>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
                                 <h3 id="preacher-stat-speeches" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">المواعظ والخطب الملقاة</span>
+                                <span class="fw-bold">المواعظ وفنون الخطابة</span>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
                                 <h3 id="preacher-stat-voices" class="fw-bold mb-1">0</h3>
                                 <span class="fw-bold">نماذج الأصوات الندية (أذان وتلاوة)</span>
                             </div>
                         </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
+                                <h3 id="preacher-stat-media-count" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold">المشاركات الموثقة بفيديو/صوت</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter buttons -->
+                    <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+                        <button class="btn btn-sm btn-outline-danger talent-filter-btn active fw-bold" data-filter="all" onclick="filterTalentRecords('all')">
+                            <i class="fa-solid fa-list me-1"></i> كافّة المشاركات
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger talent-filter-btn fw-bold" data-filter="الواعظ" onclick="filterTalentRecords('الواعظ')">
+                            <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ (خطابة)
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary talent-filter-btn fw-bold" data-filter="تلاوة" onclick="filterTalentRecords('تلاوة')">
+                            <i class="fa-solid fa-book-quran me-1"></i> أصوات ندية (تلاوة)
+                        </button>
+                        <button class="btn btn-sm btn-outline-info text-dark talent-filter-btn fw-bold" data-filter="أذان" onclick="filterTalentRecords('أذان')">
+                            <i class="fa-solid fa-bullhorn me-1"></i> أصوات ندية (أذان)
+                        </button>
+                        <button class="btn btn-sm btn-outline-success talent-filter-btn fw-bold" data-filter="الإمامة" onclick="filterTalentRecords('الإمامة')">
+                            <i class="fa-solid fa-mosque me-1"></i> إمامة محرابية وإنشاد
+                        </button>
                     </div>
 
                     <div class="card shadow-sm">
@@ -1910,13 +1962,16 @@
                             <table class="data-table" id="preacher-youth-table">
                                 <thead>
                                     <tr>
-                                        <th>#</th>
-                                        <th>اسم الفتى الواعظ</th>
+                                        <th style="width: 40px;" class="text-center">#</th>
+                                        <th>اسم الفتى الموهوب</th>
                                         <th>الحلقة القرآنية</th>
-                                        <th>الشيخ المشرف</th>
                                         <th>الموهبة والتخصص</th>
-                                        <th>عدد المشاركات المنبرية</th>
-                                        <th>ملاحظات الأداء</th>
+                                        <th>عنوان وموضوع المشاركة</th>
+                                        <th>طريقة التحضير ونصوص الخطبة</th>
+                                        <th>الشيخ المشرف</th>
+                                        <th class="text-center">التوثيق (فيديو/صوت)</th>
+                                        <th>التقييم والملاحظات</th>
+                                        <th class="text-center">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody id="preacher-youth-table-body">

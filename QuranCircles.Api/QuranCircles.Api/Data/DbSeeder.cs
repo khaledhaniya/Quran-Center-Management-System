@@ -303,6 +303,61 @@ public static partial class DbSeeder
             }
             catch { }
 
+            // 2.5 Ensure TalentRecords table exists (Preacher Youth & Melodious Voices)
+            try
+            {
+                db.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE IF NOT EXISTS TalentRecords (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        StudentId INTEGER NOT NULL,
+                        TalentType TEXT NOT NULL,
+                        Title TEXT NOT NULL,
+                        PreparationMethod TEXT,
+                        SpeechContent TEXT,
+                        Occasion TEXT,
+                        EventDate TEXT NOT NULL,
+                        SupervisorTeacherId INTEGER,
+                        MediaUrl TEXT,
+                        MediaType TEXT DEFAULT 'video',
+                        EvaluationScore TEXT,
+                        PerformanceNotes TEXT,
+                        CreatedAt TEXT NOT NULL,
+                        FOREIGN KEY (StudentId) REFERENCES Students(Id) ON DELETE CASCADE,
+                        FOREIGN KEY (SupervisorTeacherId) REFERENCES Teachers(Id) ON DELETE SET NULL
+                    );
+                ");
+            }
+            catch { }
+
+            // 2.6 Ensure HuffazMembers table exists (Huffaz Forum & Khatimeen)
+            try
+            {
+                db.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE IF NOT EXISTS HuffazMembers (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        MemberType TEXT NOT NULL DEFAULT 'Student',
+                        TeacherId INTEGER,
+                        StudentId INTEGER,
+                        FullName TEXT NOT NULL,
+                        IdentityNumber TEXT,
+                        PhoneNumber TEXT,
+                        MemorizedAjzaaCount INTEGER NOT NULL DEFAULT 30,
+                        IsKhatim INTEGER NOT NULL DEFAULT 1,
+                        Riwayah TEXT,
+                        SupervisorTeacherId INTEGER,
+                        RevisionPlan TEXT,
+                        Notes TEXT,
+                        JoinDate TEXT NOT NULL,
+                        IsActive INTEGER NOT NULL DEFAULT 1,
+                        CreatedAt TEXT NOT NULL,
+                        FOREIGN KEY (TeacherId) REFERENCES Teachers(Id) ON DELETE SET NULL,
+                        FOREIGN KEY (StudentId) REFERENCES Students(Id) ON DELETE SET NULL,
+                        FOREIGN KEY (SupervisorTeacherId) REFERENCES Teachers(Id) ON DELETE SET NULL
+                    );
+                ");
+            }
+            catch { }
+
             // 3. Ensure default SystemSettings row exists and is healthy
             try
             {
