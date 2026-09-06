@@ -12003,29 +12003,29 @@ async function showAddEditHuffazMemberModal(memberId = null) {
     `).join("");
 
     const htmlContent = `
-        <div class="text-start" style="direction: rtl;">
+        <div style="direction: rtl; text-align: right;">
             <!-- Question 1: Member Type -->
-            <div class="p-3 bg-light border rounded-3 mb-3">
-                <label class="form-label fw-bold text-primary mb-2">
-                    <i class="fa-solid fa-user-tag me-1"></i> السؤال الأول: ما هي صفة هذا الشخص في منتدى الحفاظ؟ <span class="text-danger">*</span>
+            <div class="huffaz-modal-card">
+                <label class="form-label" style="color: #0d5c3a; font-size: 0.95rem; margin-bottom: 8px;">
+                    <i class="fa-solid fa-user-tag me-1"></i> السؤال الأول: ما هي صفة هذا الشخص في منتدى الحفاظ؟ <span style="color: #ef4444;">*</span>
                 </label>
-                <div class="d-flex gap-2 flex-wrap" id="huffaz-type-selector">
-                    <button type="button" class="btn btn-sm ${currentType === 'Teacher' ? 'btn-success' : 'btn-outline-success'} flex-grow-1 huffaz-type-btn" data-type="Teacher">
-                        <i class="fa-solid fa-user-tie me-1"></i> معلم قرآن في المركز
+                <div class="huffaz-type-selector-box" id="huffaz-type-selector">
+                    <button type="button" class="huffaz-type-btn ${currentType === 'Teacher' ? 'active' : ''}" data-type="Teacher">
+                        <i class="fa-solid fa-user-tie"></i> معلم قرآن في المركز
                     </button>
-                    <button type="button" class="btn btn-sm ${currentType === 'Student' ? 'btn-primary' : 'btn-outline-primary'} flex-grow-1 huffaz-type-btn" data-type="Student">
-                        <i class="fa-solid fa-graduation-cap me-1"></i> طالب مسجل في المركز
+                    <button type="button" class="huffaz-type-btn ${currentType === 'Student' ? 'active' : ''}" data-type="Student">
+                        <i class="fa-solid fa-graduation-cap"></i> طالب مسجل في المركز
                     </button>
-                    <button type="button" class="btn btn-sm ${currentType === 'External' ? 'btn-info text-dark' : 'btn-outline-info text-dark'} flex-grow-1 huffaz-type-btn" data-type="External">
-                        <i class="fa-solid fa-earth-americas me-1"></i> شخص وحافظ خارجي جديد
+                    <button type="button" class="huffaz-type-btn ${currentType === 'External' ? 'active' : ''}" data-type="External">
+                        <i class="fa-solid fa-earth-americas"></i> شخص وحافظ خارجي جديد
                     </button>
                 </div>
                 <input type="hidden" id="swal-huffaz-type" value="${currentType}">
             </div>
 
             <!-- Conditional Picker 1: Teacher -->
-            <div id="huffaz-teacher-row" class="mb-3 ${currentType === 'Teacher' ? '' : 'd-none'}">
-                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user-tie text-success me-1"></i> اختر المعلم من كادر المركز:</label>
+            <div id="huffaz-teacher-row" class="huffaz-modal-card" style="display: ${currentType === 'Teacher' ? 'block' : 'none'};">
+                <label class="form-label"><i class="fa-solid fa-user-tie" style="color: #0d5c3a;"></i> اختر المعلم من كادر المركز:</label>
                 <select id="swal-huffaz-teacher-id" class="form-select">
                     <option value="">-- اختر الشيخ المعلم --</option>
                     ${teacherOptions}
@@ -12033,8 +12033,8 @@ async function showAddEditHuffazMemberModal(memberId = null) {
             </div>
 
             <!-- Conditional Picker 2: Student -->
-            <div id="huffaz-student-row" class="mb-3 ${currentType === 'Student' ? '' : 'd-none'}">
-                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-graduation-cap text-primary me-1"></i> اختر الطالب من طلاب المركز:</label>
+            <div id="huffaz-student-row" class="huffaz-modal-card" style="display: ${currentType === 'Student' ? 'block' : 'none'};">
+                <label class="form-label"><i class="fa-solid fa-graduation-cap" style="color: #1e40af;"></i> اختر الطالب من طلاب المركز:</label>
                 <select id="swal-huffaz-student-id" class="form-select">
                     <option value="">-- اختر الطالب --</option>
                     ${studentOptions}
@@ -12042,68 +12042,77 @@ async function showAddEditHuffazMemberModal(memberId = null) {
             </div>
 
             <!-- Conditional Picker 3: External Person Fields -->
-            <div id="huffaz-external-row" class="border p-3 rounded-3 mb-3 bg-white ${currentType === 'External' ? '' : 'd-none'}">
-                <div class="mb-2">
-                    <label class="form-label fw-bold small mb-1">الاسم الرباعي للحافظ الخارجي <span class="text-danger">*</span></label>
-                    <input id="swal-huffaz-external-name" class="form-control form-control-sm" placeholder="أدخل الاسم الرباعي كاملاً..." value="${member && member.memberType === 'External' ? member.fullName : ''}">
+            <div id="huffaz-external-row" class="huffaz-modal-card" style="display: ${currentType === 'External' ? 'block' : 'none'};">
+                <div style="margin-bottom: 12px;">
+                    <label class="form-label">الاسم الرباعي للحافظ الخارجي <span style="color: #ef4444;">*</span></label>
+                    <input id="swal-huffaz-external-name" class="form-control" placeholder="أدخل الاسم الرباعي كاملاً..." value="${member && member.memberType === 'External' ? member.fullName : ''}">
                 </div>
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold small mb-1">رقم الهوية الوطنية</label>
-                        <input id="swal-huffaz-external-id" class="form-control form-control-sm font-monospace" placeholder="رقم الهوية..." value="${member && member.memberType === 'External' ? (member.identityNumber || '') : ''}">
+                <div class="huffaz-grid-2col">
+                    <div>
+                        <label class="form-label">رقم الهوية الوطنية</label>
+                        <input id="swal-huffaz-external-id" class="form-control font-monospace" placeholder="رقم الهوية..." value="${member && member.memberType === 'External' ? (member.identityNumber || '') : ''}">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold small mb-1">رقم الجوال والواتساب</label>
-                        <input id="swal-huffaz-external-phone" class="form-control form-control-sm font-monospace" placeholder="059xxxxxxx" value="${member && member.memberType === 'External' ? (member.phoneNumber || '') : ''}">
+                    <div>
+                        <label class="form-label">رقم الجوال والواتساب</label>
+                        <input id="swal-huffaz-external-phone" class="form-control font-monospace" placeholder="059xxxxxxx" value="${member && member.memberType === 'External' ? (member.phoneNumber || '') : ''}">
                     </div>
                 </div>
             </div>
 
             <!-- Question 2: Memorized Ajzaa Count -->
-            <div class="p-3 border rounded-3 mb-3" style="background: #f0fdf4; border-color: #22c55e !important;">
-                <label class="form-label fw-bold text-success mb-2 d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-book-quran me-1"></i> السؤال الثاني: كم يحفظ من أجزاء القرآن الكريم؟ <span class="text-danger">*</span></span>
-                    <span id="huffaz-ajzaa-display-badge" class="badge bg-success fs-6">${currentAjzaa} جزءاً ${currentAjzaa >= 30 ? '(خاتم 👑)' : ''}</span>
-                </label>
-                <div class="d-flex align-items-center gap-3">
-                    <input type="range" class="form-range flex-grow-1" id="swal-huffaz-ajzaa-range" min="1" max="30" step="1" value="${currentAjzaa}">
-                    <input type="number" class="form-control form-control-sm font-monospace fw-bold text-center" id="swal-huffaz-ajzaa-num" min="1" max="30" value="${currentAjzaa}" style="width: 70px;">
+            <div class="huffaz-modal-card" style="background: #f0fdf4; border: 1.5px solid #86efac;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <label class="form-label" style="margin-bottom: 0; color: #0d5c3a; font-size: 0.95rem;">
+                        <i class="fa-solid fa-book-quran me-1"></i> السؤال الثاني: كم يحفظ من أجزاء القرآن الكريم؟ <span style="color: #ef4444;">*</span>
+                    </label>
+                    <span id="huffaz-ajzaa-display-badge" class="badge bg-success" style="font-size: 0.95rem; padding: 6px 14px; border-radius: 8px;">
+                        ${currentAjzaa} جزءاً ${currentAjzaa >= 30 ? '(خاتم 👑)' : ''}
+                    </span>
                 </div>
-                <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" id="swal-huffaz-is-khatim" ${currentAjzaa >= 30 || (member && member.isKhatim) ? 'checked' : ''}>
-                    <label class="form-check-label fw-bold text-dark small" for="swal-huffaz-is-khatim">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <input type="range" class="form-range" id="swal-huffaz-ajzaa-range" min="1" max="30" step="1" value="${currentAjzaa}" style="flex: 1; height: 8px; cursor: pointer;">
+                    <input type="number" class="form-control font-monospace" id="swal-huffaz-ajzaa-num" min="1" max="30" value="${currentAjzaa}" style="width: 75px; text-align: center; font-weight: bold; font-size: 1.1rem; padding: 6px 8px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed #bbf7d0;">
+                    <input type="checkbox" id="swal-huffaz-is-khatim" style="width: 18px; height: 18px; cursor: pointer; accent-color: #0d5c3a;" ${currentAjzaa >= 30 || (member && member.isKhatim) ? 'checked' : ''}>
+                    <label for="swal-huffaz-is-khatim" style="font-weight: 700; color: #166534; font-size: 0.9rem; cursor: pointer; margin: 0;">
                         👑 توثيق واعتماد كـ (خاتم للقرآن الكريم كاملاً)
                     </label>
                 </div>
             </div>
 
             <!-- Supervisor Sheikh & Riwayah -->
-            <div class="row g-2 mb-3">
-                <div class="col-md-7">
-                    <label class="form-label fw-bold mb-1">
-                        <i class="fa-solid fa-chalkboard-user text-primary me-1"></i> الشيخ المشرف على الإتقان:
-                        <small class="text-success fw-bold">(محدد وفق الصلاحيات)</small>
+            <div class="huffaz-modal-card">
+                <div class="huffaz-grid-2col" style="margin-bottom: 12px;">
+                    <div>
+                        <label class="form-label">
+                            <i class="fa-solid fa-chalkboard-user me-1" style="color: #0d5c3a;"></i> الشيخ المشرف على الإتقان:
+                        </label>
+                        <select id="swal-huffaz-supervisor-id" class="form-select">
+                            <option value="">-- اختر الشيخ المشرف المعتمد --</option>
+                            ${supervisorOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">
+                            <i class="fa-solid fa-scroll me-1" style="color: #854d0e;"></i> الرواية أو القراءة المجاز بها:
+                        </label>
+                        <input id="swal-huffaz-riwayah" class="form-control" placeholder="مثال: حفص عن عاصم / ورش..." value="${member ? (member.riwayah || '') : 'حفص عن عاصم'}">
+                    </div>
+                </div>
+
+                <!-- Revision Plan & Notes -->
+                <div style="margin-bottom: 12px;">
+                    <label class="form-label">
+                        <i class="fa-solid fa-route me-1" style="color: #0d5c3a;"></i> خطة المراجعة والتثبيت المقررة:
                     </label>
-                    <select id="swal-huffaz-supervisor-id" class="form-select">
-                        <option value="">-- اختر الشيخ المشرف المعتمد --</option>
-                        ${supervisorOptions}
-                    </select>
+                    <input id="swal-huffaz-plan" class="form-control" placeholder="مثال: سرد 5 أجزاء أسبوعياً / جزء يومياً مع الشيخ" value="${member ? (member.revisionPlan || '') : 'سرد جزء يومياً ومراجعة نصف حزب'}">
                 </div>
-                <div class="col-md-5">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-scroll text-secondary me-1"></i> الرواية أو القراءة المجاز بها:</label>
-                    <input id="swal-huffaz-riwayah" class="form-control" placeholder="مثال: حفص عن عاصم / ورش..." value="${member ? (member.riwayah || '') : 'حفص عن عاصم'}">
+
+                <div>
+                    <label class="form-label" style="color: #64748b; font-size: 0.85rem;">ملاحظات وتوصيات إضافية:</label>
+                    <input id="swal-huffaz-notes" class="form-control" style="font-size: 0.88rem; padding: 8px 12px;" placeholder="أي ملاحظات أو تفاصيل أخرى..." value="${member ? (member.notes || '') : ''}">
                 </div>
-            </div>
-
-            <!-- Revision Plan & Notes -->
-            <div class="mb-2">
-                <label class="form-label fw-bold mb-1"><i class="fa-solid fa-route text-success me-1"></i> خطة المراجعة والتثبيت المقررة:</label>
-                <input id="swal-huffaz-plan" class="form-control" placeholder="مثال: سرد 5 أجزاء أسبوعياً / جزء يومياً مع الشيخ" value="${member ? (member.revisionPlan || '') : 'سرد جزء يومياً ومراجعة نصف حزب'}">
-            </div>
-
-            <div class="mb-0">
-                <label class="form-label fw-bold small text-muted mb-1">ملاحظات وتوصيات إضافية:</label>
-                <input id="swal-huffaz-notes" class="form-control form-control-sm" placeholder="أي ملاحظات أو تفاصيل أخرى..." value="${member ? (member.notes || '') : ''}">
             </div>
         </div>
     `;
@@ -12111,7 +12120,10 @@ async function showAddEditHuffazMemberModal(memberId = null) {
     const result = await Swal.fire({
         title: memberId ? '✏️ تعديل بيانات عضو منتدى الحفاظ' : '➕ إضافة عضو جديد لمنتدى الحفاظ',
         html: htmlContent,
-        width: '720px',
+        width: '740px',
+        customClass: {
+            popup: 'huffaz-modal-popup'
+        },
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتثبيت العضوية',
         cancelButtonText: 'إلغاء',
@@ -12150,16 +12162,12 @@ async function showAddEditHuffazMemberModal(memberId = null) {
                 btn.addEventListener("click", () => {
                     const t = btn.dataset.type;
                     typeInput.value = t;
-                    document.querySelectorAll(".huffaz-type-btn").forEach(b => {
-                        b.classList.remove("btn-success", "btn-primary", "btn-info");
-                        b.classList.add("btn-outline-" + (b.dataset.type === 'Teacher' ? 'success' : (b.dataset.type === 'Student' ? 'primary' : 'info')));
-                    });
-                    btn.classList.remove("btn-outline-success", "btn-outline-primary", "btn-outline-info");
-                    btn.classList.add(t === 'Teacher' ? 'btn-success' : (t === 'Student' ? 'btn-primary' : 'btn-info'));
+                    document.querySelectorAll(".huffaz-type-btn").forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
 
-                    tchRow.classList.toggle("d-none", t !== "Teacher");
-                    stRow.classList.toggle("d-none", t !== "Student");
-                    extRow.classList.toggle("d-none", t !== "External");
+                    if (tchRow) tchRow.style.display = (t === "Teacher") ? "block" : "none";
+                    if (stRow) stRow.style.display = (t === "Student") ? "block" : "none";
+                    if (extRow) extRow.style.display = (t === "External") ? "block" : "none";
                 });
             });
         },
