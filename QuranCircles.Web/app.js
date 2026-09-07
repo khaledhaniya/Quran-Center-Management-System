@@ -2341,11 +2341,11 @@ async function showTeacherModal(teacherId = null) {
         walletOwner: "",
         memorizedAjzaa: "",
         studentsCountTarget: "",
-        taskRole: "معلم حلقة",
+        taskRole: "غير مكلف",
         isActive: true
     };
 
-    const currentTask = t.taskRole || "";
+    const currentTask = (t.taskRole && t.taskRole.trim()) ? t.taskRole : "غير مكلف";
 
     const htmlContent = `
         <div class="text-start" style="direction: rtl; font-size: 0.92rem;">
@@ -2427,21 +2427,22 @@ async function showTeacherModal(teacherId = null) {
             <!-- DYNAMIC ROLE & TASK SELECTOR -->
             <div class="p-3 border rounded-3 bg-light">
                 <label class="form-label fw-bold d-flex justify-content-between align-items-center mb-2">
-                    <span><i class="fa-solid fa-briefcase text-primary me-1"></i> الوظيفة والتكليف المخصص (الصلاحيات والصفحات) <span class="text-danger">*</span></span>
+                    <span><i class="fa-solid fa-briefcase text-primary me-1"></i> الوظيفة والتكليف المخصص (الصلاحيات والصفحات)</span>
                     <span class="badge bg-primary bg-opacity-10 text-primary">تحديد مرن وديناميكي</span>
                 </label>
                 <div class="d-flex flex-wrap gap-2 mb-2" id="role-pill-tags">
-                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="مركز البيان"><i class="fa-solid fa-crown me-1"></i> أمير المركز</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="غير مكلف"><i class="fa-solid fa-user-clock me-1"></i> غير مكلف</button>
+                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="معلم حلقة"><i class="fa-solid fa-mosque me-1"></i> معلم حلقة</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="مساعد حلقة"><i class="fa-solid fa-handshake-angle me-1"></i> مساعد حلقة</button>
                     <button type="button" class="btn btn-sm btn-outline-warning text-dark role-picker-btn" data-role="الملف المالي"><i class="fa-solid fa-wallet me-1"></i> الملف المالي</button>
                     <button type="button" class="btn btn-sm btn-outline-info text-dark role-picker-btn" data-role="الجودة"><i class="fa-solid fa-magnifying-glass me-1"></i> الجودة والرقابة</button>
                     <button type="button" class="btn btn-sm btn-outline-primary role-picker-btn" data-role="التحفيظ + ملف منتدى الحفاظ"><i class="fa-solid fa-book-quran me-1"></i> شؤون التحفيظ</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="معلم دورات"><i class="fa-solid fa-award me-1"></i> معلم دورات</button>
                     <button type="button" class="btn btn-sm btn-outline-danger role-picker-btn" data-role="الفتى الواعظ + الأصوات الندية"><i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ</button>
-                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="معلم حلقة"><i class="fa-solid fa-mosque me-1"></i> معلم حلقة</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="مساعد حلقة"><i class="fa-solid fa-handshake-angle me-1"></i> مساعد حلقة</button>
+                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="مركز البيان"><i class="fa-solid fa-crown me-1"></i> أمير المركز</button>
                 </div>
-                <input id="swal-tch-task" class="form-control fw-bold" placeholder="مثال: الملف المالي + معلم دورات" value="${currentTask}">
-                <div class="form-text small text-muted mt-1"><i class="fa-solid fa-circle-info text-primary me-1"></i> يمكنك الضغط على الأزرار بالأعلى لإضافة أو تبديل المهام، أو كتابة أي تكليف مخصص مباشرة. سيتم حفظ هذا التكليف بشكل دائم وتحديث واجهة الشيخ فور تسجيل دخوله!</div>
+                <input id="swal-tch-task" class="form-control fw-bold" placeholder="مثال: غير مكلف أو الملف المالي + معلم دورات" value="${currentTask}">
+                <div class="form-text small text-muted mt-1"><i class="fa-solid fa-circle-info text-primary me-1"></i> يمكنك الضغط على الأزرار بالأعلى لإضافة أو تبديل المهام، أو اختيار (غير مكلف) لمن ليس لديه تكليف حالياً.</div>
             </div>
         </div>
     `;
@@ -2461,15 +2462,21 @@ async function showTeacherModal(teacherId = null) {
                 btn.addEventListener("click", () => {
                     const roleVal = btn.dataset.role;
                     let current = (taskInput.value || "").trim();
-                    if (!current) {
+                    if (roleVal === "غير مكلف") {
+                        taskInput.value = "غير مكلف";
+                        return;
+                    }
+                    if (!current || current === "غير مكلف" || current === "بدون تكليف") {
                         taskInput.value = roleVal;
                     } else if (current.includes(roleVal)) {
                         // Toggle remove
-                        let parts = current.split("+").map(p => p.trim()).filter(p => p !== roleVal && p !== "");
-                        taskInput.value = parts.join(" + ");
+                        let parts = current.split("+").map(p => p.trim()).filter(p => p !== roleVal && p !== "" && p !== "غير مكلف" && p !== "بدون تكليف");
+                        taskInput.value = parts.length > 0 ? parts.join(" + ") : "غير مكلف";
                     } else {
                         // Append
-                        taskInput.value = current + " + " + roleVal;
+                        let cleanCurrent = current.replace("غير مكلف", "").replace("بدون تكليف", "").trim();
+                        cleanCurrent = cleanCurrent.replace(/^\+|\+$/g, '').trim();
+                        taskInput.value = cleanCurrent ? cleanCurrent + " + " + roleVal : roleVal;
                     }
                 });
             });
