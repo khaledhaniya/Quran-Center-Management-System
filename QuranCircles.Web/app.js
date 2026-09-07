@@ -2019,9 +2019,6 @@ async function loadAdminTeachers(search = "") {
                     <div class="teacher-name-cell">
                         <span class="teacher-title-text">${t.fullName}</span>
                         ${mosqueStr}
-                        <div class="teacher-roles-subtext mt-1">
-                            ${formatTeacherRolesHtml(t.taskRole)}
-                        </div>
                     </div>
                 </td>
                 <td>${idBadge}</td>
