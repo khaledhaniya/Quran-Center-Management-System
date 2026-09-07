@@ -726,7 +726,7 @@ function handleRouting() {
     let defaultHash = "#admin-dashboard";
     if (currentRole === "Teacher") {
         const tRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = tRole === "بدون تكليف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
+        const isNoTask = tRole === "بدون تكليف" || tRole === "غير مكلف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
         
         if (isNoTask) {
             defaultHash = "#teacher-empty-state";
@@ -762,7 +762,7 @@ function handleRouting() {
     
     // If teacher has no assigned tasks or circles, allow announcements or lock view to empty state
     const tRoleForRouting = (getAuthStorage("taskRole") || "").trim();
-    const isTeacherWithoutTask = currentRole === "Teacher" && (tRoleForRouting === "بدون تكليف" || tRoleForRouting === "معلق" || tRoleForRouting === "بدون مهام" || tRoleForRouting === "-" || tRoleForRouting === "");
+    const isTeacherWithoutTask = currentRole === "Teacher" && (tRoleForRouting === "بدون تكليف" || tRoleForRouting === "غير مكلف" || tRoleForRouting === "معلق" || tRoleForRouting === "بدون مهام" || tRoleForRouting === "-" || tRoleForRouting === "");
     if (isTeacherWithoutTask) {
         if (hash === "#announcements") {
             document.getElementById("btn-announcements")?.classList.add("active");
