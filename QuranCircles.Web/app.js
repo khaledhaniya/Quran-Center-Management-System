@@ -930,13 +930,16 @@ function handleRouting() {
             window.location.hash = "#admin-dashboard";
         } else if (currentRole === "Teacher") {
             const tRole = (getAuthStorage("taskRole") || "").trim();
-            if (tRole.includes("اختبار") && !tRole.includes("حلقة")) window.location.hash = "#exams";
+            const isNoTask = tRole === "بدون تكليف" || tRole === "غير مكلف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
+            if (isNoTask) window.location.hash = "#teacher-empty-state";
+            else if (tRole.includes("اختبار") && !tRole.includes("حلقة")) window.location.hash = "#exams";
             else if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) window.location.hash = "#financial-management";
             else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) window.location.hash = "#quality-management";
             else if ((tRole.includes("التحفيظ") || tRole.includes("منتدى الحفاظ")) && !tRole.includes("حلقة")) window.location.hash = "#memorization-forum";
             else if (tRole.includes("الدورات") && !tRole.includes("حلقة")) window.location.hash = "#courses";
             else if ((tRole.includes("الفتى الواعظ") || tRole.includes("الأصوات الندية")) && !tRole.includes("حلقة")) window.location.hash = "#preacher-youth";
-            else window.location.hash = "#teacher-attendance";
+            else if (tRole.includes("حلقة") || tRole.includes("مساعد")) window.location.hash = "#teacher-attendance";
+            else window.location.hash = "#teacher-empty-state";
         } else if (currentRole === "Parent") {
             window.location.hash = "#parent-progress";
         } else if (currentRole === "Student") {
