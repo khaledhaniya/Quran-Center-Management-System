@@ -8727,53 +8727,70 @@ async function showStudent360View(studentId) {
                     ${(!progress.talents || progress.talents.length === 0) ? `
                         <p class="text-muted p-3 text-center mb-0">لا توجد مشاركات مسجلة لهذا الطالب في الفتى الواعظ أو الأصوات الندية حتى الآن.</p>
                     ` : `
-                        <div class="table-responsive">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>المسار</th>
-                                        <th>عنوان المشاركة / الخطبة</th>
-                                        <th>طريقة التحضير</th>
-                                        <th>التاريخ والمناسبة</th>
-                                        <th>المشرف المعتمد</th>
-                                        <th>التقييم</th>
-                                        <th>المرفق / تنزيل</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${progress.talents.map(t => `
-                                        <tr>
-                                            <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${t.talentType}</span></td>
-                                            <td>
-                                                <strong class="text-dark d-block">${t.title}</strong>
-                                                ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:260px; line-height:1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 90))}${t.speechContent.length > 90 ? '...' : ''}</div>` : ''}
-                                            </td>
-                                            <td><span class="small text-muted">${t.preparationMethod || '-'}</span></td>
-                                            <td>
-                                                <span class="small fw-bold">${t.occasion || '-'}</span><br>
-                                                <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
-                                            </td>
-                                            <td><strong class="text-success small">${t.supervisorTeacherName || '-'}</strong></td>
-                                            <td>
-                                                ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1">${t.evaluationScore}</span>` : '-'}
-                                                ${t.performanceNotes ? `<div class="small text-muted" style="max-width:160px;">${t.performanceNotes}</div>` : ''}
-                                            </td>
-                                            <td>
-                                                ${t.mediaUrl ? `
-                                                    <div class="d-flex gap-1 align-items-center">
-                                                        <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
-                                                            <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع' : 'مشاهدة'}
-                                                        </button>
-                                                        <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الفيديو أو المرفق لجهازك">
-                                                            <i class="fa-solid fa-download"></i>
-                                                        </a>
-                                                    </div>
-                                                ` : '<span class="text-muted small">بدون مرفق</span>'}
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                        <div class="talent-entries-grid" style="display: flex; flex-direction: column; gap: 14px;">
+                            ${progress.talents.map(t => `
+                                <div class="card p-3 shadow-xs" style="border-radius: 12px; border: 1.5px solid #fecaca; background: #fffaf0; text-align: right;">
+                                    <!-- Header Row -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; border-bottom: 1px dashed #fca5a5; padding-bottom: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                            <span class="badge" style="background: #ef4444; color: #ffffff; font-size: 0.85rem; padding: 6px 12px; border-radius: 8px; font-weight: 700;">
+                                                <i class="fa-solid fa-microphone me-1"></i> ${t.talentType}
+                                            </span>
+                                            <h5 style="margin: 0; font-weight: 800; color: #1e293b; font-size: 1.05rem;">${t.title}</h5>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                            <span class="badge bg-light text-dark border" style="font-size: 0.82rem; padding: 5px 10px; border-radius: 6px;">
+                                                <i class="fa-solid fa-calendar-day text-danger me-1"></i> ${t.eventDate || '-'}
+                                            </span>
+                                            ${t.occasion ? `<span class="badge" style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-size: 0.82rem; padding: 5px 10px; border-radius: 6px;">${t.occasion}</span>` : ''}
+                                        </div>
+                                    </div>
+
+                                    <!-- Speech Excerpt if present -->
+                                    ${t.speechContent ? `
+                                        <div style="background: #ffffff; border-right: 3.5px solid #ef4444; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 0.88rem; color: #334155; line-height: 1.6; border: 1px solid #fecaca; border-right-width: 3.5px;">
+                                            <i class="fa-solid fa-quote-right text-danger me-1"></i> <strong>محتوى المشاركة:</strong> ${escapeXml(t.speechContent)}
+                                        </div>
+                                    ` : ''}
+
+                                    <!-- Details Boxes Grid -->
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; background: #ffffff; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
+                                        <div>
+                                            <small style="color: #64748b; display: block; font-weight: 700; margin-bottom: 2px;">
+                                                <i class="fa-solid fa-user-tie text-success me-1"></i> المشرف المعتمد:
+                                            </small>
+                                            <strong style="color: #0d5c3a; font-size: 0.92rem;">${t.supervisorTeacherName || '-'}</strong>
+                                        </div>
+                                        <div>
+                                            <small style="color: #64748b; display: block; font-weight: 700; margin-bottom: 2px;">
+                                                <i class="fa-solid fa-book-open-reader text-primary me-1"></i> طريقة التحضير:
+                                            </small>
+                                            <strong style="color: #1e293b; font-size: 0.92rem;">${t.preparationMethod || '-'}</strong>
+                                        </div>
+                                        <div>
+                                            <small style="color: #64748b; display: block; font-weight: 700; margin-bottom: 2px;">
+                                                <i class="fa-solid fa-star text-warning me-1"></i> التقييم والملاحظات:
+                                            </small>
+                                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                                ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold px-2 py-1">${t.evaluationScore}</span>` : '<span class="text-muted small">-</span>'}
+                                                ${t.performanceNotes ? `<span style="font-size: 0.85rem; color: #475569;">${t.performanceNotes}</span>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Media Attachment Actions -->
+                                    ${t.mediaUrl ? `
+                                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding-top: 4px;">
+                                            <button class="btn btn-sm btn-danger px-3 py-2 fw-bold" style="border-radius: 8px;" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                                                <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع للمقطع الصوتي' : 'مشاهدة الفيديو'}
+                                            </button>
+                                            <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-outline-danger px-3 py-2 fw-bold" style="border-radius: 8px;" title="تنزيل الفيديو أو المرفق لجهازك">
+                                                <i class="fa-solid fa-download me-1"></i> تنزيل المرفق
+                                            </a>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
                         </div>
                     `}
                 </div>
