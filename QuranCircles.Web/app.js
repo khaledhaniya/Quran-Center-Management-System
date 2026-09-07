@@ -1752,8 +1752,9 @@ async function showCircleModal(circleId = null) {
     validTeachers.forEach(t => {
         const isTSelected = (circle && circle.teacherId == t.id) ? 'selected' : '';
         const isASelected = (circle && circle.assistantTeacherId == t.id) ? 'selected' : '';
-        teacherOptions += `<option value="${t.id}" ${isTSelected}>${t.fullName} (${t.taskRole || 'معلم'})</option>`;
-        assistantOptions += `<option value="${t.id}" ${isASelected}>${t.fullName} (${t.taskRole || 'معلم'})</option>`;
+        const displayRole = (t.taskRole && t.taskRole.trim()) ? t.taskRole : 'غير مكلف';
+        teacherOptions += `<option value="${t.id}" ${isTSelected}>${t.fullName} (${displayRole})</option>`;
+        assistantOptions += `<option value="${t.id}" ${isASelected}>${t.fullName} (${displayRole})</option>`;
     });
 
     const timingOptions = `
