@@ -2217,8 +2217,8 @@ async function manageTeacherRoles(teacherId) {
 
             <div class="mb-2">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="form-label fw-bold text-dark mb-0"><i class="fa-solid fa-shield-halved text-primary me-1"></i> حدد المهام والصلاحيات الموكلة للشيخ (يمكن اختيار أكثر من مهمة أو إبقاؤه بدون تكليف):</label>
-                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" id="btn-clear-all-roles" style="font-size: 0.8rem;"><i class="fa-solid fa-ban me-1"></i> تفريغ كافة المهام</button>
+                    <label class="form-label fw-bold text-dark mb-0"><i class="fa-solid fa-shield-halved text-primary me-1"></i> حدد المهام والصلاحيات الموكلة للشيخ (يمكن اختيار أكثر من مهمة أو إبقاؤه غير مكلف):</label>
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" id="btn-clear-all-roles" style="font-size: 0.8rem;"><i class="fa-solid fa-ban me-1"></i> تفريغ كافة المهام (غير مكلف)</button>
                 </div>
                 <div class="row g-2" id="roles-cards-grid">
                     ${rolesCardsHtml}
@@ -2227,8 +2227,8 @@ async function manageTeacherRoles(teacherId) {
 
             <div class="mt-3 p-2 bg-light border rounded-3">
                 <label class="form-label fw-bold small text-muted mb-1"><i class="fa-solid fa-file-signature text-secondary me-1"></i> نص التكليف المجمع النهائي:</label>
-                <input id="swal-roles-summary-input" class="form-control form-control-sm fw-bold font-monospace text-primary" value="${currentTask}" placeholder="بدون مهام / بدون تكليف">
-                <small class="text-muted d-block mt-1"><i class="fa-solid fa-info-circle text-primary me-1"></i> إذا تركت الحقل فارغاً أو بدون مهام، فلن تظهر للشيخ أي صفحات أو صلاحيات إدارية عند دخوله.</small>
+                <input id="swal-roles-summary-input" class="form-control form-control-sm fw-bold font-monospace text-primary" value="${currentTask || 'غير مكلف'}" placeholder="غير مكلف / بدون مهام">
+                <small class="text-muted d-block mt-1"><i class="fa-solid fa-info-circle text-primary me-1"></i> إذا تركت الحقل غير مكلف أو بدون مهام، فلن تظهر للشيخ أي حلقات أو صلاحيات إدارية عند دخوله.</small>
             </div>
         </div>
     `;
@@ -2249,7 +2249,7 @@ async function manageTeacherRoles(teacherId) {
                 document.querySelectorAll(".role-checkbox:checked").forEach(cb => {
                     if (cb.value) checkedVals.push(cb.value);
                 });
-                summaryInput.value = checkedVals.join(" + ");
+                summaryInput.value = checkedVals.length > 0 ? checkedVals.join(" + ") : "غير مكلف";
             };
 
             const clearBtn = document.getElementById("btn-clear-all-roles");
@@ -2260,7 +2260,7 @@ async function manageTeacherRoles(teacherId) {
                         card.style.background = '#ffffff';
                         card.style.borderColor = '#e2e8f0';
                     });
-                    summaryInput.value = "";
+                    summaryInput.value = "غير مكلف";
                 });
             }
 
@@ -2283,8 +2283,8 @@ async function manageTeacherRoles(teacherId) {
             });
         },
         preConfirm: () => {
-            const summary = document.getElementById("swal-roles-summary-input").value.trim();
-            return summary; // Can be empty or any custom combination
+            const val = document.getElementById("swal-roles-summary-input").value.trim();
+            return val || "غير مكلف";
         }
     });
 
