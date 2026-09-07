@@ -532,7 +532,7 @@ function updateSidebarMenu() {
         if (teacherEl) teacherEl.classList.remove("hidden");
 
         const taskRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = taskRole === "بدون تكليف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "-" || taskRole === "";
+        const isNoTask = taskRole === "بدون تكليف" || taskRole === "غير مكلف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "-" || taskRole === "";
         const hasCircle = !isNoTask && (taskRole.includes("حلقة") || taskRole.includes("مساعد"));
         
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
