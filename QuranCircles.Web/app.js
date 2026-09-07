@@ -430,12 +430,12 @@ function handleLogout(isSilent = false) {
 
 // Helper: Format multi-role badges for teachers based on their assigned tasks and permissions
 function getTeacherRolesList(taskRole) {
-    if (!taskRole || typeof taskRole !== "string") {
-        return [{ title: "معلّم ومحفّظ حلقة", badgeClass: "bg-success bg-opacity-10 text-success border border-success", icon: "fa-mosque", color: "text-success" }];
+    if (!taskRole || typeof taskRole !== "string" || !taskRole.trim()) {
+        return [{ title: "غير مكلف", badgeClass: "bg-secondary bg-opacity-10 text-secondary border border-secondary", icon: "fa-user-clock", color: "text-secondary" }];
     }
     const t = taskRole.trim();
-    if (t === "بدون تكليف" || t === "معلق" || t === "بدون مهام" || t === "-" || t === "") {
-        return [{ title: "بدون تكليف", badgeClass: "bg-secondary bg-opacity-10 text-secondary border", icon: "fa-user-slash", color: "text-secondary" }];
+    if (t === "بدون تكليف" || t === "غير مكلف" || t === "معلق" || t === "بدون مهام" || t === "لا يوجد" || t === "لا يوجد تكليف" || t === "-" || t === "") {
+        return [{ title: "غير مكلف", badgeClass: "bg-secondary bg-opacity-10 text-secondary border border-secondary", icon: "fa-user-clock", color: "text-secondary" }];
     }
 
     const roles = [];
@@ -468,7 +468,7 @@ function getTeacherRolesList(taskRole) {
     }
 
     if (roles.length === 0) {
-        return [{ title: t, badgeClass: "bg-secondary bg-opacity-10 text-secondary border", icon: "fa-user-tie", color: "text-secondary" }];
+        return [{ title: t || "غير مكلف", badgeClass: "bg-secondary bg-opacity-10 text-secondary border border-secondary", icon: "fa-user-clock", color: "text-secondary" }];
     }
     return roles;
 }
