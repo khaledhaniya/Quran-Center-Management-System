@@ -21,15 +21,6 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Publish API
+      - name: Publish and Deploy API to MonsterASP
         run: |
-          dotnet publish QuranCircles.Api/QuranCircles.Api/QuranCircles.Api.csproj -c Release -o ./publish
-
-      - name: Deploy to MonsterASP.NET via WebDeploy
-        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
-        with:
-          website-name: 'site90430'
-          server-computer-name: 'site90430.siteasp.net'
-          server-username: 'site90430'
-          server-password: 'z-3X6Z#rBh9='
-          source-path: './publish'
+          dotnet publish QuranCircles.Api/QuranCircles.Api/QuranCircles.Api.csproj -c Release /p:PublishProfile=MonsterASP /p:Password="z-3X6Z#rBh9=" /p:AllowUntrustedCertificate=True /p:AuthType=Basic
