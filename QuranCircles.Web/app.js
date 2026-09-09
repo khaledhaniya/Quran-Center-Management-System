@@ -11,7 +11,7 @@ const isLocalEnv = window.location.hostname === "localhost" ||
 
 let API_BASE = savedApiUrl || (isLocalEnv 
     ? "http://localhost:5070/api" 
-    : "https://albayan-quran.onrender.com/api");
+    : "https://site90430.siteasp.net/api");
 
 // Application State
 let currentRole = "";
