@@ -17,9 +17,12 @@ builder.Host.ConfigureAppConfiguration((hostingContext, config) =>
           .AddEnvironmentVariables();
 });
 
-// 1. Dynamic Port binding for Cloud Providers (Render, Railway, Docker, Localhost)
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5070";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+// 1. Dynamic Port binding for Cloud Providers (Render, Railway, Docker)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
 // 2. Database Context with Dual Provider (Cloud PostgreSQL / Local SQLite)
 var postgresUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
