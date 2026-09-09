@@ -24,10 +24,13 @@ public class StudentService
         {
             var q = search.Trim().ToLower();
             query = query.Where(s => s.FullName.ToLower().Contains(q)
+                || (s.StudentIdentityNumber != null && s.StudentIdentityNumber.Contains(q))
+                || (s.FamilyContact != null && s.FamilyContact.Contains(q))
+                || (s.StudentMobile != null && s.StudentMobile.Contains(q))
                 || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
         }
 
-        var students = await query.OrderBy(s => s.Id).ToListAsync();
+        var students = await query.OrderBy(s => s.FullName).ToListAsync();
         var parentIds = students.Where(s => s.ParentId.HasValue).Select(s => s.ParentId!.Value).Distinct().ToList();
         var parentUsers = await _db.Users.Where(u => u.Role == UserRole.Parent && (parentIds.Contains(u.Id) || (u.ParentId.HasValue && parentIds.Contains(u.ParentId.Value)))).ToListAsync();
         var parentMap = parentUsers.ToDictionary(u => u.ParentId ?? u.Id, u => u.FullName);
@@ -46,6 +49,9 @@ public class StudentService
         {
             var q = search.Trim().ToLower();
             query = query.Where(s => s.FullName.ToLower().Contains(q)
+                || (s.StudentIdentityNumber != null && s.StudentIdentityNumber.Contains(q))
+                || (s.FamilyContact != null && s.FamilyContact.Contains(q))
+                || (s.StudentMobile != null && s.StudentMobile.Contains(q))
                 || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
         }
 

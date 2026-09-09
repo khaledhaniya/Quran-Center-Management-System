@@ -100,6 +100,11 @@ public class StudentsController : ControllerBase
         }
         else if (currentUser != null && currentUser.Role == UserRole.Teacher)
         {
+            if (Request.Query.ContainsKey("all") || Request.Query["forEnrollment"] == "true")
+            {
+                return Ok(await _svc.GetAllAsync(search));
+            }
+
             int teacherId = currentUser.TeacherId ?? 0;
             if (teacherId == 0)
             {
@@ -169,13 +174,17 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> GetAllForEnrollment([FromQuery] string? search)
     {
-        var query = _db.Students.Include(s => s.Circle).Where(s => s.IsActive).AsQueryable();
+        var query = _db.Students.Include(s => s.Circle).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
         {
             var q = search.Trim().ToLower();
-            query = query.Where(s => s.FullName.ToLower().Contains(q) || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
+            query = query.Where(s => s.FullName.ToLower().Contains(q) 
+                || (s.StudentIdentityNumber != null && s.StudentIdentityNumber.Contains(q))
+                || (s.FamilyContact != null && s.FamilyContact.Contains(q))
+                || (s.StudentMobile != null && s.StudentMobile.Contains(q))
+                || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
         }
-        var list = await query.OrderBy(s => s.FullName).Take(50).ToListAsync();
+        var list = await query.OrderBy(s => s.FullName).ToListAsync();
         return Ok(list.Select(s => StudentService.MapStudentToFullObject(s)).ToList());
     }
 

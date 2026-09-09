@@ -72,6 +72,40 @@ function escapeHtml(str) {
 
 const escapeXml = escapeHtml;
 
+// Arabic text normalization helper for smart search (handles hamza, taa marbuta, alef maksura, tashkeel, spaces)
+function normalizeArabicText(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/[\u064B-\u065F\u0670]/g, '') // remove tashkeel/harakat
+        .replace(/[أإآء]/g, 'ا')              // normalize Alef variations
+        .replace(/ة/g, 'ه')                   // normalize Taa marbuta
+        .replace(/ى/g, 'ي')                   // normalize Alef maksura
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')// remove zero-width chars
+        .replace(/\s+/g, ' ')                 // normalize whitespace
+        .trim()
+        .toLowerCase();
+}
+
+function matchArabicSearch(target, query) {
+    if (!query || !query.trim()) return true;
+    if (!target) return false;
+    const normTarget = normalizeArabicText(target);
+    const normQuery = normalizeArabicText(query);
+    if (normTarget.includes(normQuery)) return true;
+    
+    // Also match without spaces (e.g. 'عبدالله' vs 'عبد الله')
+    const targetNoSpace = normTarget.replace(/\s+/g, '');
+    const queryNoSpace = normQuery.replace(/\s+/g, '');
+    if (targetNoSpace.includes(queryNoSpace)) return true;
+    
+    // Also match individual word tokens (e.g. searching 'محمد عزام')
+    const words = normQuery.split(' ').filter(w => w.length > 0);
+    if (words.length > 1) {
+        return words.every(w => normTarget.includes(w));
+    }
+    return false;
+}
+
 // ----------------- High-Grade Security & Authentication Management -----------------
 function getAuthStorage(key) {
     return sessionStorage.getItem(key) || localStorage.getItem(key);
@@ -1846,12 +1880,12 @@ async function showManageStudentsModal(circleId) {
 
         let allStudents = cachedStudents;
         if (!allStudents || allStudents.length === 0) {
-            allStudents = await apiRequest("/students");
+            allStudents = await apiRequest("/students/all-for-enrollment").catch(() => apiRequest("/students"));
             cachedStudents = allStudents || [];
         }
 
         const circleStudents = (allStudents || []).filter(s => s.circleId == circleId);
-        const availableStudents = (allStudents || []).filter(s => !s.circleId || s.circleId == 0);
+        const availableStudents = (allStudents || []).filter(s => s.circleId != circleId);
 
         let studentRowsHtml = circleStudents.map((s, idx) => `
             <tr>
@@ -1872,7 +1906,8 @@ async function showManageStudentsModal(circleId) {
 
         let studentOptions = '<option value="">-- اختر طالباً لإضافته للحلقة --</option>';
         availableStudents.forEach(s => {
-            studentOptions += `<option value="${s.id}">${s.fullName} (${s.studentIdentityNumber || 'بدون هوية'})</option>`;
+            const circleLabel = s.circleName && s.circleName !== "غير مسند حلقة" ? ` - حلقة: ${s.circleName}` : ' - غير مسند';
+            studentOptions += `<option value="${s.id}">${s.fullName} (${s.studentIdentityNumber || 'بدون هوية'}${circleLabel})</option>`;
         });
 
         const htmlContent = `
@@ -2831,69 +2866,129 @@ async function showTeacherEnrollExistingModal() {
 
         const modalBody = document.getElementById("modal-body-content");
         modalBody.innerHTML = `
-            <div class="p-3">
-                <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
-                    <i class="fa-solid fa-circle-info fs-4"></i>
-                    <div>
-                        <strong>تنسيب الطلاب للحلقة:</strong> يمكنك البحث عن أي طالب مسجل في المركز القرآني وإضافته مباشرة إلى حلقتك.
+            <div class="p-3" style="direction: rtl;">
+                <div class="alert alert-info d-flex align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-circle-info fs-4 text-primary"></i>
+                        <div>
+                            <strong>تنسيب الطلاب للحلقة:</strong> يمكنك استعراض والبحث في كافة طلاب المركز القرآني وإضافتهم مباشرة إلى حلقتك.
+                        </div>
+                    </div>
+                    <span id="teacher-enroll-badge-count" class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 rounded-pill fs-6 fw-bold">
+                        <i class="fa-solid fa-spinner fa-spin me-1"></i> جاري التحميل...
+                    </span>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-dark"><i class="fa-solid fa-circle-nodes text-primary me-1"></i> اختر الحلقة المستهدفة للتنسيب:</label>
+                        <select id="teacher-enroll-target-circle" class="form-select shadow-xs border-primary">
+                            ${myCircles.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-secondary me-1"></i> تصفية الطلاب:</label>
+                        <div class="btn-group w-100 shadow-xs" role="group">
+                            <input type="radio" class="btn-check" name="teacher-filter-status" id="filter-status-all" value="all" checked autocomplete="off">
+                            <label class="btn btn-outline-primary btn-sm py-2 fw-bold" for="filter-status-all">جميع طلاب المركز</label>
+
+                            <input type="radio" class="btn-check" name="teacher-filter-status" id="filter-status-unassigned" value="unassigned" autocomplete="off">
+                            <label class="btn btn-outline-success btn-sm py-2 fw-bold" for="filter-status-unassigned">غير مسندين</label>
+
+                            <input type="radio" class="btn-check" name="teacher-filter-status" id="filter-status-assigned" value="assigned" autocomplete="off">
+                            <label class="btn btn-outline-warning text-dark btn-sm py-2 fw-bold" for="filter-status-assigned">مسندين بحلقات</label>
+                        </div>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-circle-nodes text-primary me-1"></i> اختر الحلقة المستهدفة للتنسيب:</label>
-                    <select id="teacher-enroll-target-circle" class="form-select shadow-xs border-primary">
-                        ${myCircles.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                    </select>
+                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-success me-1"></i> ابحث عن أي طالب بالاسم أو رقم الهوية أو الهاتف (بحث فوري وشامل):</label>
+                    <div class="input-group">
+                        <input type="text" id="teacher-enroll-search-input" class="form-control form-control-lg shadow-xs" placeholder="🔍 اكتب اسم الطالب أو رقم الهوية أو الهاتف للبحث في كافة طلاب المركز..." autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-clear-teacher-search" title="مسح البحث"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-success me-1"></i> ابحث عن اسم الطالب أو رقم الهوية:</label>
-                    <input type="text" id="teacher-enroll-search-input" class="form-control form-control-lg shadow-xs" placeholder="اكتب اسم الطالب للبحث..." autocomplete="off">
-                </div>
-
-                <div id="teacher-enroll-results-container" style="max-height: 320px; overflow-y: auto;" class="border rounded-3 p-2 bg-light">
-                    <p class="text-center text-muted my-4"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب قائمة طلاب المركز...</p>
+                <div id="teacher-enroll-results-container" style="max-height: 380px; overflow-y: auto;" class="border rounded-3 p-2 bg-light">
+                    <p class="text-center text-muted my-4"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب كافة طلاب المركز...</p>
                 </div>
             </div>
         `;
 
-        // Fetch students available in center
+        // Fetch all students available in center
         let allStudents = [];
         try {
-            allStudents = await apiRequest("/students/all-for-enrollment") || [];
-        } catch(e) {
-            try { allStudents = await apiRequest("/students") || []; } catch(err) {}
+            allStudents = await apiRequest("/students/all-for-enrollment");
+        } catch(e) {}
+        
+        if (!Array.isArray(allStudents) || allStudents.length === 0) {
+            try {
+                allStudents = await apiRequest("/students?all=true");
+            } catch(e) {}
         }
+        if (!Array.isArray(allStudents)) allStudents = [];
 
-        const renderResults = (searchTerm = "") => {
+        const updateBadgeCount = () => {
+            const badgeCount = document.getElementById("teacher-enroll-badge-count");
+            if (badgeCount) {
+                badgeCount.innerHTML = `<i class="fa-solid fa-users me-1"></i> ${allStudents.length} طالب بالمركز`;
+            }
+        };
+        updateBadgeCount();
+
+        let currentFilterStatus = "all";
+
+        const renderResults = () => {
             const container = document.getElementById("teacher-enroll-results-container");
             if (!container) return;
 
-            const q = searchTerm.trim().toLowerCase();
-            const filtered = allStudents.filter(s => 
-                !q || (s.fullName && s.fullName.toLowerCase().includes(q)) || 
-                (s.studentIdentityNumber && s.studentIdentityNumber.includes(q))
-            );
+            const searchInput = document.getElementById("teacher-enroll-search-input");
+            const q = (searchInput ? searchInput.value : "").trim();
+
+            const filtered = allStudents.filter(s => {
+                const hasCircle = s.circleId && s.circleId > 0 && s.circleName && s.circleName !== "غير مسند حلقة";
+                if (currentFilterStatus === "unassigned" && hasCircle) return false;
+                if (currentFilterStatus === "assigned" && !hasCircle) return false;
+
+                if (!q) return true;
+
+                const nameMatch = matchArabicSearch(s.fullName, q);
+                const idMatch = s.studentIdentityNumber && String(s.studentIdentityNumber).includes(q);
+                const phoneMatch = (s.familyContact && String(s.familyContact).includes(q)) || (s.studentMobile && String(s.studentMobile).includes(q));
+                const circleMatch = matchArabicSearch(s.circleName, q);
+
+                return nameMatch || idMatch || phoneMatch || circleMatch;
+            });
 
             if (filtered.length === 0) {
-                container.innerHTML = `<p class="text-center text-muted my-4">لا يوجد طلاب مطابقين لاسم البحث.</p>`;
+                container.innerHTML = `<div class="text-center text-muted my-4 p-3"><i class="fa-solid fa-users-slash fs-2 mb-2 d-block text-secondary"></i>لا يوجد طلاب مطابقين للبحث. يمكنك تجربة كتابة مقطع من الاسم أو رقم الهوية.</div>`;
                 return;
             }
 
-            let html = '<div class="list-group list-group-flush gap-2">';
+            let html = `<div class="small text-muted mb-2 px-2 d-flex justify-content-between align-items-center">
+                <span>تم العثور على <strong>${filtered.length}</strong> طالب من إجمالي <strong>${allStudents.length}</strong> طالب</span>
+            </div>`;
+
+            html += '<div class="list-group list-group-flush gap-2">';
             filtered.forEach(s => {
-                const currentCircle = s.circleName && s.circleName !== "غير مسند حلقة" ? s.circleName : null;
+                const hasCircle = s.circleId && s.circleId > 0 && s.circleName && s.circleName !== "غير مسند حلقة";
+                const currentCircle = hasCircle ? s.circleName : null;
+
                 html += `
                     <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 rounded-3 shadow-xs bg-white border">
                         <div>
-                            <div class="fw-bold text-dark fs-6">${s.fullName}</div>
-                            <div class="small text-muted">
-                                <span class="badge bg-light text-secondary border me-1">هوية: ${s.studentIdentityNumber || s.id}</span>
-                                ${currentCircle ? `<span class="badge bg-warning bg-opacity-25 text-dark border">الحلقة الحالية: ${currentCircle}</span>` : '<span class="badge bg-success bg-opacity-25 text-success border">غير مسند حلقة</span>'}
+                            <div class="fw-bold text-dark fs-6 d-flex align-items-center gap-2">
+                                <i class="fa-solid fa-user-graduate text-success"></i>
+                                <span>${escapeXml(s.fullName)}</span>
+                            </div>
+                            <div class="small text-muted mt-1 d-flex flex-wrap gap-2 align-items-center">
+                                <span class="badge bg-light text-secondary border">هوية: ${escapeXml(s.studentIdentityNumber || s.id)}</span>
+                                ${s.familyContact ? `<span class="badge bg-light text-muted border"><i class="fa-solid fa-phone me-1"></i>${escapeXml(s.familyContact)}</span>` : ''}
+                                ${currentCircle ? `<span class="badge bg-warning bg-opacity-25 text-dark border"><i class="fa-solid fa-mosque me-1"></i>الحلقة الحالية: ${escapeXml(currentCircle)}</span>` : '<span class="badge bg-success bg-opacity-25 text-success border"><i class="fa-solid fa-check me-1"></i>غير مسند حلقة</span>'}
                             </div>
                         </div>
-                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-xs" onclick="executeTeacherStudentEnrollment(${s.id}, '${s.fullName.replace(/'/g, "\\'")}')">
-                            <i class="fa-solid fa-plus me-1"></i> تنسيب لحلقتي
+                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-xs flex-shrink-0" onclick="executeTeacherStudentEnrollment(${s.id}, '${s.fullName.replace(/'/g, "\\'")}')">
+                            <i class="fa-solid fa-plus me-1"></i> ${currentCircle ? 'نقل وتنسيب لحلقتي' : 'تنسيب لحلقتي'}
                         </button>
                     </div>
                 `;
@@ -2902,12 +2997,56 @@ async function showTeacherEnrollExistingModal() {
             container.innerHTML = html;
         };
 
-        renderResults("");
+        renderResults();
 
+        let liveSearchTimer = null;
         const searchInput = document.getElementById("teacher-enroll-search-input");
         if (searchInput) {
-            searchInput.addEventListener("input", (e) => renderResults(e.target.value));
+            searchInput.addEventListener("input", () => {
+                renderResults();
+
+                // Live search to backend API in parallel to catch any students dynamically
+                clearTimeout(liveSearchTimer);
+                const queryVal = searchInput.value.trim();
+                if (queryVal.length >= 2) {
+                    liveSearchTimer = setTimeout(async () => {
+                        try {
+                            const results = await apiRequest(`/students/all-for-enrollment?search=${encodeURIComponent(queryVal)}`);
+                            if (Array.isArray(results) && results.length > 0) {
+                                let hasNew = false;
+                                results.forEach(st => {
+                                    if (!allStudents.some(item => item.id === st.id)) {
+                                        allStudents.push(st);
+                                        hasNew = true;
+                                    }
+                                });
+                                if (hasNew) {
+                                    updateBadgeCount();
+                                    renderResults();
+                                }
+                            }
+                        } catch(err) {}
+                    }, 350);
+                }
+            });
         }
+
+        const clearBtn = document.getElementById("btn-clear-teacher-search");
+        if (clearBtn) {
+            clearBtn.addEventListener("click", () => {
+                if (searchInput) {
+                    searchInput.value = "";
+                    renderResults();
+                }
+            });
+        }
+
+        document.querySelectorAll("input[name='teacher-filter-status']").forEach(radio => {
+            radio.addEventListener("change", (e) => {
+                currentFilterStatus = e.target.value;
+                renderResults();
+            });
+        });
 
     } catch (e) {
         console.error("Error in showTeacherEnrollExistingModal:", e);
@@ -9526,7 +9665,7 @@ async function showManageStudentsModal(circleId) {
     try {
         const [circle, allStudents] = await Promise.all([
             apiRequest(`/circles/${circleId}`),
-            apiRequest(`/students`)
+            apiRequest(`/students/all-for-enrollment`).catch(() => apiRequest(`/students`))
         ]);
 
         const currentStudents = allStudents.filter(s => s.circleId == circleId);
@@ -9671,7 +9810,7 @@ async function showManageStudentsModal(circleId) {
             const filterRadios = document.querySelectorAll("input[name='circle-student-filter-type']");
 
             function updateSearchResults() {
-                const query = (searchInput.value || '').trim().toLowerCase();
+                const query = (searchInput.value || '').trim();
                 const onlyUnassigned = document.getElementById("filter-unassigned").checked;
                 const resultsContainer = document.getElementById("circle-search-results-list");
 
@@ -9682,9 +9821,9 @@ async function showManageStudentsModal(circleId) {
 
                 if (query) {
                     list = list.filter(s => 
-                        (s.fullName && s.fullName.toLowerCase().includes(query)) || 
-                        (s.studentIdentityNumber && s.studentIdentityNumber.includes(query)) ||
-                        (s.circleName && s.circleName.toLowerCase().includes(query))
+                        matchArabicSearch(s.fullName, query) || 
+                        (s.studentIdentityNumber && String(s.studentIdentityNumber).includes(query)) ||
+                        matchArabicSearch(s.circleName, query)
                     );
                 }
 
@@ -9695,7 +9834,7 @@ async function showManageStudentsModal(circleId) {
 
                 resultsContainer.innerHTML = `
                     <div class="list-group list-group-flush">
-                        ${list.slice(0, 20).map(s => `
+                        ${list.slice(0, 100).map(s => `
                             <div class="list-group-item d-flex justify-content-between align-items-center p-2 border-bottom">
                                 <div>
                                     <div class="fw-bold text-dark">${s.fullName}</div>

@@ -123,7 +123,7 @@ public class CirclesController : ControllerBase
 
             var circle = await _db.Circles.FindAsync(id);
             if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
-            if (circle.TeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
+            if (circle.TeacherId != currentUser.TeacherId && circle.AssistantTeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
             {
                 return Forbid();
             }
@@ -151,7 +151,7 @@ public class CirclesController : ControllerBase
 
             var circle = await _db.Circles.FindAsync(id);
             if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
-            if (circle.TeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
+            if (circle.TeacherId != currentUser.TeacherId && circle.AssistantTeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
             {
                 return Forbid();
             }

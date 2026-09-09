@@ -151,6 +151,21 @@ class ApiService {
     return _cachedStudents ?? [];
   }
 
+  static Future<List<Student>> getAllStudentsForEnrollment({String? search}) async {
+    String url = '$baseUrl/students/all-for-enrollment';
+    if (search != null && search.isNotEmpty) {
+      url += '?search=${Uri.encodeComponent(search)}';
+    }
+    try {
+      final response = await http.get(Uri.parse(url), headers: _headers());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return data.map((item) => Student.fromJson(item)).toList();
+      }
+    } catch (_) {}
+    return getStudents(search: search);
+  }
+
   static Future<bool> createStudent(Map<String, dynamic> data) async {
     invalidateCache();
     final response = await http.post(

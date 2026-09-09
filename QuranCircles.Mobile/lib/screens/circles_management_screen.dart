@@ -348,7 +348,7 @@ class _CircleStudentsModalState extends State<_CircleStudentsModal> {
   void _loadStudents() async {
     setState(() => _isLoading = true);
     try {
-      final list = await ApiService.getStudents();
+      final list = await ApiService.getAllStudentsForEnrollment();
       setState(() {
         _allStudents = list;
         _assignedStudents = list.where((s) => s.circleId == widget.circle.id).toList();
