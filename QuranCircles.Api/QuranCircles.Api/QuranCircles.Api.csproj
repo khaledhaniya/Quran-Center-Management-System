@@ -20,6 +20,7 @@
   <ItemGroup>
     <None Update="quran.db">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
     <Content Include="..\..\QuranCircles.Web\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

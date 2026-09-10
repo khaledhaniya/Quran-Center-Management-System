@@ -80,25 +80,58 @@ else
         Directory.CreateDirectory(envDataDir);
         dbPath = Path.Combine(envDataDir, "quran.db");
     }
-    else if (File.Exists(contentRootCandidate))
-    {
-        dbPath = contentRootCandidate;
-    }
-    else if (File.Exists(baseDirCandidate))
-    {
-        dbPath = baseDirCandidate;
-    }
-    else if (File.Exists(localApiCandidate))
-    {
-        dbPath = localApiCandidate;
-    }
-    else if (File.Exists(projectDirCandidate))
-    {
-        dbPath = projectDirCandidate;
-    }
     else
     {
-        dbPath = baseDirCandidate;
+        // Persistent database in App_Data outside /wwwroot so publishes never overwrite or reset user changes
+        string appDataDir = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "App_Data"));
+        bool canUseAppData = false;
+        try
+        {
+            if (!Directory.Exists(appDataDir))
+            {
+                Directory.CreateDirectory(appDataDir);
+            }
+            canUseAppData = true;
+        }
+        catch
+        {
+            canUseAppData = false;
+        }
+
+        if (canUseAppData && !builder.Environment.IsDevelopment())
+        {
+            var persistentDb = Path.Combine(appDataDir, "quran.db");
+            if (!File.Exists(persistentDb))
+            {
+                var seedDb = new[] { contentRootCandidate, baseDirCandidate, localApiCandidate }
+                    .FirstOrDefault(File.Exists);
+                if (seedDb != null)
+                {
+                    try { File.Copy(seedDb, persistentDb, false); } catch { }
+                }
+            }
+            dbPath = persistentDb;
+        }
+        else if (File.Exists(contentRootCandidate))
+        {
+            dbPath = contentRootCandidate;
+        }
+        else if (File.Exists(baseDirCandidate))
+        {
+            dbPath = baseDirCandidate;
+        }
+        else if (File.Exists(localApiCandidate))
+        {
+            dbPath = localApiCandidate;
+        }
+        else if (File.Exists(projectDirCandidate))
+        {
+            dbPath = projectDirCandidate;
+        }
+        else
+        {
+            dbPath = baseDirCandidate;
+        }
     }
 
     Console.WriteLine($"[Database] Connected to SQLite database at: {dbPath}");
