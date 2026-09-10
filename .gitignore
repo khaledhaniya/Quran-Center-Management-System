@@ -27,5 +27,6 @@ Thumbs.db
 
 *.apk
 *.zip
+*.publishSettings
 scratch/
 

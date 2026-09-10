@@ -11,7 +11,7 @@ const isLocalEnv = window.location.hostname === "localhost" ||
 
 let API_BASE = savedApiUrl || (isLocalEnv 
     ? "http://localhost:5070/api" 
-    : "https://site90430.siteasp.net/api");
+    : "https://albayan-ali-center.tryasp.net/api");
 
 // Application State
 let currentRole = "";
@@ -371,15 +371,15 @@ async function handleLogin(e) {
             const timeout = (isLocalEnv && API_BASE.includes("localhost")) ? 3000 : 45000;
             response = await tryFetchLogin(API_BASE, timeout);
         } catch(fetchErr) {
-            // Fallback to Render Cloud API if local or primary failed
-            if (API_BASE !== "https://albayan-quran.onrender.com/api") {
-                console.log("Primary API failed or timed out, trying Render Cloud API...");
+            // Fallback to MonsterASP Cloud API if local or primary failed
+            if (API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
+                console.log("Primary API failed or timed out, trying MonsterASP Cloud API...");
                 if (submitBtn) {
                     submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down fa-spin me-2"></i> جاري الاتصال بالسيرفر السحابي...';
                 }
-                response = await tryFetchLogin("https://albayan-quran.onrender.com/api", 45000);
+                response = await tryFetchLogin("https://albayan-ali-center.tryasp.net/api", 45000);
                 if (response && response.ok) {
-                    API_BASE = "https://albayan-quran.onrender.com/api";
+                    API_BASE = "https://albayan-ali-center.tryasp.net/api";
                 }
             } else {
                 throw fetchErr;
@@ -687,9 +687,9 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
         } catch (error) {
             const isNetworkError = (error.name === "TypeError" || (error.message && (error.message.includes("fetch") || error.message.includes("network") || error.message.includes("Failed to fetch"))));
             
-            if (isNetworkError && isLocalEnv && API_BASE.includes("localhost") && API_BASE !== "https://albayan-quran.onrender.com/api") {
-                console.warn(`[Failover] Localhost API unreachable for ${path}. Switching to Render Cloud API...`);
-                API_BASE = "https://albayan-quran.onrender.com/api";
+            if (isNetworkError && isLocalEnv && API_BASE.includes("localhost") && API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
+                console.warn(`[Failover] Localhost API unreachable for ${path}. Switching to MonsterASP Cloud API...`);
+                API_BASE = "https://albayan-ali-center.tryasp.net/api";
                 continue;
             }
 
@@ -10298,17 +10298,17 @@ async function fetchAndApplySystemSettings(silent = true) {
         try {
             response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
         } catch(netErr) {
-            if (isLocalEnv && API_BASE !== "https://albayan-quran.onrender.com/api") {
-                response = await fetch(`https://albayan-quran.onrender.com/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
+            if (isLocalEnv && API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
+                response = await fetch(`https://albayan-ali-center.tryasp.net/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
                 if (response && response.ok) {
-                    API_BASE = "https://albayan-quran.onrender.com/api";
+                    API_BASE = "https://albayan-ali-center.tryasp.net/api";
                 }
             }
         }
-        if ((!response || !response.ok) && isLocalEnv && API_BASE !== "https://albayan-quran.onrender.com/api") {
-            response = await fetch(`https://albayan-quran.onrender.com/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
+        if ((!response || !response.ok) && isLocalEnv && API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
+            response = await fetch(`https://albayan-ali-center.tryasp.net/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
             if (response && response.ok) {
-                API_BASE = "https://albayan-quran.onrender.com/api";
+                API_BASE = "https://albayan-ali-center.tryasp.net/api";
             }
         }
         if (response && response.ok) {
