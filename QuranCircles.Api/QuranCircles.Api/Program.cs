@@ -24,7 +24,11 @@ if (!string.IsNullOrWhiteSpace(port))
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-// 2. Database Context with Dual Provider (Cloud PostgreSQL / Local SQLite)
+// 2. Database Context with Multi-Provider (MonsterASP MSSQL / Cloud PostgreSQL / Local SQLite)
+var mssqlConnStr = Environment.GetEnvironmentVariable("MSSQL_CONNECTION_STRING")
+                ?? builder.Configuration.GetConnectionString("SqlServer")
+                ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
 var postgresUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
                ?? Environment.GetEnvironmentVariable("POSTGRES_URL")
                ?? Environment.GetEnvironmentVariable("POSTGRESQL_URL")
@@ -59,7 +63,13 @@ if (!string.IsNullOrWhiteSpace(postgresUrl))
     }
 }
 
-if (!string.IsNullOrWhiteSpace(postgresConnStr))
+if (!string.IsNullOrWhiteSpace(mssqlConnStr) && (mssqlConnStr.Contains("databaseasp.net") || mssqlConnStr.Contains("MultipleActiveResultSets=")))
+{
+    Console.WriteLine("[Database] 🚀 Connected to Microsoft SQL Server 2025 (MonsterASP Cloud Database)!");
+    builder.Services.AddDbContext<AppDbContext>(opt =>
+        opt.UseSqlServer(mssqlConnStr, sqlOpt => sqlOpt.EnableRetryOnFailure(3)));
+}
+else if (!string.IsNullOrWhiteSpace(postgresConnStr))
 {
     Console.WriteLine("[Database] 🚀 Connected to Cloud PostgreSQL database (Permanent Cloud Storage)!");
     builder.Services.AddDbContext<AppDbContext>(opt =>
