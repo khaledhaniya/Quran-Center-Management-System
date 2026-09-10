@@ -215,15 +215,19 @@ try
 {
     var candidates = new[]
     {
+        Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "wwwroot")),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "wwwroot")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "QuranCircles.Web")),
         Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "QuranCircles.Web")),
+        app.Environment.ContentRootPath,
+        AppContext.BaseDirectory,
         @"c:\xampp\htdocs\Quran Center\QuranCircles.Web"
     };
 
-    webDir = candidates.FirstOrDefault(Directory.Exists);
+    webDir = candidates.FirstOrDefault(d => Directory.Exists(d) && File.Exists(Path.Combine(d, "index.html")));
     if (webDir != null)
     {
         var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webDir);
@@ -291,7 +295,19 @@ app.MapGet("/api/status", () => Results.Ok(new
     engine = "ASP.NET Core 9.0 Enterprise Edition"
 }));
 
-if (webDir == null)
+if (webDir != null)
+{
+    var indexPath = Path.Combine(webDir, "index.html");
+    app.MapFallback(async context =>
+    {
+        if (context.Request.Path.Value?.StartsWith("/api") != true)
+        {
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(indexPath);
+        }
+    });
+}
+else
 {
     app.MapGet("/", () => Results.Ok(new
     {

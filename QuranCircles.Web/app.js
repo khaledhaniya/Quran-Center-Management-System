@@ -11,7 +11,9 @@ const isLocalEnv = window.location.hostname === "localhost" ||
 
 let API_BASE = savedApiUrl || (isLocalEnv 
     ? "http://localhost:5070/api" 
-    : "https://albayan-ali-center.tryasp.net/api");
+    : (window.location.hostname.includes("github.io")
+        ? "https://albayan-ali-center.tryasp.net/api"
+        : (window.location.origin + "/api")));
 
 // Application State
 let currentRole = "";
