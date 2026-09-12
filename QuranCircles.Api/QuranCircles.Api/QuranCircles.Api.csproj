@@ -24,8 +24,8 @@
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
     <Content Include="..\..\QuranCircles.Web\**\*.*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
       <Link>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>

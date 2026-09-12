@@ -885,9 +885,9 @@ button, input, select, textarea {
 
 /* Glass KPI Cards - Modern Horizontal Metric Cards */
 .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 16px !important;
     margin-bottom: 24px;
 }
 
