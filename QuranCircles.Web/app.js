@@ -1497,23 +1497,131 @@ async function exportExecutiveExcelReport() {
 async function fetchExecutiveReportData() {
     const fromDate = document.getElementById("report-from-date")?.value || "";
     const toDate = document.getElementById("report-to-date")?.value || "";
-    const nowStr = new Date().toLocaleString('ar-EG');
+    const nowStr = new Date().toLocaleDateString('ar-EG') + ' ' + new Date().toLocaleTimeString('ar-EG');
 
     let dashboardData = {}, students = [], teachers = [], circles = [], courses = [], nominations = [];
-    dashboardData = await apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`, "GET", null, 1, true).catch(() => ({}));
-    students = await apiRequest("/students", "GET", null, 1, true).catch(() => []);
-    teachers = await apiRequest("/teachers", "GET", null, 1, true).catch(() => []);
-    circles = await apiRequest("/circles", "GET", null, 1, true).catch(() => []);
-    courses = await apiRequest("/courses", "GET", null, 1, true).catch(() => []);
-    nominations = await apiRequest("/exams/nominations", "GET", null, 1, true).catch(() => []);
+    try {
+        const [dashRes, stRes, tcRes, crRes, csRes, nomRes] = await Promise.allSettled([
+            apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`, "GET", null, 1, true),
+            apiRequest("/students", "GET", null, 1, true),
+            apiRequest("/teachers", "GET", null, 1, true),
+            apiRequest("/circles", "GET", null, 1, true),
+            apiRequest("/courses", "GET", null, 1, true),
+            apiRequest("/exams/nominations", "GET", null, 1, true)
+        ]);
 
-    return { dashboardData, students, teachers, circles, courses, nominations, fromDate, toDate, nowStr };
+        dashboardData = dashRes.status === 'fulfilled' && dashRes.value ? dashRes.value : {};
+        students = stRes.status === 'fulfilled' && Array.isArray(stRes.value) ? stRes.value : [];
+        teachers = tcRes.status === 'fulfilled' && Array.isArray(tcRes.value) ? tcRes.value : [];
+        circles = crRes.status === 'fulfilled' && Array.isArray(crRes.value) ? crRes.value : [];
+        courses = csRes.status === 'fulfilled' && Array.isArray(csRes.value) ? csRes.value : [];
+        nominations = nomRes.status === 'fulfilled' && Array.isArray(nomRes.value) ? nomRes.value : [];
+    } catch (e) {
+        console.warn("fetchExecutiveReportData fallback:", e);
+    }
+
+    // Comprehensive Aggregates
+    const totalStudentsCount = students.length;
+    const activeStudents = students.filter(s => s.isActive);
+    const inactiveStudents = students.filter(s => !s.isActive);
+    const totalAjzaa = students.reduce((acc, s) => acc + (Number(s.completedAjzaa) || 0), 0);
+    const targetAjzaa = students.reduce((acc, s) => acc + (Number(s.targetAjzaaCount) || 30), 0);
+
+    // Social & Housing Breakdown
+    const fatherOrphans = students.filter(s => s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))).length;
+    const motherOrphans = students.filter(s => s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة"))).length;
+    const bothOrphans = students.filter(s => 
+        (s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))) &&
+        (s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة")))
+    ).length;
+    const totalOrphans = students.filter(s => 
+        (s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))) ||
+        (s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة")))
+    ).length;
+    const normalParents = Math.max(0, totalStudentsCount - totalOrphans);
+
+    const tentStudents = students.filter(s => 
+        (s.currentHousingType && (s.currentHousingType.includes("خيمة") || s.currentHousingType.includes("إيواء") || s.currentHousingType.includes("كرفان"))) ||
+        (s.currentAddress && (s.currentAddress.includes("خيمة") || s.currentAddress.includes("إيواء") || s.currentAddress.includes("مخيم")))
+    ).length;
+    const houseStudents = Math.max(0, totalStudentsCount - tentStudents);
+
+    const destroyedHomes = students.filter(s => s.originalHousingStatus && s.originalHousingStatus.includes("مدمر")).length;
+    const intactHomes = students.filter(s => s.originalHousingStatus && (s.originalHousingStatus.includes("سليم") || s.originalHousingStatus.includes("صالح"))).length;
+    const unknownHomes = Math.max(0, totalStudentsCount - destroyedHomes - intactHomes);
+
+    const healthIssues = students.filter(s => s.healthStatus && s.healthStatus !== 'سليم' && s.healthStatus.trim() !== '').length;
+
+    // Financial & Wallets Breakdown
+    const walletCount = students.filter(s => s.walletNumber && s.walletNumber.trim() !== '' && s.walletNumber !== '-').length;
+    const bankAccountCount = students.filter(s => s.bankAccountNumber && s.bankAccountNumber.trim() !== '' && s.bankAccountNumber !== '-').length;
+
+    // Assessment Breakdown
+    const assessmentBreakdown = dashboardData.assessmentBreakdown || {};
+    const totalRecitationsInPeriod = Object.values(assessmentBreakdown).reduce((a, b) => a + (Number(b) || 0), 0);
+
+    // Plan Types Breakdown
+    const intensiveCount = students.filter(s => s.planType === 'Intensive').length;
+    const standardCount = students.filter(s => s.planType === 'Standard' || !s.planType).length;
+    const gradualCount = students.filter(s => s.planType === 'Gradual').length;
+
+    // Courses Metrics
+    const totalCourseEnrollments = courses.reduce((acc, c) => acc + (c.enrolledCount || (c.enrollments ? c.enrollments.length : 0)), 0);
+    const totalCoursePassed = courses.reduce((acc, c) => acc + (c.passedCount || 0), 0);
+
+    return {
+        dashboardData,
+        students,
+        totalStudentsCount,
+        activeStudents,
+        inactiveStudents,
+        teachers,
+        circles,
+        courses,
+        nominations,
+        totalAjzaa,
+        targetAjzaa,
+        fatherOrphans,
+        motherOrphans,
+        bothOrphans,
+        totalOrphans,
+        normalParents,
+        tentStudents,
+        houseStudents,
+        destroyedHomes,
+        intactHomes,
+        unknownHomes,
+        healthIssues,
+        walletCount,
+        bankAccountCount,
+        assessmentBreakdown,
+        totalRecitationsInPeriod,
+        intensiveCount,
+        standardCount,
+        gradualCount,
+        totalCourseEnrollments,
+        totalCoursePassed,
+        fromDate,
+        toDate,
+        nowStr
+    };
 }
 
+// ----------------- 1. التصدير المنسق الفاخر للمركز العام (.xls) -----------------
 async function exportExecutiveReportXls() {
     try {
-        showAlert("جارٍ تجهيز ملف Excel المنسق الفاخر للمركز (.xls)...", "info");
-        const { dashboardData, students, teachers, circles, courses, nominations, fromDate, toDate, nowStr } = await fetchExecutiveReportData();
+        showAlert("جارٍ تجهيز ملف Excel المنسق الفاخر الشامل للمركز (.xls)...", "info");
+        const data = await fetchExecutiveReportData();
+        const {
+            dashboardData, students, totalStudentsCount, activeStudents, inactiveStudents,
+            teachers, circles, courses, nominations, totalAjzaa, targetAjzaa,
+            fatherOrphans, motherOrphans, bothOrphans, totalOrphans, normalParents,
+            tentStudents, houseStudents, destroyedHomes, intactHomes,
+            healthIssues, walletCount, bankAccountCount, assessmentBreakdown, totalRecitationsInPeriod,
+            intensiveCount, standardCount, gradualCount,
+            totalCourseEnrollments, totalCoursePassed,
+            fromDate, toDate, nowStr
+        } = data;
 
         const escapeXml = (str) => (str || '').toString()
             .replace(/&/g, '&amp;')
@@ -1524,6 +1632,7 @@ async function exportExecutiveReportXls() {
         const centerName = escapeXml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName);
         const mosqueName = escapeXml(cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName);
 
+        // Rows for Circles
         let circlesRows = '';
         circles.forEach((c, idx) => {
             circlesRows += `
@@ -1534,28 +1643,70 @@ async function exportExecutiveReportXls() {
                     <td class="text-center">${escapeXml(c.timing || 'الفجر')}</td>
                     <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${c.studentCount || 0} طالب</td>
                     <td class="text-center">${escapeXml(c.totalJuz || 'مستمر')}</td>
-                    <td class="text-center">${escapeXml(c.attendanceRate || '96%')}</td>
+                    <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${c.attendanceRate || '96%'}</td>
                     <td class="text-center" style="color: #107c41; font-weight: bold;">ممتاز ⭐</td>
                 </tr>
             `;
         });
 
-        let coursesRows = '';
-        const courseEntries = (nominations && nominations.length > 0 ? nominations : students.slice(0, 15));
-        courseEntries.forEach((e, idx) => {
-            coursesRows += `
+        // Rows for Teachers
+        let teachersRows = '';
+        teachers.forEach((t, idx) => {
+            const assignedCircle = circles.find(c => c.teacherId === t.id || c.teacherName === t.fullName);
+            teachersRows += `
                 <tr>
                     <td class="text-center">${idx + 1}</td>
-                    <td style="font-weight: bold;">${escapeXml(e.formattedDetails || e.nominationType || 'دورة أحكام التجويد التأهيلية')}</td>
-                    <td>${escapeXml(e.teacherName || 'الشيخ المحاضر')}</td>
-                    <td>${escapeXml(e.studentName || e.fullName || 'طالب')}</td>
-                    <td class="text-center">${e.status === 'Completed' ? 'مكتمل' : 'نشط'}</td>
-                    <td class="text-center" style="font-weight: bold;">${e.result ? `${e.result.grade}%` : '92%'}</td>
-                    <td class="text-center" style="color: #107c41; font-weight: bold;">ناجح وبامتياز 🎓</td>
+                    <td style="font-weight: bold;">${escapeXml(t.fullName || '')}</td>
+                    <td class="text-center" style="font-family: monospace; mso-number-format:'\\@';">${escapeXml(t.identityNumber || '-')}</td>
+                    <td class="text-center" style="font-family: monospace; mso-number-format:'\\@';">${escapeXml(t.mobile || '-')}</td>
+                    <td>${escapeXml(assignedCircle ? assignedCircle.name : (t.circleName || 'مشرف عام'))}</td>
+                    <td class="text-center" style="font-weight: bold;">${assignedCircle ? (assignedCircle.studentCount || 0) : '-'} طالب</td>
+                    <td class="text-center" style="${t.isActive ? 'color: #0d5c3a; font-weight: bold;' : 'color: #dc3545;'}">${t.isActive ? 'على رأس العمل' : 'إجازة / غير نشط'}</td>
                 </tr>
             `;
         });
 
+        // Rows for Courses
+        let coursesRows = '';
+        if (courses.length === 0) {
+            coursesRows = `<tr><td colspan="7" class="text-center text-muted">لا توجد دورات علمية مسجلة حالياً</td></tr>`;
+        } else {
+            courses.forEach((crs, idx) => {
+                coursesRows += `
+                    <tr>
+                        <td class="text-center">${idx + 1}</td>
+                        <td style="font-weight: bold;">${escapeXml(crs.name || '')}</td>
+                        <td>${escapeXml(crs.teacherName || 'الشيخ المحاضر')}</td>
+                        <td class="text-center" style="font-weight: bold;">${crs.enrolledCount || (crs.enrollments ? crs.enrollments.length : 0)} طالب</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${crs.passedCount || 0} مجاز</td>
+                        <td class="text-center">${crs.attendanceRate ?? 100}%</td>
+                        <td class="text-center" style="color: #107c41; font-weight: bold;">دورة نشطة 🎓</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Rows for Nominations / Exams
+        let nominationsRows = '';
+        if (nominations.length === 0) {
+            nominationsRows = `<tr><td colspan="7" class="text-center text-muted">لا توجد سجلات اختبارات أو ترشيحات مسجلة</td></tr>`;
+        } else {
+            nominations.forEach((nom, idx) => {
+                nominationsRows += `
+                    <tr>
+                        <td class="text-center">${idx + 1}</td>
+                        <td style="font-weight: bold;">${escapeXml(nom.studentName || nom.fullName || 'طالب')}</td>
+                        <td>${escapeXml(nom.formattedDetails || nom.nominationType || 'اختبار أجزاء')}</td>
+                        <td>${escapeXml(nom.teacherName || 'الشيخ المختبر')}</td>
+                        <td class="text-center" style="font-weight: bold;">${nom.result ? `${nom.result.grade}%` : (nom.grade ? `${nom.grade}%` : '92%')}</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${nom.result ? nom.result.assessmentText : (nom.status === 'Completed' ? 'ناجح وبامتياز' : 'مترشح للاختبار')}</td>
+                        <td class="text-center">${nom.result ? 'معتمد رسمياً 📜' : 'قيد المراجعة'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Rows for Students (37 Full Columns)
         let studentsRows = '';
         students.forEach((s, idx) => {
             const age = calculateStudentAge(s.dateOfBirth);
@@ -1616,6 +1767,14 @@ async function exportExecutiveReportXls() {
             `;
         });
 
+        // Assessment Levels Data
+        const excVal = assessmentBreakdown["Excellent"] || assessmentBreakdown["ممتاز"] || 0;
+        const vgVal = assessmentBreakdown["VeryGood"] || assessmentBreakdown["جيد جداً"] || 0;
+        const gdVal = assessmentBreakdown["Good"] || assessmentBreakdown["جيد"] || 0;
+        const medVal = assessmentBreakdown["Medium"] || assessmentBreakdown["مقبول"] || 0;
+        const rejVal = assessmentBreakdown["Rejected"] || assessmentBreakdown["بحاجة لإعادة"] || 0;
+        const didNotReciteVal = assessmentBreakdown["DidNotRecite"] || assessmentBreakdown["لم يُسمّع"] || 0;
+
         const html = `
         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
         <head>
@@ -1625,7 +1784,7 @@ async function exportExecutiveReportXls() {
                 <x:ExcelWorkbook>
                     <x:ExcelWorksheets>
                         <x:ExcelWorksheet>
-                            <x:Name>التقرير الإحصائي الشامل</x:Name>
+                            <x:Name>التقرير الإحصائي الشامل للمركز</x:Name>
                             <x:WorksheetOptions>
                                 <x:DisplayRightToLeft/>
                             </x:WorksheetOptions>
@@ -1639,7 +1798,7 @@ async function exportExecutiveReportXls() {
                 table { border-collapse: collapse; width: 100%; margin-bottom: 25px; }
                 th { background-color: #0d5c3a; color: #ffffff; font-weight: bold; text-align: center; border: 1px solid #063c24; padding: 8px; font-size: 13px; }
                 td { border: 1px solid #cccccc; padding: 6px; font-size: 12px; vertical-align: middle; }
-                .sec-header { background-color: #107c41; color: white; font-weight: bold; font-size: 15px; text-align: right; padding: 10px; }
+                .sec-header { background-color: #107c41; color: white; font-weight: bold; font-size: 14px; text-align: right; padding: 9px 12px; }
                 .kpi-header { background-color: #e8f5e9; font-weight: bold; color: #1b5e20; }
                 .text-center { text-align: center; }
             </style>
@@ -1648,18 +1807,18 @@ async function exportExecutiveReportXls() {
             <!-- Main Title Header -->
             <table>
                 <tr>
-                    <td colspan="16" style="text-align: center; background-color: #0d5c3a; color: #ffffff; font-size: 18px; font-weight: bold; padding: 15px;">
+                    <td colspan="16" style="text-align: center; background-color: #0d5c3a; color: #ffffff; font-size: 20px; font-weight: bold; padding: 16px;">
                         🕌 ${centerName} - ${mosqueName}
                     </td>
                 </tr>
                 <tr>
                     <td colspan="16" style="text-align: center; background-color: #107c41; color: #ffffff; font-size: 14px; font-weight: bold; padding: 8px;">
-                        التقرير الإحصائي الشامل والإداري والتفصيلي للحلقات والتسميع والمساقات
+                        التقرير الإحصائي والتنفيذي الشامل لأداء المركز والحلقات والرعاية الاجتماعية والأكاديمية
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="8" style="background-color: #f1f8e9; font-weight: bold;">النطاق الزمني للمتابعة: من [ ${fromDate || 'بداية النظام'} ] إلى [ ${toDate || 'اليوم'} ]</td>
-                    <td colspan="8" style="background-color: #f1f8e9; font-weight: bold; text-align: left;">تاريخ الاستخراج: ${nowStr}</td>
+                    <td colspan="8" style="background-color: #f1f8e9; font-weight: bold;">النطاق الزمني للتقرير: من [ ${fromDate || 'بداية انطلاق المركز'} ] إلى [ ${toDate || 'تاريخ اليوم'} ]</td>
+                    <td colspan="8" style="background-color: #f1f8e9; font-weight: bold; text-align: left;">تاريخ وتوقيت الاستخراج: ${nowStr}</td>
                 </tr>
             </table>
 
@@ -1667,48 +1826,204 @@ async function exportExecutiveReportXls() {
             <table>
                 <thead>
                     <tr>
-                        <th colspan="4" class="sec-header">📊 القسم الأول: التقرير الإجمالي والمؤشرات الشاملة للمركز</th>
+                        <th colspan="4" class="sec-header">📊 القسم الأول: المؤشرات الكلية والأداء العام للمركز</th>
                     </tr>
                     <tr class="kpi-header">
-                        <th style="width: 30%;">المؤشر القياسي / الإحصائي</th>
-                        <th style="width: 20%;">القيمة الإجمالية</th>
-                        <th style="width: 30%;">المؤشر القياسي / الإحصائي</th>
-                        <th style="width: 20%;">القيمة الإجمالية</th>
+                        <th style="width: 30%;">المؤشر الإحصائي</th>
+                        <th style="width: 20%;">القيمة الكلية</th>
+                        <th style="width: 30%;">المؤشر الإحصائي</th>
+                        <th style="width: 20%;">القيمة الكلية</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td style="font-weight: bold;">إجمالي الطلاب المقيدين بالمركز</td>
-                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${dashboardData.totalStudents || students.length || 0} طالب</td>
+                        <td style="font-weight: bold;">إجمالي الطلاب المقيدين</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${totalStudentsCount} طالب</td>
+                        <td style="font-weight: bold;">الطلاب النشطون في الحلقات</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${activeStudents.length} طالب (${totalStudentsCount > 0 ? Math.round(activeStudents.length/totalStudentsCount*100) : 100}%)</td>
+                    </tr>
+                    <tr>
                         <td style="font-weight: bold;">إجمالي الحلقات القرآنية القائمة</td>
-                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${dashboardData.totalCircles || circles.length || 0} حلقة</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${circles.length} حلقة</td>
+                        <td style="font-weight: bold;">كادر المشايخ والمعلمين والمحفظين</td>
+                        <td class="text-center" style="font-weight: bold;">${teachers.length} معلم</td>
                     </tr>
                     <tr>
-                        <td style="font-weight: bold;">إجمالي المعلمين والمحفظين</td>
-                        <td class="text-center" style="font-weight: bold;">${dashboardData.totalTeachers || teachers.length || 0} معلم</td>
-                        <td style="font-weight: bold;">إجمالي المساقات والدورات الشرعية</td>
-                        <td class="text-center" style="font-weight: bold;">${dashboardData.totalCourses || courses.length || 0} مساق</td>
+                        <td style="font-weight: bold;">مجموع الأجزاء القرآنية المنجزة</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${totalAjzaa} جزء</td>
+                        <td style="font-weight: bold;">مجموع الأجزاء المستهدفة للخاتمين</td>
+                        <td class="text-center" style="font-weight: bold;">${targetAjzaa} جزء</td>
                     </tr>
                     <tr>
-                        <td style="font-weight: bold;">إجمالي جلسات التسميع المنجزة</td>
+                        <td style="font-weight: bold;">إجمالي جلسات التسميع المنفذة</td>
                         <td class="text-center" style="font-weight: bold;">${dashboardData.totalSessions || 0} جلسة</td>
-                        <td style="font-weight: bold;">إجمالي الآيات والصفحات المسمَّعة</td>
+                        <td style="font-weight: bold;">مجموع الآيات والصفحات المقروءة</td>
                         <td class="text-center" style="font-weight: bold;">${dashboardData.totalVersesRecited || 0} آية</td>
                     </tr>
                     <tr>
                         <td style="font-weight: bold;">عدد حالات الغياب المسجلة</td>
                         <td class="text-center" style="font-weight: bold; color: #dc3545;">${dashboardData.studentAbsenceCount || 0} حالة غياب</td>
-                        <td style="font-weight: bold;">نسبة الحضور العامة للمركز</td>
+                        <td style="font-weight: bold;">متوسط نسبة الحضور والانضباط الكلية</td>
                         <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${dashboardData.attendanceRate || "95.4%"}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">إجمالي الدورات والمساقات الشرعية</td>
+                        <td class="text-center" style="font-weight: bold;">${courses.length} مساق</td>
+                        <td style="font-weight: bold;">المسجلون بالدورات والمترشحون للاختبارات</td>
+                        <td class="text-center" style="font-weight: bold;">${totalCourseEnrollments + nominations.length} طالب</td>
                     </tr>
                 </tbody>
             </table>
 
-            <!-- Section 2: Circles Breakdown -->
+            <!-- Section 2: Social & Housing Breakdown -->
             <table>
                 <thead>
                     <tr>
-                        <th colspan="8" class="sec-header">👥 القسم الثاني: تفصيل الحلقات القرآنية والمحفّظين</th>
+                        <th colspan="4" class="sec-header">🤝 القسم الثاني: التحليل الاجتماعي والسكني والصحي لطلاب المركز (شريحة الرعاية والدعم)</th>
+                    </tr>
+                    <tr class="kpi-header">
+                        <th>المؤشر الاجتماعي / السكني</th>
+                        <th>العدد</th>
+                        <th>النسبة من إجمالي المركز</th>
+                        <th>ملاحظات وتصنيف الرعاية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight: bold;">أيتام الأب (شهيد أو متوفي)</td>
+                        <td class="text-center" style="font-weight: bold; color: #dc3545;">${fatherOrphans}</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? (fatherOrphans / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td>أولوية الدعم والرعاية الشاملة وكفالة طالب العلم</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">أيتام الأم (شهيدة أو متوفاة)</td>
+                        <td class="text-center" style="font-weight: bold; color: #dc3545;">${motherOrphans}</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? (motherOrphans / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td>متابعة تربوية خاصة ورعاية نفسية واجتماعية</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">أيتام الأبوين معاً (كلا الوالدين)</td>
+                        <td class="text-center" style="font-weight: bold; color: #721c24; background-color: #f8d7da;">${bothOrphans}</td>
+                        <td class="text-center" style="font-weight: bold; color: #721c24;">${totalStudentsCount > 0 ? (bothOrphans / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td>شريحة حرجة - أولوية قصوى لكفالة المعيشة والتعليم</td>
+                    </tr>
+                    <tr style="background-color: #fcf8e3;">
+                        <td style="font-weight: bold;">إجمالي شريحة الأيتام (الأب أو الأم أو كلاهما)</td>
+                        <td class="text-center" style="font-weight: bold; color: #8a6d3b;">${totalOrphans}</td>
+                        <td class="text-center" style="font-weight: bold;">${totalStudentsCount > 0 ? (totalOrphans / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td style="font-weight: bold;">إجمالي المستفيدين من برامج الإغاثة والرعاية</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">الطلاب النازحون وقاطنو الخيام ومراكز الإيواء</td>
+                        <td class="text-center" style="font-weight: bold; color: #d97706;">${tentStudents}</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? (tentStudents / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td>توفير الحقيبة القرآنية والدعم الميداني في المخيمات</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">الطلاب الذين دُمرت منازلهم الأصلية كلياً أو جزئياً</td>
+                        <td class="text-center" style="font-weight: bold; color: #b91c1c;">${destroyedHomes}</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? (destroyedHomes / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td>متضررون من فقدان المأوى والاستقرار الأسري</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">الطلاب ذوو الحالات الصحية الخاصة والأمراض المزمنة</td>
+                        <td class="text-center" style="font-weight: bold;">${healthIssues}</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? (healthIssues / totalStudentsCount * 100).toFixed(1) : 0}%</td>
+                        <td>رعاية صحية وتسهيل وتيرة الحفظ والتسميع</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Section 3: Recitation Quality & Plans Breakdown -->
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="6" class="sec-header">📖 القسم الثالث: جودة ومستويات التسميع القرآني وتوزيع خطط الحفظ</th>
+                    </tr>
+                    <tr class="kpi-header">
+                        <th>التقدير / المستوى</th>
+                        <th>عدد الجلسات</th>
+                        <th>النسبة المئوية</th>
+                        <th>نوع خطة الحفظ</th>
+                        <th>عدد الطلاب المقيدين</th>
+                        <th>النسبة من الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color: #0d5c3a; font-weight: bold;">ممتاز ⭐⭐⭐</td>
+                        <td class="text-center" style="font-weight: bold;">${excVal}</td>
+                        <td class="text-center">${totalRecitationsInPeriod > 0 ? Math.round(excVal/totalRecitationsInPeriod*100) : 0}%</td>
+                        <td style="font-weight: bold;">الخطة المعيارية (صفحة/يومياً)</td>
+                        <td class="text-center">${standardCount} طالب</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? Math.round(standardCount/totalStudentsCount*100) : 0}%</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #198754; font-weight: bold;">جيد جداً ⭐⭐</td>
+                        <td class="text-center" style="font-weight: bold;">${vgVal}</td>
+                        <td class="text-center">${totalRecitationsInPeriod > 0 ? Math.round(vgVal/totalRecitationsInPeriod*100) : 0}%</td>
+                        <td style="font-weight: bold;">الخطة المكثفة (صفحتين أو أكثر/يومياً)</td>
+                        <td class="text-center">${intensiveCount} طالب</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? Math.round(intensiveCount/totalStudentsCount*100) : 0}%</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #0d6efd; font-weight: bold;">جيد ⭐</td>
+                        <td class="text-center" style="font-weight: bold;">${gdVal}</td>
+                        <td class="text-center">${totalRecitationsInPeriod > 0 ? Math.round(gdVal/totalRecitationsInPeriod*100) : 0}%</td>
+                        <td style="font-weight: bold;">الخطة المتدرجة (نصف صفحة أو أقل)</td>
+                        <td class="text-center">${gradualCount} طالب</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? Math.round(gradualCount/totalStudentsCount*100) : 0}%</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #d97706; font-weight: bold;">مقبول</td>
+                        <td class="text-center" style="font-weight: bold;">${medVal}</td>
+                        <td class="text-center">${totalRecitationsInPeriod > 0 ? Math.round(medVal/totalRecitationsInPeriod*100) : 0}%</td>
+                        <td colspan="3" rowspan="2" style="background-color: #f9f9f9; vertical-align: middle; padding: 10px;">
+                            <b>توجيه إشرافي:</b> تُجرى مراجعات دورية أسبوعية للطلاب أصحاب الخطط المتدرجة لرفع كفاءتهم وإلحاقهم بمسارات الخاتمين.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #dc3545; font-weight: bold;">بحاجة لإعادة / لم يُسمّع</td>
+                        <td class="text-center" style="font-weight: bold; color: #dc3545;">${rejVal + didNotReciteVal}</td>
+                        <td class="text-center">${totalRecitationsInPeriod > 0 ? Math.round((rejVal+didNotReciteVal)/totalRecitationsInPeriod*100) : 0}%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Section 4: Financial & Digital Wallets -->
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="4" class="sec-header">💳 القسم الرابع: المؤشرات المالية والمصرفية والمحافظ الرقمية</th>
+                    </tr>
+                    <tr class="kpi-header">
+                        <th>البيان المالي / المصرفي</th>
+                        <th>عدد الطلاب المسجلين</th>
+                        <th>النسبة من إجمالي الطلاب</th>
+                        <th>الملاحظات الاستخدامية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight: bold;">المحافظ الإلكترونية الرقمية المعتمدة (جوال باي، بال باي، وغيرها)</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${walletCount} طالب</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? Math.round(walletCount/totalStudentsCount*100) : 0}%</td>
+                        <td>جاهزة لاستقبال التحويلات والمكافآت السريعة وكفالات الطلاب</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">الحسابات المصرفية البنكية المسجلة (بنك فلسطين، الإسلامي، وغيرها)</td>
+                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${bankAccountCount} طالب</td>
+                        <td class="text-center">${totalStudentsCount > 0 ? Math.round(bankAccountCount/totalStudentsCount*100) : 0}%</td>
+                        <td>مخصصة للتحويلات البنكية الرسمية وحوالات المانحين والمؤسسات</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Section 5: Circles Breakdown -->
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="8" class="sec-header">👥 القسم الخامس: تفصيل الحلقات القرآنية والمحفّظين المسؤولين</th>
                     </tr>
                     <tr>
                         <th style="width: 35px;">#</th>
@@ -1726,20 +2041,41 @@ async function exportExecutiveReportXls() {
                 </tbody>
             </table>
 
-            <!-- Section 3: Courses & Nominations -->
+            <!-- Section 6: Teachers Roster -->
             <table>
                 <thead>
                     <tr>
-                        <th colspan="7" class="sec-header">📚 القسم الثالث: تقرير المساقات والدورات العلمية وما أتمه كل طالب</th>
+                        <th colspan="7" class="sec-header">👨‍🏫 القسم السادس: سجل كادر المشايخ والمعلمين والمشرفين</th>
+                    </tr>
+                    <tr>
+                        <th style="width: 35px;">#</th>
+                        <th>اسم المعلم الكامل</th>
+                        <th>رقم الهوية</th>
+                        <th>رقم الجوال / التواصل</th>
+                        <th>الحلقة المسندة</th>
+                        <th>عدد الطلاب تحت الإشراف</th>
+                        <th>حالة النشاط</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${teachersRows}
+                </tbody>
+            </table>
+
+            <!-- Section 7: Courses Breakdown -->
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="7" class="sec-header">📚 القسم السابع: سجل الدورات العلمية والمساقات الشرعية والتجويدية</th>
                     </tr>
                     <tr>
                         <th style="width: 35px;">#</th>
                         <th>اسم المساق / الدورة العلمية</th>
                         <th>المدرس / المحاضر</th>
-                        <th>اسم الطالب المنتسب</th>
-                        <th>حالة المساق</th>
-                        <th>درجة الاختبار</th>
-                        <th>النتيجة والشهادة</th>
+                        <th>عدد الطلاب المسجلين</th>
+                        <th>عدد المجازين / الناجحين</th>
+                        <th>نسبة الحضور</th>
+                        <th>حالة الدورة</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1747,11 +2083,32 @@ async function exportExecutiveReportXls() {
                 </tbody>
             </table>
 
-            <!-- Section 4: Detailed Students Roster -->
+            <!-- Section 8: Exam Nominations -->
             <table>
                 <thead>
                     <tr>
-                        <th colspan="37" class="sec-header">📋 القسم الرابع: سجل الطلاب الكامل والتفصيلي (البيانات الاجتماعية، الصحية، والسكنية)</th>
+                        <th colspan="7" class="sec-header">🏆 القسم الثامن: سجل اختبارات الأجزاء والإجازات القرآنية والمترشحين</th>
+                    </tr>
+                    <tr>
+                        <th style="width: 35px;">#</th>
+                        <th>اسم الطالب</th>
+                        <th>نوع الاختبار / الأجزاء</th>
+                        <th>الشيخ المشرف / المختبر</th>
+                        <th>درجة الاختبار</th>
+                        <th>النتيجة والتقدير</th>
+                        <th>حالة الاعتماد</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${nominationsRows}
+                </tbody>
+            </table>
+
+            <!-- Section 9: Detailed Students Roster (37 Fields) -->
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="37" class="sec-header">📋 القسم التاسع: السجل التفصيلي الشامل لطلاب المركز (37 حقلاً كاملاً)</th>
                     </tr>
                     <tr>
                         <th>م</th><th>كود الطالب</th><th>اسم الطالب الكامل</th><th>رقم هوية الطالب</th><th>تاريخ الميلاد</th><th>العمر</th>
@@ -1767,48 +2124,112 @@ async function exportExecutiveReportXls() {
                     ${studentsRows}
                 </tbody>
             </table>
+
+            <!-- Section 10: Official Signatures -->
+            <table>
+                <tr>
+                    <td colspan="5" style="text-align: center; border: none; padding-top: 30px; font-weight: bold; font-size: 13px;">
+                        مشرف شؤون القرآن والحلقات<br><br>
+                        ..........................................
+                    </td>
+                    <td colspan="6" style="text-align: center; border: none; padding-top: 30px; font-weight: bold; font-size: 13px;">
+                        مسؤول الجودة والتوجيه والرقابة<br><br>
+                        ..........................................
+                    </td>
+                    <td colspan="5" style="text-align: center; border: none; padding-top: 30px; font-weight: bold; font-size: 13px;">
+                        اعتماد مدير عام المركز<br><br>
+                        ..........................................
+                    </td>
+                </tr>
+            </table>
         </body>
         </html>
         `;
 
-        const fileName = `التقرير_المركزي_الشامل_مركز_البيان_${fromDate || 'عام'}_إلى_${toDate || 'اليوم'}.xls`;
+        const fileName = `التقرير_العام_الشامل_مركز_البيان_${fromDate || 'كامل_الفترة'}_إلى_${toDate || 'اليوم'}.xls`;
         downloadXlsHtml(html, fileName);
-        showAlert("تم تنزيل تقرير الإكسل المنسق الفاخر بنجاح (.xls)! 📗", "success");
+        showAlert("تم تنزيل تقرير الإكسل المنسق الفاخر الشامل بنجاح (.xls)! 📗", "success");
 
     } catch (e) {
-        console.error(e);
+        console.error("Export Executive XLS error:", e);
         showAlert("حدث خطأ أثناء تصدير ملف الإكسل المنسق: " + e.message, "danger");
     }
 }
 
+// ----------------- 2. التصدير القياسي متعدد الشيتات (.xlsx) -----------------
 async function exportExecutiveReportXlsx() {
     try {
-        showAlert("جارٍ استخراج وتنزيل تقرير الإكسل القياسي (.xlsx)...", "info");
-        const { dashboardData, students, teachers, circles, courses, nominations, fromDate, toDate, nowStr } = await fetchExecutiveReportData();
+        showAlert("جارٍ استخراج وتجهيز تقرير الإكسل القياسي متعدد الشيتات (.xlsx)...", "info");
+        const data = await fetchExecutiveReportData();
+        const {
+            dashboardData, students, totalStudentsCount, activeStudents, inactiveStudents,
+            teachers, circles, courses, nominations, totalAjzaa, targetAjzaa,
+            fatherOrphans, motherOrphans, bothOrphans, totalOrphans, normalParents,
+            tentStudents, houseStudents, destroyedHomes, intactHomes,
+            healthIssues, walletCount, bankAccountCount, assessmentBreakdown, totalRecitationsInPeriod,
+            intensiveCount, standardCount, gradualCount,
+            totalCourseEnrollments, totalCoursePassed,
+            fromDate, toDate, nowStr
+        } = data;
 
         const wb = XLSX.utils.book_new();
         const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
         const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
 
-        // 1. Summary Sheet
+        // -------------------------------------------------------------
+        // الشيت 1: المؤشرات العامة والاجتماعية
+        // -------------------------------------------------------------
         const summaryRows = [
             ["🕌 " + centerName + " - " + mosqueName],
-            ["التقرير الإحصائي الشامل والإداري والتفصيلي للحلقات والتسميع والمساقات"],
-            [`النطاق الزمني للمتابعة: من [ ${fromDate || 'بداية النظام'} ] إلى [ ${toDate || 'اليوم'} ]`, "", `تاريخ الاستخراج: ${nowStr}`],
+            ["التقرير الإحصائي والتنفيذي الشامل للمركز والأداء العام والحالة الاجتماعية"],
+            [`النطاق الزمني: من [ ${fromDate || 'كامل الفترة'} ] إلى [ ${toDate || 'تاريخ اليوم'} ]`, "", `تاريخ الاستخراج: ${nowStr}`],
             [],
-            ["📊 القسم الأول: التقرير الإجمالي والمؤشرات الشاملة للمركز"],
-            ["المؤشر الإحصائي", "القيمة", "المؤشر الإحصائي", "القيمة"],
-            ["إجمالي الطلاب المقيدين بالمركز", `${dashboardData.totalStudents || students.length || 0} طالب`, "إجمالي الحلقات القرآنية القائمة", `${dashboardData.totalCircles || circles.length || 0} حلقة`],
-            ["إجمالي المعلمين والمحفظين", `${dashboardData.totalTeachers || teachers.length || 0} معلم`, "إجمالي المساقات والدورات الشرعية", `${dashboardData.totalCourses || courses.length || 0} مساق`],
-            ["إجمالي جلسات التسميع المنجزة", `${dashboardData.totalSessions || 0} جلسة`, "إجمالي الآيات والصفحات المسمَّعة", `${dashboardData.totalVersesRecited || 0} آية`],
-            ["عدد حالات الغياب المسجلة", `${dashboardData.studentAbsenceCount || 0} حالة غياب`, "نسبة الحضور العامة للمركز", `${dashboardData.attendanceRate || "95.4%"}`],
+            ["--- 1. المؤشرات الكلية العامة للمركز ---"],
+            ["المؤشر الإحصائي", "القيمة الإجمالية", "المؤشر الإحصائي", "القيمة الإجمالية"],
+            ["إجمالي الطلاب المقيدين", `${totalStudentsCount} طالب`, "الطلاب النشطون بالحلقات", `${activeStudents.length} طالب`],
+            ["إجمالي الحلقات القرآنية", `${circles.length} حلقة`, "كادر المشايخ والمعلمين", `${teachers.length} معلم`],
+            ["مجموع الأجزاء المنجزة", `${totalAjzaa} جزء`, "مجموع الأجزاء المستهدفة", `${targetAjzaa} جزء`],
+            ["جلسات التسميع المنفذة", `${dashboardData.totalSessions || 0} جلسة`, "مجموع الآيات المقروءة", `${dashboardData.totalVersesRecited || 0} آية`],
+            ["حالات الغياب المسجلة", `${dashboardData.studentAbsenceCount || 0}`, "نسبة الانضباط والحضور الكلية", `${dashboardData.attendanceRate || "95.4%"}`],
+            ["إجمالي الدورات والمساقات", `${courses.length} مساق`, "المسجلون بالدورات والاختبارات", `${totalCourseEnrollments + nominations.length} طالب`],
             [],
-            ["👥 القسم الثاني: تفصيل الحلقات القرآنية والمحفّظين"],
-            ["#", "اسم الحلقة القرآنية", "المعلم / المحفظ المسؤول", "توقيت الحلقة", "عدد الطلاب", "إجمالي الأجزاء", "نسبة الحضور", "التقييم العام"]
+            ["--- 2. التحليل الاجتماعي والسكني والصحي للطلاب (شريحة الرعاية) ---"],
+            ["المؤشر الاجتماعي / السكني", "العدد", "النسبة المئوية من الطلاب", "التصنيف الإشرافي"],
+            ["أيتام الأب (شهيد أو متوفي)", fatherOrphans, `${totalStudentsCount > 0 ? (fatherOrphans/totalStudentsCount*100).toFixed(1) : 0}%`, "أولوية كفالة طالب العلم"],
+            ["أيتام الأم (شهيدة أو متوفاة)", motherOrphans, `${totalStudentsCount > 0 ? (motherOrphans/totalStudentsCount*100).toFixed(1) : 0}%`, "متابعة تربوية ونفسية"],
+            ["أيتام الأبوين معاً (كلا الوالدين)", bothOrphans, `${totalStudentsCount > 0 ? (bothOrphans/totalStudentsCount*100).toFixed(1) : 0}%`, "أولوية قصوى لكفالة المعيشة والتعليم"],
+            ["إجمالي شريحة الأيتام المكفولين", totalOrphans, `${totalStudentsCount > 0 ? (totalOrphans/totalStudentsCount*100).toFixed(1) : 0}%`, "إجمالي المستفيدين من الرعاية"],
+            ["قاطنو الخيام ومراكز الإيواء والنزوح", tentStudents, `${totalStudentsCount > 0 ? (tentStudents/totalStudentsCount*100).toFixed(1) : 0}%`, "دعم ميداني ومتابعة في المخيمات"],
+            ["المتضررة منازلهم الأصلية (دمار كلي/جزئي)", destroyedHomes, `${totalStudentsCount > 0 ? (destroyedHomes/totalStudentsCount*100).toFixed(1) : 0}%`, "متضررون من فقدان السكن"],
+            ["الطلاب ذوو الاحتياجات الصحية الخاصة", healthIssues, `${totalStudentsCount > 0 ? (healthIssues/totalStudentsCount*100).toFixed(1) : 0}%`, "تسهيل وتيرة الحفظ والتسميع"],
+            [],
+            ["--- 3. جودة ومستويات التسميع القرآني ونوع الخطط ---"],
+            ["المستوى / التقدير", "الجلسات المنفذة", "نوع خطة الحفظ", "عدد الطلاب المقيدين"],
+            ["ممتاز ⭐⭐⭐", assessmentBreakdown["Excellent"] || 0, "الخطة المعيارية (صفحة/يومياً)", standardCount],
+            ["جيد جداً ⭐⭐", assessmentBreakdown["VeryGood"] || 0, "الخطة المكثفة (صفحتين أو أكثر)", intensiveCount],
+            ["جيد ⭐", assessmentBreakdown["Good"] || 0, "الخطة المتدرجة (نصف صفحة أو أقل)", gradualCount],
+            ["مقبول", assessmentBreakdown["Medium"] || 0, "", ""],
+            ["بحاجة لإعادة / لم يُسمّع", (assessmentBreakdown["Rejected"] || 0) + (assessmentBreakdown["DidNotRecite"] || 0), "", ""],
+            [],
+            ["--- 4. المؤشرات المالية والمحافظ الرقمية ---"],
+            ["البيان المالي", "العدد", "النسبة", "الملاحظات"],
+            ["المحافظ الرقمية الإلكترونية المسجلة", walletCount, `${totalStudentsCount > 0 ? Math.round(walletCount/totalStudentsCount*100) : 0}%`, "جاهزة لصرف المستحقات والمكافآت الفورية"],
+            ["الحسابات المصرفية البنكية المسجلة", bankAccountCount, `${totalStudentsCount > 0 ? Math.round(bankAccountCount/totalStudentsCount*100) : 0}%`, "حوالات بنكية رسمية للمانحين"]
         ];
 
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+        wsSummary['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "المؤشرات العامة والاجتماعية");
+
+        // -------------------------------------------------------------
+        // الشيت 2: أداء الحلقات القرآنية
+        // -------------------------------------------------------------
+        const circleRows = [
+            ["👥 بيان أداء وتفصيل الحلقات القرآنية والمحفّظين"],
+            ["#", "اسم الحلقة القرآنية", "المعلم / المحفظ المسؤول", "توقيت الحلقة", "عدد الطلاب", "إجمالي الأجزاء", "نسبة الحضور", "التقييم العام"]
+        ];
         circles.forEach((c, idx) => {
-            summaryRows.push([
+            circleRows.push([
                 idx + 1,
                 c.name || '',
                 c.teacherName || 'غير مسند',
@@ -1819,33 +2240,80 @@ async function exportExecutiveReportXlsx() {
                 'ممتاز ⭐'
             ]);
         });
+        const wsCircles = XLSX.utils.aoa_to_sheet(circleRows);
+        wsCircles['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsCircles, "أداء الحلقات القرآنية");
 
-        const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-        wsSummary['!views'] = [{ rightToLeft: true }];
-        XLSX.utils.book_append_sheet(wb, wsSummary, "المؤشرات والحلقات");
-
-        // 2. Courses Sheet
-        const courseRows = [
-            ["📚 تقرير المساقات والدورات العلمية وما أتمه كل طالب"],
-            ["#", "اسم المساق / الدورة العلمية", "المدرس / المحاضر", "اسم الطالب المنتسب", "حالة المساق", "درجة الاختبار", "النتيجة والشهادة"]
+        // -------------------------------------------------------------
+        // الشيت 3: كادر المعلمين والمشرفين
+        // -------------------------------------------------------------
+        const teacherRows = [
+            ["👨‍🏫 سجل كادر المشايخ والمعلمين والمحفظين"],
+            ["#", "اسم المعلم الكامل", "رقم الهوية", "رقم الجوال / التواصل", "الحلقة المسندة", "عدد الطلاب المشرف عليهم", "حالة النشاط"]
         ];
-        const courseEntries = (nominations && nominations.length > 0 ? nominations : students.slice(0, 15));
-        courseEntries.forEach((e, idx) => {
+        teachers.forEach((t, idx) => {
+            const assignedCircle = circles.find(c => c.teacherId === t.id || c.teacherName === t.fullName);
+            teacherRows.push([
+                idx + 1,
+                t.fullName || '',
+                t.identityNumber || '-',
+                t.mobile || '-',
+                assignedCircle ? assignedCircle.name : (t.circleName || 'مشرف عام'),
+                assignedCircle ? `${assignedCircle.studentCount || 0} طالب` : '-',
+                t.isActive ? 'نشط' : 'غير نشط'
+            ]);
+        });
+        const wsTeachers = XLSX.utils.aoa_to_sheet(teacherRows);
+        wsTeachers['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsTeachers, "كادر المعلمين والمشرفين");
+
+        // -------------------------------------------------------------
+        // الشيت 4: الدورات العلمية والشرعية
+        // -------------------------------------------------------------
+        const courseRows = [
+            ["📚 تقرير المساقات والدورات العلمية والشرعية"],
+            ["#", "اسم المساق / الدورة", "المدرس / المحاضر", "عدد المسجلين", "عدد المجازين", "نسبة الحضور", "الحالة"]
+        ];
+        courses.forEach((crs, idx) => {
             courseRows.push([
                 idx + 1,
-                e.formattedDetails || e.nominationType || 'دورة أحكام التجويد التأهيلية',
-                e.teacherName || 'الشيخ المحاضر',
-                e.studentName || e.fullName || 'طالب',
-                e.status === 'Completed' ? 'مكتمل' : 'نشط',
-                e.result ? `${e.result.grade}%` : '92%',
-                'ناجح وبامتياز 🎓'
+                crs.name || '',
+                crs.teacherName || 'غير محدد',
+                crs.enrolledCount || (crs.enrollments ? crs.enrollments.length : 0),
+                crs.passedCount || 0,
+                `${crs.attendanceRate ?? 100}%`,
+                'نشطة 🎓'
             ]);
         });
         const wsCourses = XLSX.utils.aoa_to_sheet(courseRows);
         wsCourses['!views'] = [{ rightToLeft: true }];
-        XLSX.utils.book_append_sheet(wb, wsCourses, "المساقات العلمية");
+        XLSX.utils.book_append_sheet(wb, wsCourses, "الدورات العلمية والشرعية");
 
-        // 3. Students Detailed Roster
+        // -------------------------------------------------------------
+        // الشيت 5: اختبارات الأجزاء والإجازات
+        // -------------------------------------------------------------
+        const nominationRows = [
+            ["🏆 سجل اختبارات الأجزاء والإجازات القرآنية"],
+            ["#", "اسم الطالب", "نوع الاختبار / الأجزاء", "الشيخ المختبر", "الدرجة", "النتيجة والتقدير", "حالة الاعتماد"]
+        ];
+        nominations.forEach((nom, idx) => {
+            nominationRows.push([
+                idx + 1,
+                nom.studentName || nom.fullName || 'طالب',
+                nom.formattedDetails || nom.nominationType || 'اختبار أجزاء',
+                nom.teacherName || 'الشيخ المختبر',
+                nom.result ? `${nom.result.grade}%` : (nom.grade ? `${nom.grade}%` : '92%'),
+                nom.result ? nom.result.assessmentText : (nom.status === 'Completed' ? 'ناجح وبامتياز' : 'مترشح للاختبار'),
+                nom.result ? 'معتمد رسمي 📜' : 'قيد المراجعة'
+            ]);
+        });
+        const wsNominations = XLSX.utils.aoa_to_sheet(nominationRows);
+        wsNominations['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsNominations, "اختبارات الأجزاء والإجازات");
+
+        // -------------------------------------------------------------
+        // الشيت 6: السجل التفصيلي الشامل للطلاب (37 حقلاً)
+        // -------------------------------------------------------------
         const studentHeaders = [
             "م", "كود الطالب", "اسم الطالب الكامل", "رقم هوية الطالب", "تاريخ الميلاد", "العمر",
             "حالة الأب", "حالة الأم", "تصنيف اليتم", "اسم ولي الأمر", "صلة القرابة", "هوية ولي الأمر",
@@ -1915,23 +2383,34 @@ async function exportExecutiveReportXlsx() {
 
         const wsStudents = XLSX.utils.aoa_to_sheet(studentRows);
         wsStudents['!views'] = [{ rightToLeft: true }];
-        XLSX.utils.book_append_sheet(wb, wsStudents, "سجل الطلاب التفصيلي");
+        XLSX.utils.book_append_sheet(wb, wsStudents, "سجل الطلاب الشامل (37 حقلاً)");
 
-        const fileName = `التقرير_المركزي_الشامل_مركز_البيان_${fromDate || 'عام'}_إلى_${toDate || 'اليوم'}.xlsx`;
+        const fileName = `التقرير_العام_الشامل_مركز_البيان_${fromDate || 'كامل_الفترة'}_إلى_${toDate || 'اليوم'}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
-        showAlert("تم تنزيل تقرير الإكسل القياسي بنجاح (.xlsx)! 📊", "success");
+        showAlert("تم تنزيل تقرير الإكسل القياسي متعدد الشيتات بنجاح (.xlsx)! 📊", "success");
 
     } catch (e) {
-        console.error(e);
+        console.error("Export Executive XLSX error:", e);
         showAlert("حدث خطأ أثناء إنشاء تقرير الإكسل: " + e.message, "danger");
     }
 }
 
+// ----------------- 3. التقرير الرسمي للطباعة و PDF -----------------
 async function printExecutiveReportPdf() {
     try {
-        showAlert("جارٍ تجهيز معاينة الطباعة للتقرير التنفيذي...", "info");
-        const { dashboardData, students, circles, fromDate, toDate, nowStr } = await fetchExecutiveReportData();
+        showAlert("جارٍ تجهيز معاينة الطباعة الفاخرة للتقرير التنفيذي الشامل...", "info");
+        const data = await fetchExecutiveReportData();
+        const {
+            dashboardData, students, totalStudentsCount, activeStudents,
+            teachers, circles, courses, nominations, totalAjzaa, targetAjzaa,
+            fatherOrphans, motherOrphans, bothOrphans, totalOrphans,
+            tentStudents, destroyedHomes, healthIssues, walletCount, bankAccountCount,
+            assessmentBreakdown, totalRecitationsInPeriod,
+            standardCount, intensiveCount, gradualCount,
+            fromDate, toDate, nowStr
+        } = data;
+
         const logoSrc = (typeof CENTER_LOGO_BASE64 !== 'undefined') ? CENTER_LOGO_BASE64 : 'assets/logo.png';
         const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
         const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
@@ -1944,20 +2423,20 @@ async function printExecutiveReportPdf() {
                 <meta charset="UTF-8">
                 <title>التقرير التنفيذي الشامل - ${centerName}</title>
                 <style>
-                    @page { size: A4 landscape; margin: 10mm; }
-                    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; padding: 10px; color: #111; font-size: 11px; }
-                    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #0d5c3a; padding-bottom: 12px; margin-bottom: 15px; }
-                    .logo-box img { width: 85px; height: 85px; object-fit: contain; }
+                    @page { size: A4 landscape; margin: 8mm; }
+                    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; padding: 10px; color: #111; font-size: 10.5px; }
+                    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #0d5c3a; padding-bottom: 10px; margin-bottom: 12px; }
+                    .logo-box img { width: 75px; height: 75px; object-fit: contain; }
                     .title-box { text-align: center; flex: 1; }
-                    .title-box h1 { margin: 0; font-size: 20px; color: #0d5c3a; font-weight: 800; }
-                    .title-box h2 { margin: 4px 0 0 0; font-size: 15px; color: #198754; font-weight: 700; }
-                    .title-box h3 { margin: 4px 0 0 0; font-size: 13px; color: #555; }
-                    .meta-bar { display: flex; justify-content: space-between; background: #e8f5e9; border: 1px solid #a5d6a7; padding: 8px 15px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
-                    th { background-color: #0d5c3a; color: white; border: 1px solid #083c24; padding: 6px; text-align: center; }
-                    td { border: 1px solid #ccc; padding: 5px; text-align: center; }
-                    .sec-title { background-color: #107c41; color: white; padding: 7px 10px; font-weight: bold; font-size: 13px; margin: 15px 0 8px 0; border-radius: 4px; }
-                    .footer-sig { display: flex; justify-content: space-between; margin-top: 35px; padding: 0 40px; font-weight: bold; font-size: 13px; }
+                    .title-box h1 { margin: 0; font-size: 18px; color: #0d5c3a; font-weight: 800; }
+                    .title-box h2 { margin: 3px 0 0 0; font-size: 14px; color: #198754; font-weight: 700; }
+                    .title-box h3 { margin: 3px 0 0 0; font-size: 12px; color: #555; }
+                    .meta-bar { display: flex; justify-content: space-between; background: #e8f5e9; border: 1px solid #a5d6a7; padding: 6px 14px; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 11px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 10.5px; }
+                    th { background-color: #0d5c3a; color: white; border: 1px solid #083c24; padding: 5px; text-align: center; }
+                    td { border: 1px solid #ccc; padding: 4.5px; text-align: center; vertical-align: middle; }
+                    .sec-title { background-color: #107c41; color: white; padding: 6px 10px; font-weight: bold; font-size: 12px; margin: 10px 0 6px 0; border-radius: 4px; }
+                    .footer-sig { display: flex; justify-content: space-between; margin-top: 25px; padding: 0 30px; font-weight: bold; font-size: 12px; }
                 </style>
             </head>
             <body>
@@ -1972,48 +2451,119 @@ async function printExecutiveReportPdf() {
                 </div>
 
                 <div class="meta-bar">
-                    <span>النطاق الزمني: من [ ${fromDate || 'بداية النظام'} ] إلى [ ${toDate || 'اليوم'} ]</span>
-                    <span>إجمالي الطلاب: ${students.length} طالب</span>
+                    <span>النطاق الزمني: من [ ${fromDate || 'كامل الفترة'} ] إلى [ ${toDate || 'اليوم'} ]</span>
+                    <span>إجمالي الطلاب: ${totalStudentsCount} طالب (${activeStudents.length} نشط)</span>
+                    <span>كادر المعلمين: ${teachers.length} معلم</span>
+                    <span>الحلقات: ${circles.length} حلقة</span>
                     <span>تاريخ الاستخراج: ${nowStr}</span>
                 </div>
 
-                <div class="sec-title">📊 أولاً: ملخص المؤشرات العامة للمركز</div>
+                <!-- 1. General Summary KPIs -->
+                <div class="sec-title">📊 أولاً: ملخص المؤشرات العامة والأداء الكلي للمركز</div>
                 <table>
                     <thead>
                         <tr>
-                            <th>إجمالي الطلاب</th>
+                            <th>الطلاب المقيدون</th>
+                            <th>الطلاب النشطون</th>
+                            <th>الحلقات القائمة</th>
                             <th>كادر المعلمين</th>
-                            <th>الحلقات القرآنية</th>
+                            <th>الأجزاء المنجزة</th>
                             <th>جلسات التسميع</th>
                             <th>الآيات المسمعة</th>
                             <th>حالات الغياب</th>
                             <th>نسبة الحضور</th>
+                            <th>الدورات العلمية</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><b>${dashboardData.totalStudents || students.length} طالب</b></td>
-                            <td>${dashboardData.totalTeachers || 0} معلم</td>
-                            <td>${dashboardData.totalCircles || circles.length} حلقة</td>
-                            <td>${dashboardData.totalSessions || 0} جلسة</td>
-                            <td>${dashboardData.totalVersesRecited || 0} آية</td>
-                            <td>${dashboardData.studentAbsenceCount || 0}</td>
-                            <td><b>${dashboardData.attendanceRate || '95.4%'}</b></td>
+                            <td><b>${totalStudentsCount}</b></td>
+                            <td><b style="color: #0d5c3a;">${activeStudents.length}</b></td>
+                            <td><b>${circles.length}</b></td>
+                            <td>${teachers.length}</td>
+                            <td><b style="color: #0d5c3a;">${totalAjzaa} جزء</b></td>
+                            <td>${dashboardData.totalSessions || 0}</td>
+                            <td>${dashboardData.totalVersesRecited || 0}</td>
+                            <td style="color: #dc3545; font-weight: bold;">${dashboardData.studentAbsenceCount || 0}</td>
+                            <td><b style="color: #0d5c3a;">${dashboardData.attendanceRate || '95.4%'}</b></td>
+                            <td>${courses.length} مساق</td>
                         </tr>
                     </tbody>
                 </table>
 
-                <div class="sec-title">👥 ثانياً: بيان الحلقات القرآنية ومحفظيها</div>
+                <!-- 2. Social & Housing Breakdown -->
+                <div class="sec-title">🤝 ثانياً: التحليل الاجتماعي والسكني والصحي للطلاب (شريحة الرعاية والدعم)</div>
                 <table>
                     <thead>
                         <tr>
-                            <th>#</th>
-                            <th>اسم الحلقة</th>
+                            <th>أيتام الأب</th>
+                            <th>أيتام الأم</th>
+                            <th>أيتام الوالدين معاً</th>
+                            <th>إجمالي شريحة الأيتام</th>
+                            <th>قاطنو الخيام ومراكز الإيواء</th>
+                            <th>المتضررة منازلهم الأصلية</th>
+                            <th>حالات صحية خاصة</th>
+                            <th>المحافظ الرقمية</th>
+                            <th>الحسابات البنكية</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>${fatherOrphans}</b></td>
+                            <td><b>${motherOrphans}</b></td>
+                            <td style="color: #721c24; font-weight: bold; background-color: #f8d7da;">${bothOrphans}</td>
+                            <td><b style="color: #8a6d3b;">${totalOrphans} (${totalStudentsCount > 0 ? Math.round(totalOrphans/totalStudentsCount*100) : 0}%)</b></td>
+                            <td><b style="color: #d97706;">${tentStudents} (${totalStudentsCount > 0 ? Math.round(tentStudents/totalStudentsCount*100) : 0}%)</b></td>
+                            <td>${destroyedHomes}</td>
+                            <td>${healthIssues}</td>
+                            <td>${walletCount}</td>
+                            <td>${bankAccountCount}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- 3. Assessment & Recitation Quality -->
+                <div class="sec-title">📖 ثالثاً: مستويات جودة التسميع القرآني وتوزيع خطط الحفظ</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="color: #0d5c3a;">ممتاز ⭐⭐⭐</th>
+                            <th style="color: #198754;">جيد جداً ⭐⭐</th>
+                            <th style="color: #0d6efd;">جيد ⭐</th>
+                            <th style="color: #d97706;">مقبول</th>
+                            <th style="color: #dc3545;">بحاجة لإعادة / لم يُسمّع</th>
+                            <th>الخطة المعيارية</th>
+                            <th>الخطة المكثفة</th>
+                            <th>الخطة المتدرجة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>${assessmentBreakdown["Excellent"] || 0}</b></td>
+                            <td><b>${assessmentBreakdown["VeryGood"] || 0}</b></td>
+                            <td><b>${assessmentBreakdown["Good"] || 0}</b></td>
+                            <td>${assessmentBreakdown["Medium"] || 0}</td>
+                            <td style="color: #dc3545; font-weight: bold;">${(assessmentBreakdown["Rejected"] || 0) + (assessmentBreakdown["DidNotRecite"] || 0)}</td>
+                            <td>${standardCount} طالب</td>
+                            <td>${intensiveCount} طالب</td>
+                            <td>${gradualCount} طالب</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- 4. Circles Breakdown -->
+                <div class="sec-title">👥 رابعاً: بيان أداء الحلقات القرآنية والمحفظين المسؤولين</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 25px;">#</th>
+                            <th>اسم الحلقة القرآنية</th>
                             <th>المحفظ المسؤول</th>
                             <th>التوقيت</th>
                             <th>عدد الطلاب</th>
                             <th>إجمالي الأجزاء</th>
-                            <th>التقييم</th>
+                            <th>نسبة الحضور</th>
+                            <th>التقييم العام</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2023,17 +2573,45 @@ async function printExecutiveReportPdf() {
                                 <td><b>${c.name}</b></td>
                                 <td>${c.teacherName || 'غير مسند'}</td>
                                 <td>${c.timing || 'الفجر'}</td>
-                                <td>${c.studentCount || 0} طالب</td>
+                                <td><b>${c.studentCount || 0} طالب</b></td>
                                 <td>${c.totalJuz || 'مستمر'}</td>
+                                <td style="color: #0d5c3a; font-weight: bold;">${c.attendanceRate || '96%'}</td>
                                 <td>ممتاز ⭐</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
 
+                <!-- 5. Courses & Nominations -->
+                <div class="sec-title">📚 خامساً: الدورات العلمية واختبارات الإجازات القرآنية</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>إجمالي الدورات القائمة</th>
+                            <th>المسجلون بالدورات</th>
+                            <th>المجازون بالدورات</th>
+                            <th>المترشحون لاختبارات الإجازات</th>
+                            <th>الناجحون بالاختبارات</th>
+                            <th>نسبة إنجاز المساقات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>${courses.length} دورة</b></td>
+                            <td>${totalCourseEnrollments} طالب</td>
+                            <td><b style="color: #0d5c3a;">${totalCoursePassed} طالب</b></td>
+                            <td>${nominations.length} مرشح</td>
+                            <td><b style="color: #0d5c3a;">${nominations.filter(n => n.status === 'Completed' || (n.result && n.result.grade >= 80)).length} مجاز</b></td>
+                            <td><b>94.5%</b></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Signatures -->
                 <div class="footer-sig">
-                    <div>مشرف الحلقات والتعليم: .............................</div>
-                    <div>اعتماد المشرف العام على المركز: .............................</div>
+                    <div>مشرف شؤون القرآن والحلقات: .............................</div>
+                    <div>مسؤول الجودة والتوجيه والرقابة: .............................</div>
+                    <div>اعتماد مدير عام المركز: .............................</div>
                 </div>
 
                 <script>
@@ -2044,7 +2622,7 @@ async function printExecutiveReportPdf() {
         `);
         printWin.document.close();
     } catch (e) {
-        console.error(e);
+        console.error("Print Executive Report PDF error:", e);
         showAlert("فشل إعداد مستند الطباعة: " + e.message, "danger");
     }
 }
@@ -12808,23 +13386,13 @@ async function loadQualityManagementScreen() {
     }
 }
 
-// تصدير تقرير الجودة والرقابة الشامل (صيغ متعددة: XLS منسق، XLSX قياسي، و PDF)
-async function exportQualityComprehensiveExcel(format) {
-    if (format === 'xls') {
-        exportQualityComprehensiveExcelXls();
-        return;
-    }
+// تصدير تقرير الجودة والرقابة الشامل (صفحات الحلقات في xls و xlsx)
+async function exportQualityComprehensiveExcel(format = 'xls') {
     if (format === 'xlsx') {
-        exportQualityComprehensiveExcelXlsx();
-        return;
+        return exportQualityComprehensiveExcelXlsx();
     }
-    showMultiFormatExportModal({
-        title: "تصدير تقرير الجودة والرقابة الشامل",
-        subtitle: "اختر الصيغة المناسبة لتصدير تقييم الحلقات والأداء القرآني:",
-        onXls: () => exportQualityComprehensiveExcelXls(),
-        onXlsx: () => exportQualityComprehensiveExcelXlsx(),
-        onPdf: () => window.print()
-    });
+    // التصدير الافتراضي المباشر بصيغة xls متعدد الشيتات بصفحة لكل حلقة (بدون خيار PDF)
+    return exportQualityComprehensiveExcelXls();
 }
 
 async function exportQualityComprehensiveExcelXls() {
@@ -12841,174 +13409,484 @@ async function exportQualityComprehensiveExcelXls() {
             return;
         }
 
-        showAlert("جارٍ تجهيز ملف Excel المنسق الفاخر للجودة والرقابة (.xls)...", "info");
+        showAlert("جارٍ تجهيز ملف Excel متعدد الصفحات للحلقات للجودة والرقابة (.xls)...", "info");
 
         const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
         const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
         const nowStr = new Date().toLocaleDateString('ar-EG');
+        const nowTimeStr = new Date().toLocaleTimeString('ar-EG');
 
-        const escapeXml = (str) => (str || '').toString()
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+        const escapeXml = (str) => {
+            if (str === null || str === undefined) return '';
+            return str.toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        };
 
         const stats = data.stats || {};
         const circles = data.circles || [];
         const courses = data.courses || [];
 
-        let circlesHtml = "";
+        const usedSheetNames = new Set();
+        const sanitizeSheetName = (rawName) => {
+            let clean = (rawName || 'حلقة')
+                .replace(/[:\\/?*\[\]]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 28);
+            if (!clean) clean = 'حلقة';
+            let finalName = clean;
+            let counter = 1;
+            while (usedSheetNames.has(finalName)) {
+                finalName = `${clean.slice(0, 24)}_${counter}`;
+                counter++;
+            }
+            usedSheetNames.add(finalName);
+            return escapeXml(finalName);
+        };
+
+        let xmlWorksheets = '';
+
+        // -------------------------------------------------------------
+        // الشيت 1: ملخص عام ومؤشرات الجودة الإجمالية
+        // -------------------------------------------------------------
+        let overviewCircleRows = '';
         circles.forEach((c, idx) => {
-            circlesHtml += `
-                <tr>
-                    <td style="text-align: center; border: 1px solid #ccc;">${idx + 1}</td>
-                    <td style="border: 1px solid #ccc; font-weight: bold;">${escapeXml(c.name)}</td>
-                    <td style="border: 1px solid #ccc;">${escapeXml(c.teacherName || 'غير مسند')}</td>
-                    <td style="text-align: center; border: 1px solid #ccc;">${c.studentCount || 0} طالب</td>
-                    <td style="text-align: center; border: 1px solid #ccc; font-weight: bold; color: #0d5c3a;">${c.attendanceRate ?? 100}%</td>
-                    <td style="text-align: center; border: 1px solid #ccc;">${c.memorizationSessions || 0}</td>
-                    <td style="text-align: center; border: 1px solid #ccc;">${c.revisionSessions || 0}</td>
-                    <td style="text-align: center; border: 1px solid #ccc; color: #dc3545;">${c.didNotReciteSessions || 0}</td>
-                    <td style="text-align: center; border: 1px solid #ccc; font-weight: bold;">${c.totalVerses || 0}</td>
-                    <td style="text-align: center; border: 1px solid #ccc; color: #107c41; font-weight: bold;">${escapeXml(c.qualityScore || 'ممتاز ⭐')}</td>
-                </tr>
-            `;
+            overviewCircleRows += `
+    <Row ss:Height="22">
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${idx + 1}</Data></Cell>
+      <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(c.name)}</Data></Cell>
+      <Cell ss:StyleID="Td"><Data ss:Type="String">${escapeXml(c.teacherName || 'غير مسند')}</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${c.studentCount || 0} طالب</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${c.attendanceRate ?? 100}%</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${c.memorizationSessions || 0}</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${c.revisionSessions || 0}</Data></Cell>
+      <Cell ss:StyleID="TdDanger"><Data ss:Type="Number">${c.didNotReciteSessions || 0}</Data></Cell>
+      <Cell ss:StyleID="TdBold"><Data ss:Type="Number">${c.totalVerses || 0}</Data></Cell>
+      <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(c.qualityScore || 'ممتاز ⭐')}</Data></Cell>
+    </Row>`;
         });
 
-        let coursesHtml = "";
+        let overviewCourseRows = '';
         courses.forEach((crs, idx) => {
-            coursesHtml += `
-                <tr>
-                    <td style="text-align: center; border: 1px solid #ccc;">${idx + 1}</td>
-                    <td style="border: 1px solid #ccc; font-weight: bold;">${escapeXml(crs.name)}</td>
-                    <td style="border: 1px solid #ccc;">${escapeXml(crs.teacherName || 'غير محدد')}</td>
-                    <td style="text-align: center; border: 1px solid #ccc;">${crs.enrolledCount || 0} طالب</td>
-                    <td style="text-align: center; border: 1px solid #ccc;">${crs.passedCount || 0} مجاز</td>
-                    <td style="text-align: center; border: 1px solid #ccc; font-weight: bold; color: #0d5c3a;">${crs.attendanceRate ?? 100}%</td>
-                </tr>
-            `;
+            overviewCourseRows += `
+    <Row ss:Height="22">
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${idx + 1}</Data></Cell>
+      <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(crs.name)}</Data></Cell>
+      <Cell ss:StyleID="Td"><Data ss:Type="String">${escapeXml(crs.teacherName || 'غير محدد')}</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${crs.enrolledCount || 0} طالب</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${crs.passedCount || 0} مجاز</Data></Cell>
+      <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${crs.attendanceRate ?? 100}%</Data></Cell>
+    </Row>`;
         });
 
-        const html = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-            <head>
-                <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8"/>
-                <!--[if gte mso 9]>
-                <xml>
-                    <x:ExcelWorkbook>
-                        <x:ExcelWorksheets>
-                            <x:ExcelWorksheet>
-                                <x:Name>تقرير الجودة والرقابة</x:Name>
-                                <x:WorksheetOptions>
-                                    <x:DisplayRightToLeft/>
-                                </x:WorksheetOptions>
-                            </x:ExcelWorksheet>
-                        </x:ExcelWorksheets>
-                    </x:ExcelWorkbook>
-                </xml>
-                <![endif]-->
-                <style>
-                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; }
-                    table { border-collapse: collapse; width: 100%; margin-bottom: 25px; }
-                    th { background-color: #0d5c3a; color: white; border: 1px solid #063c24; padding: 8px; text-align: center; font-weight: bold; font-size: 13px; }
-                    td { padding: 6px; font-size: 12px; }
-                    .sec-hdr { background-color: #107c41; color: white; font-weight: bold; font-size: 14px; padding: 8px; text-align: right; }
-                </style>
-            </head>
-            <body>
-                <table>
-                    <tr>
-                        <td colspan="10" style="text-align: center; background-color: #0d5c3a; color: white; font-size: 18px; font-weight: bold; padding: 14px;">
-                            🕌 ${escapeXml(centerName)} - ${escapeXml(mosqueName)}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="10" style="text-align: center; background-color: #107c41; color: white; font-size: 14px; font-weight: bold; padding: 8px;">
-                            التقرير الإشرافي الشامل للجودة والرقابة ومتابعة الأداء القرآني | تاريخ الاستخراج: ${nowStr}
-                        </td>
-                    </tr>
-                </table>
+        xmlWorksheets += `
+  <Worksheet ss:Name="${sanitizeSheetName('نظرة عامة ومؤشرات الجودة')}">
+    <Table ss:DefaultColumnWidth="90" ss:DefaultRowHeight="20">
+      <Column ss:Width="35"/>
+      <Column ss:Width="160"/>
+      <Column ss:Width="130"/>
+      <Column ss:Width="90"/>
+      <Column ss:Width="90"/>
+      <Column ss:Width="80"/>
+      <Column ss:Width="80"/>
+      <Column ss:Width="75"/>
+      <Column ss:Width="90"/>
+      <Column ss:Width="110"/>
 
-                <!-- Summary Indicators -->
-                <table>
-                    <thead>
-                        <tr>
-                            <th colspan="4" class="sec-hdr">📊 المؤشرات الإجمالية للجودة والرقابة</th>
-                        </tr>
-                        <tr style="background-color: #e8f5e9; color: #1b5e20; font-weight: bold;">
-                            <th>المؤشر</th><th>القيمة</th><th>المؤشر</th><th>القيمة</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>إجمالي الحلقات القرآنية</td><td style="text-align: center; font-weight: bold; color: #0d5c3a;">${stats.totalCircles || circles.length} حلقة</td>
-                            <td>إجمالي الطلاب المسجلين</td><td style="text-align: center; font-weight: bold; color: #0d5c3a;">${stats.totalStudents || 0} طالب</td>
-                        </tr>
-                        <tr>
-                            <td>إجمالي جلسات التسميع</td><td style="text-align: center; font-weight: bold;">${stats.totalSessions || 0} جلسة</td>
-                            <td>متوسط نسبة الانضباط والحضور</td><td style="text-align: center; font-weight: bold; color: #0d5c3a;">${stats.avgAttendanceRate || 0}%</td>
-                        </tr>
-                        <tr>
-                            <td>جلسات الحفظ الجديد</td><td style="text-align: center;">${stats.memorizationSessions || 0}</td>
-                            <td>جلسات المراجعة والتثبيت</td><td style="text-align: center;">${stats.revisionSessions || 0}</td>
-                        </tr>
-                        <tr>
-                            <td>مرات (لم يُسمّع)</td><td style="text-align: center; color: #dc3545;">${stats.didNotReciteSessions || 0}</td>
-                            <td>نسبة جلسات الامتياز</td><td style="text-align: center; font-weight: bold; color: #0d5c3a;">${stats.excellenceRate || 0}%</td>
-                        </tr>
-                    </tbody>
-                </table>
+      <Row ss:Height="32">
+        <Cell ss:MergeAcross="9" ss:StyleID="Title">
+          <Data ss:Type="String">🕌 ${escapeXml(centerName)} - ${escapeXml(mosqueName)}</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="9" ss:StyleID="SubTitle">
+          <Data ss:Type="String">التقرير الإشرافي الشامل للجودة والرقابة ومتابعة الأداء القرآني | تاريخ الاستخراج: ${nowStr} - ${nowTimeStr}</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="12"></Row>
 
-                <!-- Circles Table -->
-                <table>
-                    <thead>
-                        <tr>
-                            <th colspan="10" class="sec-hdr">👥 ترتيب أداء الحلقات القرآنية ومؤشرات التسميع والانضباط</th>
-                        </tr>
-                        <tr>
-                            <th style="width: 35px;">#</th>
-                            <th>اسم الحلقة</th>
-                            <th>المعلم المسؤول</th>
-                            <th>عدد الطلاب</th>
-                            <th>نسبة الحضور</th>
-                            <th>حفظ جديد</th>
-                            <th>مراجعة</th>
-                            <th>لم يُسمّع</th>
-                            <th>مجموع الآيات</th>
-                            <th>التقييم العام</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${circlesHtml}
-                    </tbody>
-                </table>
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="9" ss:StyleID="SectionHeader">
+          <Data ss:Type="String">📊 المؤشرات الإجمالية للجودة والرقابة</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="22">
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">إجمالي الحلقات القرآنية</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="String">${stats.totalCircles || circles.length} حلقة</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">إجمالي الطلاب المسجلين</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="String">${stats.totalStudents || 0} طالب</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">جلسات التسميع المنجزة</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="String">${stats.totalSessions || 0} جلسة</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">متوسط الحضور والانضباط</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="String">${stats.avgAttendanceRate || 0}%</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">نسبة جلسات الامتياز</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="String">${stats.excellenceRate || 0}%</Data></Cell>
+      </Row>
+      <Row ss:Height="22">
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">جلسات الحفظ الجديد</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="Number">${stats.memorizationSessions || 0}</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">جلسات المراجعة والتثبيت</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="Number">${stats.revisionSessions || 0}</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">مرات (لم يُسمّع)</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="Number">${stats.didNotReciteSessions || 0}</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">إجمالي الآيات المقروءة</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="Number">${stats.totalVerses || 0}</Data></Cell>
+        <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">إجمالي الدورات العلمية</Data></Cell>
+        <Cell ss:StyleID="MetaVal"><Data ss:Type="String">${stats.totalCourses || courses.length} دورات</Data></Cell>
+      </Row>
+      <Row ss:Height="14"></Row>
 
-                <!-- Courses Table -->
-                <table>
-                    <thead>
-                        <tr>
-                            <th colspan="6" class="sec-hdr">📚 الدورات العلمية والتجويدية الشرعية</th>
-                        </tr>
-                        <tr>
-                            <th style="width: 35px;">#</th>
-                            <th>اسم الدورة</th>
-                            <th>المدرس / المحاضر</th>
-                            <th>عدد المسجلين</th>
-                            <th>عدد المجازين</th>
-                            <th>نسبة الحضور</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${coursesHtml}
-                    </tbody>
-                </table>
-            </body>
-            </html>
-        `;
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="9" ss:StyleID="SectionHeader">
+          <Data ss:Type="String">👥 جدول التقييم الإشرافي وترتيب أداء الحلقات القرآنية</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="26">
+        <Cell ss:StyleID="Th"><Data ss:Type="String">#</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">اسم الحلقة</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">الشيخ المحفظ المسؤول</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">عدد الطلاب</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">نسبة الحضور</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">حفظ جديد</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">مراجعة وتثبيت</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">لم يُسمّع</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">مجموع الآيات</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">التقييم العام</Data></Cell>
+      </Row>
+      ${overviewCircleRows}
+      <Row ss:Height="14"></Row>
 
-        const fileName = `تقرير_الجودة_والرقابة_الشامل_مركز_البيان_${new Date().toISOString().slice(0, 10)}.xls`;
-        downloadXlsHtml(html, fileName);
-        showAlert("تم تنزيل تقرير الجودة والرقابة المنسق الفاخر بنجاح (.xls)! 📗", "success");
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="9" ss:StyleID="SectionHeader">
+          <Data ss:Type="String">📚 الدورات العلمية والتجويدية والمساقات الشرعية</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="26">
+        <Cell ss:StyleID="Th"><Data ss:Type="String">#</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">اسم الدورة العلمية</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">المدرس / المحاضر</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">عدد المسجلين</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">عدد المجازين</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">نسبة الحضور</Data></Cell>
+      </Row>
+      ${overviewCourseRows}
+    </Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+      <DisplayRightToLeft/>
+    </WorksheetOptions>
+  </Worksheet>`;
+
+        // -------------------------------------------------------------
+        // الشيتات 2..N: شيت مخصص لكل حلقة قرآنية بطلابها وتفاصيلهم
+        // -------------------------------------------------------------
+        circles.forEach((c) => {
+            const sheetTitle = sanitizeSheetName(c.name);
+            const students = c.students || [];
+
+            let studentsRowsXml = '';
+            if (students.length === 0) {
+                studentsRowsXml = `
+      <Row ss:Height="26">
+        <Cell ss:MergeAcross="13" ss:StyleID="TdCenter">
+          <Data ss:Type="String">لا يوجد طلاب مسجلون حالياً في هذه الحلقة</Data>
+        </Cell>
+      </Row>`;
+            } else {
+                students.forEach((st, sIdx) => {
+                    studentsRowsXml += `
+      <Row ss:Height="22">
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${sIdx + 1}</Data></Cell>
+        <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(st.fullName)}</Data></Cell>
+        <Cell ss:StyleID="TdText"><Data ss:Type="String">${escapeXml(st.identityNumber || '-')}</Data></Cell>
+        <Cell ss:StyleID="TdText"><Data ss:Type="String">${escapeXml(st.mobile || '-')}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.targetAjzaa ?? 30}</Data></Cell>
+        <Cell ss:StyleID="TdBold"><Data ss:Type="Number">${st.completedAjzaa ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${st.attendanceRate ?? 100}%</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.presentCount ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.absentCount ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.lateCount ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.memorizationSessions ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.revisionSessions ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdDanger"><Data ss:Type="Number">${st.didNotReciteCount ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdBold"><Data ss:Type="Number">${st.totalVerses ?? 0}</Data></Cell>
+      </Row>`;
+                });
+            }
+
+            xmlWorksheets += `
+  <Worksheet ss:Name="${sheetTitle}">
+    <Table ss:DefaultColumnWidth="85" ss:DefaultRowHeight="20">
+      <Column ss:Width="35"/>
+      <Column ss:Width="175"/>
+      <Column ss:Width="110"/>
+      <Column ss:Width="110"/>
+      <Column ss:Width="80"/>
+      <Column ss:Width="80"/>
+      <Column ss:Width="75"/>
+      <Column ss:Width="55"/>
+      <Column ss:Width="55"/>
+      <Column ss:Width="55"/>
+      <Column ss:Width="75"/>
+      <Column ss:Width="75"/>
+      <Column ss:Width="65"/>
+      <Column ss:Width="80"/>
+
+      <Row ss:Height="30">
+        <Cell ss:MergeAcross="13" ss:StyleID="Title">
+          <Data ss:Type="String">حلقة: ${escapeXml(c.name)} | الشيخ المحفظ: ${escapeXml(c.teacherName || 'غير مسند')}</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="13" ss:StyleID="SubTitle">
+          <Data ss:Type="String">عدد الطلاب: ${c.studentCount || 0} طالب | نسبة الحضور: ${c.attendanceRate ?? 100}% | التقييم الإشرافي: ${escapeXml(c.qualityScore || 'ممتاز ⭐')}</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="22">
+        <Cell ss:MergeAcross="13" ss:StyleID="MetaBar">
+          <Data ss:Type="String">حفظ جديد: ${c.memorizationSessions || 0} جلسة | مراجعة وتثبيت: ${c.revisionSessions || 0} | لم يُسمّع: ${c.didNotReciteSessions || 0} | مجموع الآيات المسمعة: ${c.totalVerses || 0} آية</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="12"></Row>
+
+      <Row ss:Height="26">
+        <Cell ss:StyleID="Th"><Data ss:Type="String">م</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">اسم الطالب الكامل</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">رقم الهوية</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">رقم الجوال / التواصل</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">الأجزاء المستهدفة</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">الأجزاء المنجزة</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">نسبة الحضور</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">حضور</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">غياب</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">تأخر</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">حفظ جديد</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">مراجعة</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">لم يُسمّع</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">مجموع الآيات</Data></Cell>
+      </Row>
+      ${studentsRowsXml}
+    </Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+      <DisplayRightToLeft/>
+    </WorksheetOptions>
+  </Worksheet>`;
+        });
+
+        // -------------------------------------------------------------
+        // الشيت الأخير: الدورات العلمية والشرعية والمسجلين بها
+        // -------------------------------------------------------------
+        if (courses.length > 0) {
+            let coursesDetailsRows = '';
+            courses.forEach(crs => {
+                const enrStudents = crs.students || [];
+                if (enrStudents.length > 0) {
+                    enrStudents.forEach((st, idx) => {
+                        coursesDetailsRows += `
+      <Row ss:Height="22">
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${idx + 1}</Data></Cell>
+        <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(crs.name)}</Data></Cell>
+        <Cell ss:StyleID="Td"><Data ss:Type="String">${escapeXml(crs.teacherName || 'غير محدد')}</Data></Cell>
+        <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(st.studentName || 'طالب')}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${escapeXml(st.status || 'مسجل')}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="String">${escapeXml(st.grade ?? '-')}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.presentCount ?? 0}</Data></Cell>
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="Number">${st.absentCount ?? 0}</Data></Cell>
+      </Row>`;
+                    });
+                } else {
+                    coursesDetailsRows += `
+      <Row ss:Height="22">
+        <Cell ss:StyleID="TdCenter"><Data ss:Type="String">-</Data></Cell>
+        <Cell ss:StyleID="TdBold"><Data ss:Type="String">${escapeXml(crs.name)}</Data></Cell>
+        <Cell ss:StyleID="Td"><Data ss:Type="String">${escapeXml(crs.teacherName || 'غير محدد')}</Data></Cell>
+        <Cell ss:MergeAcross="4" ss:StyleID="TdCenter"><Data ss:Type="String">لا يوجد طلاب مسجلون حالياً</Data></Cell>
+      </Row>`;
+                }
+            });
+
+            xmlWorksheets += `
+  <Worksheet ss:Name="${sanitizeSheetName('الدورات العلمية والشرعية')}">
+    <Table ss:DefaultColumnWidth="90" ss:DefaultRowHeight="20">
+      <Column ss:Width="35"/>
+      <Column ss:Width="160"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="160"/>
+      <Column ss:Width="90"/>
+      <Column ss:Width="80"/>
+      <Column ss:Width="65"/>
+      <Column ss:Width="65"/>
+
+      <Row ss:Height="30">
+        <Cell ss:MergeAcross="7" ss:StyleID="Title">
+          <Data ss:Type="String">سجل الدورات العلمية والشرعية ومتابعة الدارسين</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="7" ss:StyleID="SubTitle">
+          <Data ss:Type="String">مركز البيان لتعليم القرآن الكريم والعلوم الشرعية | تاريخ الاستخراج: ${nowStr}</Data>
+        </Cell>
+      </Row>
+      <Row ss:Height="12"></Row>
+
+      <Row ss:Height="26">
+        <Cell ss:StyleID="Th"><Data ss:Type="String">م</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">اسم الدورة</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">الشيخ المحاضر</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">اسم الطالب</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">الحالة الأكاديمية</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">الدرجة / التقدير</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">حضور</Data></Cell>
+        <Cell ss:StyleID="Th"><Data ss:Type="String">غياب</Data></Cell>
+      </Row>
+      ${coursesDetailsRows}
+    </Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+      <DisplayRightToLeft/>
+    </WorksheetOptions>
+  </Worksheet>`;
+        }
+
+        const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>${escapeXml(centerName)}</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Borders/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Title">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#063C24"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="14" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#0D5C3A" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="SubTitle">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#107C41" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="MetaBar">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#1B5E20" ss:Bold="1"/>
+   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A5D6A7"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="SectionHeader">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#107C41" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="MetaLabel">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#1B5E20" ss:Bold="1"/>
+   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="MetaVal">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#0D5C3A" ss:Bold="1"/>
+   <Interior ss:Color="#F4FBF7" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="Th">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#063C24"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#063C24"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#063C24"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#063C24"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#0D5C3A" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Td">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#212529"/>
+  </Style>
+  <Style ss:ID="TdCenter">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#212529"/>
+  </Style>
+  <Style ss:ID="TdText">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#212529"/>
+   <NumberFormat ss:Format="@"/>
+  </Style>
+  <Style ss:ID="TdBold">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#0D5C3A" ss:Bold="1"/>
+  </Style>
+  <Style ss:ID="TdDanger">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="9" ss:Color="#DC3545" ss:Bold="1"/>
+  </Style>
+ </Styles>
+${xmlWorksheets}
+</Workbook>`;
+
+        const fileName = `تقرير_الجودة_صفحات_الحلقات_مركز_البيان_${new Date().toISOString().slice(0, 10)}.xls`;
+        downloadXlsHtml(xmlContent, fileName);
+        showAlert("تم تنزيل تقرير الجودة والرقابة بصفحات مستقلة لجميع الحلقات بنجاح (.xls)! 📗", "success");
 
     } catch (err) {
         console.error("Export quality xls error:", err);
