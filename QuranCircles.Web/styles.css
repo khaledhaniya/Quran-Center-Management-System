@@ -993,6 +993,471 @@ button, input, select, textarea {
     width: fit-content;
 }
 
+/* =========================================================================
+   DASHBOARD ANALYTICS & CHARTS (MODERN LUXURY REDESIGN)
+   ========================================================================= */
+
+.analytics-charts-grid {
+    display: grid !important;
+    grid-template-columns: 1.35fr 1fr !important;
+    gap: 20px !important;
+    margin-bottom: 24px !important;
+    align-items: stretch !important;
+}
+
+@media (max-width: 1024px) {
+    .analytics-charts-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.analytics-card {
+    background: #ffffff !important;
+    border-radius: 18px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.analytics-card:hover {
+    box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.09) !important;
+}
+
+.analytics-card-header {
+    padding: 16px 20px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%) !important;
+    gap: 12px !important;
+}
+
+.card-header-main {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+.card-header-icon-box {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.15rem !important;
+    flex-shrink: 0 !important;
+}
+
+.icon-box-emerald {
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: #0d5c3a !important;
+    border: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+.icon-box-blue {
+    background: rgba(59, 130, 246, 0.12) !important;
+    color: #2563eb !important;
+    border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+.card-header-titles {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.analytics-card-title {
+    margin: 0 !important;
+    font-size: 1.02rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    line-height: 1.25 !important;
+}
+
+.analytics-card-subtitle {
+    display: block !important;
+    font-size: 0.76rem !important;
+    color: #64748b !important;
+    margin-top: 3px !important;
+    font-weight: 600 !important;
+}
+
+.analytics-header-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    padding: 5px 12px !important;
+    border-radius: 20px !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+}
+
+.pill-emerald {
+    background: #ecfdf5 !important;
+    color: #065f46 !important;
+    border: 1px solid #a7f3d0 !important;
+}
+
+.pill-blue {
+    background: #eff6ff !important;
+    color: #1e40af !important;
+    border: 1px solid #bfdbfe !important;
+}
+
+.pill-dot {
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+}
+
+.pill-emerald .pill-dot {
+    background: #10b981 !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3) !important;
+}
+
+.pill-blue .pill-dot {
+    background: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+}
+
+.analytics-card-body {
+    padding: 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+}
+
+/* --- Social & Housing Status Breakdown --- */
+.social-chart-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    height: 200px !important;
+    margin-bottom: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.social-chart-center-badge {
+    position: absolute !important;
+    top: 42% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    text-align: center !important;
+    pointer-events: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+}
+
+.social-center-val {
+    font-size: 1.55rem !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
+    line-height: 1 !important;
+    font-family: 'Cairo', sans-serif !important;
+}
+
+.social-center-lbl {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    margin-top: 3px !important;
+}
+
+.social-metrics-breakdown {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+    margin-top: auto !important;
+}
+
+@media (max-width: 480px) {
+    .social-metrics-breakdown {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.social-stat-pill {
+    background: #ffffff !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    transition: all 0.2s ease !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.social-stat-pill:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+.pill-orphans {
+    background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%) !important;
+    border-color: #fecdd3 !important;
+    border-right: 4px solid #f43f5e !important;
+}
+
+.pill-tents {
+    background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%) !important;
+    border-color: #fde68a !important;
+    border-right: 4px solid #f59e0b !important;
+}
+
+.stat-pill-icon {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.15rem !important;
+    flex-shrink: 0 !important;
+}
+
+.pill-orphans .stat-pill-icon {
+    background: #ffe4e6 !important;
+    color: #e11d48 !important;
+}
+
+.pill-tents .stat-pill-icon {
+    background: #fef3c7 !important;
+    color: #d97706 !important;
+}
+
+.stat-pill-details {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+}
+
+.stat-pill-top {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+}
+
+.stat-pill-label {
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.stat-pill-badge {
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    padding: 2px 7px !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+}
+
+.stat-pill-badge.badge-danger {
+    background: rgba(244, 63, 94, 0.15) !important;
+    color: #be123c !important;
+}
+
+.stat-pill-badge.badge-warning {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #b45309 !important;
+}
+
+.stat-pill-value-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 5px !important;
+}
+
+.stat-pill-num {
+    font-size: 1.3rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    font-family: 'Cairo', sans-serif !important;
+}
+
+.stat-pill-unit {
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+}
+
+/* --- Recitation & Assessment Chart Area --- */
+.assessment-chart-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    min-height: 220px !important;
+    margin-bottom: 12px !important;
+}
+
+.chart-empty-state-modern {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border: 1.5px dashed #cbd5e1 !important;
+    border-radius: 16px !important;
+    padding: 26px 20px !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 220px !important;
+}
+
+.chart-empty-state-modern.hidden {
+    display: none !important;
+}
+
+.empty-state-halo {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.18) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.35rem !important;
+    color: #0d5c3a !important;
+    margin-bottom: 12px !important;
+    border: 1.5px solid #d1fae5 !important;
+}
+
+.empty-state-title {
+    font-size: 0.96rem !important;
+    font-weight: 800 !important;
+    color: #1e293b !important;
+    margin: 0 0 6px 0 !important;
+}
+
+.empty-state-desc {
+    font-size: 0.78rem !important;
+    color: #64748b !important;
+    line-height: 1.55 !important;
+    max-width: 420px !important;
+    margin: 0 0 16px 0 !important;
+}
+
+.empty-state-actions {
+    display: flex !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+}
+
+.btn-empty-action {
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    padding: 7px 15px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    transition: all 0.2s ease !important;
+    font-family: 'Cairo', sans-serif !important;
+}
+
+.btn-expand-year {
+    background: #0d5c3a !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(13, 92, 58, 0.25) !important;
+}
+
+.btn-expand-year:hover {
+    background: #09432a !important;
+    transform: translateY(-1px) !important;
+}
+
+.btn-new-session {
+    background: #ffffff !important;
+    color: #0d5c3a !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.btn-new-session:hover {
+    background: #f8fafc !important;
+    border-color: #0d5c3a !important;
+    transform: translateY(-1px) !important;
+}
+
+.assessment-container {
+    margin-top: 8px !important;
+}
+
+.assessment-progress-row {
+    background: #fafbfc !important;
+    border: 1px solid #f1f5f9 !important;
+    border-radius: 10px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+.assessment-progress-row:hover {
+    background: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+}
+
+.assessment-progress-head {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 6px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+}
+
+.assessment-label {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.assessment-numbers {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.assessment-count {
+    color: #0f172a !important;
+    font-weight: 800 !important;
+}
+
+.assessment-pct {
+    color: #64748b !important;
+    font-size: 0.74rem !important;
+}
+
+.assessment-progress-track {
+    height: 7px !important;
+    background: #e2e8f0 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+
+.assessment-progress-fill {
+    height: 100% !important;
+    border-radius: 10px !important;
+    transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
 /* Single line table actions */
 .table-actions-nowrap {
     display: inline-flex !important;

@@ -1154,13 +1154,17 @@ async function loadAdminDashboard() {
             (s.currentHousingType && (s.currentHousingType.includes("خيمة") || s.currentHousingType.includes("إيواء"))) ||
             (s.currentAddress && (s.currentAddress.includes("خيمة") || s.currentAddress.includes("إيواء") || s.currentAddress.includes("مخيم")))
         ).length;
-        const normalParents = Math.max(0, students.length - (fatherOrphans + motherOrphans));
+        const totalOrphans = fatherOrphans + motherOrphans;
+        const normalParents = Math.max(0, students.length - totalOrphans);
+
+        const socTotalEl = document.getElementById("soc-stat-total-students");
+        if (socTotalEl) socTotalEl.textContent = (students.length || (normalParents + totalOrphans)).toLocaleString();
 
         const socOrphansEl = document.getElementById("soc-stat-orphans");
-        if (socOrphansEl) socOrphansEl.textContent = `${fatherOrphans + motherOrphans} طالب`;
+        if (socOrphansEl) socOrphansEl.textContent = totalOrphans.toLocaleString();
 
         const socTentsEl = document.getElementById("soc-stat-tents");
-        if (socTentsEl) socTentsEl.textContent = `${tentStudents} طالب`;
+        if (socTentsEl) socTentsEl.textContent = tentStudents.toLocaleString();
 
         // Render Social & Housing Chart.js Chart safely
         const socialCanvas = document.getElementById("dashboard-social-chart");
@@ -1174,113 +1178,198 @@ async function loadAdminDashboard() {
                 data: {
                     labels: ['كلا الوالدين سليم', 'يتيم الأب/الأم', 'قاطنو الخيام والإيواء'],
                     datasets: [{
-                        data: [normalParents, fatherOrphans + motherOrphans, tentStudents],
+                        data: [normalParents, totalOrphans, tentStudents],
                         backgroundColor: [
-                            'rgba(16, 185, 129, 0.85)',
-                            'rgba(239, 68, 68, 0.85)',
-                            'rgba(245, 158, 11, 0.85)'
+                            '#10b981',
+                            '#f43f5e',
+                            '#f59e0b'
                         ],
-                        borderColor: ['#ffffff', '#ffffff', '#ffffff'],
-                        borderWidth: 2
+                        hoverBackgroundColor: [
+                            '#059669',
+                            '#e11d48',
+                            '#d97706'
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 3,
+                        borderRadius: 4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'bottom', labels: { font: { family: 'Cairo', size: 11 } } }
+                        legend: {
+                            position: 'bottom',
+                            rtl: true,
+                            labels: {
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 14,
+                                font: { family: 'Cairo', size: 11, weight: '700' }
+                            }
+                        },
+                        tooltip: {
+                            rtl: true,
+                            padding: 10,
+                            titleFont: { family: 'Cairo', size: 12, weight: 'bold' },
+                            bodyFont: { family: 'Cairo', size: 11 },
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const val = context.raw || 0;
+                                    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                                    return ` ${context.label}: ${val} طالب (${pct}%)`;
+                                }
+                            }
+                        }
                     },
-                    cutout: '65%'
+                    cutout: '72%'
                 }
             });
         }
 
         // Render Assessment Chart & Breakdown
         const breakdownContainer = document.getElementById("assessment-chart-list");
-        if (breakdownContainer) breakdownContainer.innerHTML = "";
+        const emptyStateEl = document.getElementById("assessment-chart-empty");
+        const assessmentCanvas = document.getElementById("dashboard-assessment-chart");
 
         const levels = {
-            "Excellent": "ممتاز (Excellent)",
-            "VeryGood": "جيد جداً (Very Good)",
-            "Good": "جيد (Good)",
-            "Medium": "مقبول (Medium)",
-            "Rejected": "بحاجة لإعادة (Rejected)"
+            "Excellent": "ممتاز",
+            "VeryGood": "جيد جداً",
+            "Good": "جيد",
+            "Medium": "مقبول",
+            "Rejected": "بحاجة لإعادة"
         };
 
         const entries = Object.entries(data.assessmentBreakdown || {});
+        const totalAssessmentSessions = entries.reduce((acc, [_, count]) => acc + (Number(count) || 0), 0);
 
-        // Render Chart.js canvas chart if window.Chart is loaded
-        const canvas = document.getElementById("dashboard-assessment-chart");
-        if (canvas && window.Chart) {
-            const ctx = canvas.getContext("2d");
-            const existingAssessmentChart = Chart.getChart(canvas) || dashboardChartInstance;
-            if (existingAssessmentChart) existingAssessmentChart.destroy();
+        if (totalAssessmentSessions === 0) {
+            // Friendly modern empty state
+            if (assessmentCanvas) assessmentCanvas.style.display = "none";
+            if (emptyStateEl) emptyStateEl.classList.remove("hidden");
+            if (breakdownContainer) breakdownContainer.innerHTML = "";
 
-            const chartLabels = entries.length > 0 ? entries.map(([k, _]) => levels[k] || k) : ["ممتاز", "جيد جداً", "جيد", "مقبول", "بحاجة لإعادة"];
-            const chartData = entries.length > 0 ? entries.map(([_, v]) => v) : [0, 0, 0, 0, 0];
-
-            dashboardChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: 'عدد الجلسات المسجلة',
-                        data: chartData,
-                        backgroundColor: [
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(245, 158, 11, 0.8)',
-                            'rgba(139, 92, 246, 0.8)',
-                            'rgba(239, 68, 68, 0.8)'
-                        ],
-                        borderColor: [
-                            '#10b981',
-                            '#3b82f6',
-                            '#f59e0b',
-                            '#8b5cf6',
-                            '#ef4444'
-                        ],
-                        borderWidth: 1,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { precision: 0 } }
+            const expandBtn = document.getElementById("btn-chart-expand-year");
+            if (expandBtn) {
+                expandBtn.onclick = () => {
+                    const fromDateInput = document.getElementById("report-from-date");
+                    if (fromDateInput) {
+                        const currentYear = new Date().getFullYear();
+                        fromDateInput.value = `${currentYear}-01-01`;
                     }
-                }
-            });
-        }
+                    loadAdminDashboard();
+                };
+            }
 
-        if (breakdownContainer) {
-            if (entries.length === 0) {
-                breakdownContainer.innerHTML = `<p class="text-center text-muted small py-2">لا يوجد بيانات تسميع مسجلة في هذا النطاق الزمني.</p>`;
-            } else {
-                const maxVal = Math.max(...entries.map(([_, count]) => count), 1);
+            const newSessionBtn = document.getElementById("btn-chart-new-session");
+            if (newSessionBtn) {
+                newSessionBtn.onclick = () => {
+                    const sessionNav = document.querySelector("[data-section='sessions-section']");
+                    if (sessionNav) sessionNav.click();
+                };
+            }
+        } else {
+            // Data exists: render bar chart and progress bars
+            if (emptyStateEl) emptyStateEl.classList.add("hidden");
+            if (assessmentCanvas) assessmentCanvas.style.display = "block";
+
+            if (assessmentCanvas && window.Chart) {
+                const ctx = assessmentCanvas.getContext("2d");
+                const existingAssessmentChart = Chart.getChart(assessmentCanvas) || dashboardChartInstance;
+                if (existingAssessmentChart) existingAssessmentChart.destroy();
+
+                const chartLabels = entries.map(([k, _]) => levels[k] || k);
+                const chartData = entries.map(([_, v]) => v);
+
+                dashboardChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'عدد الجلسات المسجلة',
+                            data: chartData,
+                            backgroundColor: [
+                                '#10b981',
+                                '#0284c7',
+                                '#3b82f6',
+                                '#f59e0b',
+                                '#ef4444'
+                            ],
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            maxBarThickness: 42
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                rtl: true,
+                                padding: 10,
+                                titleFont: { family: 'Cairo', size: 12, weight: 'bold' },
+                                bodyFont: { family: 'Cairo', size: 11 },
+                                callbacks: {
+                                    label: function(context) {
+                                        return ` عدد الجلسات: ${context.raw} جلسة`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#f1f5f9' },
+                                ticks: { font: { family: 'Cairo', size: 11 }, precision: 0 }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: 'Cairo', size: 11, weight: '700' } }
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (breakdownContainer) {
+                breakdownContainer.innerHTML = "";
+                const colors = {
+                    "Excellent": { bg: "#10b981", icon: "fa-star" },
+                    "VeryGood": { bg: "#0284c7", icon: "fa-thumbs-up" },
+                    "Good": { bg: "#3b82f6", icon: "fa-check" },
+                    "Medium": { bg: "#f59e0b", icon: "fa-triangle-exclamation" },
+                    "Rejected": { bg: "#ef4444", icon: "fa-rotate-left" }
+                };
+
                 for (const [key, count] of entries) {
                     const label = levels[key] || key;
-                    const percent = Math.round((count / maxVal) * 100);
+                    const percent = totalAssessmentSessions > 0 ? Math.round((count / totalAssessmentSessions) * 100) : 0;
+                    const conf = colors[key] || { bg: "#0d5c3a", icon: "fa-check" };
 
                     const row = document.createElement("div");
-                    row.className = "chart-row mb-2";
+                    row.className = "assessment-progress-row";
                     row.innerHTML = `
-                        <div class="chart-row-label d-flex justify-content-between small fw-bold mb-1">
-                            <span>${label}</span>
-                            <strong class="text-primary">${count} جلسة</strong>
+                        <div class="assessment-progress-head">
+                            <span class="assessment-label">
+                                <i class="fa-solid ${conf.icon} me-1" style="color: ${conf.bg}"></i> ${label}
+                            </span>
+                            <div class="assessment-numbers">
+                                <strong class="assessment-count">${count} جلسة</strong>
+                                <span class="assessment-pct">(${percent}%)</span>
+                            </div>
                         </div>
-                        <div class="progress" style="height: 8px; border-radius: 10px; background: #e2e8f0;">
-                            <div class="progress-bar bg-success" style="width: 0%; transition: width 0.8s ease; border-radius: 10px;"></div>
+                        <div class="assessment-progress-track">
+                            <div class="assessment-progress-fill" style="width: 0%; background: ${conf.bg};"></div>
                         </div>
                     `;
                     breakdownContainer.appendChild(row);
                     setTimeout(() => {
-                        const bar = row.querySelector(".progress-bar");
-                        if (bar) bar.style.width = `${percent}%`;
+                        const fill = row.querySelector(".assessment-progress-fill");
+                        if (fill) fill.style.width = `${percent}%`;
                     }, 50);
                 }
             }

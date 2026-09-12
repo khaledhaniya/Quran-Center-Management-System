@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260912_v4_kpi_redesign">
+    <link rel="stylesheet" href="styles.css?v=20260912_v5_charts_beautified">
 </head>
 <body>
     <!-- App Container -->
@@ -389,44 +389,104 @@
                     </div>
 
                     <!-- Analytics Section: Charts & Breakdown -->
-                    <div class="row g-4 mb-4">
-                        <div class="col-lg-7">
-                            <div class="card shadow-sm border-0 h-100 analytics-card">
-                                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
-                                    <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-chart-bar text-success me-2"></i> توزيع مستويات تقييم الحفظ والتسميع</h5>
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">مخطط تفاعلي</span>
+                    <div class="analytics-charts-grid mb-4">
+                        <!-- Recitation & Memorization Assessment Card -->
+                        <div class="analytics-card recitation-analytics-card">
+                            <div class="analytics-card-header">
+                                <div class="card-header-main">
+                                    <div class="card-header-icon-box icon-box-emerald">
+                                        <i class="fa-solid fa-chart-column"></i>
+                                    </div>
+                                    <div class="card-header-titles">
+                                        <h5 class="analytics-card-title">توزيع مستويات تقييم الحفظ والتسميع</h5>
+                                        <span class="analytics-card-subtitle">مؤشرات الإتقان التراكمية لجلسات التسميع المعتمدة</span>
+                                    </div>
                                 </div>
-                                <div class="card-body p-4">
-                                    <div style="height: 240px; position: relative;" class="mb-3">
-                                        <canvas id="dashboard-assessment-chart"></canvas>
+                                <span class="analytics-header-pill pill-emerald">
+                                    <span class="pill-dot"></span>
+                                    مخطط تفاعلي
+                                </span>
+                            </div>
+                            <div class="analytics-card-body">
+                                <div id="dashboard-assessment-chart-wrapper" class="assessment-chart-wrapper">
+                                    <canvas id="dashboard-assessment-chart"></canvas>
+                                    <!-- Sleek Empty State when no recitation data exists in range -->
+                                    <div id="assessment-chart-empty" class="chart-empty-state-modern hidden">
+                                        <div class="empty-state-halo">
+                                            <i class="fa-solid fa-book-open-reader"></i>
+                                        </div>
+                                        <h6 class="empty-state-title">لا توجد جلسات تسميع في هذا النطاق الزمني</h6>
+                                        <p class="empty-state-desc">لم تسجل بعد بيانات تقييم للطلاب ضمن التاريخ المحدد. يمكنك توسيع النطاق لعرض كافة جلسات العام أو تسجيل تسميع جديد الآن.</p>
+                                        <div class="empty-state-actions">
+                                            <button type="button" class="btn-empty-action btn-expand-year" id="btn-chart-expand-year">
+                                                <i class="fa-solid fa-calendar-check"></i> عرض كافة جلسات العام
+                                            </button>
+                                            <button type="button" class="btn-empty-action btn-new-session" id="btn-chart-new-session">
+                                                <i class="fa-solid fa-plus-circle"></i> تسجيل تسميع جديد
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="assessment-container mt-2" id="assessment-chart-list">
-                                        <!-- Dynamic Breakdown Progress Bars -->
-                                    </div>
+                                </div>
+                                <div class="assessment-container" id="assessment-chart-list">
+                                    <!-- Dynamic Breakdown Progress Bars -->
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-5">
-                            <div class="card shadow-sm border-0 h-100 analytics-card">
-                                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
-                                    <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-house-chimney-user text-primary me-2"></i> التحليل الاجتماعي وحالات السكن للطلاب</h5>
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">رعاية وأولويات</span>
-                                </div>
-                                <div class="card-body p-4">
-                                    <div style="height: 200px; position: relative;" class="mb-3">
-                                        <canvas id="dashboard-social-chart"></canvas>
+
+                        <!-- Social & Housing Analysis Card -->
+                        <div class="analytics-card social-analytics-card">
+                            <div class="analytics-card-header">
+                                <div class="card-header-main">
+                                    <div class="card-header-icon-box icon-box-blue">
+                                        <i class="fa-solid fa-house-chimney-user"></i>
                                     </div>
-                                    <div class="row g-2 text-center mt-2" id="social-metrics-breakdown">
-                                        <div class="col-6">
-                                            <div class="p-2 border rounded-3 bg-light">
-                                                <span class="d-block small text-muted fw-bold">أيتام الأب/الأبوين</span>
-                                                <strong class="fs-6 text-danger" id="soc-stat-orphans">0 طالب</strong>
+                                    <div class="card-header-titles">
+                                        <h5 class="analytics-card-title">التحليل الاجتماعي وحالات السكن للطلاب</h5>
+                                        <span class="analytics-card-subtitle">توزيع الطلاب بحسب الوضع الأسري وظروف الإيواء</span>
+                                    </div>
+                                </div>
+                                <span class="analytics-header-pill pill-blue">
+                                    <span class="pill-dot"></span>
+                                    رعاية وأولويات
+                                </span>
+                            </div>
+                            <div class="analytics-card-body">
+                                <div class="social-chart-wrapper">
+                                    <canvas id="dashboard-social-chart"></canvas>
+                                    <div class="social-chart-center-badge" id="social-chart-center-badge">
+                                        <span class="social-center-val" id="soc-stat-total-students">0</span>
+                                        <span class="social-center-lbl">طالب مسجل</span>
+                                    </div>
+                                </div>
+                                <div class="social-metrics-breakdown" id="social-metrics-breakdown">
+                                    <div class="social-stat-pill pill-orphans">
+                                        <div class="stat-pill-icon">
+                                            <i class="fa-solid fa-shield-heart"></i>
+                                        </div>
+                                        <div class="stat-pill-details">
+                                            <div class="stat-pill-top">
+                                                <span class="stat-pill-label">أيتام الأب / الأبوين</span>
+                                                <span class="stat-pill-badge badge-danger">أولوية كفالة</span>
+                                            </div>
+                                            <div class="stat-pill-value-row">
+                                                <strong class="stat-pill-num text-danger" id="soc-stat-orphans">0</strong>
+                                                <span class="stat-pill-unit">طالب</span>
                                             </div>
                                         </div>
-                                        <div class="col-6">
-                                            <div class="p-2 border rounded-3 bg-light">
-                                                <span class="d-block small text-muted fw-bold">قاطنو الخيام والإيواء</span>
-                                                <strong class="fs-6 text-warning" id="soc-stat-tents">0 طالب</strong>
+                                    </div>
+
+                                    <div class="social-stat-pill pill-tents">
+                                        <div class="stat-pill-icon">
+                                            <i class="fa-solid fa-campground"></i>
+                                        </div>
+                                        <div class="stat-pill-details">
+                                            <div class="stat-pill-top">
+                                                <span class="stat-pill-label">قاطنو الخيام والإيواء</span>
+                                                <span class="stat-pill-badge badge-warning">رعاية عاجلة</span>
+                                            </div>
+                                            <div class="stat-pill-value-row">
+                                                <strong class="stat-pill-num text-warning" id="soc-stat-tents">0</strong>
+                                                <span class="stat-pill-unit">طالب</span>
                                             </div>
                                         </div>
                                     </div>
@@ -2105,7 +2165,7 @@
 
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="assets/logo_base64.js?v=20260912_v4_kpi_redesign"></script>
-    <script src="app.js?v=20260912_v4_kpi_redesign"></script>
+    <script src="assets/logo_base64.js?v=20260912_v5_charts_beautified"></script>
+    <script src="app.js?v=20260912_v5_charts_beautified"></script>
 </body>
 </html>
