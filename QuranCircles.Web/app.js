@@ -13387,11 +13387,67 @@ async function loadQualityManagementScreen() {
 }
 
 // تصدير تقرير الجودة والرقابة الشامل (صفحات الحلقات في xls و xlsx)
-async function exportQualityComprehensiveExcel(format = 'xls') {
+async function exportQualityComprehensiveExcel(format) {
+    if (format === 'xls') {
+        return exportQualityComprehensiveExcelXls();
+    }
     if (format === 'xlsx') {
         return exportQualityComprehensiveExcelXlsx();
     }
-    // التصدير الافتراضي المباشر بصيغة xls متعدد الشيتات بصفحة لكل حلقة (بدون خيار PDF)
+
+    // إذا لم تُحدد الصيغة، تظهر نافذة اختيار صيغة الإكسل (XLS أو XLSX - بدون PDF)
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: `<div class="d-flex align-items-center justify-content-center gap-2" style="font-size: 1.25rem; font-weight: 800; color: #0d5c3a;">
+                <i class="fa-solid fa-file-excel text-success"></i> تصدير تقرير الحلقات والجودة
+            </div>`,
+            html: `
+                <p class="text-muted small mb-3">اختر صيغة ملف Excel المطلوبة (كلتا الصيغتين تحتويان على شيتات الحلقات المستقلة بالأسفل):</p>
+                <div class="d-flex flex-column gap-2 text-start" dir="rtl">
+                    <button id="modal-quality-btn-xls" class="btn btn-outline-success p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="width: 44px; height: 44px; background: rgba(16, 185, 129, 0.12); color: #10b981; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                <i class="fa-solid fa-file-excel"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">ملف إكسل منسق فاخر (.xls)</div>
+                                <small class="text-muted" style="font-size: 0.75rem;">تنسيق بألوان وهوية المركز مع تبويبات مستقلة لجميع الحلقات بالأسفل.</small>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-download text-success fs-5"></i>
+                    </button>
+
+                    <button id="modal-quality-btn-xlsx" class="btn btn-outline-primary p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="width: 44px; height: 44px; background: rgba(13, 110, 253, 0.12); color: #0d6efd; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                <i class="fa-solid fa-table-cells"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">ملف إكسل قياسي حديث (.xlsx)</div>
+                                <small class="text-muted" style="font-size: 0.75rem;">مصنف إكسل قياسي متعدد الشيتات لجميع الحلقات بدعم RTL كامل.</small>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-download text-primary fs-5"></i>
+                    </button>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: 540,
+            didOpen: () => {
+                document.getElementById("modal-quality-btn-xls")?.addEventListener("click", () => {
+                    Swal.close();
+                    exportQualityComprehensiveExcelXls();
+                });
+                document.getElementById("modal-quality-btn-xlsx")?.addEventListener("click", () => {
+                    Swal.close();
+                    exportQualityComprehensiveExcelXlsx();
+                });
+            }
+        });
+        return;
+    }
+
     return exportQualityComprehensiveExcelXls();
 }
 

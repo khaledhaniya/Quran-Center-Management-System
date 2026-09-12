@@ -1784,8 +1784,11 @@
                                 <p class="text-muted small mb-0">متابعة معايير جودة التسميع، التزام المعلمين والطلاب، تقييمات المشرفين، وتحليل مؤشرات التميز القرآني.</p>
                             </div>
                             <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
-                                <button class="btn btn-success shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="exportQualityComprehensiveExcel('xls')">
-                                    <i class="fa-solid fa-file-excel me-1"></i> تصدير تقرير الحلقات (Excel - صفحات الحلقات)
+                                <button class="btn btn-success shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="exportQualityComprehensiveExcel('xls')" title="تنزيل ملف إكسل منسق فاخر بصفحات الحلقات (.xls)">
+                                    <i class="fa-solid fa-file-excel me-1"></i> تصدير (.xls)
+                                </button>
+                                <button class="btn btn-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="exportQualityComprehensiveExcel('xlsx')" style="background: linear-gradient(135deg, #107c41, #0f6c38); border: none;" title="تنزيل مصنف إكسل قياسي حديث بصفحات الحلقات (.xlsx)">
+                                    <i class="fa-solid fa-file-excel me-1"></i> تصدير (.xlsx)
                                 </button>
                                 <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadQualityManagementScreen()">
                                     <i class="fa-solid fa-rotate me-1"></i> تحديث مؤشرات الجودة
@@ -2165,7 +2168,7 @@
 
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="assets/logo_base64.js?v=20260912_v7_quality_multisheet_expanded_reports"></script>
-    <script src="app.js?v=20260912_v7_quality_multisheet_expanded_reports"></script>
+    <script src="assets/logo_base64.js?v=20260912_v8_quality_both_xls_and_xlsx"></script>
+    <script src="app.js?v=20260912_v8_quality_both_xls_and_xlsx"></script>
 </body>
 </html>
