@@ -885,10 +885,24 @@ button, input, select, textarea {
 
 /* Glass KPI Cards - Modern Horizontal Metric Cards */
 .kpi-grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 16px !important;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
     margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 14px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .kpi-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
 }
 
 .kpi-grid-4 {
@@ -901,6 +915,13 @@ button, input, select, textarea {
 @media (max-width: 1200px) {
     .kpi-grid-4 {
         grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .kpi-grid-4 {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
     }
 }
 
@@ -1456,6 +1477,59 @@ button, input, select, textarea {
     height: 100% !important;
     border-radius: 10px !important;
     transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Responsive adjustments for Analytics Section */
+@media (max-width: 640px) {
+    .analytics-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding: 12px 14px !important;
+    }
+    .card-header-main {
+        width: 100% !important;
+        align-items: center !important;
+        gap: 10px !important;
+    }
+    .card-header-titles {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+    .analytics-card-title {
+        font-size: 0.92rem !important;
+        line-height: 1.35 !important;
+        white-space: normal !important;
+        word-break: normal !important;
+    }
+    .analytics-card-subtitle {
+        font-size: 0.70rem !important;
+        white-space: normal !important;
+    }
+    .analytics-header-pill {
+        align-self: flex-start !important;
+        font-size: 0.72rem !important;
+        padding: 3px 10px !important;
+    }
+    .analytics-card-body {
+        padding: 14px 12px !important;
+    }
+    .social-metrics-breakdown {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .chart-empty-state-modern {
+        padding: 18px 12px !important;
+        min-height: 180px !important;
+    }
+    .empty-state-actions {
+        flex-direction: column !important;
+        width: 100% !important;
+    }
+    .btn-empty-action {
+        width: 100% !important;
+        justify-content: center !important;
+    }
 }
 
 /* Single line table actions */
@@ -3575,24 +3649,76 @@ body.theme-dark {
     .settings-grid-2col,
     .settings-grid-3col,
     .settings-flags-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
     .settings-card {
-        padding: 18px;
+        padding: 18px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .settings-section-divider {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    .settings-section-divider h4 {
+        font-size: 1.02rem !important;
+        width: 100% !important;
+        white-space: normal !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    .settings-section-divider .badge {
+        white-space: normal !important;
+        text-align: right !important;
+        font-size: 0.72rem !important;
+        line-height: 1.4 !important;
+        align-self: flex-start !important;
+        max-width: 100% !important;
+    }
+    .settings-tabs-nav {
+        padding: 4px !important;
+        gap: 6px !important;
+    }
+    .settings-tab-btn {
+        padding: 8px 12px !important;
+        font-size: 0.82rem !important;
+    }
+    .settings-card {
+        padding: 14px 12px !important;
+        border-radius: 12px !important;
+        max-width: 100% !important;
     }
 }
 
 @media (max-width: 576px) {
     .settings-info-banner {
-        flex-direction: column;
-        text-align: center;
+        flex-direction: column !important;
+        text-align: right !important;
+        padding: 12px !important;
     }
     .settings-actions-footer {
-        flex-direction: column;
-        width: 100%;
+        flex-direction: column !important;
+        width: 100% !important;
+        align-items: stretch !important;
+        gap: 12px !important;
     }
+    .settings-actions-footer .d-flex {
+        flex-direction: column !important;
+        width: 100% !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    .btn-save-settings,
     .settings-actions-footer button {
         width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 10px 14px !important;
+        font-size: 0.88rem !important;
     }
 }
 
