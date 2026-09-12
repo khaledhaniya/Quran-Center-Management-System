@@ -12,31 +12,49 @@ public class ReportService
 
     public async Task<SummaryReportDto> GetSummaryAsync(DateOnly from, DateOnly to)
     {
-        var totalStudents = await _db.Students.CountAsync(s => s.IsActive);
-        var totalTeachers = await _db.Teachers.CountAsync(t => t.IsActive);
-        var totalCircles = await _db.Circles.CountAsync(c => c.IsActive);
+        try
+        {
+            var totalStudents = await _db.Students.CountAsync(s => s.IsActive);
+            var totalTeachers = await _db.Teachers.CountAsync(t => t.IsActive);
+            var totalCircles = await _db.Circles.CountAsync(c => c.IsActive);
 
-        var sessions = await _db.Sessions
-            .Where(s => s.SessionDate >= from && s.SessionDate <= to)
-            .ToListAsync();
+            var sessions = await _db.Sessions
+                .Where(s => s.SessionDate >= from && s.SessionDate <= to)
+                .ToListAsync();
 
-        var totalVerses = sessions.Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
+            var totalVerses = sessions.Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
 
-        var absenceCount = await _db.Attendances
-            .CountAsync(a => a.SessionDate >= from && a.SessionDate <= to && a.Status == AttendanceStatus.Absent);
+            var absenceCount = await _db.Attendances
+                .CountAsync(a => a.SessionDate >= from && a.SessionDate <= to && a.Status == AttendanceStatus.Absent);
 
-        var breakdown = sessions
-            .GroupBy(s => s.Assessment)
-            .ToDictionary(
-                g => SessionService.AssessmentText(g.Key),
-                g => g.Count());
+            var breakdown = sessions
+                .GroupBy(s => s.Assessment)
+                .ToDictionary(
+                    g => SessionService.AssessmentText(g.Key),
+                    g => g.Count());
 
-        return new SummaryReportDto(
-            from, to,
-            totalStudents, totalTeachers, totalCircles,
-            sessions.Count, totalVerses, absenceCount,
-            breakdown
-        );
+            return new SummaryReportDto(
+                from, to,
+                totalStudents, totalTeachers, totalCircles,
+                sessions.Count, totalVerses, absenceCount,
+                breakdown
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ReportService.GetSummaryAsync Warning] {ex.Message}");
+            int sCount = 0, tCount = 0, cCount = 0;
+            try { sCount = await _db.Students.CountAsync(s => s.IsActive); } catch { }
+            try { tCount = await _db.Teachers.CountAsync(t => t.IsActive); } catch { }
+            try { cCount = await _db.Circles.CountAsync(c => c.IsActive); } catch { }
+
+            return new SummaryReportDto(
+                from, to,
+                sCount, tCount, cCount,
+                0, 0, 0,
+                new Dictionary<string, int>()
+            );
+        }
     }
 
     

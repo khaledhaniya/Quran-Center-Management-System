@@ -1091,10 +1091,10 @@ async function loadAdminDashboard() {
 
     try {
         const [dataRes, studentsRes, circlesRes, coursesRes] = await Promise.allSettled([
-            apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`),
-            apiRequest("/students"),
-            apiRequest("/circles"),
-            apiRequest("/courses")
+            apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`, "GET", null, 1, true),
+            apiRequest("/students", "GET", null, 1, true),
+            apiRequest("/circles", "GET", null, 1, true),
+            apiRequest("/courses", "GET", null, 1, true)
         ]);
 
         const data = dataRes.status === 'fulfilled' && dataRes.value ? dataRes.value : {};
@@ -1307,12 +1307,12 @@ async function exportExecutiveExcelReport() {
         // Fetch data in parallel with safe fallbacks
         let dashboardData = {}, students = [], teachers = [], circles = [], courses = [], nominations = [];
         
-        dashboardData = await apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`).catch(() => ({}));
-        students = await apiRequest("/students").catch(() => []);
-        teachers = await apiRequest("/teachers").catch(() => []);
-        circles = await apiRequest("/circles").catch(() => []);
-        courses = await apiRequest("/courses").catch(() => []);
-        nominations = await apiRequest("/exams/nominations").catch(() => []);
+        dashboardData = await apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`, "GET", null, 1, true).catch(() => ({}));
+        students = await apiRequest("/students", "GET", null, 1, true).catch(() => []);
+        teachers = await apiRequest("/teachers", "GET", null, 1, true).catch(() => []);
+        circles = await apiRequest("/circles", "GET", null, 1, true).catch(() => []);
+        courses = await apiRequest("/courses", "GET", null, 1, true).catch(() => []);
+        nominations = await apiRequest("/exams/nominations", "GET", null, 1, true).catch(() => []);
 
         const wb = XLSX.utils.book_new();
 
