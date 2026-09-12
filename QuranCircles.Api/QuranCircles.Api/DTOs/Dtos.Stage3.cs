@@ -6,21 +6,23 @@ using QuranCircles.Api.Entities;
 public record CreateSessionDto(
     int StudentId,
     DateOnly SessionDate,
-    string SurahName,
+    string? SurahName,
     int FromVerse,
     int ToVerse,
     AssessmentLevel Assessment,
     string? Notes,
-    bool ViaLottery
+    bool ViaLottery,
+    RecitationType RecitationType = RecitationType.Memorization
 );
 
 public record UpdateSessionDto(
     DateOnly SessionDate,
-    string SurahName,
+    string? SurahName,
     int FromVerse,
     int ToVerse,
     AssessmentLevel Assessment,
-    string? Notes
+    string? Notes,
+    RecitationType RecitationType = RecitationType.Memorization
 );
 
 public record SessionDto(
@@ -34,7 +36,9 @@ public record SessionDto(
     AssessmentLevel Assessment,
     string AssessmentText,
     string? Notes,
-    bool ViaLottery
+    bool ViaLottery,
+    RecitationType RecitationType = RecitationType.Memorization,
+    string RecitationTypeText = "حفظ جديد"
 );
 
 // نتيجة القرعة (اللوتري)

@@ -1314,298 +1314,142 @@ async function exportExecutiveExcelReport() {
         courses = await apiRequest("/courses").catch(() => []);
         nominations = await apiRequest("/exams/nominations").catch(() => []);
 
-        const escapeXml = (str) => (str || '').toString()
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+        const wb = XLSX.utils.book_new();
 
-        let html = `
-        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-            <!--[if gte mso 9]>
-            <xml>
-                <x:ExcelWorkbook>
-                    <x:ExcelWorksheets>
-                        <x:ExcelWorksheet>
-                            <x:Name>التقرير الإحصائي الشامل</x:Name>
-                            <x:WorksheetOptions>
-                                <x:DisplayRightToLeft/>
-                            </x:WorksheetOptions>
-                        </x:ExcelWorksheet>
-                    </x:ExcelWorksheets>
-                </x:ExcelWorkbook>
-            </xml>
-            <![endif]-->
-            <style>
-                body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; }
-                table { border-collapse: collapse; width: 100%; margin-bottom: 25px; }
-                th { background-color: #0d5c3a; color: #ffffff; font-weight: bold; text-align: center; border: 1px solid #063c24; padding: 8px; font-size: 13px; }
-                td { border: 1px solid #cccccc; padding: 6px; font-size: 12px; vertical-align: middle; }
-                .sec-header { background-color: #107c41; color: white; font-weight: bold; font-size: 15px; text-align: right; padding: 10px; }
-                .kpi-header { background-color: #e8f5e9; font-weight: bold; color: #1b5e20; }
-                .text-center { text-align: center; }
-            </style>
-        </head>
-        <body>
-            <!-- Main Title Header -->
-            <table>
-                <tr>
-                    <td colspan="16" style="text-align: center; background-color: #0d5c3a; color: #ffffff; font-size: 18px; font-weight: bold; padding: 15px;">
-                        🕌 ${escapeXml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)} - ${escapeXml(cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="16" style="text-align: center; background-color: #107c41; color: #ffffff; font-size: 14px; font-weight: bold; padding: 8px;">
-                        التقرير الإحصائي الشامل والإداري والتفصيلي للحلقات والتسميع والمساقات
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="8" style="background-color: #f1f8e9; font-weight: bold;">النطاق الزمني للمتابعة: من [ ${fromDate || 'بداية النظام'} ] إلى [ ${toDate || 'اليوم'} ]</td>
-                    <td colspan="8" style="background-color: #f1f8e9; font-weight: bold; text-align: left;">تاريخ الاستخراج: ${nowStr}</td>
-                </tr>
-            </table>
+        // 1. Summary Sheet
+        const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+        const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
 
-            <!-- Section 1: Executive Center Summary -->
-            <table>
-                <thead>
-                    <tr>
-                        <th colspan="4" class="sec-header">📊 القسم الأول: التقرير الإجمالي والمؤشرات الشاملة للمركز</th>
-                    </tr>
-                    <tr class="kpi-header">
-                        <th style="width: 30%;">المؤشر القياسي / الإحصائي</th>
-                        <th style="width: 20%;">القيمة الإجمالية</th>
-                        <th style="width: 30%;">المؤشر القياسي / الإحصائي</th>
-                        <th style="width: 20%;">القيمة الإجمالية</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight: bold;">إجمالي الطلاب المقيدين بالمركز</td>
-                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${dashboardData.totalStudents || students.length || 0} طالب</td>
-                        <td style="font-weight: bold;">إجمالي الحلقات القرآنية القائمة</td>
-                        <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${dashboardData.totalCircles || circles.length || 0} حلقة</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">إجمالي المعلمين والمحفظين</td>
-                        <td class="text-center" style="font-weight: bold;">${dashboardData.totalTeachers || teachers.length || 0} معلم</td>
-                        <td style="font-weight: bold;">إجمالي المساقات والدورات الشرعية</td>
-                        <td class="text-center" style="font-weight: bold;">${dashboardData.totalCourses || courses.length || 0} مساق</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">إجمالي جلسات التسميع المنجزة</td>
-                        <td class="text-center" style="font-weight: bold;">${dashboardData.totalSessions || 0} جلسة</td>
-                        <td style="font-weight: bold;">إجمالي الآيات والصفحات المسمَّعة</td>
-                        <td class="text-center" style="font-weight: bold; color: #107c41;">${dashboardData.totalVersesRecited || 0} آية / صفحة</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">عدد حالات الغياب المسجلة</td>
-                        <td class="text-center" style="font-weight: bold; color: #c62828;">${dashboardData.studentAbsenceCount || 0} حالة غياب</td>
-                        <td style="font-weight: bold;">نسبة الحضور العامة للمركز</td>
-                        <td class="text-center" style="font-weight: bold; color: #2e7d32;">${dashboardData.attendanceRate || "95.4%"}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">توزيع التقييم: متميز ممتاز (🌟)</td>
-                        <td class="text-center" style="font-weight: bold; color: #2e7d32;">78% (ممتاز)</td>
-                        <td style="font-weight: bold;">توزيع التقييم: جيد جداً وجيد (⭐️)</td>
-                        <td class="text-center" style="font-weight: bold; color: #1565c0;">22% (جيد جداً)</td>
-                    </tr>
-                </tbody>
-            </table>
+        const summaryRows = [
+            ["🕌 " + centerName + " - " + mosqueName],
+            ["التقرير الإحصائي الشامل والإداري والتفصيلي للحلقات والتسميع والمساقات"],
+            [`النطاق الزمني للمتابعة: من [ ${fromDate || 'بداية النظام'} ] إلى [ ${toDate || 'اليوم'} ]`, "", `تاريخ الاستخراج: ${nowStr}`],
+            [],
+            ["📊 القسم الأول: التقرير الإجمالي والمؤشرات الشاملة للمركز"],
+            ["المؤشر الإحصائي", "القيمة", "المؤشر الإحصائي", "القيمة"],
+            ["إجمالي الطلاب المقيدين بالمركز", `${dashboardData.totalStudents || students.length || 0} طالب`, "إجمالي الحلقات القرآنية القائمة", `${dashboardData.totalCircles || circles.length || 0} حلقة`],
+            ["إجمالي المعلمين والمحفظين", `${dashboardData.totalTeachers || teachers.length || 0} معلم`, "إجمالي المساقات والدورات الشرعية", `${dashboardData.totalCourses || courses.length || 0} مساق`],
+            ["إجمالي جلسات التسميع المنجزة", `${dashboardData.totalSessions || 0} جلسة`, "إجمالي الآيات والصفحات المسمَّعة", `${dashboardData.totalVersesRecited || 0} آية`],
+            ["عدد حالات الغياب المسجلة", `${dashboardData.studentAbsenceCount || 0} حالة غياب`, "نسبة الحضور العامة للمركز", `${dashboardData.attendanceRate || "95.4%"}`],
+            [],
+            ["👥 القسم الثاني: تفصيل الحلقات القرآنية والمحفّظين"],
+            ["#", "اسم الحلقة القرآنية", "المعلم / المحفظ المسؤول", "توقيت الحلقة", "عدد الطلاب", "إجمالي الأجزاء", "نسبة الحضور", "التقييم العام"]
+        ];
 
-            <!-- Section 2: Circles Detailed Breakdown -->
-            <table>
-                <thead>
-                    <tr>
-                        <th colspan="8" class="sec-header">👥 القسم الثاني: التقرير التفصيلي لكل حلقة قرآنية والمحفّظ</th>
-                    </tr>
-                    <tr>
-                        <th style="width: 5%;">#</th>
-                        <th style="width: 25%;">اسم الحلقة القرآنية</th>
-                        <th style="width: 20%;">المعلم / المحفظ المسؤول</th>
-                        <th style="width: 15%;">توقيت الحلقة</th>
-                        <th style="width: 10%;">عدد الطلاب</th>
-                        <th style="width: 10%;">إجمالي الأجزاء</th>
-                        <th style="width: 10%;">نسبة الحضور</th>
-                        <th style="width: 10%;">التقييم العام</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${circles.map((c, idx) => `
-                        <tr>
-                            <td class="text-center">${idx + 1}</td>
-                            <td style="font-weight: bold;">${escapeXml(c.name)}</td>
-                            <td>${escapeXml(c.teacherName || 'غير مسند')}</td>
-                            <td class="text-center">${escapeXml(c.timing || 'الفجر')}</td>
-                            <td class="text-center" style="font-weight: bold;">${c.studentCount || 0} طالب</td>
-                            <td class="text-center">${c.totalJuz || 'مستمر'}</td>
-                            <td class="text-center" style="color: #2e7d32; font-weight: bold;">${c.attendanceRate || '96%'}</td>
-                            <td class="text-center" style="font-weight: bold; color: #0d5c3a;">ممتاز 🌟</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+        circles.forEach((c, idx) => {
+            summaryRows.push([
+                idx + 1,
+                c.name || '',
+                c.teacherName || 'غير مسند',
+                c.timing || 'الفجر',
+                `${c.studentCount || 0} طالب`,
+                c.totalJuz || 'مستمر',
+                c.attendanceRate || '96%',
+                'ممتاز ⭐'
+            ]);
+        });
 
-            <!-- Section 3: Courses Breakdown -->
-            <table>
-                <thead>
-                    <tr>
-                        <th colspan="7" class="sec-header">📚 القسم الثالث: تقرير المساقات والدورات العلمية وما أتمه كل طالب</th>
-                    </tr>
-                    <tr>
-                        <th style="width: 5%;">#</th>
-                        <th style="width: 25%;">اسم المساق / الدورة العلمية</th>
-                        <th style="width: 20%;">المدرس / المحاضر</th>
-                        <th style="width: 20%;">اسم الطالب المنتسب</th>
-                        <th style="width: 10%;">حالة المساق</th>
-                        <th style="width: 10%;">درجة الاختبار</th>
-                        <th style="width: 10%;">النتيجة والشهادة</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${(nominations && nominations.length > 0 ? nominations : students.slice(0, 15)).map((e, idx) => `
-                        <tr>
-                            <td class="text-center">${idx + 1}</td>
-                            <td style="font-weight: bold;">${escapeXml(e.formattedDetails || e.nominationType || 'دورة أحكام التجويد التأهيلية')}</td>
-                            <td>${escapeXml(e.teacherName || 'الشيخ المحاضر')}</td>
-                            <td style="font-weight: bold;">${escapeXml(e.studentName || e.fullName || 'طالب')}</td>
-                            <td class="text-center">${e.status === 'Completed' ? 'مكتمل' : 'نشط'}</td>
-                            <td class="text-center" style="font-weight: bold; color: #1565c0;">${e.result ? e.result.grade + '%' : '92%'}</td>
-                            <td class="text-center" style="font-weight: bold; color: #2e7d32;">ناجح وبامتياز 🎓</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+        wsSummary['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "المؤشرات والحلقات");
 
-            <!-- Section 4: Student 360 Detailed Roster -->
-            <table>
-                <thead>
-                    <tr>
-                        <th colspan="37" class="sec-header">🎓 القسم الرابع: السجل الشامل والتفصيلي لكافة بيانات الطلاب والخطط والسكن والتواصل</th>
-                    </tr>
-                    <tr>
-                        <th>#</th>
-                        <th>كود الطالب</th>
-                        <th>اسم الطالب الكامل</th>
-                        <th>رقم هوية الطالب</th>
-                        <th>تاريخ الميلاد</th>
-                        <th>العمر</th>
-                        <th>حالة الأب</th>
-                        <th>حالة الأم</th>
-                        <th>تصنيف اليتم</th>
-                        <th>اسم ولي الأمر</th>
-                        <th>صلة القرابة</th>
-                        <th>هوية ولي الأمر</th>
-                        <th>جوال التواصل</th>
-                        <th>واتساب ولي الأمر</th>
-                        <th>جوال الطالب</th>
-                        <th>واتساب الطالب</th>
-                        <th>الحالة الصحية</th>
-                        <th>الحفظ السابق</th>
-                        <th>الحلقة</th>
-                        <th>المحفظ</th>
-                        <th>نوع الخطة</th>
-                        <th>الأجزاء المستهدفة</th>
-                        <th>الأجزاء المنجزة</th>
-                        <th>وتيرة الحفظ (صفحات)</th>
-                        <th>تاريخ بدء الخطة</th>
-                        <th>تاريخ الختم</th>
-                        <th>عنوان السكن الحالي</th>
-                        <th>نوع السكن الحالي</th>
-                        <th>عنوان السكن الأصلي</th>
-                        <th>نوع السكن الأصلي</th>
-                        <th>حالة السكن الأصلي</th>
-                        <th>المحفظة الإلكترونية</th>
-                        <th>رقم الحساب البنكي</th>
-                        <th>اسم البنك</th>
-                        <th>تاريخ التسجيل</th>
-                        <th>حالة القيد</th>
-                        <th>الملاحظات</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${students.map((s, idx) => {
-                        const age = calculateStudentAge(s.dateOfBirth);
-                        const ageStr = age !== null ? `${age}` : (s.dateOfBirth || '-');
-                        
-                        const f = (s.fatherStatus || "سليم").trim();
-                        const m = (s.motherStatus || "سليم").trim();
-                        const fOrphan = (f === 'شهيد' || f === 'متوفي' || f === 'شهيدة' || f === 'متوفاة');
-                        const mOrphan = (m === 'شهيد' || m === 'متوفي' || m === 'شهيدة' || m === 'متوفاة');
+        // 2. Courses Sheet
+        const courseRows = [
+            ["📚 تقرير المساقات والدورات العلمية وما أتمه كل طالب"],
+            ["#", "اسم المساق / الدورة العلمية", "المدرس / المحاضر", "اسم الطالب المنتسب", "حالة المساق", "درجة الاختبار", "النتيجة والشهادة"]
+        ];
+        const courseEntries = (nominations && nominations.length > 0 ? nominations : students.slice(0, 15));
+        courseEntries.forEach((e, idx) => {
+            courseRows.push([
+                idx + 1,
+                e.formattedDetails || e.nominationType || 'دورة أحكام التجويد التأهيلية',
+                e.teacherName || 'الشيخ المحاضر',
+                e.studentName || e.fullName || 'طالب',
+                e.status === 'Completed' ? 'مكتمل' : 'نشط',
+                e.result ? `${e.result.grade}%` : '92%',
+                'ناجح وبامتياز 🎓'
+            ]);
+        });
+        const wsCourses = XLSX.utils.aoa_to_sheet(courseRows);
+        wsCourses['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsCourses, "المساقات العلمية");
 
-                        let orphanCat = "غير يتيم";
-                        if (fOrphan && mOrphan) orphanCat = "يتيم الأبوين";
-                        else if (fOrphan) orphanCat = `يتيم الأب (${f})`;
-                        else if (mOrphan) orphanCat = `يتيم الأم (${m})`;
+        // 3. Students Detailed Roster
+        const studentHeaders = [
+            "م", "كود الطالب", "اسم الطالب الكامل", "رقم هوية الطالب", "تاريخ الميلاد", "العمر",
+            "حالة الأب", "حالة الأم", "تصنيف اليتم", "اسم ولي الأمر", "صلة القرابة", "هوية ولي الأمر",
+            "جوال التواصل", "واتساب ولي الأمر", "جوال الطالب", "واتساب الطالب", "الحالة الصحية",
+            "الحفظ السابق", "الحلقة", "المحفظ", "نوع الخطة", "الأجزاء المستهدفة", "الأجزاء المنجزة",
+            "وتيرة الحفظ (صفحات)", "تاريخ بدء الخطة", "تاريخ الختم", "عنوان السكن الحالي",
+            "نوع السكن الحالي", "عنوان السكن الأصلي", "نوع السكن الأصلي", "حالة السكن الأصلي",
+            "المحفظة الإلكترونية", "رقم الحساب البنكي", "اسم البنك", "تاريخ التسجيل", "حالة القيد", "الملاحظات"
+        ];
+        const studentRows = [studentHeaders];
+        students.forEach((s, idx) => {
+            const age = calculateStudentAge(s.dateOfBirth);
+            const ageStr = age !== null ? `${age}` : (s.dateOfBirth || '-');
+            const f = (s.fatherStatus || "سليم").trim();
+            const m = (s.motherStatus || "سليم").trim();
+            const fOrphan = (f === 'شهيد' || f === 'متوفي' || f === 'شهيدة' || f === 'متوفاة');
+            const mOrphan = (m === 'شهيد' || m === 'متوفي' || m === 'شهيدة' || m === 'متوفاة');
+            let orphanCat = "غير يتيم";
+            if (fOrphan && mOrphan) orphanCat = "يتيم الأبوين";
+            else if (fOrphan) orphanCat = `يتيم الأب (${f})`;
+            else if (mOrphan) orphanCat = `يتيم الأم (${m})`;
 
-                        const planText = s.planType === 'Intensive' ? 'مكثفة' :
-                                         s.planType === 'Standard' ? 'معيارية' :
-                                         s.planType === 'Gradual' ? 'متدرجة' : (s.planType || 'معيارية');
+            const planText = s.planType === 'Intensive' ? 'مكثفة' :
+                             s.planType === 'Standard' ? 'معيارية' :
+                             s.planType === 'Gradual' ? 'متدرجة' : (s.planType || 'معيارية');
 
-                        return `
-                            <tr>
-                                <td class="text-center">${idx + 1}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">#${s.id}</td>
-                                <td style="font-weight: bold;">${escapeXml(s.fullName)}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.studentIdentityNumber || '-')}</td>
-                                <td class="text-center">${escapeXml(s.dateOfBirth || '-')}</td>
-                                <td class="text-center">${escapeXml(ageStr)}</td>
-                                <td class="text-center">${escapeXml(f)}</td>
-                                <td class="text-center">${escapeXml(m)}</td>
-                                <td class="text-center" style="font-weight: bold;">${escapeXml(orphanCat)}</td>
-                                <td class="text-center">${escapeXml(s.parentName || '-')}</td>
-                                <td class="text-center">${escapeXml(s.kinship || 'الأب')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.parentIdentityNumber || '-')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.familyContact || '-')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.whatsappNumber || '-')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.studentMobile || '-')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.studentWhatsapp || '-')}</td>
-                                <td class="text-center">${escapeXml(s.healthStatus || 'سليم')}</td>
-                                <td class="text-center" style="font-weight: bold; color: #0d5c3a;">${escapeXml(s.previousQuranMemorization || 'مستمر التسميع')}</td>
-                                <td class="text-center">${escapeXml(s.circleName || 'غير مسند')}</td>
-                                <td class="text-center">${escapeXml(s.teacherName || 'غير محدد')}</td>
-                                <td class="text-center">${escapeXml(planText)}</td>
-                                <td class="text-center">${s.targetAjzaaCount || 30}</td>
-                                <td class="text-center">${escapeXml(s.completedAjzaa || '0')}</td>
-                                <td class="text-center">${s.dailyPacePages || 1}</td>
-                                <td class="text-center">${escapeXml(s.planStartDate || '-')}</td>
-                                <td class="text-center">${escapeXml(s.planTargetDate || '-')}</td>
-                                <td>${escapeXml(s.currentAddress || s.address || '-')}</td>
-                                <td>${escapeXml(s.currentHousingType || '-')}</td>
-                                <td>${escapeXml(s.originalAddress || '-')}</td>
-                                <td>${escapeXml(s.originalHousingType || '-')}</td>
-                                <td>${escapeXml(s.originalHousingStatus || '-')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.walletNumber || '-')}</td>
-                                <td class="text-center" style="mso-number-format:'\\@';">${escapeXml(s.bankAccountNumber || '-')}</td>
-                                <td>${escapeXml(s.bankName || '-')}</td>
-                                <td class="text-center">${escapeXml(s.registrationDate || '-')}</td>
-                                <td class="text-center">${s.isActive ? 'نشط' : 'موقوف'}</td>
-                                <td>${escapeXml(s.notes || '-')}</td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        </body>
-        </html>
-        `;
+            studentRows.push([
+                idx + 1,
+                `#${s.id}`,
+                s.fullName || '',
+                s.studentIdentityNumber || '-',
+                s.dateOfBirth || '-',
+                ageStr,
+                f,
+                m,
+                orphanCat,
+                s.parentName || '-',
+                s.kinship || 'الأب',
+                s.parentIdentityNumber || '-',
+                s.familyContact || '-',
+                s.whatsappNumber || '-',
+                s.studentMobile || '-',
+                s.studentWhatsapp || '-',
+                s.healthStatus || 'سليم',
+                s.previousQuranMemorization || 'مستمر التسميع',
+                s.circleName || 'غير مسند',
+                s.teacherName || 'غير محدد',
+                planText,
+                s.targetAjzaaCount || 30,
+                s.completedAjzaa || '0',
+                s.dailyPacePages || 1,
+                s.planStartDate || '-',
+                s.planTargetDate || '-',
+                s.currentAddress || s.address || '-',
+                s.currentHousingType || '-',
+                s.originalAddress || '-',
+                s.originalHousingType || '-',
+                s.originalHousingStatus || '-',
+                s.walletNumber || '-',
+                s.bankAccountNumber || '-',
+                s.bankName || '-',
+                s.registrationDate || '-',
+                s.isActive ? 'نشط' : 'موقوف',
+                s.notes || '-'
+            ]);
+        });
 
-        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-        const link = document.createElement('a');
-        const fileName = `التقرير_المركزي_الشامل_مركز_البيان_${fromDate || 'عام'}_إلى_${toDate || 'اليوم'}.xls`;
+        const wsStudents = XLSX.utils.aoa_to_sheet(studentRows);
+        wsStudents['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsStudents, "سجل الطلاب التفصيلي");
 
-        if (navigator.msSaveBlob) {
-            navigator.msSaveBlob(blob, fileName);
-        } else {
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+        const fileName = `التقرير_المركزي_الشامل_مركز_البيان_${fromDate || 'عام'}_إلى_${toDate || 'اليوم'}.xlsx`;
+        XLSX.writeFile(wb, fileName);
 
-        showAlert("تم استخراج وتنزيل تقرير الإكسل الشامل للمركز بنجاح!", "success");
+        showAlert("تم استخراج وتنزيل تقرير الإكسل الشامل للمركز بنجاح (.xlsx)! 📊", "success");
 
     } catch (e) {
         console.error(e);
@@ -1686,14 +1530,14 @@ async function loadAdminCircles() {
                     </span>
                 </td>
                 <td>
-                    <div class="d-flex gap-1 flex-wrap">
-                        <button class="btn btn-outline-primary btn-sm btn-edit-circle" data-id="${c.id}"><i class="fa-solid fa-pen"></i> تعديل</button>
-                        <button class="btn btn-light btn-sm btn-manage-students" data-id="${c.id}"><i class="fa-solid fa-user-gear"></i> إدارة الطلاب</button>
-                        <button class="btn ${c.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-circle" data-id="${c.id}">
-                            <i class="fa-solid ${c.isActive ? 'fa-ban' : 'fa-check'}"></i> ${c.isActive ? 'تعطيل' : 'تنشيط'}
+                    <div class="table-actions-nowrap">
+                        <button class="btn btn-outline-primary btn-sm btn-edit-circle" data-id="${c.id}" title="تعديل"><i class="fa-solid fa-pen"></i> تعديل</button>
+                        <button class="btn btn-light btn-sm border btn-manage-students" data-id="${c.id}" title="إدارة الطلاب"><i class="fa-solid fa-user-gear"></i> إدارة الطلاب</button>
+                        <button class="btn ${c.isActive ? 'btn-outline-warning text-dark' : 'btn-outline-success'} btn-sm btn-toggle-circle" data-id="${c.id}" title="${c.isActive ? 'تعطيل' : 'تنشيط'}">
+                            <i class="fa-solid ${c.isActive ? 'fa-ban' : 'fa-check'}"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm btn-hard-delete-circle" data-id="${c.id}" data-name="${c.name}">
-                            <i class="fa-solid fa-trash-can"></i> حذف نهائي
+                        <button class="btn btn-outline-danger btn-sm btn-hard-delete-circle" data-id="${c.id}" data-name="${c.name}" title="حذف نهائي">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
                 </td>
@@ -2074,13 +1918,13 @@ async function loadAdminTeachers(search = "") {
                     </span>
                 </td>
                 <td class="text-center" style="width: 175px;">
-                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                    <div class="table-actions-nowrap justify-content-center">
                         <button class="btn btn-success btn-sm btn-manage-teacher-roles shadow-xs" data-id="${t.id}" title="تحديد الصلاحيات والمهام الإدارية"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
                         <button class="btn btn-outline-primary btn-sm btn-edit-teacher shadow-xs" data-id="${t.id}" title="تعديل كافة البيانات"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn ${t.isActive ? 'btn-warning text-dark' : 'btn-success'} btn-sm btn-toggle-teacher shadow-xs" data-id="${t.id}" title="${t.isActive ? 'تعطيل' : 'تنشيط'}">
+                        <button class="btn ${t.isActive ? 'btn-outline-warning text-dark' : 'btn-outline-success'} btn-sm btn-toggle-teacher shadow-xs" data-id="${t.id}" title="${t.isActive ? 'تعطيل' : 'تنشيط'}">
                             <i class="fa-solid ${t.isActive ? 'fa-ban' : 'fa-check'}"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm btn-hard-delete-teacher shadow-xs" data-id="${t.id}" data-name="${t.fullName}" title="حذف نهائي">
+                        <button class="btn btn-outline-danger btn-sm btn-hard-delete-teacher shadow-xs" data-id="${t.id}" data-name="${t.fullName}" title="حذف نهائي">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
@@ -3375,19 +3219,28 @@ async function showStudentRecitations(studentId, studentName, circleName) {
             
             sessions.forEach(s => {
                 const item = document.createElement("div");
-                item.className = `timeline-item ${s.assessment.toLowerCase()}-session`;
+                const isDidNotRecite = s.assessment === "DidNotRecite" || s.assessment === 6;
+                item.className = `timeline-item ${isDidNotRecite ? 'rejected' : String(s.assessment).toLowerCase()}-session`;
                 
-                let assessmentBadge = `<span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText}</span>`;
+                let assessmentBadge = `<span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText || (isDidNotRecite ? 'لم يُسمّع' : s.assessment)}</span>`;
                 let lotteryBadge = s.viaLottery ? `<span class="badge badge-info"><i class="fa-solid fa-dice"></i> عبر القرعة</span>` : '';
+                let typeBadge = isDidNotRecite ? '' : (s.recitationType === 2 
+                    ? `<span class="badge bg-warning text-dark"><i class="fa-solid fa-repeat me-1"></i> مراجعة وتثبيت</span>` 
+                    : `<span class="badge bg-success"><i class="fa-solid fa-book-bookmark me-1"></i> حفظ جديد</span>`);
+
+                const titleHtml = isDidNotRecite 
+                    ? `<span class="text-danger fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i> لم يُسمّع اليوم</span>`
+                    : `سورة ${s.surahName} (الآيات: ${s.fromVerse} - ${s.toVerse})`;
                 
                 item.innerHTML = `
                     <div class="timeline-marker"></div>
                     <div class="timeline-content">
                         <div class="timeline-header">
                             <h4 class="timeline-title">
-                                سورة ${s.surahName} (الآيات: ${s.fromVerse} - ${s.toVerse})
+                                ${titleHtml}
                             </h4>
-                            <div class="d-flex gap-2 align-items-center">
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                ${typeBadge}
                                 ${lotteryBadge}
                                 ${assessmentBadge}
                                 <span class="timeline-date">${s.sessionDate}</span>
@@ -3442,6 +3295,7 @@ function getAssessmentBadgeClass(level) {
         case "Good": return "badge-warning";
         case "Medium": return "badge-warning";
         case "Rejected": return "badge-danger";
+        case "DidNotRecite": return "badge-secondary";
         default: return "badge-info";
     }
 }
@@ -5458,6 +5312,9 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
             return;
         }
     }
+
+    const isRecRevision = session && (session.recitationType === 2 || session.recitationType === 'Revision');
+    const isDidNotRecite = session && (session.assessment === 'DidNotRecite' || session.assessment === 6);
     
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
@@ -5465,6 +5322,20 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
             <input type="hidden" id="form-session-id" value="${sessionId || ''}">
             
             <div class="modal-form-grid">
+                <div class="form-group modal-form-grid-full">
+                    <label class="form-label fw-bold mb-2"><i class="fa-solid fa-list-check me-1 text-primary"></i> مسار ونوع التسميع:</label>
+                    <div class="d-flex gap-3">
+                        <label class="d-flex align-items-center gap-2 p-2 border rounded-3 flex-fill cursor-pointer bg-light">
+                            <input type="radio" name="session-recitation-type" id="rec-type-memorization" value="1" ${!isRecRevision ? 'checked' : ''}>
+                            <span class="fw-bold text-success"><i class="fa-solid fa-book-bookmark me-1"></i> حفظ جديد</span>
+                        </label>
+                        <label class="d-flex align-items-center gap-2 p-2 border rounded-3 flex-fill cursor-pointer bg-light">
+                            <input type="radio" name="session-recitation-type" id="rec-type-revision" value="2" ${isRecRevision ? 'checked' : ''}>
+                            <span class="fw-bold text-dark"><i class="fa-solid fa-repeat me-1 text-warning"></i> مراجعة وتثبيت</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="session-form-date">تاريخ التسميع:</label>
                     <input type="date" id="session-form-date" class="form-control" value="${session ? session.sessionDate : getTodayDateString()}" required>
@@ -5472,33 +5343,34 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                 
                 <div class="form-group">
                     <label for="session-surah">اسم السورة مسمَّعة:</label>
-                    <input type="text" id="session-surah" class="form-control" placeholder="مثلاً: البقرة، آل عمران" value="${session ? session.surahName : ''}" required>
+                    <input type="text" id="session-surah" class="form-control" placeholder="مثلاً: البقرة، آل عمران" value="${session ? session.surahName : ''}" ${isDidNotRecite ? '' : 'required'}>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" id="group-from-verse">
                     <label for="session-from-verse">من الآية رقم:</label>
-                    <input type="number" id="session-from-verse" class="form-control" value="${session ? session.fromVerse : '1'}" min="1" required>
+                    <input type="number" id="session-from-verse" class="form-control" value="${session ? session.fromVerse : '1'}" min="0" ${isDidNotRecite ? '' : 'required'}>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" id="group-to-verse">
                     <label for="session-to-verse">إلى الآية رقم:</label>
-                    <input type="number" id="session-to-verse" class="form-control" value="${session ? session.toVerse : ''}" min="1" required>
+                    <input type="number" id="session-to-verse" class="form-control" value="${session ? session.toVerse : ''}" min="0" ${isDidNotRecite ? '' : 'required'}>
                 </div>
                 
                 <div class="form-group modal-form-grid-full">
-                    <label for="session-assessment">مستوى تقييم الحفظ:</label>
+                    <label for="session-assessment">مستوى تقييم الحفظ والإتقان:</label>
                     <select id="session-assessment" class="form-control" required>
                         <option value="Excellent" ${session && session.assessment === 'Excellent' ? 'selected' : ''}>ممتاز (Excellent)</option>
                         <option value="VeryGood" ${session && session.assessment === 'VeryGood' ? 'selected' : ''}>جيد جداً (Very Good)</option>
                         <option value="Good" ${session && session.assessment === 'Good' ? 'selected' : ''}>جيد (Good)</option>
                         <option value="Medium" ${session && session.assessment === 'Medium' ? 'selected' : ''}>مقبول (Medium)</option>
                         <option value="Rejected" ${session && session.assessment === 'Rejected' ? 'selected' : ''}>بحاجة لإعادة (Rejected)</option>
+                        <option value="DidNotRecite" ${isDidNotRecite ? 'selected' : ''}>❌ لم يُسمّع (Did Not Recite)</option>
                     </select>
                 </div>
                 
                 <div class="form-group modal-form-grid-full">
-                    <label for="session-notes">ملاحظات أو تنبيهات:</label>
-                    <textarea id="session-notes" class="form-control" rows="2" placeholder="اكتب ملاحظاتك على الأخطاء أو التجويد...">${session ? (session.notes || '') : ''}</textarea>
+                    <label for="session-notes">ملاحظات أو تنبيهات الشيخ:</label>
+                    <textarea id="session-notes" class="form-control" rows="2" placeholder="اكتب ملاحظاتك على الأخطاء أو التجويد أو سبب عدم التسميع...">${session ? (session.notes || '') : ''}</textarea>
                 </div>
                 
                 <div class="form-group flex-row align-items-center gap-2 modal-form-grid-full">
@@ -5515,22 +5387,69 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
     `;
     
     document.getElementById("btn-cancel-session-form").addEventListener("click", closeModal);
+
+    const assessSelect = document.getElementById("session-assessment");
+    const surahInput = document.getElementById("session-surah");
+    const fromVInput = document.getElementById("session-from-verse");
+    const toVInput = document.getElementById("session-to-verse");
+    const grpFrom = document.getElementById("group-from-verse");
+    const grpTo = document.getElementById("group-to-verse");
+
+    function updateFieldsForAssessment() {
+        const isDidNot = assessSelect.value === "DidNotRecite";
+        if (isDidNot) {
+            if (!surahInput.value || surahInput.value.trim() === "") surahInput.value = "لم يُسمّع";
+            surahInput.removeAttribute("required");
+            fromVInput.removeAttribute("required");
+            toVInput.removeAttribute("required");
+            fromVInput.value = "0";
+            toVInput.value = "0";
+            if (grpFrom) grpFrom.style.opacity = "0.45";
+            if (grpTo) grpTo.style.opacity = "0.45";
+        } else {
+            surahInput.setAttribute("required", "required");
+            fromVInput.setAttribute("required", "required");
+            toVInput.setAttribute("required", "required");
+            if (surahInput.value === "لم يُسمّع") surahInput.value = "";
+            if (fromVInput.value === "0") fromVInput.value = "1";
+            if (toVInput.value === "0") toVInput.value = "";
+            if (grpFrom) grpFrom.style.opacity = "1";
+            if (grpTo) grpTo.style.opacity = "1";
+        }
+    }
+
+    assessSelect.addEventListener("change", updateFieldsForAssessment);
+    if (isDidNotRecite) {
+        updateFieldsForAssessment();
+    }
     
     document.getElementById("session-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         
         const id = document.getElementById("form-session-id").value;
         const sDate = document.getElementById("session-form-date").value;
-        const surah = document.getElementById("session-surah").value;
-        const fromV = parseInt(document.getElementById("session-from-verse").value);
-        const toV = parseInt(document.getElementById("session-to-verse").value);
+        let surah = document.getElementById("session-surah").value.trim();
+        let fromV = parseInt(document.getElementById("session-from-verse").value) || 0;
+        let toV = parseInt(document.getElementById("session-to-verse").value) || 0;
         const assess = document.getElementById("session-assessment").value;
         const notesVal = document.getElementById("session-notes").value;
         const viaLotteryVal = document.getElementById("session-lottery-check").checked;
+        const recTypeVal = parseInt(document.querySelector('input[name="session-recitation-type"]:checked')?.value || "1");
         
-        if (toV < fromV) {
-            showAlert("تنبيه: لا يمكن لآية النهاية أن تكون أصغر من آية البداية.", "danger");
-            return;
+        const isDidNot = assess === "DidNotRecite";
+        if (isDidNot) {
+            surah = surah || "لم يُسمّع";
+            fromV = 0;
+            toV = 0;
+        } else {
+            if (!surah) {
+                showAlert("يرجى إدخال اسم السورة المسمعة.", "warning");
+                return;
+            }
+            if (toV < fromV) {
+                showAlert("تنبيه: لا يمكن لآية النهاية أن تكون أصغر من آية البداية.", "danger");
+                return;
+            }
         }
         
         try {
@@ -5541,7 +5460,8 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     fromVerse: fromV,
                     toVerse: toV,
                     assessment: assess,
-                    notes: notesVal || null
+                    notes: notesVal || null,
+                    recitationType: recTypeVal
                 };
                 await apiRequest(`/sessions/${id}`, "PUT", dto);
                 showAlert("تم تحديث جلسة التسميع بنجاح.", "success");
@@ -5554,7 +5474,8 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     toVerse: toV,
                     assessment: assess,
                     notes: notesVal || null,
-                    viaLottery: viaLotteryVal
+                    viaLottery: viaLotteryVal,
+                    recitationType: recTypeVal
                 };
                 await apiRequest("/sessions", "POST", dto);
                 showAlert("تم تسجيل جلسة التسميع بنجاح.", "success");
@@ -9090,14 +9011,26 @@ function exportDynamicReportToExcel() {
 
     const tagText = document.getElementById("dyn-report-tag") ? document.getElementById("dyn-report-tag").textContent : "تقرير الطلاب الشامل";
     const nowStr = new Date().toLocaleDateString('ar-EG');
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
 
-    const escapeXml = (str) => (str || '').toString()
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    const studentHeaders = [
+        "م", "كود الطالب", "اسم الطالب الكامل", "رقم هوية الطالب", "تاريخ الميلاد", "العمر",
+        "حالة الأب", "حالة الأم", "تصنيف اليتم", "اسم ولي الأمر", "صلة القرابة", "هوية ولي الأمر",
+        "جوال التواصل", "واتساب ولي الأمر", "جوال الطالب", "واتساب الطالب", "الحالة الصحية",
+        "الحفظ السابق", "الحلقة", "المحفظ", "نوع الخطة", "الأجزاء المستهدفة", "الأجزاء المنجزة",
+        "وتيرة الحفظ (صفحات)", "تاريخ بدء الخطة", "تاريخ الختم", "عنوان السكن الحالي",
+        "نوع السكن الحالي", "عنوان السكن الأصلي", "نوع السكن الأصلي", "حالة السكن الأصلي",
+        "المحفظة الإلكترونية", "رقم الحساب البنكي", "اسم البنك", "تاريخ التسجيل", "حالة القيد", "الملاحظات"
+    ];
 
-    let rowsXml = "";
+    const rows = [
+        ["🕌 " + centerName + " - " + mosqueName],
+        [tagText + " | عدد الطلاب: " + currentDynamicFilteredStudents.length + " | تاريخ الاستخراج: " + nowStr],
+        [],
+        studentHeaders
+    ];
+
     currentDynamicFilteredStudents.forEach((s, idx) => {
         const age = calculateStudentAge(s.dateOfBirth);
         const ageStr = age !== null ? `${age}` : (s.dateOfBirth || '-');
@@ -9118,142 +9051,53 @@ function exportDynamicReportToExcel() {
 
         const activeText = s.isActive ? 'نشط' : 'موقوف';
 
-        rowsXml += `
-            <tr>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${idx + 1}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">#${s.id}</td>
-                <td style="font-weight: bold; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.fullName)}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentIdentityNumber || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.dateOfBirth || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(ageStr)}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(f)}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(m)}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(orphanCategory)}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.parentName || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.kinship || 'الأب')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.parentIdentityNumber || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.familyContact || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.whatsappNumber || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentMobile || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.studentWhatsapp || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.healthStatus || 'سليم')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.previousQuranMemorization || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.circleName || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.teacherName || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(planText)}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${s.targetAjzaaCount || 30}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.completedAjzaa || '0')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${s.dailyPacePages || 1}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.planStartDate || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.planTargetDate || '-')}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.currentAddress || s.address || '-')}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.currentHousingType || '-')}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.originalAddress || '-')}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.originalHousingType || '-')}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.originalHousingStatus || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.walletNumber || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle; mso-number-format:'\\@';">${escapeXml(s.bankAccountNumber || '-')}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.bankName || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.registrationDate || '-')}</td>
-                <td style="text-align: center; border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(activeText)}</td>
-                <td style="border: 1px solid #cccccc; vertical-align: middle;">${escapeXml(s.notes || '-')}</td>
-            </tr>
-        `;
+        rows.push([
+            idx + 1,
+            `#${s.id}`,
+            s.fullName || '',
+            s.studentIdentityNumber || '-',
+            s.dateOfBirth || '-',
+            ageStr,
+            f,
+            m,
+            orphanCategory,
+            s.parentName || '-',
+            s.kinship || 'الأب',
+            s.parentIdentityNumber || '-',
+            s.familyContact || '-',
+            s.whatsappNumber || '-',
+            s.studentMobile || '-',
+            s.studentWhatsapp || '-',
+            s.healthStatus || 'سليم',
+            s.previousQuranMemorization || '-',
+            s.circleName || '-',
+            s.teacherName || '-',
+            planText,
+            s.targetAjzaaCount || 30,
+            s.completedAjzaa || '0',
+            s.dailyPacePages || 1,
+            s.planStartDate || '-',
+            s.planTargetDate || '-',
+            s.currentAddress || s.address || '-',
+            s.currentHousingType || '-',
+            s.originalAddress || '-',
+            s.originalHousingType || '-',
+            s.originalHousingStatus || '-',
+            s.walletNumber || '-',
+            s.bankAccountNumber || '-',
+            s.bankName || '-',
+            s.registrationDate || '-',
+            activeText,
+            s.notes || '-'
+        ]);
     });
 
-    const excelTemplate = `
-        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-            <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8"/>
-            <!--[if gte mso 9]>
-            <xml>
-                <x:ExcelWorkbook>
-                    <x:ExcelWorksheets>
-                        <x:ExcelWorksheet>
-                            <x:Name>تقرير الطلاب الشامل</x:Name>
-                            <x:WorksheetOptions>
-                                <x:DisplayRightToLeft/>
-                                <x:Print>
-                                    <x:ValidPrinterInfo/>
-                                </x:Print>
-                            </x:WorksheetOptions>
-                        </x:ExcelWorksheet>
-                    </x:ExcelWorksheets>
-                </x:ExcelWorkbook>
-            </xml>
-            <![endif]-->
-            <style>
-                body { font-family: Tahoma, Arial, sans-serif; direction: rtl; }
-                table { border-collapse: collapse; width: 100%; }
-                th { background-color: #0d5c3a; color: #ffffff; font-weight: bold; border: 1px solid #000000; padding: 10px; text-align: center; font-size: 12px; }
-                td { border: 1px solid #cccccc; padding: 7px; font-size: 11px; }
-                .title-header { font-size: 16pt; font-weight: bold; color: #0d5c3a; text-align: center; padding: 12px; background-color: #f4f6f8; }
-                .meta-header { font-size: 11pt; font-weight: bold; background-color: #e8f5e9; text-align: right; padding: 8px 12px; color: #1b5e20; }
-            </style>
-        </head>
-        <body dir="rtl">
-            <table>
-                <tr>
-                    <td colspan="37" class="title-header">${escapeXml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)} - ${escapeXml(cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName)}</td>
-                </tr>
-                <tr>
-                    <td colspan="37" class="meta-header">
-                        ${tagText} | عدد الطلاب بالتقرير: ${currentDynamicFilteredStudents.length} طالب | تاريخ الاستخراج: ${nowStr}
-                    </td>
-                </tr>
-                <tr>
-                    <th>#</th>
-                    <th>كود الطالب</th>
-                    <th>اسم الطالب الكامل</th>
-                    <th>رقم هوية الطالب</th>
-                    <th>تاريخ الميلاد</th>
-                    <th>العمر</th>
-                    <th>حالة الأب</th>
-                    <th>حالة الأم</th>
-                    <th>تصنيف اليتم</th>
-                    <th>اسم ولي الأمر</th>
-                    <th>صلة القرابة</th>
-                    <th>هوية ولي الأمر</th>
-                    <th>جوال التواصل</th>
-                    <th>واتساب ولي الأمر</th>
-                    <th>جوال الطالب</th>
-                    <th>واتساب الطالب</th>
-                    <th>الحالة الصحية</th>
-                    <th>الحفظ السابق</th>
-                    <th>الحلقة</th>
-                    <th>المحفظ</th>
-                    <th>نوع الخطة</th>
-                    <th>الأجزاء المستهدفة</th>
-                    <th>الأجزاء المنجزة</th>
-                    <th>وتيرة الحفظ (صفحات)</th>
-                    <th>تاريخ بدء الخطة</th>
-                    <th>تاريخ الختم</th>
-                    <th>عنوان السكن الحالي</th>
-                    <th>نوع السكن الحالي</th>
-                    <th>عنوان السكن الأصلي</th>
-                    <th>نوع السكن الأصلي</th>
-                    <th>حالة السكن الأصلي</th>
-                    <th>المحفظة الإلكترونية</th>
-                    <th>رقم الحساب البنكي</th>
-                    <th>اسم البنك</th>
-                    <th>تاريخ التسجيل</th>
-                    <th>حالة القيد</th>
-                    <th>الملاحظات</th>
-                </tr>
-                ${rowsXml}
-            </table>
-        </body>
-        </html>
-    `;
-
-    const blob = new Blob(["\uFEFF" + excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `تقرير_طلاب_مركز_البيان_${new Date().toISOString().slice(0,10)}.xls`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!views'] = [{ rightToLeft: true }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "تقرير الطلاب");
+    const fileName = `تقرير_طلاب_مركز_البيان_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
 }
 
 // ==========================================================================
@@ -11379,8 +11223,19 @@ async function openCreateTransactionModal(defaultType = 'Income') {
                     <input type="text" id="swal-trans-title" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;" placeholder="مثال: تبرع كفالة حلقة / شراء قرطاسية / مكافأة شهر..." required>
                 </div>
 
-                <!-- Payment Method & Detail -->
+                <!-- Category & Payment Method -->
                 <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">الباب / التصنيف <span style="color: #ef4444;">*</span></label>
+                        <select id="swal-trans-category" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; background: #fff; font-size: 0.88rem;">
+                            <option value="عام">عام</option>
+                            <option value="كفالات وتبرعات">كفالات وتبرعات</option>
+                            <option value="مكافآت ورواتب">مكافآت ورواتب</option>
+                            <option value="ضيافة وأنشطة">ضيافة وأنشطة</option>
+                            <option value="قرطاسية وجوائز">قرطاسية وجوائز</option>
+                            <option value="صيانة ومرافق">صيانة ومرافق</option>
+                        </select>
+                    </div>
                     <div style="flex: 1;">
                         <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">طريقة الدفع <span style="color: #ef4444;">*</span></label>
                         <select id="swal-trans-method" onchange="togglePaymentDetailsInput(this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; background: #fff; font-size: 0.88rem;">
@@ -11389,10 +11244,10 @@ async function openCreateTransactionModal(defaultType = 'Income') {
                             <option value="3">🏦 تحويل بنكي</option>
                         </select>
                     </div>
-                    <div style="flex: 1; display: none;" id="swal-payment-details-box">
-                        <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">اسم التطبيق / رقم الحساب</label>
-                        <input type="text" id="swal-trans-payment-details" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.88rem;" placeholder="مثال: Jawwal Pay...">
-                    </div>
+                </div>
+                <div style="margin-bottom: 12px; display: none;" id="swal-payment-details-box">
+                    <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; color: #334155;">اسم التطبيق / رقم الحساب</label>
+                    <input type="text" id="swal-trans-payment-details" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.88rem;" placeholder="مثال: Jawwal Pay...">
                 </div>
 
                 <!-- Donor Fields (for Income) -->
@@ -11432,9 +11287,9 @@ async function openCreateTransactionModal(defaultType = 'Income') {
         cancelButtonText: 'إلغاء',
         confirmButtonColor: isIncome ? '#10b981' : '#ef4444',
         preConfirm: () => {
-            const amount = parseFloat(document.getElementById('swal-trans-amount').value);
-            const title = document.getElementById('swal-trans-title').value.trim();
-            const dateVal = document.getElementById('swal-trans-date').value;
+            const amount = parseFloat(document.getElementById('swal-trans-amount')?.value);
+            const title = (document.getElementById('swal-trans-title')?.value || '').trim();
+            const dateVal = document.getElementById('swal-trans-date')?.value;
 
             if (!amount || amount <= 0) {
                 Swal.showValidationMessage('يرجى إدخال مبلغ صحيح أكبر من صفر.');
@@ -11445,21 +11300,22 @@ async function openCreateTransactionModal(defaultType = 'Income') {
                 return false;
             }
 
-            const typeVal = parseInt(document.querySelector('input[name="swal-trans-type"]:checked').value);
+            const typeChecked = document.querySelector('input[name="swal-trans-type"]:checked');
+            const typeVal = typeChecked ? parseInt(typeChecked.value) : (isIncome ? 1 : 2);
             return {
                 type: typeVal,
                 amount: amount,
-                currency: document.getElementById('swal-trans-currency').value,
+                currency: document.getElementById('swal-trans-currency')?.value || 'ILS',
                 transactionDate: dateVal ? new Date(dateVal).toISOString() : new Date().toISOString(),
                 title: title,
-                category: document.getElementById('swal-trans-category').value,
-                paymentMethod: parseInt(document.getElementById('swal-trans-method').value),
-                paymentDetails: document.getElementById('swal-trans-payment-details').value.trim(),
-                donorName: document.getElementById('swal-trans-donor-name').value.trim(),
-                donorSource: document.getElementById('swal-trans-donor-source').value.trim(),
-                recipientName: document.getElementById('swal-trans-recipient').value.trim(),
-                referenceNumber: document.getElementById('swal-trans-ref').value.trim(),
-                notes: document.getElementById('swal-trans-notes').value.trim(),
+                category: (document.getElementById('swal-trans-category')?.value || 'عام').trim(),
+                paymentMethod: parseInt(document.getElementById('swal-trans-method')?.value || '1'),
+                paymentDetails: (document.getElementById('swal-trans-payment-details')?.value || '').trim(),
+                donorName: (document.getElementById('swal-trans-donor-name')?.value || '').trim(),
+                donorSource: (document.getElementById('swal-trans-donor-source')?.value || '').trim(),
+                recipientName: (document.getElementById('swal-trans-recipient')?.value || '').trim(),
+                referenceNumber: (document.getElementById('swal-trans-ref')?.value || '').trim(),
+                notes: (document.getElementById('swal-trans-notes')?.value || '').trim(),
                 createdByName: getAuthStorage("fullName") || "الإدارة المالية"
             };
         }
@@ -11933,49 +11789,24 @@ function filterFinancialTable(query) {
 // =========================================================================
 // 2. QUALITY MANAGEMENT MODULE (ملف الجودة والرقابة والتوجيه)
 // =========================================================================
+let cachedQualityOverview = null;
+
 async function loadQualityManagementScreen() {
-    const tbody = document.getElementById("quality-circles-table-body");
-    if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري احتساب مؤشرات الجودة...</td></tr>';
+    const tbodyCircles = document.getElementById("quality-circles-table-body");
+    const tbodyCourses = document.getElementById("quality-courses-table-body");
+    if (tbodyCircles) {
+        tbodyCircles.innerHTML = '<tr><td colspan="10" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب وتحليل مؤشرات الجودة الحقيقية من قاعدة البيانات...</td></tr>';
+    }
+    if (tbodyCourses) {
+        tbodyCourses.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب بيانات الدورات العلمية...</td></tr>';
     }
 
     try {
-        let circles = cachedCircles;
-        if (!circles || !circles.length) {
-            circles = await apiRequest("/circles");
-            cachedCircles = circles || [];
-        }
-
-        // Stats calculation
-        let totalSessions = 0;
-        let excellenceCount = 0;
-        let totalEvaluations = 0;
-
-        const tableRows = (circles || []).map((c, idx) => {
-            const studentCount = c.studentCount || (c.students ? c.students.length : 0);
-            const attendanceRate = Math.min(100, Math.max(70, 85 + (idx % 12)));
-            const completedSessions = (studentCount * 18) + (idx * 3);
-            totalSessions += completedSessions;
-            excellenceCount += Math.round(completedSessions * 0.82);
-            totalEvaluations += completedSessions;
-
-            const qualityScore = attendanceRate >= 90 ? "ممتاز ⭐⭐⭐" : (attendanceRate >= 80 ? "جيد جداً ⭐⭐" : "جيد ⭐");
-            const badgeClass = attendanceRate >= 90 ? "bg-success" : (attendanceRate >= 80 ? "bg-primary" : "bg-warning text-dark");
-
-            return `
-                <tr>
-                    <td class="text-center font-monospace">${idx + 1}</td>
-                    <td><strong class="text-primary"><i class="fa-solid fa-mosque me-1 text-success"></i> ${c.name}</strong></td>
-                    <td>${c.teacherName || '<span class="text-muted">-</span>'}</td>
-                    <td class="text-center"><span class="badge bg-light text-dark border px-2 py-1 font-monospace">${studentCount} طالب</span></td>
-                    <td class="text-center font-monospace">${completedSessions}</td>
-                    <td class="text-center"><span class="badge ${badgeClass} px-2 py-1 font-monospace">${attendanceRate}%</span></td>
-                    <td><span class="badge bg-light text-success border border-success fw-bold px-2 py-1">${qualityScore}</span></td>
-                </tr>
-            `;
-        }).join("");
-
-        if (tbody) tbody.innerHTML = tableRows || '<tr><td colspan="7" class="text-center p-4 text-muted">لا توجد حلقات مسجلة.</td></tr>';
+        const data = await apiRequest("/quality/overview");
+        cachedQualityOverview = data;
+        const stats = data.stats || {};
+        const circles = data.circles || [];
+        const courses = data.courses || [];
 
         // Update KPIs
         const elExcellence = document.getElementById("quality-stat-excellence-rate");
@@ -11983,13 +11814,260 @@ async function loadQualityManagementScreen() {
         const elSessions = document.getElementById("quality-stat-total-sessions");
         const elAvgAtt = document.getElementById("quality-stat-avg-attendance");
 
-        if (elExcellence) elExcellence.textContent = totalEvaluations ? `${Math.round((excellenceCount / totalEvaluations) * 100)}%` : "92%";
-        if (elActive) elActive.textContent = (circles || []).length;
-        if (elSessions) elSessions.textContent = totalSessions;
-        if (elAvgAtt) elAvgAtt.textContent = "94.5%";
+        if (elExcellence) elExcellence.textContent = `${stats.excellenceRate ?? 0}%`;
+        if (elActive) elActive.textContent = stats.totalCircles ?? circles.length;
+        if (elSessions) elSessions.textContent = (stats.totalSessions ?? 0).toLocaleString();
+        if (elAvgAtt) elAvgAtt.textContent = `${stats.avgAttendanceRate ?? 0}%`;
+
+        // Render Circles Table
+        if (tbodyCircles) {
+            if (circles.length === 0) {
+                tbodyCircles.innerHTML = '<tr><td colspan="10" class="text-center p-4 text-muted">لا توجد حلقات مسجلة.</td></tr>';
+            } else {
+                tbodyCircles.innerHTML = circles.map((c, idx) => {
+                    const rate = c.attendanceRate ?? 100;
+                    const badgeClass = rate >= 90 ? "bg-success" : (rate >= 80 ? "bg-primary" : "bg-warning text-dark");
+                    return `
+                        <tr>
+                            <td class="text-center font-monospace">${idx + 1}</td>
+                            <td><strong class="text-primary"><i class="fa-solid fa-mosque me-1 text-success"></i> ${c.name}</strong></td>
+                            <td>${c.teacherName || '<span class="text-muted">-</span>'}</td>
+                            <td class="text-center"><span class="badge bg-light text-dark border px-2 py-1 font-monospace">${c.studentCount} طالب</span></td>
+                            <td class="text-center font-monospace text-success fw-bold">${c.memorizationSessions || 0}</td>
+                            <td class="text-center font-monospace text-warning text-dark fw-bold">${c.revisionSessions || 0}</td>
+                            <td class="text-center font-monospace text-danger fw-bold">${c.didNotReciteSessions || 0}</td>
+                            <td class="text-center font-monospace text-primary fw-bold">${(c.totalVerses || 0).toLocaleString()}</td>
+                            <td class="text-center"><span class="badge ${badgeClass} px-2 py-1 font-monospace">${rate}%</span></td>
+                            <td><span class="badge bg-light text-success border border-success fw-bold px-2 py-1">${c.qualityScore || 'جيد ⭐'}</span></td>
+                        </tr>
+                    `;
+                }).join("");
+            }
+        }
+
+        // Render Courses Table
+        if (tbodyCourses) {
+            if (courses.length === 0) {
+                tbodyCourses.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted">لا توجد دورات علمية مسجلة حالياً.</td></tr>';
+            } else {
+                tbodyCourses.innerHTML = courses.map((crs, idx) => {
+                    const rateBadge = (crs.attendanceRate ?? 100) >= 90 ? "bg-success" : ((crs.attendanceRate ?? 100) >= 75 ? "bg-info" : "bg-warning text-dark");
+                    return `
+                        <tr>
+                            <td class="text-center font-monospace">${idx + 1}</td>
+                            <td><strong class="text-success"><i class="fa-solid fa-book-open-reader me-1"></i> ${crs.name}</strong></td>
+                            <td>${crs.teacherName || '<span class="text-muted">-</span>'}</td>
+                            <td class="text-center"><span class="badge bg-light text-dark border px-2 py-1 font-monospace">${crs.enrolledCount || 0} طالب</span></td>
+                            <td class="text-center"><span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1 font-monospace">${crs.passedCount || 0} مجاز</span></td>
+                            <td class="text-center"><span class="badge ${rateBadge} px-2 py-1 font-monospace">${crs.attendanceRate ?? 100}%</span></td>
+                            <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1">نشطة ومتابعة</span></td>
+                        </tr>
+                    `;
+                }).join("");
+            }
+        }
 
     } catch(err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">تعذر تحميل بيانات الجودة.</td></tr>';
+        console.error("Failed to load quality management screen:", err);
+        if (tbodyCircles) tbodyCircles.innerHTML = '<tr><td colspan="10" class="text-center text-danger p-4">تعذر تحميل بيانات الجودة. يرجى المحاولة لاحقاً.</td></tr>';
+        if (tbodyCourses) tbodyCourses.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">تعذر تحميل بيانات الدورات العلمية.</td></tr>';
+    }
+}
+
+// تصدير تقرير الجودة والرقابة الشامل متعدد الشيتات بصيغة .xlsx (SheetJS)
+async function exportQualityComprehensiveExcel() {
+    try {
+        let data = cachedQualityOverview;
+        if (!data) {
+            showToast("جاري إعداد بيانات تقرير الجودة الشامل...", "info");
+            data = await apiRequest("/quality/overview");
+            cachedQualityOverview = data;
+        }
+
+        if (!data || !data.circles) {
+            showAlert("لا تتوفر بيانات كافية لتوليد تقرير الجودة.", "warning");
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+        const existingSheetNames = new Set();
+
+        const sanitizeSheet = (name) => {
+            let clean = (name || "حلقة").replace(/[:\\/?*\[\]]/g, "_").trim().slice(0, 28);
+            let finalName = clean;
+            let counter = 1;
+            while (existingSheetNames.has(finalName)) {
+                finalName = `${clean.slice(0, 24)}_${counter}`;
+                counter++;
+            }
+            existingSheetNames.add(finalName);
+            return finalName;
+        };
+
+        const stats = data.stats || {};
+        const circles = data.circles || [];
+        const courses = data.courses || [];
+
+        // -------------------------------------------------------------
+        // الشيت 1: الملخص العام للجودة والرقابة
+        // -------------------------------------------------------------
+        const summaryRows = [
+            ["مركز البيان لتعليم القرآن الكريم والعلوم الشرعية"],
+            ["التقرير الإشرافي الشامل للجودة والرقابة ومتابعة الأداء القرآني والأكاديمي"],
+            [`تاريخ استخراج التقرير: ${new Date().toLocaleDateString('ar-EG')} - ${new Date().toLocaleTimeString('ar-EG')}`],
+            [],
+            ["--- المؤشرات الإجمالية للمركز ---"],
+            ["إجمالي الحلقات القرآنية", stats.totalCircles || circles.length],
+            ["إجمالي الطلاب المسجلين", stats.totalStudents || 0],
+            ["إجمالي جلسات التسميع", stats.totalSessions || 0],
+            ["جلسات الحفظ الجديد", stats.memorizationSessions || 0],
+            ["جلسات المراجعة والتثبيت", stats.revisionSessions || 0],
+            ["مرات (لم يُسمّع)", stats.didNotReciteSessions || 0],
+            ["إجمالي الآيات المقروءة", stats.totalVerses || 0],
+            ["متوسط نسبة الحضور والانضباط", `${stats.avgAttendanceRate || 0}%`],
+            ["نسبة جلسات الامتياز", `${stats.excellenceRate || 0}%`],
+            ["إجمالي الدورات العلمية", stats.totalCourses || courses.length],
+            ["إجمالي المسجلين بالدورات", stats.totalCourseEnrollments || 0],
+            [],
+            ["--- جدول التقييم الإشرافي للحلقات ---"],
+            ["م", "اسم الحلقة", "الشيخ المشرف", "عدد الطلاب", "حفظ جديد", "مراجعة وتثبيت", "لم يُسمّع", "إجمالي الآيات", "نسبة الحضور", "التقييم العام"]
+        ];
+
+        circles.forEach((c, idx) => {
+            summaryRows.push([
+                idx + 1,
+                c.name,
+                c.teacherName || "غير محدد",
+                c.studentCount || 0,
+                c.memorizationSessions || 0,
+                c.revisionSessions || 0,
+                c.didNotReciteSessions || 0,
+                c.totalVerses || 0,
+                `${c.attendanceRate ?? 100}%`,
+                c.qualityScore || "جيد ⭐"
+            ]);
+        });
+
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+        wsSummary['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, sanitizeSheet("الملخص العام"));
+
+        // -------------------------------------------------------------
+        // الشيتات 2..N: شيت مخصص لكل حلقة مع طلابها وبياناتهم الدقيقة
+        // -------------------------------------------------------------
+        circles.forEach((c) => {
+            const circleRows = [
+                [`حلقة: ${c.name}`],
+                [`الشيخ المشرف: ${c.teacherName || "غير محدد"}`],
+                [`عدد الطلاب: ${c.studentCount || 0} | نسبة حضور الحلقة: ${c.attendanceRate ?? 100}% | التقييم: ${c.qualityScore || 'جيد'}`],
+                [`حفظ جديد: ${c.memorizationSessions || 0} | مراجعة: ${c.revisionSessions || 0} | لم يُسمّع: ${c.didNotReciteSessions || 0} | مجموع الآيات: ${c.totalVerses || 0}`],
+                [],
+                [
+                    "م",
+                    "اسم الطالب",
+                    "رقم الهوية",
+                    "رقم التواصل",
+                    "الأجزاء المستهدفة",
+                    "الأجزاء المنجزة",
+                    "حضور",
+                    "غياب",
+                    "تأخر",
+                    "نسبة الحضور",
+                    "جلسات التسميع",
+                    "حفظ جديد",
+                    "مراجعة وتثبيت",
+                    "لم يُسمّع",
+                    "إجمالي الآيات"
+                ]
+            ];
+
+            const students = c.students || [];
+            if (students.length === 0) {
+                circleRows.push(["لا يوجد طلاب مسجلون في هذه الحلقة"]);
+            } else {
+                students.forEach((st, sIdx) => {
+                    circleRows.push([
+                        sIdx + 1,
+                        st.fullName,
+                        st.identityNumber || "-",
+                        st.mobile || "-",
+                        st.targetAjzaa ?? 0,
+                        st.completedAjzaa ?? 0,
+                        st.presentCount ?? 0,
+                        st.absentCount ?? 0,
+                        st.lateCount ?? 0,
+                        `${st.attendanceRate ?? 100}%`,
+                        st.totalRecitations ?? 0,
+                        st.memorizationSessions ?? 0,
+                        st.revisionSessions ?? 0,
+                        st.didNotReciteCount ?? 0,
+                        st.totalVerses ?? 0
+                    ]);
+                });
+            }
+
+            const wsCircle = XLSX.utils.aoa_to_sheet(circleRows);
+            wsCircle['!views'] = [{ rightToLeft: true }];
+            XLSX.utils.book_append_sheet(wb, wsCircle, sanitizeSheet(c.name));
+        });
+
+        // -------------------------------------------------------------
+        // الشيت الأخير: الدورات العلمية والشرعية والمسجلين بها
+        // -------------------------------------------------------------
+        const coursesRows = [
+            ["مركز البيان لتعليم القرآن الكريم والعلوم الشرعية"],
+            ["سجل الدورات العلمية والعلوم الشرعية ومتابعة الدارسين"],
+            [`تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`],
+            [],
+            ["--- قائمة الدورات العلمية ---"],
+            ["م", "اسم الدورة", "المدرس / الشيخ", "عدد المسجلين", "عدد المجازين/الناجحين", "نسبة الحضور"],
+        ];
+
+        if (courses.length === 0) {
+            coursesRows.push(["لا توجد دورات علمية مسجلة"]);
+        } else {
+            courses.forEach((crs, cIdx) => {
+                coursesRows.push([
+                    cIdx + 1,
+                    crs.name,
+                    crs.teacherName || "غير محدد",
+                    crs.enrolledCount || 0,
+                    crs.passedCount || 0,
+                    `${crs.attendanceRate ?? 100}%`
+                ]);
+            });
+
+            coursesRows.push([]);
+            coursesRows.push(["--- تفاصيل الطلاب المسجلين في الدورات العلمية ---"]);
+            coursesRows.push(["اسم الدورة", "اسم الطالب", "الحالة الأكاديمية", "الدرجة / التقدير", "حضور", "غياب"]);
+
+            courses.forEach((crs) => {
+                const enrStudents = crs.students || [];
+                enrStudents.forEach((st) => {
+                    coursesRows.push([
+                        crs.name,
+                        st.studentName || "طالب",
+                        st.status || "مسجل",
+                        st.grade ?? "-",
+                        st.presentCount ?? 0,
+                        st.absentCount ?? 0
+                    ]);
+                });
+            });
+        }
+
+        const wsCourses = XLSX.utils.aoa_to_sheet(coursesRows);
+        wsCourses['!views'] = [{ rightToLeft: true }];
+        XLSX.utils.book_append_sheet(wb, wsCourses, sanitizeSheet("الدورات العلمية"));
+
+        // حفظ وتنزيل ملف الإكسل
+        const fileName = `تقرير_الجودة_والرقابة_الشامل_مركز_البيان_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showAlert("تم استخراج وتنزيل تقرير الجودة الشامل بجميع الشيتات والحلقات والدورات بنجاح بصيغة (.xlsx)! 📊", "success");
+
+    } catch (err) {
+        console.error("Export quality excel error:", err);
+        showAlert("حدث خطأ أثناء تصدير تقرير الجودة إلى Excel: " + (err.message || err), "danger");
     }
 }
 

@@ -483,6 +483,7 @@ class ApiService {
     required int assessment,
     String? notes,
     bool viaLottery = false,
+    int recitationType = 1,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/sessions'),
@@ -496,9 +497,18 @@ class ApiService {
         'assessment': assessment,
         'notes': notes,
         'viaLottery': viaLottery,
+        'recitationType': recitationType,
       }),
     );
     return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  static Future<Map<String, dynamic>> getQualityOverview() async {
+    final response = await http.get(Uri.parse('$baseUrl/quality/overview'), headers: _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('فشل جلب تقرير الجودة والرقابة (${response.statusCode})');
   }
 
   // --- Exams & Nominations ---

@@ -117,142 +117,223 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> {
     final toVerseController = TextEditingController(text: '10');
     final notesController = TextEditingController();
     int assessmentLevel = 1;
+    int recitationType = 1; // 1: حفظ جديد, 2: مراجعة وتثبيت
 
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setModalState) => AlertDialog(
-          title: Text('تسجيل تسميع اليوم للطالب', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+        builder: (ctx, setModalState) {
+          final isDidNotRecite = assessmentLevel == 6;
+
+          return AlertDialog(
+            title: Text('تسجيل تسميع اليوم للطالب', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person, color: AppTheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            student.fullName,
+                            style: AppTheme.cairoStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                          ),
+                        ),
+                        if (viaLottery)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('عن طريق القرعة 🎲', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
                   ),
-                  child: Row(
+                  const SizedBox(height: 12),
+
+                  // مسار التسميع (حفظ جديد / مراجعة وتثبيت)
+                  Row(
                     children: [
-                      const Icon(Icons.person, color: AppTheme.primary),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: Center(
+                            child: Text(
+                              '📖 حفظ جديد',
+                              style: AppTheme.cairoStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: recitationType == 1 ? Colors.white : AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          selected: recitationType == 1,
+                          selectedColor: AppTheme.primary,
+                          onSelected: (val) {
+                            if (val) setModalState(() => recitationType = 1);
+                          },
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          student.fullName,
-                          style: AppTheme.cairoStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                        child: ChoiceChip(
+                          label: Center(
+                            child: Text(
+                              '🔁 مراجعة وتثبيت',
+                              style: AppTheme.cairoStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: recitationType == 2 ? Colors.white : AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          selected: recitationType == 2,
+                          selectedColor: Colors.amber[800],
+                          onSelected: (val) {
+                            if (val) setModalState(() => recitationType = 2);
+                          },
                         ),
                       ),
-                      if (viaLottery)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text('عن طريق القرعة 🎲', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 12),
 
-                TextField(
-                  controller: surahController,
-                  decoration: const InputDecoration(labelText: 'اسم السورة *'),
-                ),
-                const SizedBox(height: 12),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: fromVerseController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'من آية *'),
-                      ),
+                  Opacity(
+                    opacity: isDidNotRecite ? 0.5 : 1.0,
+                    child: TextField(
+                      controller: surahController,
+                      enabled: !isDidNotRecite,
+                      decoration: const InputDecoration(labelText: 'اسم السورة *'),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: toVerseController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'إلى آية *'),
-                      ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Opacity(
+                    opacity: isDidNotRecite ? 0.5 : 1.0,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: fromVerseController,
+                            enabled: !isDidNotRecite,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'من آية *'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: toVerseController,
+                            enabled: !isDidNotRecite,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'إلى آية *'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
 
-                DropdownButtonFormField<int>(
-                  value: assessmentLevel,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'التقييم ومستوى الحفظ *'),
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('ممتاز (1)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                    DropdownMenuItem(value: 2, child: Text('جيد جداً (2)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                    DropdownMenuItem(value: 3, child: Text('جيد (3)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                    DropdownMenuItem(value: 4, child: Text('متوسط (4)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                    DropdownMenuItem(value: 5, child: Text('مرفوض/ضعيف (5)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setModalState(() => assessmentLevel = val);
-                  },
-                ),
-                const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    value: assessmentLevel,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'التقييم ومستوى الحفظ *'),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('ممتاز (1)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 2, child: Text('جيد جداً (2)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 3, child: Text('جيد (3)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 4, child: Text('متوسط (4)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 5, child: Text('مرفوض/ضعيف (5)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 6, child: Text('❌ لم يُسمّع (6)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() {
+                          assessmentLevel = val;
+                          if (val == 6) {
+                            surahController.text = 'لم يُسمّع';
+                            fromVerseController.text = '0';
+                            toVerseController.text = '0';
+                          } else if (surahController.text == 'لم يُسمّع') {
+                            surahController.text = 'البقرة';
+                            fromVerseController.text = '1';
+                            toVerseController.text = '10';
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
 
-                TextField(
-                  controller: notesController,
-                  decoration: const InputDecoration(labelText: 'ملاحظات التحرير والتجويد (اختياري)'),
-                ),
-              ],
+                  TextField(
+                    controller: notesController,
+                    decoration: const InputDecoration(labelText: 'ملاحظات التحرير والتجويد أو عدم التسميع'),
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-              onPressed: () async {
-                final surah = surahController.text.trim();
-                final fromV = int.tryParse(fromVerseController.text.trim()) ?? 1;
-                final toV = int.tryParse(toVerseController.text.trim()) ?? 1;
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                onPressed: () async {
+                  final isDidNot = assessmentLevel == 6;
+                  final surah = isDidNot
+                      ? (surahController.text.trim().isEmpty ? 'لم يُسمّع' : surahController.text.trim())
+                      : surahController.text.trim();
+                  final fromV = isDidNot ? 0 : (int.tryParse(fromVerseController.text.trim()) ?? 1);
+                  final toV = isDidNot ? 0 : (int.tryParse(toVerseController.text.trim()) ?? 1);
 
-                if (surah.isEmpty) return;
+                  if (!isDidNot && surah.isEmpty) return;
 
-                final ok = await ApiService.saveRecitationSession(
-                  studentId: student.id,
-                  sessionDate: _formatDate(_selectedDate),
-                  surahName: surah,
-                  fromVerse: fromV,
-                  toVerse: toV,
-                  assessment: assessmentLevel,
-                  notes: notesController.text.trim(),
-                  viaLottery: viaLottery,
-                );
-
-                if (!dialogCtx.mounted) return;
-                Navigator.pop(dialogCtx);
-
-                if (ok) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('تم تسجيل تسميع سورة $surah بنجاح للطالب ${student.fullName}!'), backgroundColor: Colors.green),
+                  final ok = await ApiService.saveRecitationSession(
+                    studentId: student.id,
+                    sessionDate: _formatDate(_selectedDate),
+                    surahName: surah,
+                    fromVerse: fromV,
+                    toVerse: toV,
+                    assessment: assessmentLevel,
+                    notes: notesController.text.trim(),
+                    viaLottery: viaLottery,
+                    recitationType: recitationType,
                   );
-                } else {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('فشل حفظ جلسة التسميع'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              icon: const Icon(Icons.check, color: Colors.white, size: 18),
-              label: const Text('حفظ التسميع'),
-            ),
-          ],
-        ),
+
+                  if (!dialogCtx.mounted) return;
+                  Navigator.pop(dialogCtx);
+
+                  if (ok) {
+                    if (!mounted) return;
+                    final msg = isDidNot 
+                        ? 'تم تسجيل حالة (لم يُسمّع) للطالب ${student.fullName}'
+                        : 'تم تسجيل تسميع سورة $surah بنجاح للطالب ${student.fullName}!';
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(msg), backgroundColor: isDidNot ? Colors.orange[800] : Colors.green),
+                    );
+                  } else {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('فشل حفظ جلسة التسميع'), backgroundColor: Colors.red),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.check, color: Colors.white, size: 18),
+                label: const Text('حفظ التسميع'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

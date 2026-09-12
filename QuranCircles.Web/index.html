@@ -1724,6 +1724,9 @@
                                 <p class="text-muted small mb-0">متابعة معايير جودة التسميع، التزام المعلمين والطلاب، تقييمات المشرفين، وتحليل مؤشرات التميز القرآني.</p>
                             </div>
                             <div class="action-buttons-group flex-shrink-0 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-success shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="exportQualityComprehensiveExcel()">
+                                    <i class="fa-solid fa-file-excel me-1"></i> تصدير تقرير الجودة الشامل (Excel)
+                                </button>
                                 <button class="btn btn-outline-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="loadQualityManagementScreen()">
                                     <i class="fa-solid fa-rotate me-1"></i> تحديث مؤشرات الجودة
                                 </button>
@@ -1779,12 +1782,39 @@
                                         <th>اسم الحلقة</th>
                                         <th>الشيخ المشرف</th>
                                         <th>عدد الطلاب</th>
-                                        <th>جلسات التسميع المنجزة</th>
-                                        <th>نسبة الالتزام بالحضور</th>
-                                        <th>مستوى الجودة العام</th>
+                                        <th>حفظ جديد</th>
+                                        <th>مراجعة</th>
+                                        <th>لم يُسمّع</th>
+                                        <th>إجمالي الآيات</th>
+                                        <th>نسبة الحضور</th>
+                                        <th>مستوى التقييم</th>
                                     </tr>
                                 </thead>
                                 <tbody id="quality-circles-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-success fw-bold"><i class="fa-solid fa-graduation-cap me-2"></i> تقرير الرقابة الأكاديمية للدورات العلمية والشرعية</h5>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="quality-courses-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم الدورة العلمية</th>
+                                        <th>المدرس / الشيخ</th>
+                                        <th>عدد المسجلين</th>
+                                        <th>عدد الناجحين/المجازين</th>
+                                        <th>نسبة الحضور</th>
+                                        <th>الحالة العامة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quality-courses-table-body">
                                     <!-- Populated dynamically -->
                                 </tbody>
                             </table>

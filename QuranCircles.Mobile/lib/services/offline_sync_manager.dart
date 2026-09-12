@@ -127,6 +127,7 @@ class OfflineSyncManager {
                 assessment: action.payload['assessment'],
                 notes: action.payload['notes'],
                 viaLottery: action.payload['viaLottery'] ?? false,
+                recitationType: action.payload['recitationType'] ?? 1,
               );
               break;
 

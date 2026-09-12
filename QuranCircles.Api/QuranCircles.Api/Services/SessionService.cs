@@ -32,17 +32,22 @@ public class SessionService
         if (student is null) return (null, "الطالب غير موجود.");
         if (!student.IsActive) return (null, "الطالب غير مفعّل.");
 
-        var err = Validate(dto.SurahName, dto.FromVerse, dto.ToVerse, dto.SessionDate);
+        var surah = string.IsNullOrWhiteSpace(dto.SurahName) 
+            ? (dto.Assessment == AssessmentLevel.DidNotRecite ? "لم يُسمّع" : "") 
+            : dto.SurahName.Trim();
+
+        var err = Validate(surah, dto.FromVerse, dto.ToVerse, dto.SessionDate, dto.Assessment);
         if (err is not null) return (null, err);
 
         var s = new RecitationSession
         {
             StudentId = dto.StudentId,
             SessionDate = dto.SessionDate,
-            SurahName = dto.SurahName.Trim(),
-            FromVerse = dto.FromVerse,
-            ToVerse = dto.ToVerse,
+            SurahName = surah,
+            FromVerse = dto.Assessment == AssessmentLevel.DidNotRecite ? 0 : dto.FromVerse,
+            ToVerse = dto.Assessment == AssessmentLevel.DidNotRecite ? 0 : dto.ToVerse,
             Assessment = dto.Assessment,
+            RecitationType = dto.RecitationType,
             Notes = dto.Notes?.Trim(),
             ViaLottery = dto.ViaLottery
         };
@@ -58,14 +63,19 @@ public class SessionService
         var s = await _db.Sessions.FindAsync(id);
         if (s is null) return (false, "الجلسة غير موجودة.");
 
-        var err = Validate(dto.SurahName, dto.FromVerse, dto.ToVerse, dto.SessionDate);
+        var surah = string.IsNullOrWhiteSpace(dto.SurahName) 
+            ? (dto.Assessment == AssessmentLevel.DidNotRecite ? "لم يُسمّع" : "") 
+            : dto.SurahName.Trim();
+
+        var err = Validate(surah, dto.FromVerse, dto.ToVerse, dto.SessionDate, dto.Assessment);
         if (err is not null) return (false, err);
 
         s.SessionDate = dto.SessionDate;
-        s.SurahName = dto.SurahName.Trim();
-        s.FromVerse = dto.FromVerse;
-        s.ToVerse = dto.ToVerse;
+        s.SurahName = surah;
+        s.FromVerse = dto.Assessment == AssessmentLevel.DidNotRecite ? 0 : dto.FromVerse;
+        s.ToVerse = dto.Assessment == AssessmentLevel.DidNotRecite ? 0 : dto.ToVerse;
         s.Assessment = dto.Assessment;
+        s.RecitationType = dto.RecitationType;
         s.Notes = dto.Notes?.Trim();
 
         await _db.SaveChangesAsync();
@@ -107,19 +117,21 @@ public class SessionService
         return (new LotteryResultDto(picked.Id, picked.FullName, circle.Id, circle.Name), null);
     }
 
-    private static string? Validate(string surah, int from, int to, DateOnly date)
+    private static string? Validate(string surah, int from, int to, DateOnly date, AssessmentLevel assessment)
     {
+        if (date > DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2))) return "تاريخ الجلسة غير صالح (في المستقبل البعيد).";
+        if (assessment == AssessmentLevel.DidNotRecite) return null;
         if (string.IsNullOrWhiteSpace(surah)) return "اسم السورة مطلوب.";
         if (from <= 0 || to <= 0) return "أرقام الآيات يجب أن تكون موجبة.";
         if (to < from) return "آية النهاية يجب ألا تسبق آية البداية.";
-        if (date > DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2))) return "تاريخ الجلسة غير صالح (في المستقبل البعيد).";
         return null;
     }
 
     private static SessionDto Map(RecitationSession s) => new(
         s.Id, s.StudentId, s.Student?.FullName ?? "",
         s.SessionDate, s.SurahName, s.FromVerse, s.ToVerse,
-        s.Assessment, AssessmentText(s.Assessment), s.Notes, s.ViaLottery
+        s.Assessment, AssessmentText(s.Assessment), s.Notes, s.ViaLottery,
+        s.RecitationType, RecitationTypeText(s.RecitationType)
     );
 
     public static string AssessmentText(AssessmentLevel a) => a switch
@@ -129,6 +141,14 @@ public class SessionService
         AssessmentLevel.Good => "جيد",
         AssessmentLevel.Medium => "متوسط",
         AssessmentLevel.Rejected => "مرفوض",
+        AssessmentLevel.DidNotRecite => "لم يُسمّع",
         _ => a.ToString()
+    };
+
+    public static string RecitationTypeText(RecitationType t) => t switch
+    {
+        RecitationType.Memorization => "حفظ جديد",
+        RecitationType.Revision => "مراجعة وتثبيت",
+        _ => t.ToString()
     };
 }

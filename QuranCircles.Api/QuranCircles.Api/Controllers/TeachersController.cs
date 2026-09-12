@@ -201,16 +201,23 @@ public class TeachersController : ControllerBase
                 }),
                 // Recitation Sessions
                 TotalRecitationSessions = s.Sessions.Count,
+                DidNotReciteCount = s.Sessions.Count(rs => rs.Assessment == AssessmentLevel.DidNotRecite),
+                MemorizationSessionsCount = s.Sessions.Count(rs => rs.RecitationType == RecitationType.Memorization && rs.Assessment != AssessmentLevel.DidNotRecite),
+                RevisionSessionsCount = s.Sessions.Count(rs => rs.RecitationType == RecitationType.Revision && rs.Assessment != AssessmentLevel.DidNotRecite),
+                TotalVersesRecited = s.Sessions.Where(rs => rs.Assessment != AssessmentLevel.DidNotRecite).Sum(rs => Math.Max(0, rs.ToVerse - rs.FromVerse + 1)),
                 RecitationSessions = s.Sessions.OrderByDescending(rs => rs.SessionDate).Select(rs => new
                 {
                     rs.Id,
                     Date = rs.SessionDate.ToString("yyyy-MM-dd"),
                     SessionDate = rs.SessionDate.ToString("yyyy-MM-dd"),
+                    RecitationType = (int)rs.RecitationType,
+                    RecitationTypeText = rs.RecitationType == RecitationType.Revision ? "مراجعة وتثبيت" : "حفظ جديد",
                     rs.SurahName,
                     rs.FromVerse,
                     rs.ToVerse,
+                    VersesCount = rs.Assessment == AssessmentLevel.DidNotRecite ? 0 : Math.Max(0, rs.ToVerse - rs.FromVerse + 1),
                     Assessment = rs.Assessment.ToString(),
-                    AssessmentText = rs.Assessment == AssessmentLevel.Excellent ? "ممتاز" : (rs.Assessment == AssessmentLevel.VeryGood ? "جيد جداً" : (rs.Assessment == AssessmentLevel.Good ? "جيد" : (rs.Assessment == AssessmentLevel.Medium ? "متوسط" : "مرفوض"))),
+                    AssessmentText = rs.Assessment == AssessmentLevel.DidNotRecite ? "لم يُسمّع" : (rs.Assessment == AssessmentLevel.Excellent ? "ممتاز" : (rs.Assessment == AssessmentLevel.VeryGood ? "جيد جداً" : (rs.Assessment == AssessmentLevel.Good ? "جيد" : (rs.Assessment == AssessmentLevel.Medium ? "متوسط" : "مرفوض")))),
                     rs.Notes,
                     rs.ViaLottery
                 }),

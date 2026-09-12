@@ -178,6 +178,33 @@ public static partial class DbSeeder
             }
             catch { /* Column already exists */ }
 
+            // Ensure Sessions table has RecitationType column
+            try
+            {
+                var provider = db.Database.ProviderName ?? "";
+                if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+                {
+                    db.Database.ExecuteSqlRaw(@"
+                        IF NOT EXISTS (
+                            SELECT * FROM sys.columns 
+                            WHERE object_id = OBJECT_ID(N'[Sessions]') AND name = 'RecitationType'
+                        )
+                        BEGIN
+                            ALTER TABLE [Sessions] ADD [RecitationType] INT NOT NULL DEFAULT 1;
+                        END
+                    ");
+                }
+                else
+                {
+                    try
+                    {
+                        db.Database.ExecuteSqlRaw("ALTER TABLE Sessions ADD COLUMN RecitationType INTEGER DEFAULT 1;");
+                    }
+                    catch { /* Column already exists */ }
+                }
+            }
+            catch { }
+
             // 1.8 Ensure FinancialTransactions table exists
             try
             {

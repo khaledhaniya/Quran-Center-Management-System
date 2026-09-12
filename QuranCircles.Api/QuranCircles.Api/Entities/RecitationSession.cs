@@ -14,6 +14,7 @@ public class RecitationSession
     public int ToVerse { get; set; }
 
     public AssessmentLevel Assessment { get; set; }
+    public RecitationType RecitationType { get; set; } = RecitationType.Memorization;
     public string? Notes { get; set; }
 
     public bool ViaLottery { get; set; }

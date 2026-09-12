@@ -6,7 +6,14 @@ public enum AssessmentLevel
     VeryGood = 2,   
     Good = 3,   
     Medium = 4,   
-    Rejected = 5  
+    Rejected = 5,
+    DidNotRecite = 6
+}
+
+public enum RecitationType
+{
+    Memorization = 1, // حفظ جديد
+    Revision = 2       // مراجعة وتثبيت
 }
 
 public enum AttendanceStatus

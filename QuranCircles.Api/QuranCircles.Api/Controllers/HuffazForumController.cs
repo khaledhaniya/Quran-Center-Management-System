@@ -11,10 +11,12 @@ namespace QuranCircles.Api.Controllers;
 public class HuffazForumController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly PasswordHasher _hasher;
 
-    public HuffazForumController(AppDbContext db)
+    public HuffazForumController(AppDbContext db, PasswordHasher hasher)
     {
         _db = db;
+        _hasher = hasher;
     }
 
     [HttpGet]
@@ -185,6 +187,28 @@ public class HuffazForumController : ControllerBase
         };
 
         _db.HuffazMembers.Add(member);
+
+        // Auto-provision user account if IdentityNumber is provided and user does not exist yet
+        if (!string.IsNullOrWhiteSpace(idNumber))
+        {
+            var userExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == idNumber.ToLower());
+            if (!userExists)
+            {
+                var newUser = new User
+                {
+                    Username = idNumber,
+                    FullName = fullName,
+                    Role = UserRole.Student,
+                    StudentId = member.StudentId,
+                    TeacherId = member.TeacherId,
+                    IsActive = true,
+                    PasswordHash = _hasher.HashPassword(idNumber),
+                    PlainPassword = idNumber
+                };
+                _db.Users.Add(newUser);
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         await AuditLogger.LogAsync(_db, HttpContext, "AddHuffazMember",
