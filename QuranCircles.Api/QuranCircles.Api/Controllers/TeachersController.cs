@@ -152,34 +152,42 @@ public class TeachersController : ControllerBase
 
         var students = await _db.Students
             .Include(s => s.Circle)
-            .Include(s => s.Sessions)
-            .Include(s => s.AttendanceRecords)
+            .AsNoTracking()
             .Where(s => s.CircleId.HasValue && circles.Contains(s.CircleId.Value))
+            .OrderBy(s => s.FullName)
             .ToListAsync();
 
         var studentIds = students.Select(s => s.Id).ToList();
 
+        // Query sessions directly to prevent Cartesian explosion and dropped rows
+        var sessDbQuery = _db.Sessions.AsNoTracking().Where(s => studentIds.Contains(s.StudentId));
+        if (parsedFrom.HasValue) sessDbQuery = sessDbQuery.Where(rs => rs.SessionDate >= parsedFrom.Value);
+        if (parsedTo.HasValue) sessDbQuery = sessDbQuery.Where(rs => rs.SessionDate <= parsedTo.Value);
+        var allSessions = await sessDbQuery.ToListAsync();
+        var sessionsByStudent = allSessions.ToLookup(s => s.StudentId);
+
+        // Query attendances directly
+        var attDbQuery = _db.Attendances.AsNoTracking().Where(a => studentIds.Contains(a.StudentId));
+        if (parsedFrom.HasValue) attDbQuery = attDbQuery.Where(a => a.SessionDate >= parsedFrom.Value);
+        if (parsedTo.HasValue) attDbQuery = attDbQuery.Where(a => a.SessionDate <= parsedTo.Value);
+        var allAttendances = await attDbQuery.ToListAsync();
+        var attendancesByStudent = allAttendances.ToLookup(a => a.StudentId);
         var courseEnrollments = await _db.CourseEnrollments
             .Include(ce => ce.Course)
+            .AsNoTracking()
             .Where(ce => studentIds.Contains(ce.StudentId))
             .ToListAsync();
 
         var courseAttendances = await _db.CourseAttendances
             .Include(ca => ca.Course)
+            .AsNoTracking()
             .Where(ca => studentIds.Contains(ca.StudentId))
             .ToListAsync();
 
         var report = students.Select(s =>
         {
-            var attQuery = s.AttendanceRecords.AsEnumerable();
-            if (parsedFrom.HasValue) attQuery = attQuery.Where(a => a.SessionDate >= parsedFrom.Value);
-            if (parsedTo.HasValue) attQuery = attQuery.Where(a => a.SessionDate <= parsedTo.Value);
-            var attList = attQuery.ToList();
-
-            var sessQuery = s.Sessions.AsEnumerable();
-            if (parsedFrom.HasValue) sessQuery = sessQuery.Where(rs => rs.SessionDate >= parsedFrom.Value);
-            if (parsedTo.HasValue) sessQuery = sessQuery.Where(rs => rs.SessionDate <= parsedTo.Value);
-            var sessList = sessQuery.ToList();
+            var attList = attendancesByStudent[s.Id].ToList();
+            var sessList = sessionsByStudent[s.Id].ToList();
 
             var totalAtt = attList.Count;
             var presentCount = attList.Count(a => a.Status == AttendanceStatus.Present);

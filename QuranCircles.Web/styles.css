@@ -5601,6 +5601,139 @@ body.dark-mode .rec-holiday {
     color: #fde68a;
 }
 
+/* ==========================================================================
+   Student 360 Modal & Student Plan Modal Enhancements
+   ========================================================================== */
+
+/* 360 Tab Buttons */
+.student360-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.15rem;
+    border-radius: 9999px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #64748b;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.student360-tab-btn:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+.student360-tab-btn.active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28) !important;
+}
+
+/* Plan Preset & Pace Pills */
+.plan-preset-pill, .plan-pace-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.plan-preset-pill:hover, .plan-pace-pill:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+}
+
+.plan-preset-pill:active, .plan-pace-pill:active {
+    transform: scale(0.96);
+}
+
+/* Plan Juz Buttons */
+.plan-juz-btn {
+    height: 38px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.plan-juz-btn:hover {
+    border-color: #10b981;
+    color: #059669;
+    background: #ecfdf5;
+}
+
+.plan-juz-btn.active {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Dark Mode Overrides for 360 and Plan Modals */
+body.dark-mode .student360-tab-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+body.dark-mode .student360-tab-btn:hover {
+    background: #334155;
+    color: #f1f5f9;
+}
+
+body.dark-mode .student360-tab-btn.active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .plan-preset-pill,
+body.dark-mode .plan-pace-pill {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+
+body.dark-mode .plan-preset-pill:hover,
+body.dark-mode .plan-pace-pill:hover {
+    background: #334155;
+    color: #ffffff;
+}
+
+body.dark-mode .plan-juz-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+body.dark-mode .plan-juz-btn:hover {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: #10b981;
+    color: #34d399;
+}
+
+
 
 
 

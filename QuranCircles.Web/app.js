@@ -4583,6 +4583,7 @@ async function saveAttendance() {
         }
         
         showAlert(`تم حفظ سجل حضور لـ (${recordedCount}) طلاب بنجاح.`, "success");
+        invalidateTeacherComprehensiveCache();
     } catch(e) {
         showAlert("فشل حفظ الحضور لبعض الطلاب: " + e.message, "danger");
     }
@@ -4780,6 +4781,7 @@ async function deleteSession(sessionId, studentId, studentName, circleName) {
     try {
         await apiRequest(`/sessions/${sessionId}`, "DELETE");
         showAlert("تم حذف جلسة التسميع بنجاح.", "success");
+        invalidateTeacherComprehensiveCache();
         showStudentRecitations(studentId, studentName, circleName);
     } catch(e) {
         console.error(e);
@@ -7195,6 +7197,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                 await apiRequest("/sessions", "POST", dto);
                 showAlert("تم تسجيل جلسة التسميع بنجاح.", "success");
             }
+            invalidateTeacherComprehensiveCache();
             closeModal();
             
             const selectedStudent = document.querySelector(".student-list-item.active");
@@ -12017,9 +12020,8 @@ function buildTeacherRecitationMatrix(students, fromDate, toDate) {
             }
             if (att) totalAttRecordsCount++;
 
-            // Check Memorization
+            // Check Memorization & Revision separately and accurately
             let memCell = { text: 'لم يحفظ', class: 'rec-not-memorized', note: '' };
-            // Check Revision
             let revCell = { text: 'لم يراجع', class: 'rec-not-revised', note: '' };
 
             if (dayNote) {
@@ -12029,33 +12031,65 @@ function buildTeacherRecitationMatrix(students, fromDate, toDate) {
                 memCell = { text: 'غياب', class: 'rec-absent', note: 'غائب' };
                 revCell = { text: 'غياب', class: 'rec-absent', note: 'غائب' };
             } else {
-                // Find memorization session (RecitationType 0 or memorization)
-                const memSess = daySessions.find(rs => rs.recitationType === 0 || rs.recitationTypeText === 'حفظ جديد' || (rs.surahName && rs.recitationType !== 1));
-                if (memSess && memSess.assessment !== 'DidNotRecite' && memSess.assessmentText !== 'لم يُسمّع') {
-                    studentMemSessions++;
-                    totalSessionsCount++;
-                    const vCount = (memSess.toVerse && memSess.fromVerse) ? ` (${memSess.fromVerse}-${memSess.toVerse})` : '';
+                // High-precision classification helpers
+                const isRevision = (rs) => {
+                    if (!rs) return false;
+                    const t = rs.recitationType;
+                    const txt = (rs.recitationTypeText || '').toString().trim();
+                    if (t === 2 || t === '2' || t === 'Revision') return true;
+                    if (txt.includes('مراجعة') || txt.includes('تثبيت')) return true;
+                    return false;
+                };
+
+                const isMemorization = (rs) => {
+                    if (!rs) return false;
+                    const t = rs.recitationType;
+                    const txt = (rs.recitationTypeText || '').toString().trim();
+                    if (t === 1 || t === '1' || t === 'Memorization') return true;
+                    if (txt.includes('حفظ') || txt.includes('جديد')) return true;
+                    return !isRevision(rs); // default to memorization if not explicitly revision
+                };
+
+                const memSessions = daySessions.filter(isMemorization);
+                const revSessions = daySessions.filter(isRevision);
+
+                // Process Memorization
+                const validMem = memSessions.filter(rs => rs.assessment !== 'DidNotRecite' && rs.assessment !== 6 && rs.assessmentText !== 'لم يُسمّع');
+                if (validMem.length > 0) {
+                    studentMemSessions += validMem.length;
+                    totalSessionsCount += validMem.length;
+                    const texts = validMem.map(rs => {
+                        const vCount = (rs.toVerse && rs.fromVerse) ? ` (${rs.fromVerse}-${rs.toVerse})` : '';
+                        return `سورة ${rs.surahName}${vCount}`;
+                    });
                     memCell = {
-                        text: `سورة ${memSess.surahName}${vCount}`,
+                        text: texts.join(' + '),
                         class: 'rec-memorized',
-                        note: memSess.notes || memSess.assessmentText || 'أنجز'
+                        note: validMem.map(rs => rs.notes || rs.assessmentText || 'أنجز').filter(Boolean).join(' | ')
                     };
-                } else if (memSess && (memSess.assessment === 'DidNotRecite' || memSess.assessmentText === 'لم يُسمّع')) {
+                } else if (memSessions.some(rs => rs.assessment === 'DidNotRecite' || rs.assessment === 6 || rs.assessmentText === 'لم يُسمّع')) {
+                    memCell = { text: 'لم يحفظ', class: 'rec-not-memorized', note: 'لم يحفظ' };
+                } else {
                     memCell = { text: 'لم يحفظ', class: 'rec-not-memorized', note: 'لم يحفظ' };
                 }
 
-                // Find revision session (RecitationType 1 or revision)
-                const revSess = daySessions.find(rs => rs.recitationType === 1 || rs.recitationTypeText === 'مراجعة وتثبيت');
-                if (revSess && revSess.assessment !== 'DidNotRecite' && revSess.assessmentText !== 'لم يُسمّع') {
-                    studentRevSessions++;
-                    totalSessionsCount++;
-                    const vCount = (revSess.toVerse && revSess.fromVerse) ? ` (${revSess.fromVerse}-${revSess.toVerse})` : '';
+                // Process Revision
+                const validRev = revSessions.filter(rs => rs.assessment !== 'DidNotRecite' && rs.assessment !== 6 && rs.assessmentText !== 'لم يُسمّع');
+                if (validRev.length > 0) {
+                    studentRevSessions += validRev.length;
+                    totalSessionsCount += validRev.length;
+                    const texts = validRev.map(rs => {
+                        const vCount = (rs.toVerse && rs.fromVerse) ? ` (${rs.fromVerse}-${rs.toVerse})` : '';
+                        return `سورة ${rs.surahName}${vCount}`;
+                    });
                     revCell = {
-                        text: `سورة ${revSess.surahName}${vCount}`,
+                        text: texts.join(' + '),
                         class: 'rec-revised',
-                        note: revSess.notes || revSess.assessmentText || 'أنجز'
+                        note: validRev.map(rs => rs.notes || rs.assessmentText || 'أنجز').filter(Boolean).join(' | ')
                     };
-                } else if (revSess && (revSess.assessment === 'DidNotRecite' || revSess.assessmentText === 'لم يُسمّع')) {
+                } else if (revSessions.some(rs => rs.assessment === 'DidNotRecite' || rs.assessment === 6 || rs.assessmentText === 'لم يُسمّع')) {
+                    revCell = { text: 'لم يراجع', class: 'rec-not-revised', note: 'لم يراجع' };
+                } else {
                     revCell = { text: 'لم يراجع', class: 'rec-not-revised', note: 'لم يراجع' };
                 }
             }
