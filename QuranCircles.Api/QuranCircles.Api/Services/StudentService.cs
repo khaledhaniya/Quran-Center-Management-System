@@ -597,7 +597,26 @@ public class StudentService
             CompletedExams = completedExamsDto,
             Talents = talentsDto,
             IsTalented = talentsDto.Count > 0,
-            JuzStatus = juzStatus
+            JuzStatus = juzStatus,
+            StudentInfo = new
+            {
+                Id = s.Id,
+                FullName = s.FullName,
+                StudentName = s.FullName,
+                CircleName = s.Circle?.Name ?? "غير مسند",
+                TeacherName = teacherName,
+                FamilyContact = s.FamilyContact,
+                StudentMobile = s.StudentMobile,
+                StudentWhatsapp = s.StudentWhatsapp,
+                StudentIdentityNumber = s.StudentIdentityNumber,
+                PreviousQuranMemorization = s.PreviousQuranMemorization,
+                TargetAjzaaCount = s.TargetAjzaaCount,
+                PlanType = s.PlanType,
+                DailyPacePages = s.DailyPacePages,
+                PlanTargetDate = s.PlanTargetDate?.ToString("yyyy-MM-dd"),
+                Notes = s.Notes
+            },
+            RecentSessions = sessionsDto
         };
     }
 

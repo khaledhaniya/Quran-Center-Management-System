@@ -130,7 +130,24 @@ public class StudentsController : ControllerBase
 
         if (currentUser.Role == UserRole.Teacher)
         {
-            if (!student.CircleId.HasValue || !await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && c.TeacherId == currentUser.TeacherId))
+            int tId = currentUser.TeacherId ?? 0;
+            Teacher? teacherObj = null;
+            if (tId > 0)
+            {
+                teacherObj = await _db.Teachers.FindAsync(tId);
+            }
+            if (teacherObj == null)
+            {
+                teacherObj = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
+                if (teacherObj != null) tId = teacherObj.Id;
+            }
+
+            bool isHisStudent = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == tId || (c.Teacher != null && c.Teacher.FullName == currentUser.FullName)));
+            
+            var taskRole = teacherObj?.TaskRole ?? "";
+            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
+
+            if (!isHisStudent && !isSupervisorOrAdmin)
             {
                 return Forbid();
             }
@@ -229,9 +246,26 @@ public class StudentsController : ControllerBase
 
         if (currentUser?.Role == UserRole.Teacher)
         {
-            var student = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
+            var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == id);
             if (student == null) return NotFound(new { error = "الطالب غير موجود." });
-            if (student.Circle?.TeacherId != currentUser.TeacherId && student.Circle?.Teacher?.FullName != currentUser.FullName)
+
+            int tId = currentUser.TeacherId ?? 0;
+            Teacher? teacherObj = null;
+            if (tId > 0)
+            {
+                teacherObj = await _db.Teachers.FindAsync(tId);
+            }
+            if (teacherObj == null)
+            {
+                teacherObj = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
+                if (teacherObj != null) tId = teacherObj.Id;
+            }
+
+            bool isHisStudent = student.CircleId.HasValue && (student.Circle?.TeacherId == tId || (student.Circle?.Teacher != null && student.Circle.Teacher.FullName == currentUser.FullName));
+            var taskRole = teacherObj?.TaskRole ?? "";
+            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
+
+            if (!isHisStudent && !isSupervisorOrAdmin)
             {
                 return Forbid();
             }

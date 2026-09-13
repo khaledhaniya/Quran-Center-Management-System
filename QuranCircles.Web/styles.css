@@ -5253,6 +5253,157 @@ body.dark-mode .talent-sheikh-box {
     color: #6ee7b7 !important;
 }
 
+/* =========================================================================
+   STUDENT 360 MODAL & QURANIC STUDY PLAN STYLES
+   ========================================================================= */
+
+.student-360-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+}
+
+.student-tab-pill {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    padding: 8px 16px;
+    border-radius: 24px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.student-tab-pill:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    transform: translateY(-1px);
+}
+
+.student-tab-pill.active {
+    background: linear-gradient(135deg, #0d5c3a, #15803d) !important;
+    color: #ffffff !important;
+    border-color: #0d5c3a !important;
+    box-shadow: 0 4px 12px rgba(13, 92, 58, 0.25) !important;
+}
+
+.student-360-tab-pane {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+.student-kpi-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.student-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.student-kpi-card .kpi-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.student-kpi-card .kpi-lbl {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* 30 Ajzaa Visual Progress Grid */
+.juz-360-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+    gap: 8px;
+}
+
+.juz-360-box {
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.juz-360-box.completed {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+    border-color: #10b981 !important;
+    color: #065f46 !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
+}
+
+.juz-360-box.pending {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+}
+
+body.dark-mode .student-360-tabs {
+    border-bottom-color: #334155;
+}
+
+body.dark-mode .student-tab-pill {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+
+body.dark-mode .student-tab-pill:hover {
+    background: #334155;
+    color: #f8fafc;
+}
+
+body.dark-mode .student-kpi-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+body.dark-mode .student-kpi-card .kpi-lbl {
+    color: #94a3b8;
+}
+
+body.dark-mode .juz-360-box.completed {
+    background: rgba(6, 95, 70, 0.4) !important;
+    border-color: #059669 !important;
+    color: #6ee7b7 !important;
+}
+
+body.dark-mode .juz-360-box.pending {
+    background: #1e293b;
+    border-color: #334155;
+    color: #64748b;
+}
+
+
 
 
 

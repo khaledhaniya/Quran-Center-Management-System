@@ -4138,54 +4138,358 @@ async function showTeacherAddNewStudentModal() {
     await showStudentModal();
 }
 
-// Modal for Teacher to edit student memorization plan
+// Modal for Teacher to edit comprehensive student memorization plan
 async function showTeacherEditStudentPlanModal(studentId, studentName, currentPlan) {
     if (window.SYS_ALLOW_TEACHER_EDIT_PLAN === false) {
         showAlert("تعديل خطط الطلاب معطل حالياً من إدارة المركز.", "warning");
         return;
     }
 
-    openModal(`تعديل خطة الحفظ للطالب: ${studentName}`);
+    openModal(`الخطة القرآنية الشاملة للطالب: ${studentName}`, true);
     const modalBody = document.getElementById("modal-body-content");
     modalBody.innerHTML = `
-        <form id="teacher-edit-plan-form" class="p-3">
-            <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
-                <i class="fa-solid fa-book-quran fs-4"></i>
-                <div>
-                    <strong>الخطة القرآنية:</strong> حدد المحفوظ الحالي والخطة المستهدفة للطالب <b>${studentName}</b>.
-                </div>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label fw-bold text-dark"><i class="fa-solid fa-bookmark text-primary me-1"></i> مقدار الحفظ المنجز حالياً:</label>
-                <input type="text" id="teacher-plan-memorization" class="form-control" value="${currentPlan || ''}" placeholder="مثلاً: جزء عم وتبارك (2 أجزاء)..." required>
-            </div>
-
-            <div class="d-flex justify-content-end gap-2 mt-4">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
-                <button type="submit" class="btn btn-success fw-bold px-4"><i class="fa-solid fa-save me-1"></i> حفظ وتحديث الخطة</button>
-            </div>
-        </form>
+        <div class="text-center p-5">
+            <i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i>
+            <p class="mt-2 text-muted fw-bold">جاري تحميل بيانات الخطة القرآنية للطالب...</p>
+        </div>
     `;
 
-    document.getElementById("teacher-edit-plan-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const newPlan = document.getElementById("teacher-plan-memorization").value.trim();
-
-        try {
-            let fullS = await apiRequest(`/students/${studentId}`);
-            if (fullS) {
-                fullS.previousQuranMemorization = newPlan;
-                await apiRequest(`/students/${studentId}`, "PUT", fullS);
-            }
-            closeModal();
-            showAlert(`تم تحديث خطة الطالب (${studentName}) بنجاح.`, "success");
-            loadTeacherStudentsTable();
-        } catch (err) {
-            console.error("Error updating plan:", err);
-            showAlert("تعذر تحديث خطة الطالب.", "danger");
+    try {
+        const student = await apiRequest(`/students/${studentId}`);
+        if (!student) {
+            modalBody.innerHTML = `<div class="alert alert-danger p-4 text-center">تعذر العثور على بيانات الطالب.</div>`;
+            return;
         }
-    });
+
+        const JUZ_NAMES = [
+            { num: 1, name: "1. الم (البقرة)" },
+            { num: 2, name: "2. سيقول (البقرة)" },
+            { num: 3, name: "3. تلك الرسل (البقرة)" },
+            { num: 4, name: "4. لن تنالوا (آل عمران)" },
+            { num: 5, name: "5. والمحصنات (النساء)" },
+            { num: 6, name: "6. لا يحب الله (النساء)" },
+            { num: 7, name: "7. وإذا سمعوا (المائدة)" },
+            { num: 8, name: "8. ولو أننا (الأنعام)" },
+            { num: 9, name: "9. قال الملأ (الأعراف)" },
+            { num: 10, name: "10. واعلموا (الأنفال)" },
+            { num: 11, name: "11. يعتذرون (التوبة)" },
+            { num: 12, name: "12. وما من دابة (هود)" },
+            { num: 13, name: "13. وما أبرئ (يوسف)" },
+            { num: 14, name: "14. الـر (الحجر)" },
+            { num: 15, name: "15. سبحان (الإسراء)" },
+            { num: 16, name: "16. قال ألم (الكهف)" },
+            { num: 17, name: "17. اقترب (الأنبياء)" },
+            { num: 18, name: "18. قد أفلح (المؤمنون)" },
+            { num: 19, name: "19. وقال الذين (الفرقان)" },
+            { num: 20, name: "20. أمن خلق (النمل)" },
+            { num: 21, name: "21. اتل ما أوحي (العنكبوت)" },
+            { num: 22, name: "22. ومن يقنت (الأحزاب)" },
+            { num: 23, name: "23. وما أنزلنا (يس)" },
+            { num: 24, name: "24. فمن أظلم (الزمر)" },
+            { num: 25, name: "25. إليه يرد (فصلت)" },
+            { num: 26, name: "26. حـم (الأحقاف)" },
+            { num: 27, name: "27. قال فما خطبكم (الذاريات)" },
+            { num: 28, name: "28. قد سمع (المجادلة)" },
+            { num: 29, name: "29. تبارك (الملك)" },
+            { num: 30, name: "30. عمّ (النبأ)" }
+        ];
+
+        const completedSet = new Set(
+            (student.completedAjzaa || '')
+                .split(',')
+                .map(s => parseInt(s.trim()))
+                .filter(n => !isNaN(n) && n >= 1 && n <= 30)
+        );
+
+        const currentMem = student.previousQuranMemorization || currentPlan || '';
+        const curPlanType = student.planType || 'Standard';
+        const curTargetAjzaa = student.targetAjzaaCount || 30;
+        const curDailyPace = student.dailyPacePages || 1.0;
+        const curStartDate = student.planStartDate ? student.planStartDate.substring(0, 10) : new Date().toISOString().substring(0, 10);
+        const curTargetDate = student.planTargetDate ? student.planTargetDate.substring(0, 10) : '';
+        const curNotes = student.notes || '';
+
+        modalBody.innerHTML = `
+            <form id="teacher-edit-plan-form" class="p-2 p-md-3">
+                <!-- Header Banner -->
+                <div class="card p-3 mb-4 border-0 text-white rounded-3 shadow-sm" style="background: linear-gradient(135deg, #0d5c3a, #15803d);">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-white text-success rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px; font-size: 1.4rem;">
+                                <i class="fa-solid fa-book-quran"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-0 text-white">${escapeXml(student.fullName)}</h5>
+                                <div class="small opacity-90">رقم الطالب: #${student.id} | الحلقة: ${student.circleName || 'حلقة المعلم'}</div>
+                            </div>
+                        </div>
+                        <div class="badge bg-white text-success fs-6 px-3 py-2 shadow-xs">
+                            <i class="fa-solid fa-bullseye me-1"></i> المستهدف: <span id="tplan-target-badge">${curTargetAjzaa}</span> جزءاً
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 1: Previous / Current Memorization -->
+                <div class="card p-3 mb-3 border-0 bg-light rounded-3 shadow-xs">
+                    <label class="form-label fw-bold text-dark d-flex justify-content-between align-items-center mb-2">
+                        <span><i class="fa-solid fa-bookmark text-success me-1"></i> مقدار المحفوظ المنجز حالياً:</span>
+                        <small class="text-muted fw-normal">انقر على الخيارات السريعة أدناه للتعبئة الفورية</small>
+                    </label>
+                    <input type="text" id="tplan-prev-memorization" class="form-control mb-2" value="${escapeXml(currentMem)}" placeholder="مثلاً: جزء عم وتبارك (2 أجزاء)، 5 أجزاء..." required>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="مبتدئ / لا يوجد حفظ سابق">مبتدئ</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="جزء عم (الجزء 30)">جزء عم</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="عم وتبارك (جزآن)">عم وتبارك (2)</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="3 أجزاء قرآنية">3 أجزاء</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="5 أجزاء قرآنية">5 أجزاء</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="10 أجزاء قرآنية">10 أجزاء</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="15 جزءاً (نصف القرآن)">15 جزءاً</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 quick-mem-chip" data-val="20 جزءاً">20 جزءاً</button>
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 quick-mem-chip fw-bold" data-val="خاتم لكتاب الله كاملاً (30 جزءاً)">خاتم (30)</button>
+                    </div>
+                </div>
+
+                <!-- Section 2: Plan Track & Daily Pace -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="card p-3 h-100 border-0 bg-light rounded-3 shadow-xs">
+                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-route text-primary me-1"></i> نوع ومسار الخطة المقررة:</label>
+                            <select id="tplan-type" class="form-select">
+                                <option value="Standard" ${curPlanType === 'Standard' ? 'selected' : ''}>مسار الحفظ القياسي (المعتمد والمتوازن)</option>
+                                <option value="Intensive" ${curPlanType === 'Intensive' ? 'selected' : ''}>مسار الحفظ المكثف السريع (للهمم العالية)</option>
+                                <option value="Revision" ${curPlanType === 'Revision' ? 'selected' : ''}>مسار التثبيت والمراجعة والضبط التام</option>
+                                <option value="Gradual" ${curPlanType === 'Gradual' ? 'selected' : ''}>مسار التلقين والقاعدة النورانية (للأشبال)</option>
+                                <option value="Ijaza" ${curPlanType === 'Ijaza' ? 'selected' : ''}>مسار الإجازات والضبط القرآني بالسند المتصل</option>
+                            </select>
+                            <small class="text-muted mt-2 d-block">يساعد المسار في تصنيف الطالب ومتابعة سرعة تقدمه وتنسيب الاختبارات المناسبة.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-3 h-100 border-0 bg-light rounded-3 shadow-xs">
+                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-flag-checkered text-warning me-1"></i> عدد الأجزاء المستهدفة للخطة:</label>
+                            <select id="tplan-target-ajzaa" class="form-select mb-2">
+                                <option value="1" ${curTargetAjzaa === 1 ? 'selected' : ''}>جزء واحد (1)</option>
+                                <option value="2" ${curTargetAjzaa === 2 ? 'selected' : ''}>جزءان (2)</option>
+                                <option value="3" ${curTargetAjzaa === 3 ? 'selected' : ''}>3 أجزاء</option>
+                                <option value="5" ${curTargetAjzaa === 5 ? 'selected' : ''}>5 أجزاء</option>
+                                <option value="10" ${curTargetAjzaa === 10 ? 'selected' : ''}>10 أجزاء</option>
+                                <option value="15" ${curTargetAjzaa === 15 ? 'selected' : ''}>15 جزءاً (نصف القرآن)</option>
+                                <option value="20" ${curTargetAjzaa === 20 ? 'selected' : ''}>20 جزءاً</option>
+                                <option value="25" ${curTargetAjzaa === 25 ? 'selected' : ''}>25 جزءاً</option>
+                                <option value="30" ${curTargetAjzaa === 30 ? 'selected' : ''}>30 جزءاً (القرآن كاملاً - الختم الشريف)</option>
+                            </select>
+                            <div class="d-flex gap-2">
+                                <div class="flex-grow-1">
+                                    <label class="small fw-bold text-muted"><i class="fa-solid fa-bolt text-warning me-1"></i> الورد اليومي (صفحة):</label>
+                                    <select id="tplan-daily-pace" class="form-select form-select-sm">
+                                        <option value="0.5" ${curDailyPace === 0.5 ? 'selected' : ''}>نصف صفحة (أسطر)</option>
+                                        <option value="1" ${curDailyPace === 1.0 ? 'selected' : ''}>صفحة كاملة (وجه)</option>
+                                        <option value="2" ${curDailyPace === 2.0 ? 'selected' : ''}>صفحتان (ورقة كاملة)</option>
+                                        <option value="3" ${curDailyPace === 3.0 ? 'selected' : ''}>3 صفحات</option>
+                                        <option value="5" ${curDailyPace === 5.0 ? 'selected' : ''}>نصف حزب (5 صفحات)</option>
+                                        <option value="10" ${curDailyPace === 10.0 ? 'selected' : ''}>حزب كامل (10 صفحات)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Timeframe -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="card p-3 border-0 bg-light rounded-3 shadow-xs">
+                            <label class="form-label fw-bold text-dark mb-1"><i class="fa-solid fa-calendar-plus text-success me-1"></i> تاريخ انطلاق الخطة:</label>
+                            <input type="date" id="tplan-start-date" class="form-control" value="${curStartDate}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-3 border-0 bg-light rounded-3 shadow-xs">
+                            <label class="form-label fw-bold text-dark mb-1"><i class="fa-solid fa-calendar-check text-danger me-1"></i> تاريخ الختم / المستهدف المتوقع:</label>
+                            <input type="date" id="tplan-target-date" class="form-control" value="${curTargetDate}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: 30 Ajzaa Completed Tracker Grid -->
+                <div class="card p-3 mb-3 border-0 bg-light rounded-3 shadow-xs">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <label class="form-label fw-bold text-dark mb-0">
+                            <i class="fa-solid fa-list-check text-success me-1"></i> الأجزاء القرآنية المتقنة والمحفوظة فعلياً:
+                            <span class="badge bg-success ms-2" id="tplan-selected-count">${completedSet.size} من 30 جزءاً</span>
+                        </label>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-success" id="btn-select-all-juz">تحديد الكل</button>
+                            <button type="button" class="btn btn-outline-secondary" id="btn-deselect-all-juz">إلغاء التحديد</button>
+                            <button type="button" class="btn btn-outline-primary" id="btn-select-ammar-juz">عمّ وتبارك (29-30)</button>
+                            <button type="button" class="btn btn-outline-info" id="btn-select-last5-juz">آخر 5 أجزاء (26-30)</button>
+                        </div>
+                    </div>
+                    <p class="small text-muted mb-2">انقر على رقم أو اسم الجزء لتبديل حالته (متقن ومحفوظ <i class="fa-solid fa-circle-check text-success"></i> أو قيد الحفظ):</p>
+                    <div class="tplan-juz-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; max-height: 240px; overflow-y: auto; padding: 4px;">
+                        ${JUZ_NAMES.map(j => {
+                            const isDone = completedSet.has(j.num);
+                            return `
+                                <button type="button" 
+                                        class="btn btn-sm text-end tplan-juz-btn d-flex align-items-center justify-content-between ${isDone ? 'btn-success active shadow-xs' : 'btn-outline-secondary bg-white'}" 
+                                        data-juz="${j.num}"
+                                        style="font-size: 0.78rem; padding: 6px 10px; border-radius: 8px; transition: all 0.15s ease;">
+                                    <span>${j.name}</span>
+                                    <i class="fa-solid ${isDone ? 'fa-circle-check' : 'fa-circle-notch opacity-25'} status-icon"></i>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <!-- Section 5: Teacher Notes & Recommendations -->
+                <div class="card p-3 mb-3 border-0 bg-light rounded-3 shadow-xs">
+                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-comment-dots text-info me-1"></i> توجيهات وملاحظات المحفظ للطالب وولي أمره:</label>
+                    <textarea id="tplan-notes" class="form-control" rows="3" placeholder="توجيهات المحفظ حول أحكام التجويد، مخارج الحروف، خطة المراجعة والتثبيت المنزلية...">${escapeXml(curNotes)}</textarea>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button type="button" class="btn btn-secondary px-3" onclick="closeModal()">إلغاء</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm" id="btn-submit-tplan">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> اعتماد وحفظ الخطة القرآنية
+                    </button>
+                </div>
+            </form>
+        `;
+
+        // Quick Memorization Chips Click Handler
+        const memInput = document.getElementById("tplan-prev-memorization");
+        modalBody.querySelectorAll(".quick-mem-chip").forEach(chip => {
+            chip.addEventListener("click", () => {
+                memInput.value = chip.getAttribute("data-val");
+                memInput.focus();
+            });
+        });
+
+        // Target Ajzaa dropdown updates header badge
+        const targetSelect = document.getElementById("tplan-target-ajzaa");
+        const targetBadge = document.getElementById("tplan-target-badge");
+        if (targetSelect && targetBadge) {
+            targetSelect.addEventListener("change", () => {
+                targetBadge.textContent = targetSelect.value;
+            });
+        }
+
+        // 30 Ajzaa Button Toggle Handlers
+        const updateSelectedCount = () => {
+            const activeCount = modalBody.querySelectorAll(".tplan-juz-btn.active").length;
+            const badge = document.getElementById("tplan-selected-count");
+            if (badge) badge.textContent = `${activeCount} من 30 جزءاً`;
+        };
+
+        modalBody.querySelectorAll(".tplan-juz-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const isCurrentlyActive = btn.classList.contains("active");
+                if (isCurrentlyActive) {
+                    btn.classList.remove("active", "btn-success", "shadow-xs");
+                    btn.classList.add("btn-outline-secondary", "bg-white");
+                    const icon = btn.querySelector(".status-icon");
+                    if (icon) {
+                        icon.className = "fa-solid fa-circle-notch opacity-25 status-icon";
+                    }
+                } else {
+                    btn.classList.add("active", "btn-success", "shadow-xs");
+                    btn.classList.remove("btn-outline-secondary", "bg-white");
+                    const icon = btn.querySelector(".status-icon");
+                    if (icon) {
+                        icon.className = "fa-solid fa-circle-check status-icon";
+                    }
+                }
+                updateSelectedCount();
+            });
+        });
+
+        // Quick Selector Buttons
+        const setJuzState = (predicate) => {
+            modalBody.querySelectorAll(".tplan-juz-btn").forEach(btn => {
+                const jNum = parseInt(btn.getAttribute("data-juz"));
+                const shouldBeActive = predicate(jNum);
+                const icon = btn.querySelector(".status-icon");
+                if (shouldBeActive) {
+                    btn.classList.add("active", "btn-success", "shadow-xs");
+                    btn.classList.remove("btn-outline-secondary", "bg-white");
+                    if (icon) icon.className = "fa-solid fa-circle-check status-icon";
+                } else {
+                    btn.classList.remove("active", "btn-success", "shadow-xs");
+                    btn.classList.add("btn-outline-secondary", "bg-white");
+                    if (icon) icon.className = "fa-solid fa-circle-notch opacity-25 status-icon";
+                }
+            });
+            updateSelectedCount();
+        };
+
+        const btnAll = document.getElementById("btn-select-all-juz");
+        if (btnAll) btnAll.addEventListener("click", () => setJuzState(() => true));
+
+        const btnNone = document.getElementById("btn-deselect-all-juz");
+        if (btnNone) btnNone.addEventListener("click", () => setJuzState(() => false));
+
+        const btnAmma = document.getElementById("btn-select-ammar-juz");
+        if (btnAmma) btnAmma.addEventListener("click", () => setJuzState(n => n >= 29));
+
+        const btnLast5 = document.getElementById("btn-select-last5-juz");
+        if (btnLast5) btnLast5.addEventListener("click", () => setJuzState(n => n >= 26));
+
+        // Submit Handler
+        document.getElementById("teacher-edit-plan-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById("btn-submit-tplan");
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري حفظ وتحديث الخطة...`;
+            }
+
+            try {
+                const newMem = document.getElementById("tplan-prev-memorization").value.trim();
+                const newPlanType = document.getElementById("tplan-type").value;
+                const newTargetAjzaa = parseInt(document.getElementById("tplan-target-ajzaa").value) || 30;
+                const newDailyPace = parseFloat(document.getElementById("tplan-daily-pace").value) || 1.0;
+                const newStartDate = document.getElementById("tplan-start-date").value || null;
+                const newTargetDate = document.getElementById("tplan-target-date").value || null;
+                const newNotes = document.getElementById("tplan-notes").value.trim();
+
+                const selectedAjzaa = [];
+                modalBody.querySelectorAll(".tplan-juz-btn.active").forEach(btn => {
+                    const jVal = parseInt(btn.getAttribute("data-juz"));
+                    if (!isNaN(jVal)) selectedAjzaa.push(jVal);
+                });
+                selectedAjzaa.sort((a, b) => a - b);
+                const newCompletedAjzaa = selectedAjzaa.join(",");
+
+                student.previousQuranMemorization = newMem;
+                student.planType = newPlanType;
+                student.targetAjzaaCount = newTargetAjzaa;
+                student.dailyPacePages = newDailyPace;
+                student.planStartDate = newStartDate;
+                student.planTargetDate = newTargetDate;
+                student.completedAjzaa = newCompletedAjzaa;
+                student.notes = newNotes;
+
+                await apiRequest(`/students/${studentId}`, "PUT", student);
+
+                closeModal();
+                showAlert(`تم تحديث الخطة القرآنية للطالب (${studentName}) بنجاح وتوثيق الأجزاء المتقنة.`, "success");
+                loadTeacherStudentsTable();
+            } catch (err) {
+                console.error("Error updating student plan:", err);
+                showAlert(err.message || "تعذر تحديث خطة الطالب. تأكد من صحة البيانات وصلاحيات الحساب.", "danger");
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i class="fa-solid fa-floppy-disk me-1"></i> اعتماد وحفظ الخطة القرآنية`;
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error("Error loading student for plan edit:", err);
+        modalBody.innerHTML = `<div class="alert alert-danger p-4 text-center">حدث خطأ أثناء تحميل بيانات الطالب.</div>`;
+    }
 }
 
 async function loadAttendanceSheet() {
@@ -4811,236 +5115,477 @@ async function loadParentProgress() {
     }
 }
 
-// ------ Show Student 360 Modal for Parent ------
+// ------ Show Student 360 Modal (Executive Unified Student Portfolio) ------
 async function showStudent360Modal(studentId) {
     openModal("الملف الموحد الشامل للطالب (360°)", true);
     const content = document.getElementById("modal-body-content");
-    content.innerHTML = `<div class="text-center p-5"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><p class="mt-2">جاري تحميل الملف الموحد 360°...</p></div>`;
+    content.innerHTML = `
+        <div class="text-center p-5">
+            <i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i>
+            <p class="mt-2 text-muted fw-bold">جاري تحميل الملف الموحد 360° واستخراج السجلات القرآنية...</p>
+        </div>
+    `;
     
     try {
-        const data = await apiRequest(`/students/${studentId}/360`);
-        const info = data.studentInfo || {};
-        const sessions = data.recentSessions || [];
-        const centerAttendance = data.centerAttendance || [];
-        const completedExams = data.completedExams || [];
-        const talents = data.talents || [];
-        
+        let data = null;
+        try {
+            data = await apiRequest(`/students/${studentId}/360`);
+        } catch (fetchErr) {
+            console.warn("API 360 fetch notice:", fetchErr);
+        }
+
+        // Fallback: If 360 endpoint failed or returned empty data, fetch student directly
+        let studentFallback = null;
+        if (!data || (!data.studentName && !data.studentInfo)) {
+            try {
+                studentFallback = await apiRequest(`/students/${studentId}`);
+            } catch (fbErr) {
+                console.warn("Direct student fetch notice:", fbErr);
+            }
+        }
+
+        const sInfo = (data && data.studentInfo) ? data.studentInfo : (studentFallback || {});
+        const studentName = (data && data.studentName) || sInfo.fullName || sInfo.studentName || 'طالب المركز';
+        const circleName = (data && data.circleName) || sInfo.circleName || 'غير مسند لحلقة';
+        const teacherName = (data && data.teacherName) || sInfo.teacherName || 'غير مسند لمعلم';
+        const phone = (data && data.familyContact) || sInfo.familyContact || sInfo.studentMobile || sInfo.studentWhatsapp || '-';
+        const studentIdNum = sInfo.studentIdentityNumber || (data && data.studentIdentityNumber) || `#${studentId}`;
+        const prevMemorization = (data && data.previousQuranMemorization) || sInfo.previousQuranMemorization || 'مبتدئ';
+        const rawPlanType = (data && data.planType) || sInfo.planType || 'Standard';
+        const targetAjzaa = (data && data.targetAjzaa) || (data && data.targetAjzaaCount) || sInfo.targetAjzaaCount || 30;
+        const dailyPace = (data && data.dailyPacePages) || sInfo.dailyPacePages || 1.0;
+        const planStartDate = (data && data.planStartDate) || sInfo.planStartDate || '-';
+        const planTargetDate = (data && data.planTargetDate) || sInfo.planTargetDate || '-';
+        const notes = (data && data.notes) || sInfo.notes || '';
+
+        const planTypeMap = {
+            "Standard": "مسار الحفظ القياسي (المعتمد)",
+            "Intensive": "مسار الحفظ المكثف السريع",
+            "Revision": "مسار التثبيت والمراجعة والضبط",
+            "Gradual": "مسار التلقين والقاعدة النورانية (للأشبال)",
+            "Ijaza": "مسار الإجازات والضبط القرآني بالسند"
+        };
+        const planTypeDisplay = planTypeMap[rawPlanType] || rawPlanType;
+
+        const completedAjzaaStr = (data && data.completedAjzaa) || sInfo.completedAjzaa || '';
+        const completedAjzaaArr = completedAjzaaStr ? completedAjzaaStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 30) : [];
+        const completedCount = completedAjzaaArr.length;
+        const completedPercent = Math.min(100, Math.round((completedCount / (targetAjzaa || 30)) * 100));
+
+        const sessions = (data && (data.sessions || data.recentSessions)) || [];
+        const attendances = (data && (data.attendance || data.attendances || data.centerAttendance)) || [];
+        const completedExams = (data && (data.completedExams || data.exams)) || [];
+        const talents = (data && data.talents) || [];
+
+        const presentCount = (data && data.presentDays !== undefined) ? data.presentDays : attendances.filter(a => a.status === 'Present' || a.status === 0 || a.statusText === 'حاضر').length;
+        const absentCount = (data && data.absentDays !== undefined) ? data.absentDays : attendances.filter(a => a.status === 'Absent' || a.status === 1 || a.statusText === 'غائب').length;
+        const lateCount = (data && data.lateDays !== undefined) ? data.lateDays : attendances.filter(a => a.status === 'Late' || a.status === 2 || a.statusText === 'متأخر').length;
+        const attendanceRate = (data && data.attendanceRate !== undefined) ? data.attendanceRate : ((presentCount + absentCount + lateCount) > 0 ? Math.round((presentCount / (presentCount + absentCount + lateCount)) * 100) : 100);
+
+        const JUZ_NAMES = [
+            { num: 1, name: "1. الم (البقرة)" },
+            { num: 2, name: "2. سيقول (البقرة)" },
+            { num: 3, name: "3. تلك الرسل (البقرة)" },
+            { num: 4, name: "4. لن تنالوا (آل عمران)" },
+            { num: 5, name: "5. والمحصنات (النساء)" },
+            { num: 6, name: "6. لا يحب الله (النساء)" },
+            { num: 7, name: "7. وإذا سمعوا (المائدة)" },
+            { num: 8, name: "8. ولو أننا (الأنعام)" },
+            { num: 9, name: "9. قال الملأ (الأعراف)" },
+            { num: 10, name: "10. واعلموا (الأنفال)" },
+            { num: 11, name: "11. يعتذرون (التوبة)" },
+            { num: 12, name: "12. وما من دابة (هود)" },
+            { num: 13, name: "13. وما أبرئ (يوسف)" },
+            { num: 14, name: "14. الـر (الحجر)" },
+            { num: 15, name: "15. سبحان (الإسراء)" },
+            { num: 16, name: "16. قال ألم (الكهف)" },
+            { num: 17, name: "17. اقترب (الأنبياء)" },
+            { num: 18, name: "18. قد أفلح (المؤمنون)" },
+            { num: 19, name: "19. وقال الذين (الفرقان)" },
+            { num: 20, name: "20. أمن خلق (النمل)" },
+            { num: 21, name: "21. اتل ما أوحي (العنكبوت)" },
+            { num: 22, name: "22. ومن يقنت (الأحزاب)" },
+            { num: 23, name: "23. وما أنزلنا (يس)" },
+            { num: 24, name: "24. فمن أظلم (الزمر)" },
+            { num: 25, name: "25. إليه يرد (فصلت)" },
+            { num: 26, name: "26. حـم (الأحقاف)" },
+            { num: 27, name: "27. قال فما خطبكم (الذاريات)" },
+            { num: 28, name: "28. قد سمع (المجادلة)" },
+            { num: 29, name: "29. تبارك (الملك)" },
+            { num: 30, name: "30. عمّ (النبأ)" }
+        ];
+
         content.innerHTML = `
-            <div class="student-360-container">
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <div class="card p-3 text-center bg-light border-0 shadow-sm">
-                            <i class="fa-solid fa-user-graduate mb-2" style="font-size: 2.5rem; color: var(--primary-color)"></i>
-                            <h4 class="mb-1">${info.fullName || info.studentName || 'اسم الطالب'}</h4>
-                            <div class="d-flex justify-content-center align-items-center gap-1 flex-wrap mb-2">
-                                <span class="badge bg-primary">${info.circleName || 'غير مسند حلقة'}</span>
-                                ${(data.isTalented || talents.length > 0) ? `
-                                    <span class="badge bg-danger text-white shadow-xs">
-                                        <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ (${talents.length})
-                                    </span>
-                                ` : ''}
+            <div class="student-360-container p-1 p-md-2">
+                <!-- Profile Header Banner -->
+                <div class="card p-3 p-md-4 mb-4 border-0 rounded-4 text-white shadow-sm" style="background: linear-gradient(135deg, #0d5c3a, #166534);">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-white text-success rounded-circle d-flex align-items-center justify-content-center shadow" style="width: 58px; height: 58px; font-size: 1.8rem;">
+                                <i class="fa-solid fa-user-graduate"></i>
                             </div>
-                            <p class="text-muted small mb-0"><i class="fa-solid fa-phone"></i> التواصل: ${info.familyContact || '-'}</p>
+                            <div>
+                                <h4 class="fw-bold mb-1 text-white">${escapeXml(studentName)}</h4>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="badge bg-white text-success fw-bold"><i class="fa-solid fa-mosque me-1"></i> ${escapeXml(circleName)}</span>
+                                    <span class="badge bg-success bg-opacity-25 text-white border border-white border-opacity-50"><i class="fa-solid fa-id-card me-1"></i> هوية: ${escapeXml(studentIdNum)}</span>
+                                    <span class="badge bg-warning text-dark fw-bold"><i class="fa-solid fa-chalkboard-user me-1"></i> ${escapeXml(teacherName)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small opacity-90 mb-1"><i class="fa-solid fa-phone me-1"></i> للتواصل: <b>${escapeXml(phone)}</b></div>
+                            <div class="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-1 rounded-pill border border-white border-opacity-25">
+                                <i class="fa-solid fa-award text-warning"></i>
+                                <span class="small text-white">إنجاز الخطة: <b>${completedPercent}%</b> (${completedCount} من ${targetAjzaa} جزءاً)</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-8">
-                        <div class="row g-2">
-                            <div class="col-6 col-sm-3">
-                                <div class="card p-3 text-center border-0 shadow-sm bg-success text-white">
-                                    <h3>${sessions.length}</h3>
-                                    <span class="small">جلسات التسميع</span>
-                                </div>
-                            </div>
-                            <div class="col-6 col-sm-3">
-                                <div class="card p-3 text-center border-0 shadow-sm bg-info text-white">
-                                    <h3>${centerAttendance.filter(a => a.status === 'Present').length}</h3>
-                                    <span class="small">أيام الحضور</span>
-                                </div>
-                            </div>
-                            <div class="col-6 col-sm-3">
-                                <div class="card p-3 text-center border-0 shadow-sm bg-warning text-dark">
-                                    <h3>${completedExams.length}</h3>
-                                    <span class="small">الاختبارات المجتازة</span>
-                                </div>
-                            </div>
-                            <div class="col-6 col-sm-3">
-                                <div class="card p-3 text-center border-0 shadow-sm ${talents.length > 0 ? 'bg-danger text-white' : 'bg-light text-muted border'}">
-                                    <h3>${talents.length}</h3>
-                                    <span class="small">مشاركات الموهبة</span>
-                                </div>
-                            </div>
+
+                    <!-- Progress Bar towards Target -->
+                    <div class="mt-3">
+                        <div class="progress rounded-pill shadow-xs" style="height: 10px; background: rgba(255, 255, 255, 0.2);">
+                            <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" role="progressbar" style="width: ${completedPercent}%;"></div>
                         </div>
                     </div>
                 </div>
 
-                <ul class="nav nav-tabs mb-3" id="360Tab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#tab-sessions" type="button"><i class="fa-solid fa-book-quran"></i> سجل التسميع والآيات</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#tab-attendance" type="button"><i class="fa-solid fa-calendar-check"></i> كشف الحضور والغياب</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="exams-tab" data-bs-toggle="tab" data-bs-target="#tab-exams" type="button"><i class="fa-solid fa-award"></i> الاختبارات والشهادات</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link ${talents.length > 0 ? 'text-danger fw-bold' : ''}" id="talents-tab" data-bs-toggle="tab" data-bs-target="#tab-talents" type="button">
-                            <i class="fa-solid fa-microphone text-danger me-1"></i> الفتى الواعظ والأصوات الندية (${talents.length})
-                        </button>
-                    </li>
-                </ul>
+                <!-- 5 Key Metric Cards -->
+                <div class="row g-2 mb-4">
+                    <div class="col-6 col-md-4 col-lg">
+                        <div class="student-kpi-card">
+                            <i class="fa-solid fa-book-quran text-success mb-1" style="font-size: 1.4rem;"></i>
+                            <div class="kpi-val text-success">${completedCount} <small style="font-size: 0.9rem;">/ ${targetAjzaa}</small></div>
+                            <div class="kpi-lbl">الأجزاء المتقنة</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg">
+                        <div class="student-kpi-card">
+                            <i class="fa-solid fa-microphone text-primary mb-1" style="font-size: 1.4rem;"></i>
+                            <div class="kpi-val text-primary">${sessions.length}</div>
+                            <div class="kpi-lbl">جلسات التسميع</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg">
+                        <div class="student-kpi-card">
+                            <i class="fa-solid fa-calendar-check text-info mb-1" style="font-size: 1.4rem;"></i>
+                            <div class="kpi-val text-info">${attendanceRate}%</div>
+                            <div class="kpi-lbl">${presentCount} يوم حضور</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg">
+                        <div class="student-kpi-card">
+                            <i class="fa-solid fa-award text-warning mb-1" style="font-size: 1.4rem;"></i>
+                            <div class="kpi-val text-warning">${completedExams.length}</div>
+                            <div class="kpi-lbl">الاختبارات المجتازة</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-lg">
+                        <div class="student-kpi-card ${talents.length > 0 ? 'border-danger' : ''}">
+                            <i class="fa-solid fa-star text-danger mb-1" style="font-size: 1.4rem;"></i>
+                            <div class="kpi-val text-danger">${talents.length}</div>
+                            <div class="kpi-lbl">الفتى الواعظ والأصوات</div>
+                        </div>
+                    </div>
+                </div>
 
-                <div class="tab-content p-2" id="360TabContent">
-                    <!-- Sessions Tab -->
-                    <div class="tab-pane fade show active" id="tab-sessions">
-                        ${sessions.length === 0 ? '<p class="text-muted p-4 text-center">لا يوجد جلسات تسميع مسجلة.</p>' : `
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>تاريخ الجلسة</th>
-                                            <th>السورة مسمّعة</th>
-                                            <th>من آية</th>
-                                            <th>إلى آية</th>
-                                            <th>التقييم</th>
-                                            <th>ملاحظات</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${sessions.map(s => `
-                                            <tr>
-                                                <td>${s.sessionDate}</td>
-                                                <td><strong>سورة ${s.surahName}</strong></td>
-                                                <td>${s.fromVerse}</td>
-                                                <td>${s.toVerse}</td>
-                                                <td><span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText || s.assessment}</span></td>
-                                                <td>${s.notes || '-'}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
+                <!-- Custom Zero-Dependency Tab Navigation -->
+                <div class="student-360-tabs">
+                    <button type="button" class="student-tab-pill active" data-tab="plan" onclick="switchStudent360Tab('plan')">
+                        <i class="fa-solid fa-book-quran"></i> الخطة القرآنية وإنجاز الأجزاء (${completedCount}/${targetAjzaa})
+                    </button>
+                    <button type="button" class="student-tab-pill" data-tab="sessions" onclick="switchStudent360Tab('sessions')">
+                        <i class="fa-solid fa-microphone"></i> سجل التسميع (${sessions.length})
+                    </button>
+                    <button type="button" class="student-tab-pill" data-tab="attendance" onclick="switchStudent360Tab('attendance')">
+                        <i class="fa-solid fa-calendar-check"></i> كشف الحضور والالتزام (${presentCount} يوم)
+                    </button>
+                    <button type="button" class="student-tab-pill" data-tab="exams" onclick="switchStudent360Tab('exams')">
+                        <i class="fa-solid fa-award"></i> الاختبارات والشهادات (${completedExams.length})
+                    </button>
+                    <button type="button" class="student-tab-pill ${talents.length > 0 ? 'text-danger fw-bold' : ''}" data-tab="talents" onclick="switchStudent360Tab('talents')">
+                        <i class="fa-solid fa-microphone text-danger"></i> الفتى الواعظ والأصوات الندية (${talents.length})
+                    </button>
+                </div>
+
+                <!-- TAB PANES -->
+
+                <!-- 1. Plan & Ajzaa Progress Tab -->
+                <div class="student-360-tab-pane" id="student-360-pane-plan" style="display: block;">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="card p-3 border-0 bg-light rounded-3 shadow-xs h-100">
+                                <h6 class="fw-bold text-success mb-3"><i class="fa-solid fa-route me-1"></i> مسار ومعالم الخطة القرآنية</h6>
+                                <div class="mb-2 d-flex justify-content-between border-bottom pb-2">
+                                    <span class="text-muted small">المحفوظ الحالي / السابق:</span>
+                                    <span class="fw-bold text-dark">${escapeXml(prevMemorization)}</span>
+                                </div>
+                                <div class="mb-2 d-flex justify-content-between border-bottom pb-2">
+                                    <span class="text-muted small">مسار الخطة:</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success fw-bold">${planTypeDisplay}</span>
+                                </div>
+                                <div class="mb-2 d-flex justify-content-between border-bottom pb-2">
+                                    <span class="text-muted small">الهدف القرآني:</span>
+                                    <span class="fw-bold text-dark">${targetAjzaa} جزءاً</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-muted small">معدل الورد اليومي:</span>
+                                    <span class="fw-bold text-primary">${dailyPace} صفحة يومياً</span>
+                                </div>
                             </div>
-                        `}
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card p-3 border-0 bg-light rounded-3 shadow-xs h-100">
+                                <h6 class="fw-bold text-success mb-3"><i class="fa-solid fa-calendar-alt me-1"></i> الجدول الزمني والتوجيهات</h6>
+                                <div class="mb-2 d-flex justify-content-between border-bottom pb-2">
+                                    <span class="text-muted small">تاريخ بدء الخطة:</span>
+                                    <span class="fw-bold text-dark font-monospace">${planStartDate}</span>
+                                </div>
+                                <div class="mb-2 d-flex justify-content-between border-bottom pb-2">
+                                    <span class="text-muted small">تاريخ الختم / المستهدف:</span>
+                                    <span class="fw-bold text-danger font-monospace">${planTargetDate}</span>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="text-muted small d-block mb-1"><i class="fa-solid fa-comment-dots text-info me-1"></i> توجيهات المحفظ للطالب:</span>
+                                    <div class="p-2 bg-white rounded border small text-dark" style="min-height: 50px;">
+                                        ${notes ? escapeXml(notes) : '<span class="text-muted fst-italic">لا توجد توجيهات مسجلة حالياً.</span>'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Attendance Tab -->
-                    <div class="tab-pane fade" id="tab-attendance">
-                        ${centerAttendance.length === 0 ? '<p class="text-muted p-4 text-center">لا يوجد سجلات حضور مسجلة.</p>' : `
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
+                    <!-- 30 Ajzaa Visual Progress Grid -->
+                    <div class="card p-3 border-0 bg-light rounded-3 shadow-xs">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                            <h6 class="fw-bold text-dark mb-0">
+                                <i class="fa-solid fa-cubes-stacked text-success me-1"></i> خريطة إتقان أجزاء المصحف الشريف (30 جزءاً):
+                            </h6>
+                            <span class="badge bg-success fs-6">${completedCount} جزءاً متقناً من ${targetAjzaa}</span>
+                        </div>
+                        <div class="juz-360-grid">
+                            ${JUZ_NAMES.map(j => {
+                                const isDone = completedAjzaaArr.includes(j.num);
+                                return `
+                                    <div class="juz-360-box ${isDone ? 'completed' : 'pending'}">
+                                        <div class="d-flex justify-content-between align-items-center w-100">
+                                            <span>الجزء ${j.num}</span>
+                                            <i class="fa-solid ${isDone ? 'fa-circle-check text-success' : 'fa-lock text-muted opacity-50'}"></i>
+                                        </div>
+                                        <div class="small opacity-75 text-truncate w-100" style="font-size: 0.72rem;">${j.name.split('.')[1] || j.name}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Recitation Sessions Tab -->
+                <div class="student-360-tab-pane" id="student-360-pane-sessions" style="display: none;">
+                    ${sessions.length === 0 ? `
+                        <div class="text-center p-5 bg-light rounded-3">
+                            <i class="fa-solid fa-book-open fa-3x text-muted opacity-50 mb-2"></i>
+                            <h6 class="text-muted fw-bold">لا توجد جلسات تسميع مسجلة لهذا الطالب حتى الآن.</h6>
+                        </div>
+                    ` : `
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>السورة الكريمة</th>
+                                        <th>من آية</th>
+                                        <th>إلى آية</th>
+                                        <th>التقييم</th>
+                                        <th>ملاحظات المحفظ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${sessions.map(s => `
                                         <tr>
-                                            <th>التاريخ</th>
-                                            <th>الحالة</th>
-                                            <th>ملاحظات غياب/تأخير</th>
+                                            <td class="font-monospace">${s.sessionDate}</td>
+                                            <td><strong>سورة ${escapeXml(s.surahName)}</strong></td>
+                                            <td>${s.fromVerse}</td>
+                                            <td>${s.toVerse}</td>
+                                            <td><span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText || s.assessment}</span></td>
+                                            <td><small class="text-muted">${escapeXml(s.notes || '-')}</small></td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${centerAttendance.map(a => `
-                                            <tr>
-                                                <td>${a.date || a.attendanceDate}</td>
-                                                <td><span class="badge ${a.status === 'Present' ? 'bg-success' : a.status === 'Absent' ? 'bg-danger' : 'bg-warning text-dark'}">${a.statusText || a.status}</span></td>
-                                                <td>${a.notes || '-'}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </div>
+
+                <!-- 3. Attendance Log Tab -->
+                <div class="student-360-tab-pane" id="student-360-pane-attendance" style="display: none;">
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <div class="p-2 text-center rounded bg-success bg-opacity-10 text-success fw-bold">
+                                حاضر: ${presentCount} يوم
                             </div>
-                        `}
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 text-center rounded bg-danger bg-opacity-10 text-danger fw-bold">
+                                غائب: ${absentCount} يوم
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 text-center rounded bg-warning bg-opacity-10 text-warning fw-bold">
+                                متأخر: ${lateCount} يوم
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Exams Tab -->
-                    <div class="tab-pane fade" id="tab-exams">
-                        ${completedExams.length === 0 ? '<p class="text-muted p-4 text-center">لا يوجد شهادات أو اختبارات مسجلة بعد.</p>' : `
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>تاريخ الاختبار</th>
-                                            <th>المساق / المستوى</th>
-                                            <th>الدرجة النهائية</th>
-                                            <th>التقدير</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${completedExams.map(e => `
+                    ${attendances.length === 0 ? `
+                        <div class="text-center p-5 bg-light rounded-3">
+                            <i class="fa-solid fa-calendar-xmark fa-3x text-muted opacity-50 mb-2"></i>
+                            <h6 class="text-muted fw-bold">لا توجد سجلات حضور مسجلة لهذا الطالب.</h6>
+                        </div>
+                    ` : `
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>الحلقة</th>
+                                        <th>الحالة</th>
+                                        <th>ملاحظات وتبرير</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${attendances.map(a => {
+                                        const isPres = a.status === 'Present' || a.status === 0 || a.statusText === 'حاضر';
+                                        const isAbs = a.status === 'Absent' || a.status === 1 || a.statusText === 'غائب';
+                                        return `
                                             <tr>
-                                                <td>${e.examDate || '-'}</td>
-                                                <td><strong>${e.title || e.courseName}</strong></td>
-                                                <td><span class="badge bg-success">${e.score || e.degree}%</span></td>
-                                                <td>${e.gradeText || 'مجتاز'}</td>
+                                                <td class="font-monospace">${a.sessionDate || a.date || a.attendanceDate}</td>
+                                                <td><small>${escapeXml(a.circleName || circleName)}</small></td>
+                                                <td>
+                                                    <span class="badge ${isPres ? 'bg-success' : isAbs ? 'bg-danger' : 'bg-warning text-dark'}">
+                                                        ${a.statusText || (isPres ? 'حاضر' : isAbs ? 'غائب' : 'متأخر')}
+                                                    </span>
+                                                </td>
+                                                <td><small class="text-muted">${escapeXml(a.notes || '-')}</small></td>
                                             </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        `}
-                    </div>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </div>
 
-                    <!-- Talents Tab (الفتى الواعظ والأصوات الندية) -->
-                    <div class="tab-pane fade" id="tab-talents">
-                        ${talents.length === 0 ? `
-                            <div class="text-center p-5 text-muted">
-                                <i class="fa-solid fa-microphone-lines fa-3x mb-3 text-secondary opacity-50"></i>
-                                <h5>لا توجد مشاركات مسجلة لهذا الطالب في الفتى الواعظ أو الأصوات الندية حتى الآن.</h5>
-                                <p class="small">يمكن لإدارة المركز والمشرفين إدراج الطالب ومشاركاته من صفحة (الفتى الواعظ والأصوات الندية).</p>
-                            </div>
-                        ` : `
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
+                <!-- 4. Exams & Certificates Tab -->
+                <div class="student-360-tab-pane" id="student-360-pane-exams" style="display: none;">
+                    ${completedExams.length === 0 ? `
+                        <div class="text-center p-5 bg-light rounded-3">
+                            <i class="fa-solid fa-award fa-3x text-muted opacity-50 mb-2"></i>
+                            <h6 class="text-muted fw-bold">لا توجد اختبارات أو شهادات معتمدة لهذا الطالب حتى الآن.</h6>
+                        </div>
+                    ` : `
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>تاريخ الاختبار</th>
+                                        <th>المساق / المقرر</th>
+                                        <th>الدرجة النهائية</th>
+                                        <th>التقدير</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${completedExams.map(e => `
                                         <tr>
-                                            <th>المسار</th>
-                                            <th>عنوان المشاركة / الخطبة</th>
-                                            <th>طريقة التحضير</th>
-                                            <th>التاريخ والمناسبة</th>
-                                            <th>المشرف المعتمد</th>
-                                            <th>التقييم</th>
-                                            <th>المرفق / تنزيل</th>
+                                            <td class="font-monospace">${e.examDate || '-'}</td>
+                                            <td><strong>${escapeXml(e.title || e.courseName || 'اختبار قرآني')}</strong></td>
+                                            <td><span class="badge bg-success fs-6">${e.score || e.degree || 0}%</span></td>
+                                            <td><span class="badge bg-light text-dark border">${escapeXml(e.gradeText || 'ناجح ومجتاز')}</span></td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${talents.map(t => `
-                                            <tr>
-                                                <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${t.talentType}</span></td>
-                                                <td>
-                                                    <strong class="text-dark d-block">${t.title}</strong>
-                                                    ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:260px; line-height:1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 90))}${t.speechContent.length > 90 ? '...' : ''}</div>` : ''}
-                                                </td>
-                                                <td><span class="small text-muted">${t.preparationMethod || '-'}</span></td>
-                                                <td>
-                                                    <span class="small fw-bold">${t.occasion || '-'}</span><br>
-                                                    <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
-                                                </td>
-                                                <td><strong class="text-success small">${t.supervisorTeacherName || '-'}</strong></td>
-                                                <td>
-                                                    ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1">${t.evaluationScore}</span>` : '-'}
-                                                    ${t.performanceNotes ? `<div class="small text-muted" style="max-width:160px;">${t.performanceNotes}</div>` : ''}
-                                                </td>
-                                                <td>
-                                                    ${t.mediaUrl ? `
-                                                        <div class="d-flex gap-1 align-items-center">
-                                                            <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
-                                                                <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع' : 'مشاهدة'}
-                                                            </button>
-                                                            <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الفيديو أو المرفق لجهازك">
-                                                                <i class="fa-solid fa-download"></i>
-                                                            </a>
-                                                        </div>
-                                                    ` : '<span class="text-muted small">بدون مرفق</span>'}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        `}
-                    </div>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </div>
+
+                <!-- 5. Talents & Preaching Tab -->
+                <div class="student-360-tab-pane" id="student-360-pane-talents" style="display: none;">
+                    ${talents.length === 0 ? `
+                        <div class="text-center p-5 bg-light rounded-3">
+                            <i class="fa-solid fa-microphone-slash fa-3x text-muted opacity-50 mb-2"></i>
+                            <h6 class="text-muted fw-bold">لا توجد مشاركات مسجلة في الفتى الواعظ أو الأصوات الندية لهذا الطالب.</h6>
+                        </div>
+                    ` : `
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>المسار</th>
+                                        <th>عنوان المشاركة</th>
+                                        <th>طريقة التحضير</th>
+                                        <th>المناسبة والتاريخ</th>
+                                        <th>المشرف</th>
+                                        <th>التقييم</th>
+                                        <th>المرفق / المشاهدة</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${talents.map(t => `
+                                        <tr>
+                                            <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${escapeXml(t.talentType)}</span></td>
+                                            <td>
+                                                <strong class="text-dark d-block">${escapeXml(t.title)}</strong>
+                                                ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:260px; line-height:1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 80))}${t.speechContent.length > 80 ? '...' : ''}</div>` : ''}
+                                            </td>
+                                            <td><span class="small text-muted">${escapeXml(t.preparationMethod || '-')}</span></td>
+                                            <td>
+                                                <span class="small fw-bold">${escapeXml(t.occasion || '-')}</span><br>
+                                                <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
+                                            </td>
+                                            <td><strong class="text-success small">${escapeXml(t.supervisorTeacherName || '-')}</strong></td>
+                                            <td>
+                                                ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold">${t.evaluationScore}</span>` : '-'}
+                                            </td>
+                                            <td>
+                                                ${t.mediaUrl ? `
+                                                    <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                                                        <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> تشغيل
+                                                    </button>
+                                                ` : '<span class="text-muted small">-</span>'}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
                 </div>
             </div>
         `;
-    } catch(e) {
-        content.innerHTML = `<div class="alert alert-danger p-3">تعذر تحميل بيانات الملف الموحد: ${e.message}</div>`;
+
+        // Switch tab function
+        window.switchStudent360Tab = function(tabKey) {
+            document.querySelectorAll(".student-tab-pill").forEach(pill => {
+                if (pill.getAttribute("data-tab") === tabKey) {
+                    pill.classList.add("active");
+                } else {
+                    pill.classList.remove("active");
+                }
+            });
+            document.querySelectorAll(".student-360-tab-pane").forEach(pane => {
+                if (pane.id === `student-360-pane-${tabKey}`) {
+                    pane.style.display = "block";
+                } else {
+                    pane.style.display = "none";
+                }
+            });
+        };
+
+    } catch (e) {
+        console.error("Error rendering 360 modal:", e);
+        content.innerHTML = `<div class="alert alert-danger p-4 text-center">تعذر تحميل بيانات الملف الموحد: ${escapeXml(e.message)}</div>`;
     }
 }
 
