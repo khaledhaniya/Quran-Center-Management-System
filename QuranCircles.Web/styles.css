@@ -5215,59 +5215,13 @@ body.theme-dark {
     white-space: nowrap !important;
 }
 
-/* Preacher Youth Table Responsive & Structure */
-#preacher-youth-table {
-    min-width: 1250px !important;
-    border-collapse: separate !important;
-    border-spacing: 0 !important;
-    width: 100% !important;
-}
-
-#preacher-youth-table th {
-    background: #f8fafc !important;
-    color: #1e293b !important;
-    font-weight: 800 !important;
-    font-size: 0.84rem !important;
-    padding: 14px 12px !important;
-    border-bottom: 2px solid #e2e8f0 !important;
-    white-space: nowrap !important;
-    vertical-align: middle !important;
-}
-
-#preacher-youth-table td {
-    padding: 12px 12px !important;
-    vertical-align: middle !important;
-    border-bottom: 1px solid #f1f5f9 !important;
-}
-
+/* Allow normal text wrapping for Preacher Youth custom cells */
 #preacher-youth-table td.talent-speech-cell,
 #preacher-youth-table td.talent-notes-cell,
 #preacher-youth-table td.talent-student-cell,
 #preacher-youth-table td.talent-title-cell {
     white-space: normal !important;
-}
-
-.talent-table-responsive {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    border-radius: 0 0 16px 16px;
-}
-
-.talent-table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-
-.talent-table-responsive::-webkit-scrollbar-track {
-    background: #f1f5f9;
-}
-
-.talent-table-responsive::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-
-.talent-table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    vertical-align: top !important;
 }
 
 /* Dark mode compatibility for Preacher Youth */
@@ -5299,15 +5253,6 @@ body.dark-mode .talent-sheikh-box {
     color: #6ee7b7 !important;
 }
 
-body.dark-mode #preacher-youth-table th {
-    background: #1e293b !important;
-    color: #f1f5f9 !important;
-    border-color: #334155 !important;
-}
-
-body.dark-mode #preacher-youth-table td {
-    border-color: #334155 !important;
-}
 
 
 
