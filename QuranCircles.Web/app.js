@@ -14813,11 +14813,13 @@ async function loadPreacherYouthScreen() {
         const elSpeeches = document.getElementById("preacher-stat-speeches");
         const elVoices = document.getElementById("preacher-stat-voices");
         const elMedia = document.getElementById("preacher-stat-media-count");
+        const elCount = document.getElementById("preacher-table-count");
 
         if (elYouth) elYouth.textContent = uniqueYouth;
         if (elSpeeches) elSpeeches.textContent = speechesCount;
         if (elVoices) elVoices.textContent = voicesCount;
         if (elMedia) elMedia.textContent = mediaCount;
+        if (elCount) elCount.innerHTML = `<i class="fa-solid fa-list-check me-1"></i> ${totalRecords} مشاركة مسجلة`;
 
         renderTalentTable();
     } catch(err) {
@@ -14871,7 +14873,7 @@ function renderTalentTable() {
         } else if (t.talentType.includes("أذان")) {
             talentBadge = '<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-bullhorn text-info me-1"></i> أصوات ندية (أذان)</span>';
         } else {
-            talentBadge = `<span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fa-solid fa-mosque me-1"></i> ${t.talentType}</span>`;
+            talentBadge = `<span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fa-solid fa-mosque me-1"></i> ${escapeXml(t.talentType)}</span>`;
         }
 
         // Media buttons
@@ -14884,47 +14886,116 @@ function renderTalentTable() {
 
             mediaHtml = `
                 <div class="d-flex gap-1 justify-content-center align-items-center">
-                    <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
+                    <button class="btn btn-sm btn-outline-danger px-2 py-1 shadow-sm rounded-3" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
                         <i class="fa-solid ${icon} me-1"></i> ${label}
                     </button>
-                    <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الملف للجهاز">
+                    <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1 shadow-sm rounded-3" title="تنزيل الملف للجهاز">
                         <i class="fa-solid fa-download"></i>
                     </a>
                 </div>
             `;
         }
 
+        // Translucent Glassmorphism Preparation & Speech Box (مربع شفاف فيه ظل احترافي ومرتب)
+        const hasPrep = t.preparationMethod && t.preparationMethod.trim() !== "";
+        const hasSpeech = t.speechContent && t.speechContent.trim() !== "";
+        const isLongSpeech = hasSpeech && t.speechContent.length > 90;
+        const speechSnippet = hasSpeech ? (t.speechContent.substring(0, 90) + (isLongSpeech ? '...' : '')) : '';
+
+        let prepSpeechBoxHtml = '';
+        if (hasPrep || hasSpeech) {
+            prepSpeechBoxHtml = `
+                <div class="talent-glass-box">
+                    ${hasPrep ? `
+                        <div class="talent-prep-pill">
+                            <i class="fa-solid fa-book-open"></i>
+                            <span>${escapeXml(t.preparationMethod)}</span>
+                        </div>
+                    ` : ''}
+                    ${hasSpeech ? `
+                        <div class="talent-speech-quote">
+                            <i class="fa-solid fa-quote-right quote-icon"></i>
+                            <span class="talent-speech-text">${escapeXml(speechSnippet)}</span>
+                            ${isLongSpeech ? `
+                                <div>
+                                    <button type="button" class="talent-read-more-btn" onclick="showFullSpeechModal(${t.id})">
+                                        <i class="fa-solid fa-expand me-1"></i> عرض النص كاملاً
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            prepSpeechBoxHtml = '<span class="text-muted small fst-italic">بدون نص تحضير</span>';
+        }
+
+        // Translucent Glassmorphism Evaluation & Notes Box
+        const hasScore = t.evaluationScore && t.evaluationScore.trim() !== "";
+        const hasNotes = t.performanceNotes && t.performanceNotes.trim() !== "";
+        let notesBoxHtml = '';
+        if (hasScore || hasNotes) {
+            notesBoxHtml = `
+                <div class="talent-notes-glass-box">
+                    ${hasScore ? `
+                        <div class="talent-score-pill">
+                            <i class="fa-solid fa-star text-warning"></i>
+                            <span>${escapeXml(t.evaluationScore)}</span>
+                        </div>
+                    ` : ''}
+                    ${hasNotes ? `
+                        <div class="talent-notes-text">
+                            ${escapeXml(t.performanceNotes)}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            notesBoxHtml = '<span class="text-muted small">-</span>';
+        }
+
+        // Supervisor Sheikh Badge
+        const sheikhHtml = `
+            <div class="talent-sheikh-box">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>${escapeXml(t.supervisorTeacherName || 'غير معين')}</span>
+            </div>
+        `;
+
         return `
             <tr>
-                <td class="text-center font-monospace fw-bold text-muted" style="width: 40px;">${idx + 1}</td>
-                <td>
-                    <div class="fw-bold text-primary" style="font-size: 1.05rem;">${t.studentName}</div>
-                    <small class="text-muted"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
-                </td>
-                <td><span class="badge bg-light text-dark border">${t.circleName || 'حلقة المركز'}</span></td>
-                <td>${talentBadge}</td>
-                <td>
-                    <strong class="text-dark d-block">${t.title}</strong>
-                    ${t.occasion ? `<span class="badge bg-secondary bg-opacity-10 text-secondary border mt-1"><i class="fa-solid fa-map-pin me-1"></i> ${t.occasion}</span>` : ''}
-                </td>
-                <td>
-                    ${t.preparationMethod ? `<div class="small text-muted mb-1"><i class="fa-solid fa-book-open me-1 text-primary"></i> <strong>التحضير:</strong> ${t.preparationMethod}</div>` : ''}
-                    ${t.speechContent ? `<div class="small text-dark border-top pt-1 mt-1" style="max-width: 250px; line-height: 1.4;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 90))}${t.speechContent.length > 90 ? '...' : ''}</div>` : ''}
-                </td>
-                <td>
-                    <strong class="text-success"><i class="fa-solid fa-user-tie me-1"></i> ${t.supervisorTeacherName || 'غير معين'}</strong>
-                </td>
-                <td class="text-center">${mediaHtml}</td>
-                <td>
-                    ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1 d-inline-block"><i class="fa-solid fa-star text-dark me-1"></i> ${t.evaluationScore}</span>` : ''}
-                    ${t.performanceNotes ? `<div class="small text-muted" style="max-width: 180px;">${t.performanceNotes}</div>` : '-'}
+                <td class="text-center font-monospace fw-bold text-muted" style="width: 45px;">${idx + 1}</td>
+                <td class="talent-student-cell">
+                    <div class="fw-bold text-primary" style="font-size: 1rem;">${escapeXml(t.studentName)}</div>
+                    <small class="text-muted d-inline-flex align-items-center gap-1 mt-1">
+                        <i class="fa-solid fa-calendar-day text-secondary"></i> ${t.eventDate || '-'}
+                    </small>
                 </td>
                 <td class="text-center">
-                    <div class="d-flex gap-1 justify-content-center flex-wrap">
-                        <button class="btn btn-outline-primary btn-sm" onclick="showAddEditTalentModal(${t.id})" title="تعديل المشاركة">
+                    <span class="badge bg-light text-dark border px-2 py-1">${escapeXml(t.circleName || 'حلقة المركز')}</span>
+                </td>
+                <td class="text-center">${talentBadge}</td>
+                <td class="talent-title-cell">
+                    <strong class="text-dark d-block mb-1" style="font-size: 0.95rem;">${escapeXml(t.title)}</strong>
+                    ${t.occasion ? `<span class="badge bg-secondary bg-opacity-10 text-secondary border"><i class="fa-solid fa-map-pin me-1"></i> ${escapeXml(t.occasion)}</span>` : ''}
+                </td>
+                <td class="talent-speech-cell">
+                    ${prepSpeechBoxHtml}
+                </td>
+                <td class="text-center">
+                    ${sheikhHtml}
+                </td>
+                <td class="text-center">${mediaHtml}</td>
+                <td class="talent-notes-cell">
+                    ${notesBoxHtml}
+                </td>
+                <td class="text-center">
+                    <div class="d-flex gap-1 justify-content-center align-items-center">
+                        <button class="btn btn-outline-primary btn-sm rounded-3 px-2 py-1 shadow-sm" onclick="showAddEditTalentModal(${t.id})" title="تعديل المشاركة">
                             <i class="fa-solid fa-pen"></i>
                         </button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="deleteTalentRecord(${t.id}, '${escapeXml(t.title)}')" title="حذف المشاركة">
+                        <button class="btn btn-outline-danger btn-sm rounded-3 px-2 py-1 shadow-sm" onclick="deleteTalentRecord(${t.id}, '${escapeXml(t.title)}')" title="حذف المشاركة">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
@@ -14932,6 +15003,55 @@ function renderTalentTable() {
             </tr>
         `;
     }).join("");
+}
+
+function showFullSpeechModal(talentId) {
+    const t = (cachedTalents || []).find(item => item.id === talentId);
+    if (!t) return;
+
+    Swal.fire({
+        title: `<div class="d-flex align-items-center justify-content-center gap-2 text-danger fw-bold" style="font-size: 1.25rem;"><i class="fa-solid fa-microphone-lines"></i> ${escapeHtml(t.title)}</div>`,
+        html: `
+            <div class="text-start" style="direction: rtl; font-family: inherit;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 p-2 bg-light rounded-3 border gap-2">
+                    <div><strong class="text-dark">الفتى الموهوب:</strong> <span class="text-primary fw-bold">${escapeHtml(t.studentName)}</span> (${escapeHtml(t.circleName || 'حلقة المركز')})</div>
+                    <div><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${escapeHtml(t.talentType)}</span></div>
+                </div>
+
+                ${t.occasion ? `
+                    <div class="mb-2 text-muted small">
+                        <i class="fa-solid fa-location-dot text-danger me-1"></i> <strong>المناسبة والمكان:</strong> ${escapeHtml(t.occasion)} | <i class="fa-solid fa-calendar-day text-success me-1"></i> ${escapeHtml(t.eventDate || '-')}
+                    </div>
+                ` : ''}
+
+                ${t.preparationMethod ? `
+                    <div class="mb-3">
+                        <div class="fw-bold text-primary mb-1 small"><i class="fa-solid fa-book-open me-1"></i> طريقة التحضير والإعداد:</div>
+                        <div class="p-2 px-3 rounded-3 border bg-light text-dark small" style="line-height: 1.6;">${escapeHtml(t.preparationMethod)}</div>
+                    </div>
+                ` : ''}
+
+                ${t.speechContent ? `
+                    <div class="mb-3">
+                        <div class="fw-bold text-danger mb-1 small"><i class="fa-solid fa-quote-right me-1"></i> نصوص وعناصر الخطبة / المشاركة:</div>
+                        <div class="p-3 rounded-3 border" style="background: rgba(254, 242, 242, 0.65); border-color: rgba(239, 68, 68, 0.35) !important; line-height: 1.8; font-size: 0.95rem; white-space: pre-wrap; color: #1e293b;">${escapeHtml(t.speechContent)}</div>
+                    </div>
+                ` : ''}
+
+                <div class="row g-2 p-2 bg-light rounded-3 border">
+                    <div class="col-md-6 small">
+                        <strong>الشيخ المشرف:</strong> <span class="text-success fw-bold">${escapeHtml(t.supervisorTeacherName || 'غير معين')}</span>
+                    </div>
+                    <div class="col-md-6 small">
+                        <strong>التقييم:</strong> <span class="badge bg-warning text-dark fw-bold">${escapeHtml(t.evaluationScore || '-')}</span> ${escapeHtml(t.performanceNotes || '')}
+                    </div>
+                </div>
+            </div>
+        `,
+        confirmButtonText: 'إغلاق',
+        confirmButtonColor: '#b91c1c',
+        width: '680px'
+    });
 }
 
 async function showAddEditTalentModal(talentId = null) {

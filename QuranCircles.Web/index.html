@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260913_v9_finance_payment_methods_fix">
+    <link rel="stylesheet" href="styles.css?v=20260913_v10_preacher_youth_glassmorphism_responsive_fix">
 </head>
 <body>
     <!-- App Container -->
@@ -2017,7 +2017,7 @@
                     </div>
 
                     <!-- Preacher Youth KPIs -->
-                    <div class="kpi-grid mb-4">
+                    <div class="kpi-grid-4 mb-4">
                         <div class="glass-kpi color-6">
                             <div class="kpi-icon-box"><i class="fa-solid fa-user-graduate text-danger"></i></div>
                             <div class="kpi-details">
@@ -2054,41 +2054,52 @@
 
                     <!-- Filter buttons -->
                     <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-                        <button class="btn btn-sm btn-outline-danger talent-filter-btn active fw-bold" data-filter="all" onclick="filterTalentRecords('all')">
+                        <button class="btn btn-sm btn-outline-danger talent-filter-btn active fw-bold shadow-sm" data-filter="all" onclick="filterTalentRecords('all')">
                             <i class="fa-solid fa-list me-1"></i> كافّة المشاركات
                         </button>
-                        <button class="btn btn-sm btn-outline-danger talent-filter-btn fw-bold" data-filter="الواعظ" onclick="filterTalentRecords('الواعظ')">
+                        <button class="btn btn-sm btn-outline-danger talent-filter-btn fw-bold shadow-sm" data-filter="الواعظ" onclick="filterTalentRecords('الواعظ')">
                             <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ (خطابة)
                         </button>
-                        <button class="btn btn-sm btn-outline-primary talent-filter-btn fw-bold" data-filter="تلاوة" onclick="filterTalentRecords('تلاوة')">
+                        <button class="btn btn-sm btn-outline-primary talent-filter-btn fw-bold shadow-sm" data-filter="تلاوة" onclick="filterTalentRecords('تلاوة')">
                             <i class="fa-solid fa-book-quran me-1"></i> أصوات ندية (تلاوة)
                         </button>
-                        <button class="btn btn-sm btn-outline-info text-dark talent-filter-btn fw-bold" data-filter="أذان" onclick="filterTalentRecords('أذان')">
+                        <button class="btn btn-sm btn-outline-info text-dark talent-filter-btn fw-bold shadow-sm" data-filter="أذان" onclick="filterTalentRecords('أذان')">
                             <i class="fa-solid fa-bullhorn me-1"></i> أصوات ندية (أذان)
                         </button>
-                        <button class="btn btn-sm btn-outline-success talent-filter-btn fw-bold" data-filter="الإمامة" onclick="filterTalentRecords('الإمامة')">
+                        <button class="btn btn-sm btn-outline-success talent-filter-btn fw-bold shadow-sm" data-filter="الإمامة" onclick="filterTalentRecords('الإمامة')">
                             <i class="fa-solid fa-mosque me-1"></i> إمامة محرابية وإنشاد
                         </button>
                     </div>
 
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0 text-danger fw-bold"><i class="fa-solid fa-microphone-lines me-2"></i> سجل فرسان الخطابة والأصوات الندية بمسجد علي بن أبي طالب</h5>
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden mb-4">
+                        <div class="card-header bg-white p-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <h5 class="mb-0 text-danger fw-bold d-flex align-items-center gap-2">
+                                <i class="fa-solid fa-microphone-lines"></i>
+                                <span>سجل فرسان الخطابة والأصوات الندية بمسجد علي بن أبي طالب</span>
+                            </h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2 rounded-pill fw-bold" id="preacher-table-count">
+                                    <i class="fa-solid fa-list-check me-1"></i> فرسان المواهب
+                                </span>
+                                <span class="d-inline-flex d-md-none badge bg-light text-muted border px-2 py-1 align-items-center gap-1 small">
+                                    <i class="fa-solid fa-arrows-left-right"></i> مرر أفقياً
+                                </span>
+                            </div>
                         </div>
-                        <div class="table-responsive">
+                        <div class="table-responsive talent-table-responsive">
                             <table class="data-table" id="preacher-youth-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 40px;" class="text-center">#</th>
-                                        <th>اسم الفتى الموهوب</th>
-                                        <th>الحلقة القرآنية</th>
-                                        <th>الموهبة والتخصص</th>
-                                        <th>عنوان وموضوع المشاركة</th>
-                                        <th>طريقة التحضير ونصوص الخطبة</th>
-                                        <th>الشيخ المشرف</th>
-                                        <th class="text-center">التوثيق (فيديو/صوت)</th>
-                                        <th>التقييم والملاحظات</th>
-                                        <th class="text-center">الإجراءات</th>
+                                        <th style="width: 45px;" class="text-center">#</th>
+                                        <th style="width: 170px;">اسم الفتى الموهوب</th>
+                                        <th style="width: 130px;" class="text-center">الحلقة القرآنية</th>
+                                        <th style="width: 170px;" class="text-center">الموهبة والتخصص</th>
+                                        <th style="width: 180px;">عنوان وموضوع المشاركة</th>
+                                        <th style="width: 330px;">طريقة التحضير ونصوص الخطبة</th>
+                                        <th style="width: 170px;" class="text-center">الشيخ المشرف</th>
+                                        <th style="width: 130px;" class="text-center">التوثيق (فيديو/صوت)</th>
+                                        <th style="width: 230px;">التقييم والملاحظات</th>
+                                        <th style="width: 110px;" class="text-center">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody id="preacher-youth-table-body">
@@ -2168,7 +2179,7 @@
 
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="assets/logo_base64.js?v=20260913_v9_finance_payment_methods_fix"></script>
-    <script src="app.js?v=20260913_v9_finance_payment_methods_fix"></script>
+    <script src="assets/logo_base64.js?v=20260913_v10_preacher_youth_glassmorphism_responsive_fix"></script>
+    <script src="app.js?v=20260913_v10_preacher_youth_glassmorphism_responsive_fix"></script>
 </body>
 </html>

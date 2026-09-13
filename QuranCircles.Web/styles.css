@@ -5060,6 +5060,255 @@ body.theme-dark {
     }
 }
 
+/* =========================================================================
+   PREACHER YOUTH & TALENTS MODULE (الفتى الواعظ والأصوات الندية)
+   ========================================================================= */
+
+/* Translucent Glassmorphism Cards with Soft Shadow (مربع شفاف فيه ظل احترافي) */
+.talent-glass-box {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(226, 232, 240, 0.95) !important;
+    border-radius: 12px !important;
+    padding: 10px 14px !important;
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+    min-width: 280px;
+    max-width: 360px;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: right;
+    position: relative;
+}
+
+.talent-glass-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+    border-color: rgba(220, 38, 38, 0.35) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+}
+
+.talent-prep-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.25);
+    color: #0369a1;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: normal !important;
+    line-height: 1.4;
+    align-self: flex-start;
+}
+
+.talent-speech-quote {
+    background: rgba(254, 242, 242, 0.75);
+    border-right: 3.5px solid #dc2626;
+    border-radius: 6px 10px 10px 6px;
+    padding: 8px 12px;
+    color: #1e293b;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    font-weight: 500;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
+.talent-speech-quote .quote-icon {
+    color: #dc2626;
+    margin-left: 5px;
+    font-size: 0.85rem;
+}
+
+.talent-read-more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #b91c1c;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-top: 4px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.15s ease;
+}
+
+.talent-read-more-btn:hover {
+    color: #991b1b;
+}
+
+/* Translucent Evaluation & Notes Card (مربع شفاف فيه ظل للتقييم والملاحظات) */
+.talent-notes-glass-box {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(226, 232, 240, 0.95) !important;
+    border-radius: 12px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+    min-width: 190px;
+    max-width: 250px;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    text-align: right;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.talent-notes-glass-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.09) !important;
+}
+
+.talent-score-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    align-self: flex-start;
+}
+
+.talent-notes-text {
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.5;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
+/* Sheikh Supervisor Badge */
+.talent-sheikh-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(240, 253, 244, 0.9);
+    border: 1px solid rgba(134, 239, 172, 0.8);
+    color: #166534;
+    padding: 6px 14px;
+    border-radius: 10px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(22, 101, 52, 0.06);
+    white-space: nowrap !important;
+}
+
+/* Preacher Youth Table Responsive & Structure */
+#preacher-youth-table {
+    min-width: 1250px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    width: 100% !important;
+}
+
+#preacher-youth-table th {
+    background: #f8fafc !important;
+    color: #1e293b !important;
+    font-weight: 800 !important;
+    font-size: 0.84rem !important;
+    padding: 14px 12px !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+}
+
+#preacher-youth-table td {
+    padding: 12px 12px !important;
+    vertical-align: middle !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+#preacher-youth-table td.talent-speech-cell,
+#preacher-youth-table td.talent-notes-cell,
+#preacher-youth-table td.talent-student-cell,
+#preacher-youth-table td.talent-title-cell {
+    white-space: normal !important;
+}
+
+.talent-table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 0 0 16px 16px;
+}
+
+.talent-table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.talent-table-responsive::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.talent-table-responsive::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.talent-table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Dark mode compatibility for Preacher Youth */
+body.dark-mode .talent-glass-box,
+body.dark-mode .talent-notes-glass-box {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border-color: rgba(51, 65, 85, 0.85) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.dark-mode .talent-speech-quote {
+    background: rgba(69, 10, 10, 0.45) !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .talent-notes-text {
+    color: #cbd5e1 !important;
+}
+
+body.dark-mode .talent-prep-pill {
+    background: rgba(14, 165, 233, 0.15) !important;
+    color: #38bdf8 !important;
+    border-color: rgba(14, 165, 233, 0.35) !important;
+}
+
+body.dark-mode .talent-sheikh-box {
+    background: rgba(6, 78, 59, 0.45) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+    color: #6ee7b7 !important;
+}
+
+body.dark-mode #preacher-youth-table th {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode #preacher-youth-table td {
+    border-color: #334155 !important;
+}
+
 
 
 
