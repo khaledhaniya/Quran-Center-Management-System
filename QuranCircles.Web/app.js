@@ -12457,6 +12457,83 @@ async function loadFinancialTransactions() {
     }
 }
 
+// دالة ذكية وشاملة لتحديد طريقة الدفع بدقة (كاش، تطبيق ومحفظة، بنك) من أي نوع بيانات (أرقام، نصوص إنجليزية، أو سياق الملاحظات والتفاصيل)
+function getPaymentMethodInfo(paymentMethod, paymentDetails = '', title = '', notes = '') {
+    const rawMethod = (paymentMethod !== null && paymentMethod !== undefined) ? paymentMethod.toString().trim().toLowerCase() : '';
+    const details = (paymentDetails || '').toString().trim();
+    const allContext = `${rawMethod} ${details} ${(title || '')} ${(notes || '')}`.toLowerCase();
+    const detailSuffix = details ? ` (${details})` : '';
+
+    // 1. فحص المحافظ الإلكترونية والتطبيقات (AppWallet / 2)
+    if (
+        rawMethod === '2' || 
+        rawMethod === 'appwallet' || 
+        rawMethod === 'app_wallet' || 
+        rawMethod === 'wallet' || 
+        rawMethod === 'app' || 
+        rawMethod.includes('تطبيق') || 
+        rawMethod.includes('محفظ') ||
+        allContext.includes('jawwal pay') || 
+        allContext.includes('palpay') || 
+        allContext.includes('جوال باي') || 
+        allContext.includes('بال باي') || 
+        allContext.includes('محفظة') || 
+        allContext.includes('محفظه') ||
+        allContext.includes('paypal')
+    ) {
+        return {
+            id: 2,
+            key: 'AppWallet',
+            name: 'تطبيق ومحفظة إلكترونية',
+            labelWithDetails: `تطبيق ومحفظة إلكترونية${detailSuffix}`,
+            shortName: `تطبيق/محفظة${detailSuffix}`,
+            badge: `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><i class="fa-solid fa-mobile-screen-button me-1"></i>تطبيق ومحفظة${detailSuffix}</span>`,
+            icon: 'fa-mobile-screen-button',
+            color: '#0d6efd'
+        };
+    }
+
+    // 2. فحص الحسابات والتحويلات البنكية (Bank / 3)
+    if (
+        rawMethod === '3' || 
+        rawMethod === 'bank' || 
+        rawMethod.includes('بنك') || 
+        rawMethod.includes('تحويل') || 
+        rawMethod.includes('حساب بنك') ||
+        allContext.includes('بنك فلسطين') || 
+        allContext.includes('البنك الإسلامي') || 
+        allContext.includes('تحويل بنكي') || 
+        allContext.includes('إيداع بنكي') || 
+        allContext.includes('حوالة بنكية') || 
+        allContext.includes('شيك') ||
+        allContext.includes('iban') ||
+        allContext.includes('حساب بنكي')
+    ) {
+        return {
+            id: 3,
+            key: 'Bank',
+            name: 'حساب / تحويل بنكي',
+            labelWithDetails: `حساب / تحويل بنكي${detailSuffix}`,
+            shortName: `تحويل بنكي${detailSuffix}`,
+            badge: `<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-building-columns text-primary me-1"></i>بنك${detailSuffix}</span>`,
+            icon: 'fa-building-columns',
+            color: '#0891b2'
+        };
+    }
+
+    // 3. نقداً كاش (Cash / 1)
+    return {
+        id: 1,
+        key: 'Cash',
+        name: 'كاش (نقداً)',
+        labelWithDetails: `كاش (نقداً)${detailSuffix}`,
+        shortName: `كاش${detailSuffix}`,
+        badge: `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning px-2 py-1"><i class="fa-solid fa-money-bill-wave text-success me-1"></i>كاش (نقداً)${detailSuffix}</span>`,
+        icon: 'fa-money-bill-wave',
+        color: '#d97706'
+    };
+}
+
 function renderFinancialTransactionsTable(list) {
     const tbody = document.getElementById("finance-transactions-tbody");
     if (!tbody) return;
@@ -12487,16 +12564,8 @@ function renderFinancialTransactionsTable(list) {
         const amountClass = isIncome ? "text-success fw-bold" : "text-danger fw-bold";
         const amountSign = isIncome ? "+" : "-";
 
-        let methodBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary">غير محدد</span>';
-        if (item.paymentMethod === 1 || item.paymentMethod === "Cash") {
-            methodBadge = `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning px-2 py-1"><i class="fa-solid fa-money-bill-wave text-success me-1"></i>كاش (نقداً)</span>`;
-        } else if (item.paymentMethod === 2 || item.paymentMethod === "AppWallet") {
-            const detailText = item.paymentDetails ? ` (${escapeHtml(item.paymentDetails)})` : "";
-            methodBadge = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><i class="fa-solid fa-mobile-screen-button me-1"></i>تطبيق / محفظة${detailText}</span>`;
-        } else if (item.paymentMethod === 3 || item.paymentMethod === "Bank") {
-            const detailText = item.paymentDetails ? ` (${escapeHtml(item.paymentDetails)})` : "";
-            methodBadge = `<span class="badge bg-info bg-opacity-10 text-dark border border-info px-2 py-1"><i class="fa-solid fa-building-columns text-primary me-1"></i>بنك${detailText}</span>`;
-        }
+        const methodInfo = getPaymentMethodInfo(item.paymentMethod, item.paymentDetails, item.title, item.notes);
+        const methodBadge = methodInfo.badge;
 
         // Party Info (Donor vs Recipient)
         let partyHtml = "-";
@@ -12736,6 +12805,7 @@ async function openEditTransactionModal(id) {
 
     const isIncome = item.type === 1 || item.type === "Income";
     const dateOnly = item.transactionDate ? item.transactionDate.substring(0, 10) : "";
+    const currentMethodInfo = getPaymentMethodInfo(item.paymentMethod, item.paymentDetails, item.title, item.notes);
 
     const { value: formValues } = await Swal.fire({
         title: `✏️ تعديل السند المالي #${item.id}`,
@@ -12784,14 +12854,14 @@ async function openEditTransactionModal(id) {
                     <div class="col-md-6">
                         <label class="form-label small fw-bold">طريقة الاستلام / الصرف</label>
                         <select id="swal-edit-method" class="form-select" onchange="togglePaymentDetailsInput(this.value)">
-                            <option value="1" ${item.paymentMethod === 1 ? 'selected' : ''}>💵 كاش (نقداً)</option>
-                            <option value="2" ${item.paymentMethod === 2 ? 'selected' : ''}>📱 تطبيق ومحفظة إلكترونية</option>
-                            <option value="3" ${item.paymentMethod === 3 ? 'selected' : ''}>🏦 تحويل / حساب بنكي</option>
+                            <option value="1" ${currentMethodInfo.id === 1 ? 'selected' : ''}>💵 كاش (نقداً)</option>
+                            <option value="2" ${currentMethodInfo.id === 2 ? 'selected' : ''}>📱 تطبيق ومحفظة إلكترونية</option>
+                            <option value="3" ${currentMethodInfo.id === 3 ? 'selected' : ''}>🏦 تحويل / حساب بنكي</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="mb-3" id="swal-payment-details-box" style="${(item.paymentMethod === 2 || item.paymentMethod === 3) ? 'display:block;' : 'display:none;'}">
+                <div class="mb-3" id="swal-payment-details-box" style="${(currentMethodInfo.id === 2 || currentMethodInfo.id === 3) ? 'display:block;' : 'display:none;'}">
                     <label class="form-label small fw-bold">تفاصيل التطبيق / البنك / رقم العملية</label>
                     <input type="text" id="swal-edit-payment-details" class="form-control" value="${escapeHtml(item.paymentDetails || '')}">
                 </div>
@@ -12920,9 +12990,8 @@ function printSingleReceipt(id) {
     const curLabel = item.currency === "ILS" ? "شيكل" : (item.currency === "USD" ? "دولار أمريكي" : item.currency);
     const dateStr = item.transactionDate ? item.transactionDate.substring(0, 10) : new Date().toISOString().slice(0, 10);
     
-    let methodText = "كاش (نقداً)";
-    if (item.paymentMethod === 2) methodText = `تطبيق / محفظة إلكترونية (${item.paymentDetails || ''})`;
-    else if (item.paymentMethod === 3) methodText = `حساب / تحويل بنكي (${item.paymentDetails || ''})`;
+    const methodInfo = getPaymentMethodInfo(item.paymentMethod, item.paymentDetails, item.title, item.notes);
+    const methodText = methodInfo.labelWithDetails;
 
     const partyLabel = isIncome ? "استلمنا من الأخ/الأخت (المتبرع)" : "صُرف للأخ/الأخت (المستلم)";
     const partyName = isIncome 
@@ -13065,9 +13134,8 @@ function exportFinancialTransactionsToExcelXls() {
         if (isInc) totalIncome += amt;
         else totalExpense += amt;
 
-        let methodStr = "كاش";
-        if (t.paymentMethod === 2) methodStr = `تطبيق/محفظة (${t.paymentDetails || ''})`;
-        else if (t.paymentMethod === 3) methodStr = `بنك (${t.paymentDetails || ''})`;
+        const methodInfo = getPaymentMethodInfo(t.paymentMethod, t.paymentDetails, t.title, t.notes);
+        const methodStr = methodInfo.labelWithDetails;
 
         const party = isInc ? (t.donorName || "فاعل خير") + (t.donorSource ? ` (طرف: ${t.donorSource})` : "")
                             : (t.recipientName || "-");
@@ -13078,7 +13146,7 @@ function exportFinancialTransactionsToExcelXls() {
                 <td style="text-align: center; border: 1px solid #ccc; font-weight: bold; ${isInc ? 'color: #0d5c3a; background: #e8f5e9;' : 'color: #dc3545; background: #fee2e2;'}">${isInc ? 'وارد / تبرع' : 'صادر / مصروف'}</td>
                 <td style="text-align: center; border: 1px solid #ccc; font-family: monospace;">${t.transactionDate ? t.transactionDate.substring(0, 10) : ''}</td>
                 <td style="text-align: center; border: 1px solid #ccc; font-weight: bold; ${isInc ? 'color: #0d5c3a;' : 'color: #dc3545;'}">${isInc ? '+' : '-'} ${amt.toLocaleString()} ₪</td>
-                <td style="text-align: center; border: 1px solid #ccc;">${escapeXml(methodStr)}</td>
+                <td style="text-align: center; border: 1px solid #ccc; font-weight: bold;">${escapeXml(methodStr)}</td>
                 <td style="border: 1px solid #ccc; font-weight: bold;">${escapeXml(t.title || '')}</td>
                 <td style="text-align: center; border: 1px solid #ccc;">${escapeXml(t.category || '-')}</td>
                 <td style="border: 1px solid #ccc;">${escapeXml(party)}</td>
@@ -13172,9 +13240,8 @@ function exportFinancialTransactionsToExcelXlsx() {
 
     const rows = allFinancialTransactions.map((t, idx) => {
         const isInc = t.type === 1 || t.type === "Income";
-        let methodStr = "كاش";
-        if (t.paymentMethod === 2) methodStr = `تطبيق/محفظة (${t.paymentDetails || ''})`;
-        else if (t.paymentMethod === 3) methodStr = `بنك (${t.paymentDetails || ''})`;
+        const methodInfo = getPaymentMethodInfo(t.paymentMethod, t.paymentDetails, t.title, t.notes);
+        const methodStr = methodInfo.labelWithDetails;
 
         return {
             "م": idx + 1,
@@ -13207,7 +13274,141 @@ function exportFinancialTransactionsToExcelXlsx() {
 }
 
 function printFinancialLedgerReport() {
-    window.print();
+    if (!allFinancialTransactions || !allFinancialTransactions.length) {
+        showAlert("لا توجد حركات مالية لطباعتها.", "warning");
+        return;
+    }
+
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
+    const nowStr = new Date().toLocaleDateString('ar-EG') + ' ' + new Date().toLocaleTimeString('ar-EG');
+    const logoSrc = (typeof CENTER_LOGO_BASE64 !== 'undefined') ? CENTER_LOGO_BASE64 : 'assets/logo.png';
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    const rowsHtml = allFinancialTransactions.map((t, idx) => {
+        const isInc = t.type === 1 || t.type === "Income";
+        const amt = Number(t.amount) || 0;
+        if (isInc) totalIncome += amt;
+        else totalExpense += amt;
+
+        const methodInfo = getPaymentMethodInfo(t.paymentMethod, t.paymentDetails, t.title, t.notes);
+        const party = isInc 
+            ? (t.donorName || "فاعل خير") + (t.donorSource ? ` (طرف: ${t.donorSource})` : "")
+            : (t.recipientName || "-");
+
+        return `
+            <tr>
+                <td style="text-align: center; font-family: monospace;">${idx + 1}</td>
+                <td style="text-align: center; font-weight: bold; ${isInc ? 'color: #0d5c3a;' : 'color: #dc3545;'}">
+                    ${isInc ? '🟢 وارد / تبرع' : '🔴 صادر / مصروف'}
+                </td>
+                <td style="text-align: center; font-family: monospace;">${t.transactionDate ? t.transactionDate.substring(0, 10) : '-'}</td>
+                <td style="text-align: center; font-weight: bold; ${isInc ? 'color: #0d5c3a;' : 'color: #dc3545;'}">
+                    ${isInc ? '+' : '-'} ${amt.toLocaleString()} ₪
+                </td>
+                <td style="text-align: center; font-weight: bold;">
+                    ${escapeHtml(methodInfo.labelWithDetails)}
+                </td>
+                <td style="font-weight: 600;">${escapeHtml(t.title || '')}</td>
+                <td style="text-align: center;">${escapeHtml(t.category || '-')}</td>
+                <td>${escapeHtml(party)}</td>
+                <td style="text-align: center; font-family: monospace;">${escapeHtml(t.referenceNumber || '-')}</td>
+                <td>${escapeHtml(t.notes || '-')}</td>
+                <td style="text-align: center;">${escapeHtml(t.createdByName || '-')}</td>
+            </tr>
+        `;
+    }).join("");
+
+    const netBalance = totalIncome - totalExpense;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+        showAlert("يرجى السماح بالنوافذ المنبثقة للطباعة.", "warning");
+        return;
+    }
+
+    printWin.document.write(`
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <title>كشف حركة الصندوق والتبرعات - ${centerName}</title>
+            <style>
+                @page { size: A4 landscape; margin: 8mm; }
+                body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; padding: 10px; color: #111; font-size: 11px; }
+                .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #0d5c3a; padding-bottom: 10px; margin-bottom: 12px; }
+                .logo-box img { width: 70px; height: 70px; object-fit: contain; }
+                .title-box { text-align: center; flex: 1; }
+                .title-box h1 { margin: 0; font-size: 18px; color: #0d5c3a; font-weight: 800; }
+                .title-box h2 { margin: 3px 0 0 0; font-size: 14px; color: #107c41; font-weight: 700; }
+                .title-box h3 { margin: 3px 0 0 0; font-size: 12px; color: #555; }
+                .kpi-bar { display: flex; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+                .kpi-card { flex: 1; padding: 8px 12px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 11.5px; border: 1px solid #ccc; }
+                .kpi-inc { background: #dcfce7; color: #166534; border-color: #86efac; }
+                .kpi-exp { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+                .kpi-net { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
+                .meta-line { font-size: 10.5px; color: #555; margin-bottom: 10px; text-align: left; font-weight: 600; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+                th { background-color: #0d5c3a; color: white; border: 1px solid #063c24; padding: 6px 4px; text-align: center; }
+                td { border: 1px solid #ccc; padding: 5px 4px; vertical-align: middle; }
+                .footer-sig { display: flex; justify-content: space-between; margin-top: 30px; padding: 0 40px; font-weight: bold; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="logo-box"><img src="${logoSrc}" alt="شعار المركز"></div>
+                <div class="title-box">
+                    <h1>${escapeHtml(centerName)}</h1>
+                    <h2>${escapeHtml(mosqueName)}</h2>
+                    <h3>كشف حركة الصندوق المالي والتبرعات والمصروفات</h3>
+                </div>
+                <div class="logo-box" style="visibility: hidden;"><img src="${logoSrc}" alt=""></div>
+            </div>
+
+            <div class="kpi-bar">
+                <div class="kpi-card kpi-inc">إجمالي الوارد والتبرعات: +${totalIncome.toLocaleString()} ₪</div>
+                <div class="kpi-card kpi-exp">إجمالي المصروفات والنفقات: -${totalExpense.toLocaleString()} ₪</div>
+                <div class="kpi-card kpi-net">صافي رصيد الصندوق: ${netBalance.toLocaleString()} ₪</div>
+            </div>
+
+            <div class="meta-line">تاريخ وتوقيت الاستخراج: ${nowStr} | عدد السجلات: ${allFinancialTransactions.length}</div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25px;">م</th>
+                        <th style="width: 80px;">نوع السند</th>
+                        <th style="width: 75px;">التاريخ</th>
+                        <th style="width: 80px;">المبلغ</th>
+                        <th style="width: 140px;">طريقة الدفع</th>
+                        <th>البيان والتفاصيل</th>
+                        <th style="width: 90px;">التصنيف</th>
+                        <th>الجهة / المتبرع / المستلم</th>
+                        <th style="width: 70px;">رقم السند</th>
+                        <th>ملاحظات</th>
+                        <th style="width: 80px;">المسجل</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+
+            <div class="footer-sig">
+                <div>توقيع أمين الصندوق / المحاسب: .............................</div>
+                <div>مسؤول الرقابة المالية: .............................</div>
+                <div>اعتماد مدير عام المركز: .............................</div>
+            </div>
+
+            <script>
+                window.onload = function() { window.print(); };
+            </script>
+        </body>
+        </html>
+    `);
+    printWin.document.close();
 }
 
 // -------------------------------------------------------------------------
