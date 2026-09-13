@@ -11665,232 +11665,1020 @@ async function showManageStudentsModal(circleId) {
 }
 
 // ==========================================
-// 2. TEACHER COMPREHENSIVE REPORT & PRINT
+// 2. TEACHER COMPREHENSIVE RECITATION & ATTENDANCE MATRIX
 // ==========================================
 let currentTeacherComprehensiveData = null;
+let currentTeacherRecitationFilter = {
+    period: 'all',
+    fromDate: '',
+    toDate: '',
+    search: ''
+};
 
-async function loadTeacherComprehensiveReport() {
+function getTeacherDayNotesKey() {
     let tId = getAuthStorage("teacherId") || currentUserId || "0";
-    const container = document.getElementById("teacher-roster-cards-container");
-    if (!container) return;
+    return `teacher_special_day_notes_${tId}`;
+}
 
-    container.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i><p class="mt-3 fs-6">جاري إعداد الكشف الشامل لتسميع وحضور طلاب الحلقة...</p></div>`;
-
+function getTeacherDayNotes() {
     try {
-        const data = await apiRequest(`/teachers/${tId}/comprehensive-report`);
-        currentTeacherComprehensiveData = data;
-
-        const teacherName = data.teacherName || localStorage.getItem("fullName") || "المعلم";
-        const students = data.students || [];
-        const totalStudents = students.length;
-        const totalSessions = students.reduce((acc, s) => acc + (s.totalRecitationSessions || s.sessionsCount || (s.recitationSessions || []).length || 0), 0);
-        
-        let totalPresent = 0;
-        let totalAttRecords = 0;
-        let totalCoursesCount = 0;
-
-        students.forEach(s => {
-            totalPresent += (s.presentDaysCount || s.presentDays || 0);
-            totalAttRecords += (s.totalAttendanceDays || (s.attendanceRecords || []).length || 0);
-            if (s.courses && s.courses.length > 0) totalCoursesCount += s.courses.length;
-        });
-
-        const avgAtt = totalAttRecords > 0 ? Math.round((totalPresent / totalAttRecords) * 100) : 100;
-
-        // Update Top KPI Cards
-        const elTotalStudents = document.getElementById("teacher-roster-total-students");
-        if (elTotalStudents) elTotalStudents.textContent = totalStudents;
-        const elTotalSessions = document.getElementById("teacher-roster-total-sessions");
-        if (elTotalSessions) elTotalSessions.textContent = totalSessions;
-
-        const elAvgAtt = document.getElementById("teacher-roster-avg-attendance");
-        if (elAvgAtt) elAvgAtt.textContent = `${avgAtt}%`;
-
-        const elTotalCourses = document.getElementById("teacher-roster-total-courses");
-        if (elTotalCourses) elTotalCourses.textContent = totalCoursesCount;
-
-        if (students.length === 0) {
-            container.innerHTML = `
-                <div class="alert alert-info text-center p-5 rounded-4 shadow-sm">
-                    <i class="fa-solid fa-users-slash fa-3x mb-3 text-info"></i>
-                    <h4 class="fw-bold">لا يوجد طلاب مسجلين في حلقتك حالياً</h4>
-                    <p class="mb-0 text-muted">يمكنك تنسيب الطلاب لحلقتك من خلال لوحة إدارة الحلقات أو مراجعة إدارة المركز.</p>
-                </div>
-            `;
-            return;
-        }
-
-        const studentsCardsHtml = students.map((s, idx) => {
-            const planMap = {
-                "Intensive": "🌟 المكثفة (جزء / أسبوعين)",
-                "Standard": "📘 المعتدلة (جزء / شهر)",
-                "Gradual": "🌱 الميسرة (نصف جزء / شهر)",
-                "Custom": "🎯 مخصصة"
-            };
-            const planText = planMap[s.planType] || (s.planType ? s.planType : "📘 المعتدلة");
-            const completedSet = new Set((s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x)));
-            const completedCount = completedSet.size;
-            const targetAjzaa = s.targetAjzaaCount || 30;
-            const progressPct = Math.min(100, Math.round((completedCount / targetAjzaa) * 100));
-
-            const sessionsList = s.recitationSessions || s.sessions || [];
-            let recitationsTable = "<p class='text-muted small p-2 mb-0'>لا يوجد تسميعات مسجلة.</p>";
-            if (sessionsList.length > 0) {
-                recitationsTable = `
-                    <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-                        <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>التاريخ</th>
-                                    <th>السورة والآيات</th>
-                                    <th>التقييم</th>
-                                    <th>ملاحظة الشيخ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${sessionsList.map(r => `
-                                    <tr>
-                                        <td><b>${r.sessionDate || r.date}</b></td>
-                                        <td class="text-success fw-bold">سورة ${r.surahName} (${r.fromVerse} - ${r.toVerse})</td>
-                                        <td><span class="badge ${getAssessmentBadgeClass(r.assessment)}">${r.assessmentText || r.assessment}</span></td>
-                                        <td class="text-muted small">${r.notes || '-'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            const coursesList = s.courses || [];
-            let coursesTable = "<p class='text-muted small p-2 mb-0'>غير مسجل في دورات مساقية.</p>";
-            if (coursesList.length > 0) {
-                coursesTable = `
-                    <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
-                        <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>الدورة / المساق</th>
-                                    <th>حضور الدورة</th>
-                                    <th>غياب الدورة</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${coursesList.map(c => `
-                                    <tr>
-                                        <td class="fw-bold">${c.courseName}</td>
-                                        <td class="text-success fw-bold">${c.presentCount || 0} يوم</td>
-                                        <td class="text-danger fw-bold">${c.absentCount || 0} يوم</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            return `
-                <div class="card shadow-sm mb-4" style="border-radius: 14px; border-right: 5px solid #0d5c3a;">
-                    <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">${idx + 1}</div>
-                            <div>
-                                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${s.fullName}</h5>
-                                <small class="text-muted">هوية: <b>${s.studentIdentityNumber || '-'}</b> | جوال: <b>${s.familyContact || s.studentMobile || '-'}</b> | السكن: <b>${s.address || '-'}</b></small>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-primary bg-opacity-10 text-primary p-2">${planText}</span>
-                            <span class="badge bg-success p-2">أنجز ${completedCount} / ${targetAjzaa} جزء</span>
-                            <button class="btn btn-sm btn-outline-primary" onclick="showStudent360Modal(${s.id})"><i class="fa-solid fa-eye me-1"></i> الملف الموحد</button>
-                        </div>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="row g-3 mb-3">
-                            <!-- Attendance KPI -->
-                            <div class="col-md-3">
-                                <div class="p-2 bg-light rounded text-center">
-                                    <span class="text-muted small d-block">نسبة الحضور بالحلقة</span>
-                                    <h4 class="fw-bold text-success mb-0">${s.attendanceRatePercentage || 100}%</h4>
-                                    <small class="text-muted">حضور: ${s.presentDaysCount || s.presentDays || 0} | غياب: ${s.absentDaysCount || s.absentDays || 0} | تأخير: ${s.lateDaysCount || s.lateDays || 0}</small>
-                                </div>
-                            </div>
-                            <!-- Progress KPI -->
-                            <div class="col-md-3">
-                                <div class="p-2 bg-light rounded text-center">
-                                    <span class="text-muted small d-block">إنجاز خطة الحفظ</span>
-                                    <h4 class="fw-bold text-primary mb-0">${progressPct}%</h4>
-                                    <small class="text-muted">المعدل اليومي: ${s.dailyPacePages || 1.0} صفحة</small>
-                                </div>
-                            </div>
-                            <!-- Recitation Sessions Count -->
-                            <div class="col-md-3">
-                                <div class="p-2 bg-light rounded text-center">
-                                    <span class="text-muted small d-block">جلسات التسميع الموثقة</span>
-                                    <h4 class="fw-bold text-dark mb-0">${s.totalRecitationSessions || sessionsList.length}</h4>
-                                    <small class="text-muted">جلسة تسميع فردية</small>
-                                </div>
-                            </div>
-                            <!-- Completed Ajzaa Chips -->
-                            <div class="col-md-3">
-                                <div class="p-2 bg-light rounded text-center">
-                                    <span class="text-muted small d-block">الأجزاء المكتملة</span>
-                                    <div class="fw-bold text-success small" style="max-height: 48px; overflow-y: auto;">
-                                        ${completedCount > 0 ? Array.from(completedSet).sort((a,b)=>a-b).map(j => `جزء ${j}`).join('، ') : 'لم يوثق أجزاء بعد'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-md-7">
-                                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-book-open-reader text-success me-1"></i> سجل التسميع طوال المدة:</h6>
-                                ${recitationsTable}
-                            </div>
-                            <div class="col-md-5">
-                                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-graduation-cap text-primary me-1"></i> الحضور في المساقات والدورات:</h6>
-                                ${coursesTable}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = studentsCardsHtml;
-
-    } catch(err) {
-        console.error(err);
-        container.innerHTML = `<div class="alert alert-danger p-4">تعذر تحميل الكشف الشامل: ${err.message}</div>`;
+        const raw = localStorage.getItem(getTeacherDayNotesKey());
+        return raw ? JSON.parse(raw) : {};
+    } catch(e) {
+        return {};
     }
 }
 
-function printTeacherRoster() {
-    if (!currentTeacherComprehensiveData) {
-        showAlert("يرجى تحميل الكشف الشامل أولاً.", "warning");
+function saveTeacherDayNote(dateStr, noteText) {
+    const notes = getTeacherDayNotes();
+    if (!noteText || !noteText.trim()) {
+        delete notes[dateStr];
+    } else {
+        notes[dateStr] = noteText.trim();
+    }
+    localStorage.setItem(getTeacherDayNotesKey(), JSON.stringify(notes));
+}
+
+function onTeacherRosterPeriodChange(val) {
+    currentTeacherRecitationFilter.period = val;
+    const fromInput = document.getElementById("teacher-roster-from-date");
+    const toInput = document.getElementById("teacher-roster-to-date");
+    const fromWrap = document.getElementById("teacher-roster-from-wrapper");
+    const toWrap = document.getElementById("teacher-roster-to-wrapper");
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
+
+    if (val === 'all') {
+        if (fromInput) fromInput.value = '';
+        if (toInput) toInput.value = '';
+        currentTeacherRecitationFilter.fromDate = '';
+        currentTeacherRecitationFilter.toDate = '';
+    } else if (val === 'current_month') {
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+        const fStr = firstDay.toISOString().slice(0, 10);
+        const tStr = lastDay.toISOString().slice(0, 10);
+        if (fromInput) fromInput.value = fStr;
+        if (toInput) toInput.value = tStr;
+        currentTeacherRecitationFilter.fromDate = fStr;
+        currentTeacherRecitationFilter.toDate = tStr;
+    } else if (val === 'last_month') {
+        const firstDay = new Date(currentYear, currentMonth - 1, 1);
+        const lastDay = new Date(currentYear, currentMonth, 0);
+        const fStr = firstDay.toISOString().slice(0, 10);
+        const tStr = lastDay.toISOString().slice(0, 10);
+        if (fromInput) fromInput.value = fStr;
+        if (toInput) toInput.value = tStr;
+        currentTeacherRecitationFilter.fromDate = fStr;
+        currentTeacherRecitationFilter.toDate = tStr;
+    } else if (val === 'month_8') {
+        // August
+        const fStr = `${currentYear}-08-01`;
+        const tStr = `${currentYear}-08-31`;
+        if (fromInput) fromInput.value = fStr;
+        if (toInput) toInput.value = tStr;
+        currentTeacherRecitationFilter.fromDate = fStr;
+        currentTeacherRecitationFilter.toDate = tStr;
+    } else if (val === 'month_9') {
+        // September
+        const fStr = `${currentYear}-09-01`;
+        const tStr = `${currentYear}-09-30`;
+        if (fromInput) fromInput.value = fStr;
+        if (toInput) toInput.value = tStr;
+        currentTeacherRecitationFilter.fromDate = fStr;
+        currentTeacherRecitationFilter.toDate = tStr;
+    } else if (val === 'custom') {
+        // keep whatever inputs have
+        if (fromInput) currentTeacherRecitationFilter.fromDate = fromInput.value;
+        if (toInput) currentTeacherRecitationFilter.toDate = toInput.value;
+    }
+
+    applyTeacherRosterDateFilter();
+}
+
+function applyTeacherRosterDateFilter() {
+    const fromInput = document.getElementById("teacher-roster-from-date");
+    const toInput = document.getElementById("teacher-roster-to-date");
+    if (fromInput) currentTeacherRecitationFilter.fromDate = fromInput.value;
+    if (toInput) currentTeacherRecitationFilter.toDate = toInput.value;
+
+    if (currentTeacherComprehensiveData) {
+        processAndRenderTeacherComprehensiveReport();
+    } else {
+        loadTeacherComprehensiveReport();
+    }
+}
+
+function filterTeacherRosterRows(searchTerm) {
+    currentTeacherRecitationFilter.search = (searchTerm || '').trim().toLowerCase();
+    const rows = document.querySelectorAll("#teacher-recitation-matrix-table tbody tr");
+    rows.forEach(tr => {
+        const text = tr.textContent.toLowerCase();
+        if (!currentTeacherRecitationFilter.search || text.includes(currentTeacherRecitationFilter.search)) {
+            tr.style.display = "";
+        } else {
+            tr.style.display = "none";
+        }
+    });
+
+    const cards = document.querySelectorAll("#teacher-roster-cards-container .student-roster-card");
+    cards.forEach(c => {
+        const text = c.textContent.toLowerCase();
+        if (!currentTeacherRecitationFilter.search || text.includes(currentTeacherRecitationFilter.search)) {
+            c.style.display = "";
+        } else {
+            c.style.display = "none";
+        }
+    });
+}
+
+function switchTeacherRosterView(view) {
+    const matrixWrapper = document.getElementById("teacher-recitation-matrix-wrapper");
+    const cardsContainer = document.getElementById("teacher-roster-cards-container");
+    const btnMatrix = document.getElementById("btn-view-recitation-matrix");
+    const btnCards = document.getElementById("btn-view-student-cards");
+
+    if (view === 'matrix') {
+        if (matrixWrapper) matrixWrapper.style.display = "block";
+        if (cardsContainer) cardsContainer.style.display = "none";
+        if (btnMatrix) {
+            btnMatrix.classList.add("btn-success", "active");
+            btnMatrix.classList.remove("btn-outline-secondary");
+        }
+        if (btnCards) {
+            btnCards.classList.remove("btn-success", "active");
+            btnCards.classList.add("btn-outline-secondary");
+        }
+    } else {
+        if (matrixWrapper) matrixWrapper.style.display = "none";
+        if (cardsContainer) cardsContainer.style.display = "block";
+        if (btnCards) {
+            btnCards.classList.add("btn-success", "active");
+            btnCards.classList.remove("btn-outline-secondary");
+        }
+        if (btnMatrix) {
+            btnMatrix.classList.remove("btn-success", "active");
+            btnMatrix.classList.add("btn-outline-secondary");
+        }
+    }
+}
+
+async function showTeacherAddDayNoteModal() {
+    const notes = getTeacherDayNotes();
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const { value: formValues } = await Swal.fire({
+        title: '<i class="fa-solid fa-calendar-day text-warning me-2"></i> إضافة ملاحظة يوم / إجازة / دورة',
+        html: `
+            <div class="text-start rtl p-2" dir="rtl" style="font-size: 0.9rem;">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">اختر التاريخ:</label>
+                    <input type="date" id="swal-day-date" class="form-control" value="${todayStr}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">نوع المناسبة / الملاحظة السريعة:</label>
+                    <select id="swal-day-preset" class="form-select form-select-sm mb-2" onchange="document.getElementById('swal-day-note').value = this.value">
+                        <option value="">-- اختر مناسبة جاهزة أو اكتب مخصصاً --</option>
+                        <option value="إجازة رسمية في المسجد">إجازة رسمية في المسجد</option>
+                        <option value="ظرف طارئ وحدث أمني">ظرف طارئ وحدث أمني</option>
+                        <option value="دورة أحكام التجويد والتلاوة">دورة أحكام التجويد والتلاوة</option>
+                        <option value="دورة فقه وسيرة نبوية">دورة فقه وسيرة نبوية</option>
+                        <option value="نشاط منهجي وترفيهي">نشاط منهجي وترفيهي</option>
+                        <option value="عطلة رسمية عامة">عطلة رسمية عامة</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">نص الملاحظة (سيظهر في كشف التسميع لهذا اليوم):</label>
+                    <input type="text" id="swal-day-note" class="form-control" placeholder="مثلاً: إجازة في المسجد / دورة أحكام">
+                </div>
+                <small class="text-muted d-block">سيتم إدراج هذا اليوم تلقائياً في كشوفات الإكسل والطباعة وتوضيح العذر لجميع طلاب الحلقة.</small>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> حفظ الملاحظة',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#0d5c3a',
+        didOpen: () => {
+            const dateInput = document.getElementById("swal-day-date");
+            const noteInput = document.getElementById("swal-day-note");
+            if (dateInput && noteInput) {
+                dateInput.addEventListener("change", () => {
+                    noteInput.value = notes[dateInput.value] || "";
+                });
+                noteInput.value = notes[dateInput.value] || "";
+            }
+        },
+        preConfirm: () => {
+            const dateStr = document.getElementById("swal-day-date")?.value;
+            const noteText = document.getElementById("swal-day-note")?.value;
+            if (!dateStr) {
+                Swal.showValidationMessage("يرجى تحديد التاريخ");
+                return false;
+            }
+            return { dateStr, noteText };
+        }
+    });
+
+    if (formValues) {
+        saveTeacherDayNote(formValues.dateStr, formValues.noteText);
+        showToast("تم حفظ ملاحظة اليوم بنجاح ودمجها بالكشف", "success");
+        processAndRenderTeacherComprehensiveReport();
+    }
+}
+
+async function loadTeacherComprehensiveReport() {
+    let tId = getAuthStorage("teacherId") || currentUserId || "0";
+    const matrixContainer = document.getElementById("teacher-recitation-matrix-container");
+    const cardsContainer = document.getElementById("teacher-roster-cards-container");
+    if (!matrixContainer) return;
+
+    matrixContainer.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i><p class="mt-3 fs-6">جاري إعداد كشف ومصفوفة تسميع طلاب الحلقة...</p></div>`;
+
+    try {
+        let url = `/teachers/${tId}/comprehensive-report`;
+        const qParams = [];
+        if (currentTeacherRecitationFilter.fromDate) qParams.push(`fromDate=${encodeURIComponent(currentTeacherRecitationFilter.fromDate)}`);
+        if (currentTeacherRecitationFilter.toDate) qParams.push(`toDate=${encodeURIComponent(currentTeacherRecitationFilter.toDate)}`);
+        if (qParams.length > 0) url += `?${qParams.join('&')}`;
+
+        const data = await apiRequest(url);
+        currentTeacherComprehensiveData = data;
+        processAndRenderTeacherComprehensiveReport();
+    } catch(err) {
+        console.error("Error loading comprehensive report:", err);
+        matrixContainer.innerHTML = `<div class="alert alert-danger p-4">تعذر تحميل الكشف الشامل: ${escapeHtml(err.message)}</div>`;
+    }
+}
+
+function processAndRenderTeacherComprehensiveReport() {
+    if (!currentTeacherComprehensiveData) return;
+    const data = currentTeacherComprehensiveData;
+    const students = data.students || [];
+
+    const matrix = buildTeacherRecitationMatrix(students, currentTeacherRecitationFilter.fromDate, currentTeacherRecitationFilter.toDate);
+    renderTeacherRecitationMatrix(matrix);
+    renderTeacherRosterCards(students, matrix);
+}
+
+function getArabicDayName(dateStr) {
+    try {
+        const parts = dateStr.split('-');
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        return days[d.getDay()] || '';
+    } catch(e) {
+        return '';
+    }
+}
+
+function buildTeacherRecitationMatrix(students, fromDate, toDate) {
+    const dayNotes = getTeacherDayNotes();
+    const dateSet = new Set();
+
+    students.forEach(s => {
+        (s.recitationSessions || s.sessions || []).forEach(rs => {
+            const d = rs.sessionDate || rs.date;
+            if (d) dateSet.add(d);
+        });
+        (s.attendanceRecords || []).forEach(a => {
+            const d = a.sessionDate || a.date;
+            if (d) dateSet.add(d);
+        });
+    });
+
+    // Also include dates from dayNotes
+    Object.keys(dayNotes).forEach(d => {
+        dateSet.add(d);
+    });
+
+    let allDates = Array.from(dateSet).sort();
+
+    // Filter by date range if specified
+    if (fromDate) allDates = allDates.filter(d => d >= fromDate);
+    if (toDate) allDates = allDates.filter(d => d <= toDate);
+
+    let totalSessionsCount = 0;
+    let totalPresentCount = 0;
+    let totalAttRecordsCount = 0;
+
+    const rows = students.map((s, idx) => {
+        const sessions = (s.recitationSessions || s.sessions || []).filter(rs => {
+            const d = rs.sessionDate || rs.date;
+            if (!d) return false;
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        });
+
+        const attendances = (s.attendanceRecords || []).filter(a => {
+            const d = a.sessionDate || a.date;
+            if (!d) return false;
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        });
+
+        // Group sessions by date
+        const sessByDate = {};
+        sessions.forEach(rs => {
+            const d = rs.sessionDate || rs.date;
+            if (!sessByDate[d]) sessByDate[d] = [];
+            sessByDate[d].push(rs);
+        });
+
+        // Map attendances by date
+        const attByDate = {};
+        attendances.forEach(a => {
+            const d = a.sessionDate || a.date;
+            attByDate[d] = a;
+        });
+
+        let studentPresentDays = 0;
+        let studentAbsentDays = 0;
+        let studentMemSessions = 0;
+        let studentRevSessions = 0;
+
+        const days = allDates.map(dateStr => {
+            const dayNote = dayNotes[dateStr];
+            const att = attByDate[dateStr];
+            const daySessions = sessByDate[dateStr] || [];
+
+            // Check presence
+            const isAbsent = att && (att.status === 2 || att.statusText === 'غائب');
+            const isPresent = att && (att.status === 1 || att.status === 3 || att.statusText === 'حاضر' || att.statusText === 'متأخر');
+
+            if (isPresent) {
+                studentPresentDays++;
+                totalPresentCount++;
+            } else if (isAbsent) {
+                studentAbsentDays++;
+            }
+            if (att) totalAttRecordsCount++;
+
+            // Check Memorization
+            let memCell = { text: 'لم يحفظ', class: 'rec-not-memorized', note: '' };
+            // Check Revision
+            let revCell = { text: 'لم يراجع', class: 'rec-not-revised', note: '' };
+
+            if (dayNote) {
+                memCell = { text: dayNote, class: 'rec-holiday', note: dayNote };
+                revCell = { text: dayNote, class: 'rec-holiday', note: dayNote };
+            } else if (isAbsent) {
+                memCell = { text: 'غياب', class: 'rec-absent', note: 'غائب' };
+                revCell = { text: 'غياب', class: 'rec-absent', note: 'غائب' };
+            } else {
+                // Find memorization session (RecitationType 0 or memorization)
+                const memSess = daySessions.find(rs => rs.recitationType === 0 || rs.recitationTypeText === 'حفظ جديد' || (rs.surahName && rs.recitationType !== 1));
+                if (memSess && memSess.assessment !== 'DidNotRecite' && memSess.assessmentText !== 'لم يُسمّع') {
+                    studentMemSessions++;
+                    totalSessionsCount++;
+                    const vCount = (memSess.toVerse && memSess.fromVerse) ? ` (${memSess.fromVerse}-${memSess.toVerse})` : '';
+                    memCell = {
+                        text: `سورة ${memSess.surahName}${vCount}`,
+                        class: 'rec-memorized',
+                        note: memSess.notes || memSess.assessmentText || 'أنجز'
+                    };
+                } else if (memSess && (memSess.assessment === 'DidNotRecite' || memSess.assessmentText === 'لم يُسمّع')) {
+                    memCell = { text: 'لم يحفظ', class: 'rec-not-memorized', note: 'لم يحفظ' };
+                }
+
+                // Find revision session (RecitationType 1 or revision)
+                const revSess = daySessions.find(rs => rs.recitationType === 1 || rs.recitationTypeText === 'مراجعة وتثبيت');
+                if (revSess && revSess.assessment !== 'DidNotRecite' && revSess.assessmentText !== 'لم يُسمّع') {
+                    studentRevSessions++;
+                    totalSessionsCount++;
+                    const vCount = (revSess.toVerse && revSess.fromVerse) ? ` (${revSess.fromVerse}-${revSess.toVerse})` : '';
+                    revCell = {
+                        text: `سورة ${revSess.surahName}${vCount}`,
+                        class: 'rec-revised',
+                        note: revSess.notes || revSess.assessmentText || 'أنجز'
+                    };
+                } else if (revSess && (revSess.assessment === 'DidNotRecite' || revSess.assessmentText === 'لم يُسمّع')) {
+                    revCell = { text: 'لم يراجع', class: 'rec-not-revised', note: 'لم يراجع' };
+                }
+            }
+
+            return {
+                date: dateStr,
+                memorization: memCell,
+                revision: revCell
+            };
+        });
+
+        const totalActiveDays = studentPresentDays + studentAbsentDays;
+        const compliancePct = totalActiveDays > 0 ? Math.round((studentPresentDays / totalActiveDays) * 100) : 100;
+
+        return {
+            id: s.id,
+            fullName: s.fullName,
+            studentIdentityNumber: s.studentIdentityNumber || '-',
+            mobile: s.studentMobile || s.familyContact || '-',
+            dateOfBirth: s.dateOfBirth || '-',
+            planType: s.planType || 'المعتدلة',
+            completedAjzaa: s.completedAjzaa || '',
+            days,
+            presentDays: studentPresentDays,
+            absentDays: studentAbsentDays,
+            memSessions: studentMemSessions,
+            revSessions: studentRevSessions,
+            compliancePct
+        };
+    });
+
+    const avgAttendance = totalAttRecordsCount > 0 ? Math.round((totalPresentCount / totalAttRecordsCount) * 100) : 100;
+
+    return {
+        teacherName: currentTeacherComprehensiveData.teacherName || "المعلم",
+        circleName: currentTeacherComprehensiveData.circleName || "حلقة المركز",
+        totalStudents: students.length,
+        totalSessionsCount,
+        totalDaysCount: allDates.length,
+        avgAttendance,
+        dates: allDates,
+        rows
+    };
+}
+
+function renderTeacherRecitationMatrix(matrix) {
+    const container = document.getElementById("teacher-recitation-matrix-container");
+    if (!container) return;
+
+    // Update KPI counters
+    const elTotalStudents = document.getElementById("teacher-roster-total-students");
+    if (elTotalStudents) elTotalStudents.textContent = matrix.totalStudents;
+    const elTotalSessions = document.getElementById("teacher-roster-total-sessions");
+    if (elTotalSessions) elTotalSessions.textContent = matrix.totalSessionsCount;
+    const elAvgAtt = document.getElementById("teacher-roster-avg-attendance");
+    if (elAvgAtt) elAvgAtt.textContent = `${matrix.avgAttendance}%`;
+    const elTotalDays = document.getElementById("teacher-roster-total-days");
+    if (elTotalDays) elTotalDays.textContent = matrix.totalDaysCount;
+
+    if (matrix.rows.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info text-center p-5 m-3 rounded-4 shadow-sm">
+                <i class="fa-solid fa-users-slash fa-3x mb-3 text-info"></i>
+                <h4 class="fw-bold">لا يوجد طلاب مسجلين في حلقتك حالياً</h4>
+                <p class="mb-0 text-muted">يمكنك مراجعة إدارة المركز أو تنسيب طلاب لحلقتك.</p>
+            </div>
+        `;
         return;
     }
 
-    const data = currentTeacherComprehensiveData;
-    const students = data.students || [];
-    const nowStr = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (matrix.dates.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-warning text-center p-5 m-3 rounded-4 shadow-sm">
+                <i class="fa-solid fa-calendar-xmark fa-3x mb-3 text-warning"></i>
+                <h4 class="fw-bold">لا توجد جلسات تسميع أو حضور في النطاق المحدد</h4>
+                <p class="mb-2 text-muted">يرجى تغيير النطاق الزمني أو إضافة تسميعات للطلاب.</p>
+                <button class="btn btn-sm btn-outline-dark fw-bold" onclick="onTeacherRosterPeriodChange('all')">عرض كامل الفترة</button>
+            </div>
+        `;
+        return;
+    }
 
-    const rowsHtml = students.map((s, idx) => {
-        const completedSet = (s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x));
-        const sessionsList = s.recitationSessions || s.sessions || [];
-        const lastRecitations = sessionsList.slice(0, 3).map(r => `سورة ${r.surahName} (${r.fromVerse}-${r.toVerse}): ${r.assessmentText || r.assessment}`).join(' | ');
+    // Build Table HTML
+    let dateHeadersTier1 = "";
+    let dateHeadersTier2 = "";
+
+    matrix.dates.forEach(dStr => {
+        const dayName = getArabicDayName(dStr);
+        dateHeadersTier1 += `
+            <th colspan="2" class="rec-date-header">
+                <div class="fw-bold" style="font-size: 0.85rem;">${escapeHtml(dayName)}</div>
+                <div class="fw-normal opacity-75" style="font-size: 0.72rem;">${dStr}</div>
+            </th>
+        `;
+        dateHeadersTier2 += `
+            <th class="sub-header-memorization" title="الحفظ الجديد">الحفظ الجديد</th>
+            <th class="sub-header-revision" title="المراجعة والتثبيت">المراجعة</th>
+        `;
+    });
+
+    let bodyRows = matrix.rows.map((row, idx) => {
+        let daysCells = row.days.map(d => `
+            <td class="rec-cell ${d.memorization.class}" title="${escapeHtml(d.memorization.note || d.memorization.text)}">
+                ${escapeHtml(d.memorization.text)}
+            </td>
+            <td class="rec-cell ${d.revision.class}" title="${escapeHtml(d.revision.note || d.revision.text)}">
+                ${escapeHtml(d.revision.text)}
+            </td>
+        `).join('');
 
         return `
             <tr>
-                <td>${idx + 1}</td>
-                <td><b>${s.fullName}</b></td>
-                <td>${s.studentIdentityNumber || '-'}</td>
-                <td>${s.presentDaysCount || s.presentDays || 0} يوم (${s.attendanceRatePercentage || 100}%)</td>
-                <td>${s.absentDaysCount || s.absentDays || 0} يوم</td>
-                <td>${completedSet.length > 0 ? completedSet.join('، ') : 'لا يوجد'}</td>
-                <td>${s.planType || 'المعتدلة'}</td>
-                <td>${lastRecitations || 'لا يوجد'}</td>
-                <td>${s.courses && s.courses.length > 0 ? s.courses.map(c => `${c.courseName}: ${c.presentCount || 0}ح/${c.absentCount || 0}غ`).join(' | ') : '-'}</td>
+                <td class="col-sticky-idx fw-bold text-muted">${idx + 1}</td>
+                <td class="col-sticky-name text-start">
+                    <div class="fw-bold text-dark d-flex align-items-center gap-1">
+                        <i class="fa-solid fa-user-graduate text-success small"></i>
+                        <span>${escapeHtml(row.fullName)}</span>
+                    </div>
+                </td>
+                <td class="text-secondary small">${escapeHtml(row.studentIdentityNumber)}</td>
+                <td class="text-secondary small dir-ltr text-center">${escapeHtml(row.mobile)}</td>
+                <td class="text-muted small">${escapeHtml(row.dateOfBirth)}</td>
+                ${daysCells}
+                <td class="fw-bold text-success bg-light">${row.presentDays}</td>
+                <td class="fw-bold text-danger bg-light">${row.absentDays}</td>
+                <td class="fw-bold text-primary bg-light">${row.memSessions}</td>
+                <td class="fw-bold text-info bg-light">${row.revSessions}</td>
+                <td class="fw-bold text-dark bg-light">${row.compliancePct}%</td>
+            </tr>
+        `;
+    }).join('');
+
+    const html = `
+        <table id="teacher-recitation-matrix-table" class="recitation-matrix-table table table-bordered">
+            <thead>
+                <tr>
+                    <th rowspan="2" class="col-sticky-idx">#</th>
+                    <th rowspan="2" class="col-sticky-name">اسم الطالب الرباعي</th>
+                    <th rowspan="2" style="min-width: 95px;">رقم الهوية</th>
+                    <th rowspan="2" style="min-width: 105px;">رقم الجوال</th>
+                    <th rowspan="2" style="min-width: 90px;">تاريخ الميلاد</th>
+                    ${dateHeadersTier1}
+                    <th colspan="5" class="bg-dark text-white">إحصائيات الفترة</th>
+                </tr>
+                <tr>
+                    ${dateHeadersTier2}
+                    <th class="bg-light text-success small" title="أيام الحضور">حضور</th>
+                    <th class="bg-light text-danger small" title="أيام الغياب">غياب</th>
+                    <th class="bg-light text-primary small" title="مقاطع الحفظ الجديد">حفظ</th>
+                    <th class="bg-light text-info small" title="مقاطع المراجعة">مراجعة</th>
+                    <th class="bg-light text-dark small" title="نسبة الالتزام">الالتزام</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${bodyRows}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+function renderTeacherRosterCards(students, matrix) {
+    const container = document.getElementById("teacher-roster-cards-container");
+    if (!container) return;
+
+    if (students.length === 0) {
+        container.innerHTML = `<p class="text-center text-muted p-4">لا يوجد طلاب لعرض الكروت.</p>`;
+        return;
+    }
+
+    const cardsHtml = students.map((s, idx) => {
+        const completedSet = new Set((s.completedAjzaa || "").split(',').filter(Boolean).map(x => parseInt(x)));
+        const targetAjzaa = s.targetAjzaaCount || 30;
+        const progressPct = Math.min(100, Math.round((completedSet.size / targetAjzaa) * 100));
+
+        const rowData = matrix.rows.find(r => r.id === s.id) || {
+            presentDays: s.presentDaysCount || 0,
+            absentDays: s.absentDaysCount || 0,
+            memSessions: s.memorizationSessionsCount || 0,
+            revSessions: s.revisionSessionsCount || 0,
+            compliancePct: s.attendanceRatePercentage || 100
+        };
+
+        return `
+            <div class="card shadow-sm mb-3 student-roster-card" style="border-radius: 12px; border-right: 5px solid #0d5c3a;">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.85rem;">${idx + 1}</div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">${escapeHtml(s.fullName)}</h6>
+                                <small class="text-muted">هوية: <b>${escapeHtml(s.studentIdentityNumber || '-')}</b> | جوال: <b>${escapeHtml(s.studentMobile || s.familyContact || '-')}</b> | ميلاد: <b>${escapeHtml(s.dateOfBirth || '-')}</b></small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success bg-opacity-10 text-success p-2">أنجز ${completedSet.size} / ${targetAjzaa} جزء (${progressPct}%)</span>
+                            <button class="btn btn-sm btn-outline-primary" onclick="showStudent360Modal(${s.id})"><i class="fa-solid fa-eye me-1"></i> الملف الموحد 360°</button>
+                        </div>
+                    </div>
+                    <div class="row g-2 text-center small">
+                        <div class="col-3 col-md-2 p-1 bg-light rounded">حضور: <b class="text-success">${rowData.presentDays} يوم</b></div>
+                        <div class="col-3 col-md-2 p-1 bg-light rounded">غياب: <b class="text-danger">${rowData.absentDays} يوم</b></div>
+                        <div class="col-3 col-md-2 p-1 bg-light rounded">حفظ جديد: <b class="text-primary">${rowData.memSessions}</b></div>
+                        <div class="col-3 col-md-2 p-1 bg-light rounded">مراجعة: <b class="text-info">${rowData.revSessions}</b></div>
+                        <div class="col-6 col-md-2 p-1 bg-light rounded">الالتزام: <b class="text-dark">${rowData.compliancePct}%</b></div>
+                        <div class="col-6 col-md-2 p-1 bg-light rounded">الخطة: <b>${escapeHtml(s.planType || 'المعتدلة')}</b></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = cardsHtml;
+}
+
+// -------------------------------------------------------------
+// MULTI-FORMAT EXPORT ENGINE (.xlsx Modern, .xls Styled, PDF Print)
+// -------------------------------------------------------------
+function showTeacherComprehensiveExportModal() {
+    if (!currentTeacherComprehensiveData) {
+        showAlert("يرجى تحميل الكشف أولاً قبل التصدير.", "warning");
+        return;
+    }
+
+    Swal.fire({
+        title: '<i class="fa-solid fa-file-export text-success me-2"></i> تصدير كشف متابعة وتسميع الطلاب',
+        html: `
+            <div class="text-start rtl p-2" dir="rtl">
+                <p class="text-muted mb-3 fs-6">اختر الصيغة المطلوبة لتصدير سجل تسميع وحضور طلاب حلقتك:</p>
+                <div class="d-flex flex-column gap-3">
+                    <button id="btn-export-roster-xls" class="btn btn-outline-success p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2 shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="width: 44px; height: 44px; background: rgba(25, 135, 84, 0.12); color: #198754; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                <i class="fa-solid fa-file-excel"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">ملف إكسل منسق فاخر بالألوان (.xls)</div>
+                                <small class="text-muted" style="font-size: 0.76rem;">تنسيق بألوان وهوية المركز مع تمييز "لم يحفظ" و "لم يراجع" وأيام الإجازات.</small>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-download text-success fs-5"></i>
+                    </button>
+
+                    <button id="btn-export-roster-xlsx" class="btn btn-outline-primary p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2 shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="width: 44px; height: 44px; background: rgba(13, 110, 253, 0.12); color: #0d6efd; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                <i class="fa-solid fa-table-cells"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">ملف إكسل قياسي حديث (.xlsx)</div>
+                                <small class="text-muted" style="font-size: 0.76rem;">مصنف إكسل قياسي مع ترويسات مزدوجة (الحفظ والمراجعة) وتوافق تام.</small>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-download text-primary fs-5"></i>
+                    </button>
+
+                    <button id="btn-export-roster-pdf" class="btn btn-outline-dark p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2 shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="width: 44px; height: 44px; background: rgba(33, 37, 41, 0.12); color: #212529; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                <i class="fa-solid fa-print"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">طباعة الكشف الشامل / حفظ PDF</div>
+                                <small class="text-muted" style="font-size: 0.76rem;">تنسيق أفقي A4 رسمي معتمد مع ترويسة وتوقيعات المركز.</small>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-dark fs-5"></i>
+                    </button>
+                </div>
+            </div>
+        `,
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: 550,
+        didOpen: () => {
+            document.getElementById("btn-export-roster-xls")?.addEventListener("click", () => {
+                Swal.close();
+                exportTeacherRosterXls();
+            });
+            document.getElementById("btn-export-roster-xlsx")?.addEventListener("click", () => {
+                Swal.close();
+                exportTeacherRosterXlsx();
+            });
+            document.getElementById("btn-export-roster-pdf")?.addEventListener("click", () => {
+                Swal.close();
+                printTeacherComprehensiveRoster();
+            });
+        }
+    });
+}
+
+// 1. Export Styled XML/HTML Excel (.xls)
+function exportTeacherRosterXls() {
+    if (!currentTeacherComprehensiveData) return;
+    const students = currentTeacherComprehensiveData.students || [];
+    const matrix = buildTeacherRecitationMatrix(students, currentTeacherRecitationFilter.fromDate, currentTeacherRecitationFilter.toDate);
+
+    if (matrix.dates.length === 0) {
+        showAlert("لا توجد بيانات أو جلسات في النطاق الزمني المحدد للتصدير.", "warning");
+        return;
+    }
+
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
+    const teacherName = matrix.teacherName;
+    const nowStr = new Date().toLocaleDateString('ar-EG');
+    const periodLabel = currentTeacherRecitationFilter.fromDate 
+        ? `من ${currentTeacherRecitationFilter.fromDate} إلى ${currentTeacherRecitationFilter.toDate || 'الآن'}`
+        : 'كامل الفترة المسجلة';
+
+    let dateHeadersTier1 = "";
+    let dateHeadersTier2 = "";
+
+    matrix.dates.forEach(dStr => {
+        const dayName = getArabicDayName(dStr);
+        dateHeadersTier1 += `<th colspan="2" style="background-color: #0d5c3a; color: #ffffff; border: 1px solid #999; padding: 6px; text-align: center;">${dayName}<br/><span style="font-size: 10px;">${dStr}</span></th>`;
+        dateHeadersTier2 += `
+            <th style="background-color: #ecfdf5; color: #065f46; border: 1px solid #999; padding: 5px; text-align: center; font-size: 11px;">الحفظ الجديد</th>
+            <th style="background-color: #eff6ff; color: #1e40af; border: 1px solid #999; padding: 5px; text-align: center; font-size: 11px;">المراجعة</th>
+        `;
+    });
+
+    let bodyRows = matrix.rows.map((r, idx) => {
+        let daysHtml = r.days.map(d => {
+            let memStyle = "border: 1px solid #ccc; padding: 5px; text-align: center; font-size: 11px;";
+            if (d.memorization.class === 'rec-memorized') memStyle += " background-color: #ecfdf5; color: #065f46; font-weight: bold;";
+            else if (d.memorization.class === 'rec-not-memorized') memStyle += " background-color: #fef2f2; color: #dc2626; font-weight: bold;";
+            else if (d.memorization.class === 'rec-holiday') memStyle += " background-color: #fef3c7; color: #92400e; font-weight: bold;";
+            else if (d.memorization.class === 'rec-absent') memStyle += " background-color: #f1f5f9; color: #64748b; font-weight: bold;";
+
+            let revStyle = "border: 1px solid #ccc; padding: 5px; text-align: center; font-size: 11px;";
+            if (d.revision.class === 'rec-revised') revStyle += " background-color: #eff6ff; color: #1d4ed8; font-weight: bold;";
+            else if (d.revision.class === 'rec-not-revised') revStyle += " background-color: #fffbeb; color: #d97706; font-weight: bold;";
+            else if (d.revision.class === 'rec-holiday') revStyle += " background-color: #fef3c7; color: #92400e; font-weight: bold;";
+            else if (d.revision.class === 'rec-absent') revStyle += " background-color: #f1f5f9; color: #64748b; font-weight: bold;";
+
+            return `
+                <td style="${memStyle}">${escapeHtml(d.memorization.text)}</td>
+                <td style="${revStyle}">${escapeHtml(d.revision.text)}</td>
+            `;
+        }).join('');
+
+        return `
+            <tr>
+                <td style="border: 1px solid #ccc; text-align: center; font-weight: bold;">${idx + 1}</td>
+                <td style="border: 1px solid #ccc; text-align: right; font-weight: bold; padding: 5px;">${escapeHtml(r.fullName)}</td>
+                <td style="border: 1px solid #ccc; text-align: center;">${escapeHtml(r.studentIdentityNumber)}</td>
+                <td style="border: 1px solid #ccc; text-align: center; direction: ltr;">${escapeHtml(r.mobile)}</td>
+                <td style="border: 1px solid #ccc; text-align: center;">${escapeHtml(r.dateOfBirth)}</td>
+                ${daysHtml}
+                <td style="border: 1px solid #ccc; text-align: center; font-weight: bold; color: #065f46; background-color: #f0fdf4;">${r.presentDays}</td>
+                <td style="border: 1px solid #ccc; text-align: center; font-weight: bold; color: #dc2626; background-color: #fef2f2;">${r.absentDays}</td>
+                <td style="border: 1px solid #ccc; text-align: center; font-weight: bold; color: #1d4ed8; background-color: #eff6ff;">${r.memSessions}</td>
+                <td style="border: 1px solid #ccc; text-align: center; font-weight: bold; color: #0891b2; background-color: #ecfeff;">${r.revSessions}</td>
+                <td style="border: 1px solid #ccc; text-align: center; font-weight: bold;">${r.compliancePct}%</td>
+            </tr>
+        `;
+    }).join('');
+
+    const totalCols = 5 + (matrix.dates.length * 2) + 5;
+
+    const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+            <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>كشف التسميع الشامل</x:Name><x:WorksheetOptions><x:DisplayRightToLeft/><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+            <style>
+                body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+                table { border-collapse: collapse; width: 100%; }
+                th, td { white-space: nowrap; font-family: 'Cairo', Tahoma, sans-serif; }
+            </style>
+        </head>
+        <body dir="rtl">
+            <table>
+                <tr>
+                    <th colspan="${totalCols}" style="background-color: #0d5c3a; color: #ffffff; font-size: 16px; padding: 10px; text-align: center; font-weight: bold;">
+                        ${escapeHtml(centerName)} - ${escapeHtml(mosqueName)}
+                    </th>
+                </tr>
+                <tr>
+                    <th colspan="${totalCols}" style="background-color: #10b981; color: #ffffff; font-size: 14px; padding: 8px; text-align: center; font-weight: bold;">
+                        كشف متابعة وتسميع طلاب الحلقة الشامل (الحفظ الجديد والمراجعة)
+                    </th>
+                </tr>
+                <tr>
+                    <td colspan="${totalCols}" style="background-color: #f8fafc; padding: 8px; font-size: 12px; text-align: center; border-bottom: 2px solid #0d5c3a;">
+                        <b>المعلم المحفظ:</b> ${escapeHtml(teacherName)} &nbsp;|&nbsp; 
+                        <b>إجمالي الطلاب:</b> ${matrix.totalStudents} &nbsp;|&nbsp; 
+                        <b>النطاق الزمني:</b> ${escapeHtml(periodLabel)} &nbsp;|&nbsp; 
+                        <b>تاريخ التصدير:</b> ${nowStr}
+                    </td>
+                </tr>
+                <tr></tr>
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="background-color: #0d5c3a; color: #fff; border: 1px solid #999; padding: 6px;">#</th>
+                        <th rowspan="2" style="background-color: #0d5c3a; color: #fff; border: 1px solid #999; padding: 6px; min-width: 150px;">اسم الطالب الكامل</th>
+                        <th rowspan="2" style="background-color: #0d5c3a; color: #fff; border: 1px solid #999; padding: 6px;">رقم الهوية</th>
+                        <th rowspan="2" style="background-color: #0d5c3a; color: #fff; border: 1px solid #999; padding: 6px;">رقم الجوال</th>
+                        <th rowspan="2" style="background-color: #0d5c3a; color: #fff; border: 1px solid #999; padding: 6px;">تاريخ الميلاد</th>
+                        ${dateHeadersTier1}
+                        <th colspan="5" style="background-color: #334155; color: #fff; border: 1px solid #999; padding: 6px; text-align: center;">إحصائيات الفترة</th>
+                    </tr>
+                    <tr>
+                        ${dateHeadersTier2}
+                        <th style="background-color: #f1f5f9; border: 1px solid #999; font-size: 11px; padding: 5px;">حضور</th>
+                        <th style="background-color: #f1f5f9; border: 1px solid #999; font-size: 11px; padding: 5px;">غياب</th>
+                        <th style="background-color: #f1f5f9; border: 1px solid #999; font-size: 11px; padding: 5px;">حفظ</th>
+                        <th style="background-color: #f1f5f9; border: 1px solid #999; font-size: 11px; padding: 5px;">مراجعة</th>
+                        <th style="background-color: #f1f5f9; border: 1px solid #999; font-size: 11px; padding: 5px;">الالتزام</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bodyRows}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+
+    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    const fileName = `كشف_متابعة_وتسميع_الطلاب_${new Date().toISOString().slice(0, 10)}.xls`;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("تم تنزيل كشف الإكسل المنسق الفاخر بنجاح (.xls) 🎉", "success");
+}
+
+// 2. Export Standard OpenXML Excel (.xlsx) using SheetJS
+function exportTeacherRosterXlsx() {
+    if (typeof XLSX === 'undefined') {
+        showAlert("مكتبة تصدير الإكسل القياسي غير محملة، جاري التصدير بالصيغة المنسقة (.xls)", "info");
+        exportTeacherRosterXls();
+        return;
+    }
+
+    if (!currentTeacherComprehensiveData) return;
+    const students = currentTeacherComprehensiveData.students || [];
+    const matrix = buildTeacherRecitationMatrix(students, currentTeacherRecitationFilter.fromDate, currentTeacherRecitationFilter.toDate);
+
+    if (matrix.dates.length === 0) {
+        showAlert("لا توجد بيانات أو جلسات في النطاق الزمني المحدد للتصدير.", "warning");
+        return;
+    }
+
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const teacherName = matrix.teacherName;
+    const periodLabel = currentTeacherRecitationFilter.fromDate 
+        ? `من ${currentTeacherRecitationFilter.fromDate} إلى ${currentTeacherRecitationFilter.toDate || 'الآن'}`
+        : 'كامل الفترة المسجلة';
+
+    const wb = XLSX.utils.book_new();
+
+    // Prepare AOA
+    const aoa = [];
+
+    // Title Rows
+    aoa.push([centerName]);
+    aoa.push([`كشف متابعة وتسميع طلاب الحلقة الشامل - المعلم: ${teacherName} (${periodLabel})`]);
+    aoa.push([]); // empty line
+
+    // Header Row 1
+    const headerRow1 = ["#", "اسم الطالب", "رقم الهوية", "رقم الجوال", "تاريخ الميلاد"];
+    matrix.dates.forEach(dStr => {
+        const dayName = getArabicDayName(dStr);
+        headerRow1.push(`${dayName} (${dStr})`);
+        headerRow1.push(""); // for merged cell
+    });
+    headerRow1.push("إحصائيات الفترة", "", "", "", "");
+
+    // Header Row 2
+    const headerRow2 = ["", "", "", "", ""];
+    matrix.dates.forEach(() => {
+        headerRow2.push("الحفظ الجديد");
+        headerRow2.push("المراجعة والتثبيت");
+    });
+    headerRow2.push("حضور", "غياب", "حفظ", "مراجعة", "الالتزام");
+
+    aoa.push(headerRow1);
+    aoa.push(headerRow2);
+
+    // Data Rows
+    matrix.rows.forEach((r, idx) => {
+        const row = [
+            idx + 1,
+            r.fullName,
+            r.studentIdentityNumber,
+            r.mobile,
+            r.dateOfBirth
+        ];
+
+        r.days.forEach(d => {
+            row.push(d.memorization.text);
+            row.push(d.revision.text);
+        });
+
+        row.push(r.presentDays);
+        row.push(r.absentDays);
+        row.push(r.memSessions);
+        row.push(r.revSessions);
+        row.push(`${r.compliancePct}%`);
+
+        aoa.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Setup Merges
+    const merges = [
+        // Title merge: row 0
+        { s: { r: 0, c: 0 }, e: { r: 0, c: headerRow1.length - 1 } },
+        // Subtitle merge: row 1
+        { s: { r: 1, c: 0 }, e: { r: 1, c: headerRow1.length - 1 } },
+        // Info column merges (row 3 to 4)
+        { s: { r: 3, c: 0 }, e: { r: 4, c: 0 } },
+        { s: { r: 3, c: 1 }, e: { r: 4, c: 1 } },
+        { s: { r: 3, c: 2 }, e: { r: 4, c: 2 } },
+        { s: { r: 3, c: 3 }, e: { r: 4, c: 3 } },
+        { s: { r: 3, c: 4 }, e: { r: 4, c: 4 } },
+    ];
+
+    // Merge each date header horizontally
+    let curCol = 5;
+    matrix.dates.forEach(() => {
+        merges.push({ s: { r: 3, c: curCol }, e: { r: 3, c: curCol + 1 } });
+        curCol += 2;
+    });
+
+    // Merge Summary Header horizontally
+    merges.push({ s: { r: 3, c: curCol }, e: { r: 3, c: curCol + 4 } });
+
+    ws['!merges'] = merges;
+
+    // Set RTL
+    ws['!views'] = [{ RTL: true }];
+
+    // Set Column Widths
+    const colWidths = [{ wch: 5 }, { wch: 25 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+    matrix.dates.forEach(() => {
+        colWidths.push({ wch: 18 });
+        colWidths.push({ wch: 18 });
+    });
+    colWidths.push({ wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 });
+    ws['!cols'] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, "كشف التسميع والحضور");
+    const fileName = `كشف_متابعة_وتسميع_الطلاب_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    showToast("تم تنزيل كشف الإكسل القياسي بنجاح (.xlsx) 📊", "success");
+}
+
+// 3. Print Comprehensive Recitation Roster (A4 Landscape PDF Ready)
+function printTeacherComprehensiveRoster() {
+    if (!currentTeacherComprehensiveData) {
+        showAlert("يرجى تحميل الكشف أولاً قبل الطباعة.", "warning");
+        return;
+    }
+
+    const students = currentTeacherComprehensiveData.students || [];
+    const matrix = buildTeacherRecitationMatrix(students, currentTeacherRecitationFilter.fromDate, currentTeacherRecitationFilter.toDate);
+
+    if (matrix.dates.length === 0) {
+        showAlert("لا توجد بيانات أو جلسات في النطاق الزمني المحدد للطباعة.", "warning");
+        return;
+    }
+
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
+    const teacherName = matrix.teacherName;
+    const nowStr = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const periodLabel = currentTeacherRecitationFilter.fromDate 
+        ? `من ${currentTeacherRecitationFilter.fromDate} إلى ${currentTeacherRecitationFilter.toDate || 'الآن'}`
+        : 'كامل الفترة المسجلة';
+
+    let dateHeadersTier1 = "";
+    let dateHeadersTier2 = "";
+
+    matrix.dates.forEach(dStr => {
+        const dayName = getArabicDayName(dStr);
+        dateHeadersTier1 += `<th colspan="2" style="background-color: #0d5c3a; color: #fff;">${dayName}<br/><span style="font-size: 8px;">${dStr}</span></th>`;
+        dateHeadersTier2 += `
+            <th style="background-color: #ecfdf5; color: #065f46; font-size: 9px;">الحفظ الجديد</th>
+            <th style="background-color: #eff6ff; color: #1e40af; font-size: 9px;">المراجعة</th>
+        `;
+    });
+
+    let bodyRows = matrix.rows.map((r, idx) => {
+        let daysHtml = r.days.map(d => {
+            let memStyle = "";
+            if (d.memorization.class === 'rec-memorized') memStyle = "background-color: #ecfdf5; color: #065f46; font-weight: bold;";
+            else if (d.memorization.class === 'rec-not-memorized') memStyle = "background-color: #fef2f2; color: #dc2626; font-weight: bold;";
+            else if (d.memorization.class === 'rec-holiday') memStyle = "background-color: #fef3c7; color: #92400e;";
+            else if (d.memorization.class === 'rec-absent') memStyle = "background-color: #f1f5f9; color: #64748b;";
+
+            let revStyle = "";
+            if (d.revision.class === 'rec-revised') revStyle = "background-color: #eff6ff; color: #1d4ed8; font-weight: bold;";
+            else if (d.revision.class === 'rec-not-revised') revStyle = "background-color: #fffbeb; color: #d97706; font-weight: bold;";
+            else if (d.revision.class === 'rec-holiday') revStyle = "background-color: #fef3c7; color: #92400e;";
+            else if (d.revision.class === 'rec-absent') revStyle = "background-color: #f1f5f9; color: #64748b;";
+
+            return `
+                <td style="${memStyle}">${escapeHtml(d.memorization.text)}</td>
+                <td style="${revStyle}">${escapeHtml(d.revision.text)}</td>
+            `;
+        }).join('');
+
+        return `
+            <tr>
+                <td><b>${idx + 1}</b></td>
+                <td style="text-align: right; font-weight: bold;">${escapeHtml(r.fullName)}</td>
+                <td>${escapeHtml(r.studentIdentityNumber)}</td>
+                <td style="direction: ltr;">${escapeHtml(r.mobile)}</td>
+                <td>${escapeHtml(r.dateOfBirth)}</td>
+                ${daysHtml}
+                <td style="font-weight: bold; color: #065f46;">${r.presentDays}</td>
+                <td style="font-weight: bold; color: #dc2626;">${r.absentDays}</td>
+                <td style="font-weight: bold; color: #1d4ed8;">${r.memSessions}</td>
+                <td style="font-weight: bold; color: #0891b2;">${r.revSessions}</td>
+                <td style="font-weight: bold;">${r.compliancePct}%</td>
             </tr>
         `;
     }).join('');
@@ -11901,49 +12689,59 @@ function printTeacherRoster() {
         <html lang="ar" dir="rtl">
         <head>
             <meta charset="UTF-8">
-            <title>كشف تسميع وحضور طلاب الحلقة - ${data.teacherName}</title>
+            <title>كشف متابعة وتسميع طلاب الحلقة - ${escapeHtml(teacherName)}</title>
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-                body { font-family: 'Cairo', sans-serif; padding: 20px; color: #111; direction: rtl; }
-                .header { text-align: center; border-bottom: 2px solid #0d5c3a; padding-bottom: 10px; margin-bottom: 20px; }
-                .header h2 { color: #0d5c3a; margin: 0 0 5px 0; }
-                .meta { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 0.9rem; }
-                table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem; }
-                th, td { border: 1px solid #999; padding: 6px 8px; text-align: center; }
-                th { background-color: #e8f5e9; color: #0d5c3a; font-weight: bold; }
-                .footer-sig { display: flex; justify-content: space-between; margin-top: 40px; font-weight: bold; }
+                @page { size: A4 landscape; margin: 8mm; }
+                body { font-family: 'Cairo', sans-serif; padding: 10px; color: #111; direction: rtl; }
+                .header { text-align: center; border-bottom: 2px solid #0d5c3a; padding-bottom: 8px; margin-bottom: 12px; }
+                .header h2 { color: #0d5c3a; margin: 0 0 4px 0; font-size: 1.25rem; font-weight: 800; }
+                .header h3 { color: #333; margin: 0; font-size: 1rem; }
+                .meta { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.8rem; font-weight: 600; }
+                table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+                th, td { border: 1px solid #777; padding: 4px 5px; text-align: center; white-space: nowrap; }
+                th { background-color: #0d5c3a; color: #fff; font-weight: bold; }
+                .footer-sig { display: flex; justify-content: space-between; margin-top: 30px; font-weight: bold; font-size: 0.85rem; }
             </style>
         </head>
         <body>
             <div class="header">
-                <h2>${escapeHtml(cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName)}</h2>
-                <h3>كشف متابعة التسميع والحضور الشامل لطلاب الحلقة</h3>
+                <h2>${escapeHtml(centerName)} - ${escapeHtml(mosqueName)}</h2>
+                <h3>كشف متابعة وتسميع وحضور طلاب الحلقة الشامل</h3>
             </div>
             <div class="meta">
-                <span>المعلم المحفظ: <b>${data.teacherName}</b></span>
-                <span>إجمالي الطلاب: <b>${students.length} طالب</b></span>
+                <span>المعلم المحفظ: <b>${escapeHtml(teacherName)}</b></span>
+                <span>النطاق الزمني: <b>${escapeHtml(periodLabel)}</b></span>
+                <span>إجمالي الطلاب: <b>${matrix.totalStudents} طالب</b></span>
                 <span>تاريخ التقرير: <b>${nowStr}</b></span>
             </div>
             <table>
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>اسم الطالب الكامل</th>
-                        <th>الهوية</th>
-                        <th>الحضور</th>
-                        <th>الغياب</th>
-                        <th>الأجزاء المكتملة</th>
-                        <th>الخطة</th>
-                        <th>آخر التسميعات</th>
-                        <th>الدورات والمساقات</th>
+                        <th rowspan="2">#</th>
+                        <th rowspan="2">اسم الطالب الرباعي</th>
+                        <th rowspan="2">رقم الهوية</th>
+                        <th rowspan="2">رقم الجوال</th>
+                        <th rowspan="2">تاريخ الميلاد</th>
+                        ${dateHeadersTier1}
+                        <th colspan="5">الإحصائيات</th>
+                    </tr>
+                    <tr>
+                        ${dateHeadersTier2}
+                        <th>حضور</th>
+                        <th>غياب</th>
+                        <th>حفظ</th>
+                        <th>مراجعة</th>
+                        <th>الالتزام</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${rowsHtml}
+                    ${bodyRows}
                 </tbody>
             </table>
             <div class="footer-sig">
                 <div>توقيع المعلم المحفظ: ....................</div>
+                <div>اعتماد المشرف التربوي: ....................</div>
                 <div>اعتماد مدير المركز (${escapeHtml(cachedSystemSettings?.signatoryName || 'الإدارة العامة')}): ....................</div>
             </div>
             <script>window.onload = function() { window.print(); }</script>
@@ -11952,6 +12750,11 @@ function printTeacherRoster() {
     `);
     printWindow.document.close();
 }
+
+function printTeacherRoster() {
+    printTeacherComprehensiveRoster();
+}
+
 
 // ==========================================
 // 3. DYNAMIC SYSTEM SETTINGS CMS 2.0 (Resilient & Real-time Sync)

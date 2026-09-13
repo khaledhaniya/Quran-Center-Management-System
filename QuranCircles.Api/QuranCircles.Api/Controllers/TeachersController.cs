@@ -107,7 +107,7 @@ public class TeachersController : ControllerBase
 
     [HttpGet("{id:int}/comprehensive-report")]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
-    public async Task<IActionResult> GetTeacherComprehensiveReport(int id)
+    public async Task<IActionResult> GetTeacherComprehensiveReport(int id, [FromQuery] string? fromDate = null, [FromQuery] string? toDate = null)
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
@@ -139,6 +139,12 @@ public class TeachersController : ControllerBase
 
         if (teacher == null) return NotFound(new { error = "المعلم غير موجود." });
 
+        DateOnly? parsedFrom = null;
+        if (!string.IsNullOrWhiteSpace(fromDate) && DateOnly.TryParse(fromDate, out var fDate)) parsedFrom = fDate;
+
+        DateOnly? parsedTo = null;
+        if (!string.IsNullOrWhiteSpace(toDate) && DateOnly.TryParse(toDate, out var tDate)) parsedTo = tDate;
+
         var circles = await _db.Circles
             .Where(c => c.TeacherId == teacher.Id)
             .Select(c => c.Id)
@@ -165,10 +171,20 @@ public class TeachersController : ControllerBase
 
         var report = students.Select(s =>
         {
-            var totalAtt = s.AttendanceRecords.Count;
-            var presentCount = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Present);
-            var absentCount = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Absent);
-            var lateCount = s.AttendanceRecords.Count(a => a.Status == AttendanceStatus.Late);
+            var attQuery = s.AttendanceRecords.AsEnumerable();
+            if (parsedFrom.HasValue) attQuery = attQuery.Where(a => a.SessionDate >= parsedFrom.Value);
+            if (parsedTo.HasValue) attQuery = attQuery.Where(a => a.SessionDate <= parsedTo.Value);
+            var attList = attQuery.ToList();
+
+            var sessQuery = s.Sessions.AsEnumerable();
+            if (parsedFrom.HasValue) sessQuery = sessQuery.Where(rs => rs.SessionDate >= parsedFrom.Value);
+            if (parsedTo.HasValue) sessQuery = sessQuery.Where(rs => rs.SessionDate <= parsedTo.Value);
+            var sessList = sessQuery.ToList();
+
+            var totalAtt = attList.Count;
+            var presentCount = attList.Count(a => a.Status == AttendanceStatus.Present);
+            var absentCount = attList.Count(a => a.Status == AttendanceStatus.Absent);
+            var lateCount = attList.Count(a => a.Status == AttendanceStatus.Late);
             var attRate = totalAtt > 0 ? (int)Math.Round((double)presentCount / totalAtt * 100) : 100;
 
             return new
@@ -176,6 +192,7 @@ public class TeachersController : ControllerBase
                 s.Id,
                 s.FullName,
                 s.StudentIdentityNumber,
+                DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
                 s.FamilyContact,
                 s.StudentMobile,
                 s.Address,
@@ -191,7 +208,7 @@ public class TeachersController : ControllerBase
                 AbsentDaysCount = absentCount,
                 LateDaysCount = lateCount,
                 AttendanceRatePercentage = attRate,
-                AttendanceRecords = s.AttendanceRecords.OrderByDescending(a => a.SessionDate).Select(a => new
+                AttendanceRecords = attList.OrderByDescending(a => a.SessionDate).Select(a => new
                 {
                     a.Id,
                     Date = a.SessionDate.ToString("yyyy-MM-dd"),
@@ -200,12 +217,12 @@ public class TeachersController : ControllerBase
                     StatusText = a.Status == AttendanceStatus.Present ? "حاضر" : (a.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
                 }),
                 // Recitation Sessions
-                TotalRecitationSessions = s.Sessions.Count,
-                DidNotReciteCount = s.Sessions.Count(rs => rs.Assessment == AssessmentLevel.DidNotRecite),
-                MemorizationSessionsCount = s.Sessions.Count(rs => rs.RecitationType == RecitationType.Memorization && rs.Assessment != AssessmentLevel.DidNotRecite),
-                RevisionSessionsCount = s.Sessions.Count(rs => rs.RecitationType == RecitationType.Revision && rs.Assessment != AssessmentLevel.DidNotRecite),
-                TotalVersesRecited = s.Sessions.Where(rs => rs.Assessment != AssessmentLevel.DidNotRecite).Sum(rs => Math.Max(0, rs.ToVerse - rs.FromVerse + 1)),
-                RecitationSessions = s.Sessions.OrderByDescending(rs => rs.SessionDate).Select(rs => new
+                TotalRecitationSessions = sessList.Count,
+                DidNotReciteCount = sessList.Count(rs => rs.Assessment == AssessmentLevel.DidNotRecite),
+                MemorizationSessionsCount = sessList.Count(rs => rs.RecitationType == RecitationType.Memorization && rs.Assessment != AssessmentLevel.DidNotRecite),
+                RevisionSessionsCount = sessList.Count(rs => rs.RecitationType == RecitationType.Revision && rs.Assessment != AssessmentLevel.DidNotRecite),
+                TotalVersesRecited = sessList.Where(rs => rs.Assessment != AssessmentLevel.DidNotRecite).Sum(rs => Math.Max(0, rs.ToVerse - rs.FromVerse + 1)),
+                RecitationSessions = sessList.OrderByDescending(rs => rs.SessionDate).Select(rs => new
                 {
                     rs.Id,
                     Date = rs.SessionDate.ToString("yyyy-MM-dd"),

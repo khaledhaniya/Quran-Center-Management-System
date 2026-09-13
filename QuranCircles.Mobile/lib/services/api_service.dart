@@ -815,9 +815,15 @@ class ApiService {
   }
 
   // --- Teacher Comprehensive Report ---
-  static Future<Map<String, dynamic>> getTeacherComprehensiveReport(int teacherId) async {
+  static Future<Map<String, dynamic>> getTeacherComprehensiveReport(int teacherId, {String? fromDate, String? toDate}) async {
+    String url = '$baseUrl/teachers/$teacherId/comprehensive-report';
+    final q = <String>[];
+    if (fromDate != null && fromDate.isNotEmpty) q.add('fromDate=${Uri.encodeComponent(fromDate)}');
+    if (toDate != null && toDate.isNotEmpty) q.add('toDate=${Uri.encodeComponent(toDate)}');
+    if (q.isNotEmpty) url += '?${q.join('&')}';
+
     final response = await http.get(
-      Uri.parse('$baseUrl/teachers/$teacherId/comprehensive-report'),
+      Uri.parse(url),
       headers: _headers(),
     );
     if (response.statusCode == 200) {

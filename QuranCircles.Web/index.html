@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260913_v12_student_plan_and_card_fix">
+    <link rel="stylesheet" href="styles.css?v=20260913_v13_recitation_matrix_excel_dual">
 </head>
 <body>
     <!-- App Container -->
@@ -1524,51 +1524,114 @@
 
                 <!-- SECTION: Teacher Comprehensive Student Roster & Report -->
                 <section id="teacher-comprehensive-report-section" class="content-section hidden">
-                    <div class="section-header d-flex flex-wrap justify-content-between align-items-center mb-4">
+                    <div class="section-header d-flex flex-wrap justify-content-between align-items-center mb-3">
                         <div>
                             <h2 class="fw-bold text-success mb-1"><i class="fa-solid fa-table-list text-primary me-2"></i> كشف متابعة وتسميع طلاب الحلقة الشامل</h2>
-                            <p class="text-muted mb-0">سجل متكامل ومفصل لجميع طلاب حلقتك: تاريخ جلسات التسميع، إحصائيات ونسب الحضور والغياب، والدورات والمساقات الشرعية المسجلين بها.</p>
+                            <p class="text-muted mb-0">سجل تفصيلي لتسميع الطلاب يوماً بيوم (الحفظ الجديد والمراجعة والتثبيت)، مع بيانات الهوية والجوال وتاريخ الميلاد، وفلترة حسب النطاق والشهور وتصدير إكسل وطباعة PDF.</p>
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <button class="btn btn-success fw-bold shadow-sm" onclick="printTeacherRoster()"><i class="fa-solid fa-print me-1"></i> طباعة الكشف</button>
-                            <button class="btn btn-primary fw-bold shadow-sm" onclick="loadTeacherComprehensiveReport()"><i class="fa-solid fa-rotate me-1"></i> تحديث البيانات</button>
+                            <button class="btn btn-outline-dark fw-bold shadow-sm" onclick="showTeacherAddDayNoteModal()"><i class="fa-solid fa-calendar-day text-warning me-1"></i> ملاحظة يوم / إجازة / دورة</button>
+                            <button class="btn btn-success fw-bold shadow-sm" onclick="showTeacherComprehensiveExportModal()"><i class="fa-solid fa-file-excel me-1"></i> تصدير إكسل (XLSX / XLS)</button>
+                            <button class="btn btn-dark fw-bold shadow-sm" onclick="printTeacherComprehensiveRoster()"><i class="fa-solid fa-print me-1"></i> طباعة الكشف (PDF)</button>
+                            <button class="btn btn-primary fw-bold shadow-sm" onclick="loadTeacherComprehensiveReport()"><i class="fa-solid fa-rotate me-1"></i> تحديث</button>
+                        </div>
+                    </div>
+
+                    <!-- Date Range & Period Filter Bar -->
+                    <div class="card border-0 shadow-sm p-3 mb-4 rounded-3" style="background: #f8fafc; border: 1px solid #e2e8f0 !important;">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-filter me-1 text-success"></i> تحديد النطاق الزمني / الشهر:</label>
+                                <select id="teacher-roster-period-select" class="form-select form-select-sm fw-bold border-success" onchange="onTeacherRosterPeriodChange(this.value)">
+                                    <option value="all">كامل الفترة المسجلة</option>
+                                    <option value="current_month">الشهر الحالي</option>
+                                    <option value="last_month">الشهر السابق</option>
+                                    <option value="month_8">شهر 8 (أغسطس)</option>
+                                    <option value="month_9">شهر 9 (سبتمبر)</option>
+                                    <option value="custom">نطاق مخصص (من تاريخ - إلى تاريخ)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2" id="teacher-roster-from-wrapper">
+                                <label class="form-label small fw-bold text-muted mb-1">من تاريخ:</label>
+                                <input type="date" id="teacher-roster-from-date" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-2" id="teacher-roster-to-wrapper">
+                                <label class="form-label small fw-bold text-muted mb-1">إلى تاريخ:</label>
+                                <input type="date" id="teacher-roster-to-date" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button class="btn btn-sm btn-success fw-bold w-100" onclick="applyTeacherRosterDateFilter()"><i class="fa-solid fa-magnifying-glass me-1"></i> تطبيق الفلترة</button>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-user-check me-1"></i> بحث سريع باسم الطالب:</label>
+                                <input type="text" id="teacher-roster-search-input" class="form-control form-control-sm" placeholder="ابحث باسم الطالب..." oninput="filterTeacherRosterRows(this.value)">
+                            </div>
                         </div>
                     </div>
 
                     <!-- KPI Cards for Teacher Circle -->
                     <div class="row g-3 mb-4">
-                        <div class="col-md-3">
+                        <div class="col-md-3 col-6">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 12px;">
                                 <h3 id="teacher-roster-total-students" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">إجمالي طلاب الحلقة</span>
+                                <span class="fw-bold small">إجمالي طلاب الحلقة</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 col-6">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 12px;">
                                 <h3 id="teacher-roster-total-sessions" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">إجمالي جلسات التسميع</span>
+                                <span class="fw-bold small">جلسات التسميع بالنطاق</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 col-6">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; border-radius: 12px;">
                                 <h3 id="teacher-roster-avg-attendance" class="fw-bold mb-1">0%</h3>
-                                <span class="fw-bold">معدل الانضباط والالتزام</span>
+                                <span class="fw-bold small">معدل الحضور بالنطاق</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 col-6">
                             <div class="card p-3 border-0 shadow-sm text-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 12px;">
-                                <h3 id="teacher-roster-total-courses" class="fw-bold mb-1">0</h3>
-                                <span class="fw-bold">المساقات والدورات الملتحق بها</span>
+                                <h3 id="teacher-roster-total-days" class="fw-bold mb-1">0</h3>
+                                <span class="fw-bold small">أيام التسميع الموثقة</span>
                             </div>
                         </div>
                     </div>
 
-                    <div id="teacher-roster-cards-container">
-                        <!-- Loaded dynamically per student -->
-                        <div class="text-center p-5 text-muted">
-                            <i class="fa-solid fa-spinner fa-spin fa-2x mb-3"></i>
-                            <p>جاري تحميل كشف الطلاب الشامل...</p>
+                    <!-- View Switcher Tabs -->
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div class="btn-group p-1 bg-white border rounded-pill shadow-sm" role="group">
+                            <button id="btn-view-recitation-matrix" class="btn btn-sm btn-success rounded-pill px-3 fw-bold active" onclick="switchTeacherRosterView('matrix')">
+                                <i class="fa-solid fa-table me-1"></i> مصفوفة التسميع اليومية (الحفظ الجديد والمراجعة)
+                            </button>
+                            <button id="btn-view-student-cards" class="btn btn-sm btn-outline-secondary border-0 rounded-pill px-3 fw-bold" onclick="switchTeacherRosterView('cards')">
+                                <i class="fa-solid fa-id-card me-1"></i> كروت الطلاب التراكمية
+                            </button>
                         </div>
+                        <div class="small text-muted d-flex align-items-center gap-3">
+                            <span><span class="badge bg-success bg-opacity-25 text-success border border-success p-1 px-2">● تسميع منجز</span></span>
+                            <span><span class="badge bg-danger bg-opacity-25 text-danger border border-danger p-1 px-2">● لم يحفظ / لم يراجع</span></span>
+                            <span><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary p-1 px-2">● غياب</span></span>
+                            <span><span class="badge bg-warning bg-opacity-25 text-dark border border-warning p-1 px-2">● إجازة / دورة</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Daily Recitation Matrix Container -->
+                    <div id="teacher-recitation-matrix-wrapper" class="card shadow-sm border-0 rounded-3 mb-4">
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 700px; overflow-x: auto; overflow-y: auto;">
+                                <div id="teacher-recitation-matrix-container">
+                                    <div class="text-center p-5 text-muted">
+                                        <i class="fa-solid fa-spinner fa-spin fa-2x text-success mb-3"></i>
+                                        <p>جاري إعداد مصفوفة تسميع وحضور طلاب الحلقة...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Student Cumulative Cards Container -->
+                    <div id="teacher-roster-cards-container" style="display: none;">
+                        <!-- Loaded dynamically per student -->
                     </div>
                 </section>
 
@@ -2169,6 +2232,6 @@
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
-    <script src="app.js?v=20260913_v12_student_plan_and_card_fix"></script>
+    <script src="app.js?v=20260913_v13_recitation_matrix_excel_dual"></script>
 </body>
 </html>

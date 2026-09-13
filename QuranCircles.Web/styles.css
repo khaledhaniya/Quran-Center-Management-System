@@ -5403,6 +5403,205 @@ body.dark-mode .juz-360-box.pending {
     color: #64748b;
 }
 
+/* ==========================================================================
+   TEACHER COMPREHENSIVE RECITATION & ATTENDANCE MATRIX STYLES
+   ========================================================================== */
+.recitation-matrix-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.81rem;
+    margin-bottom: 0;
+    background: #fff;
+}
+
+.recitation-matrix-table th,
+.recitation-matrix-table td {
+    border: 1px solid #e2e8f0;
+    padding: 8px 10px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+/* Sticky Headers */
+.recitation-matrix-table thead tr:first-child th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #0d5c3a;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.recitation-matrix-table thead tr:nth-child(2) th {
+    position: sticky;
+    top: 41px;
+    z-index: 9;
+    font-weight: 700;
+    font-size: 0.76rem;
+    background-color: #f1f5f9;
+}
+
+/* Sticky Frozen Columns in RTL (right-aligned) */
+.recitation-matrix-table th.col-sticky-idx,
+.recitation-matrix-table td.col-sticky-idx {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+    background-color: inherit;
+    min-width: 40px;
+    max-width: 40px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.03);
+}
+
+.recitation-matrix-table th.col-sticky-name,
+.recitation-matrix-table td.col-sticky-name {
+    position: sticky;
+    right: 40px;
+    z-index: 4;
+    background-color: inherit;
+    min-width: 170px;
+    max-width: 200px;
+    text-align: right;
+    box-shadow: -3px 0 6px rgba(0,0,0,0.05);
+}
+
+.recitation-matrix-table tbody tr {
+    background-color: #ffffff;
+    transition: background 0.15s;
+}
+
+.recitation-matrix-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.recitation-matrix-table tbody tr:hover .col-sticky-idx,
+.recitation-matrix-table tbody tr:hover .col-sticky-name {
+    background-color: #f8fafc;
+}
+
+/* Date headers & Sub-columns */
+.rec-date-header {
+    background-color: #0f766e !important;
+    color: #ffffff !important;
+    border-left: 2px solid #cbd5e1 !important;
+    border-right: 2px solid #cbd5e1 !important;
+}
+
+.sub-header-memorization {
+    background-color: #ecfdf5 !important;
+    color: #065f46 !important;
+}
+
+.sub-header-revision {
+    background-color: #eff6ff !important;
+    color: #1e40af !important;
+    border-left: 2px solid #cbd5e1 !important;
+}
+
+/* Status Badges & Cells */
+.rec-cell {
+    min-width: 110px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+}
+
+.rec-memorized {
+    background-color: #ecfdf5;
+    color: #065f46;
+    font-weight: 600;
+}
+
+.rec-not-memorized {
+    background-color: #fef2f2;
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.rec-revised {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.rec-not-revised {
+    background-color: #fffbeb;
+    color: #d97706;
+    font-weight: 700;
+}
+
+.rec-absent {
+    background-color: #f1f5f9;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.rec-holiday {
+    background-color: #fef3c7;
+    color: #92400e;
+    font-weight: 700;
+}
+
+/* Dark Mode support */
+body.dark-mode .recitation-matrix-table {
+    background-color: #0f172a;
+    color: #f8fafc;
+}
+
+body.dark-mode .recitation-matrix-table th,
+body.dark-mode .recitation-matrix-table td {
+    border-color: #334155;
+}
+
+body.dark-mode .recitation-matrix-table thead tr:nth-child(2) th {
+    background-color: #1e293b;
+    color: #cbd5e1;
+}
+
+body.dark-mode .recitation-matrix-table tbody tr {
+    background-color: #0f172a;
+}
+
+body.dark-mode .recitation-matrix-table tbody tr:hover,
+body.dark-mode .recitation-matrix-table tbody tr:hover .col-sticky-idx,
+body.dark-mode .recitation-matrix-table tbody tr:hover .col-sticky-name {
+    background-color: #1e293b;
+}
+
+body.dark-mode .rec-memorized {
+    background-color: rgba(6, 95, 70, 0.3);
+    color: #6ee7b7;
+}
+
+body.dark-mode .rec-not-memorized {
+    background-color: rgba(220, 38, 38, 0.25);
+    color: #fca5a5;
+}
+
+body.dark-mode .rec-revised {
+    background-color: rgba(29, 78, 216, 0.25);
+    color: #93c5fd;
+}
+
+body.dark-mode .rec-not-revised {
+    background-color: rgba(217, 119, 6, 0.25);
+    color: #fde68a;
+}
+
+body.dark-mode .rec-absent {
+    background-color: #1e293b;
+    color: #94a3b8;
+}
+
+body.dark-mode .rec-holiday {
+    background-color: rgba(180, 83, 9, 0.3);
+    color: #fde68a;
+}
+
+
 
 
 
