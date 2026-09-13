@@ -22,12 +22,12 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.Parent, UserRole.Student)]
     public async Task<IActionResult> GetAll([FromQuery] string? search)
         => Ok(await _svc.GetAllAsync(search));
 
     [HttpGet("{id:int}")]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.Parent, UserRole.Student)]
     public async Task<IActionResult> Get(int id)
     {
         var t = await _svc.GetByIdAsync(id);

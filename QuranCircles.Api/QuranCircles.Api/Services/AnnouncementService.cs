@@ -31,15 +31,23 @@ public class AnnouncementService
         }
         else if (user.Role == UserRole.Teacher)
         {
+            int tId = user.TeacherId ?? 0;
+            if (tId == 0)
+            {
+                var teacherObj = await _db.Teachers.FirstOrDefaultAsync(t => t.FullName == user.FullName);
+                if (teacherObj != null) tId = teacherObj.Id;
+            }
+
             var teacherCircleIds = await _db.Circles
-                .Where(c => c.TeacherId == user.TeacherId)
+                .Where(c => c.TeacherId == tId || (c.Teacher != null && c.Teacher.FullName == user.FullName))
                 .Select(c => c.Id)
                 .ToListAsync();
 
             query = query.Where(a => 
+                a.SenderName == user.FullName ||
                 a.TargetType == AnnouncementTarget.All ||
                 a.TargetType == AnnouncementTarget.AllTeachers ||
-                (a.TargetType == AnnouncementTarget.Teacher && a.TargetId == user.TeacherId) ||
+                (a.TargetType == AnnouncementTarget.Teacher && (a.TargetId == tId || a.TargetId == user.Id)) ||
                 (a.TargetType == AnnouncementTarget.Circle && a.TargetId.HasValue && teacherCircleIds.Contains(a.TargetId.Value))
             );
         }
@@ -49,6 +57,7 @@ public class AnnouncementService
             var circleId = student?.CircleId;
 
             query = query.Where(a =>
+                a.SenderName == user.FullName ||
                 a.TargetType == AnnouncementTarget.All ||
                 (a.TargetType == AnnouncementTarget.Student && a.TargetId == user.StudentId) ||
                 (a.TargetType == AnnouncementTarget.Circle && a.TargetId == circleId)
@@ -56,20 +65,23 @@ public class AnnouncementService
         }
         else if (user.Role == UserRole.Parent)
         {
+            int pId = user.ParentId ?? user.Id;
+
             var studentIds = await _db.Students
-                .Where(s => s.ParentId == user.ParentId)
+                .Where(s => s.ParentId == pId || s.FamilyContact == user.Username || s.ParentIdentityNumber == user.Username)
                 .Select(s => s.Id)
                 .ToListAsync();
 
             var parentCircleIds = await _db.Students
-                .Where(s => s.ParentId == user.ParentId && s.CircleId.HasValue)
+                .Where(s => (s.ParentId == pId || s.FamilyContact == user.Username || s.ParentIdentityNumber == user.Username) && s.CircleId.HasValue)
                 .Select(s => s.CircleId!.Value)
                 .Distinct()
                 .ToListAsync();
 
             query = query.Where(a =>
+                a.SenderName == user.FullName ||
                 a.TargetType == AnnouncementTarget.All ||
-                (a.TargetType == AnnouncementTarget.Parent && a.TargetId == user.ParentId) ||
+                (a.TargetType == AnnouncementTarget.Parent && (a.TargetId == pId || a.TargetId == user.Id)) ||
                 (a.TargetType == AnnouncementTarget.Student && a.TargetId.HasValue && studentIds.Contains(a.TargetId.Value)) ||
                 (a.TargetType == AnnouncementTarget.Circle && a.TargetId.HasValue && parentCircleIds.Contains(a.TargetId.Value))
             );
@@ -89,7 +101,13 @@ public class AnnouncementService
         var circlesMap = await _db.Circles.Where(c => circleIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Name);
         var teachersMap = await _db.Teachers.Where(t => teacherIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.FullName);
         var studentsMap = await _db.Students.Where(s => studentIdsForNames.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.FullName);
-        var parentsMap = await _db.Users.Where(u => u.Role == UserRole.Parent && u.ParentId.HasValue && parentUserIds.Contains(u.ParentId.Value)).ToDictionaryAsync(u => u.ParentId!.Value, u => u.FullName);
+        var parentUsersList = await _db.Users.Where(u => u.Role == UserRole.Parent && ((u.ParentId.HasValue && parentUserIds.Contains(u.ParentId.Value)) || parentUserIds.Contains(u.Id))).ToListAsync();
+        var parentsMap = new Dictionary<int, string>();
+        foreach (var p in parentUsersList)
+        {
+            if (p.ParentId.HasValue && !parentsMap.ContainsKey(p.ParentId.Value)) parentsMap[p.ParentId.Value] = p.FullName;
+            if (!parentsMap.ContainsKey(p.Id)) parentsMap[p.Id] = p.FullName;
+        }
 
         return list.Select(a => {
             string targetName = "الجميع";
@@ -149,7 +167,8 @@ public class AnnouncementService
         }
         else if (dto.TargetType == AnnouncementTarget.Parent)
         {
-            var exists = await _db.Users.AnyAsync(u => u.Role == UserRole.Parent && u.ParentId == dto.TargetId.Value);
+            var exists = await _db.Users.AnyAsync(u => u.Role == UserRole.Parent && (u.ParentId == dto.TargetId.Value || u.Id == dto.TargetId.Value))
+                         || await _db.Students.AnyAsync(s => s.ParentId == dto.TargetId.Value);
             if (!exists) return (null, "ولي الأمر المحدد غير موجود.");
         }
 

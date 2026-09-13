@@ -38,7 +38,7 @@ public class ParentController : ControllerBase
     }
 
     [HttpGet("audit")]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> GetParentAudit()
     {
         var parentUsers = await _db.Users

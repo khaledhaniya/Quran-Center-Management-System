@@ -319,14 +319,42 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> UpdatePlan(int id, [FromBody] UpdateStudentPlanDto dto)
     {
-        var student = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser?.Role == UserRole.Teacher)
         {
-            if (student.Circle == null || student.Circle.TeacherId != currentUser.TeacherId)
+            int tId = currentUser.TeacherId ?? 0;
+            Teacher? teacherObj = null;
+            if (tId > 0)
+            {
+                teacherObj = await _db.Teachers.FindAsync(tId);
+            }
+            if (teacherObj == null)
+            {
+                teacherObj = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
+                if (teacherObj != null) tId = teacherObj.Id;
+            }
+
+            bool isHisStudent = student.CircleId.HasValue && (student.Circle?.TeacherId == tId || (student.Circle?.Teacher != null && student.Circle.Teacher.FullName == currentUser.FullName));
+            var taskRole = teacherObj?.TaskRole ?? "";
+            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
+
+            if (!isHisStudent && !isSupervisorOrAdmin)
+            {
+                var teacherCircleIds = await _db.Circles
+                    .Where(c => c.TeacherId == tId || (c.Teacher != null && c.Teacher.FullName == currentUser.FullName))
+                    .Select(c => c.Id)
+                    .ToListAsync();
+                if (student.CircleId.HasValue && teacherCircleIds.Contains(student.CircleId.Value))
+                {
+                    isHisStudent = true;
+                }
+            }
+
+            if (!isHisStudent && !isSupervisorOrAdmin && student.CircleId.HasValue)
             {
                 return Forbid();
             }
@@ -334,13 +362,12 @@ public class StudentsController : ControllerBase
 
         student.TargetAjzaaCount = dto.TargetAjzaaCount > 0 ? dto.TargetAjzaaCount : 30;
         student.PlanType = dto.PlanType ?? "Standard";
-        student.PlanStartDate = dto.PlanStartDate ?? DateOnly.FromDateTime(DateTime.Today);
+        if (dto.PlanStartDate.HasValue) student.PlanStartDate = dto.PlanStartDate.Value;
         student.PlanTargetDate = dto.PlanTargetDate;
         student.DailyPacePages = dto.DailyPacePages > 0 ? dto.DailyPacePages : 1.0;
-        if (dto.CompletedAjzaa != null)
-        {
-            student.CompletedAjzaa = dto.CompletedAjzaa;
-        }
+        if (dto.CompletedAjzaa != null) student.CompletedAjzaa = dto.CompletedAjzaa;
+        if (dto.PreviousQuranMemorization != null) student.PreviousQuranMemorization = dto.PreviousQuranMemorization;
+        if (dto.Notes != null) student.Notes = dto.Notes;
 
         await _db.SaveChangesAsync();
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateStudentPlan", $"تحديث خطة حفظ الطالب: {student.FullName} (نوع الخطة: {student.PlanType}، المستهدف: {student.TargetAjzaaCount} أجزاء)");
@@ -352,14 +379,30 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> CompleteJuz(int id, [FromBody] CompleteJuzDto dto)
     {
-        var student = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser?.Role == UserRole.Teacher)
         {
-            if (student.Circle == null || student.Circle.TeacherId != currentUser.TeacherId)
+            int tId = currentUser.TeacherId ?? 0;
+            Teacher? teacherObj = null;
+            if (tId > 0)
+            {
+                teacherObj = await _db.Teachers.FindAsync(tId);
+            }
+            if (teacherObj == null)
+            {
+                teacherObj = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
+                if (teacherObj != null) tId = teacherObj.Id;
+            }
+
+            bool isHisStudent = student.CircleId.HasValue && (student.Circle?.TeacherId == tId || (student.Circle?.Teacher != null && student.Circle.Teacher.FullName == currentUser.FullName));
+            var taskRole = teacherObj?.TaskRole ?? "";
+            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
+
+            if (!isHisStudent && !isSupervisorOrAdmin)
             {
                 return Forbid();
             }
@@ -398,7 +441,9 @@ public record UpdateStudentPlanDto(
     DateOnly? PlanStartDate,
     DateOnly? PlanTargetDate,
     double DailyPacePages,
-    string? CompletedAjzaa
+    string? CompletedAjzaa,
+    string? PreviousQuranMemorization = null,
+    string? Notes = null
 );
 
 public record CompleteJuzDto(int JuzNumber, bool IsCompleted);

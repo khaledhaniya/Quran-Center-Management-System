@@ -667,16 +667,25 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
         try {
             const response = await fetch(`${API_BASE}${path}`, options);
             
-            if (response.status === 401 || response.status === 403) {
+            if (response.status === 401) {
                 handleLogout();
                 throw new Error("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
+            }
+
+            if (response.status === 403) {
+                let errorMsg = "عذراً، ليس لديك الصلاحية المطلوبة لتنفيذ هذا الإجراء.";
+                try {
+                    const errJson = await response.json();
+                    errorMsg = errJson.error || errJson.message || errJson.detail || errorMsg;
+                } catch (e) {}
+                throw new Error(errorMsg);
             }
             
             if (!response.ok) {
                 let errorMsg = "حدث خطأ أثناء الاتصال بالخادم.";
                 try {
                     const errJson = await response.json();
-                    errorMsg = errJson.error || errJson.detail || errorMsg;
+                    errorMsg = errJson.error || errJson.message || errJson.detail || errorMsg;
                 } catch (e) {}
                 throw new Error(errorMsg);
             }
@@ -4462,16 +4471,18 @@ async function showTeacherEditStudentPlanModal(studentId, studentName, currentPl
                 selectedAjzaa.sort((a, b) => a - b);
                 const newCompletedAjzaa = selectedAjzaa.join(",");
 
-                student.previousQuranMemorization = newMem;
-                student.planType = newPlanType;
-                student.targetAjzaaCount = newTargetAjzaa;
-                student.dailyPacePages = newDailyPace;
-                student.planStartDate = newStartDate;
-                student.planTargetDate = newTargetDate;
-                student.completedAjzaa = newCompletedAjzaa;
-                student.notes = newNotes;
+                const payload = {
+                    targetAjzaaCount: newTargetAjzaa,
+                    planType: newPlanType,
+                    planStartDate: newStartDate || null,
+                    planTargetDate: newTargetDate || null,
+                    dailyPacePages: newDailyPace,
+                    completedAjzaa: newCompletedAjzaa,
+                    previousQuranMemorization: newMem,
+                    notes: newNotes
+                };
 
-                await apiRequest(`/students/${studentId}`, "PUT", student);
+                await apiRequest(`/students/${studentId}/plan`, "PUT", payload);
 
                 closeModal();
                 showAlert(`تم تحديث الخطة القرآنية للطالب (${studentName}) بنجاح وتوثيق الأجزاء المتقنة.`, "success");
@@ -4699,7 +4710,12 @@ async function showStudentRecitations(studentId, studentName, circleName) {
                 
                 let assessmentBadge = `<span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText || (isDidNotRecite ? 'لم يُسمّع' : s.assessment)}</span>`;
                 let lotteryBadge = s.viaLottery ? `<span class="badge badge-info"><i class="fa-solid fa-dice"></i> عبر القرعة</span>` : '';
-                let typeBadge = isDidNotRecite ? '' : (s.recitationType === 2 
+                const isRevision = s.recitationType === 2 || 
+                                   s.recitationType === '2' || 
+                                   String(s.recitationType).toLowerCase() === 'revision' || 
+                                   s.recitationTypeText === 'مراجعة وتثبيت' || 
+                                   (s.recitationTypeText && s.recitationTypeText.includes('مراجعة'));
+                let typeBadge = isDidNotRecite ? '' : (isRevision 
                     ? `<span class="badge bg-warning text-dark"><i class="fa-solid fa-repeat me-1"></i> مراجعة وتثبيت</span>` 
                     : `<span class="badge bg-success"><i class="fa-solid fa-book-bookmark me-1"></i> حفظ جديد</span>`);
 
@@ -7178,7 +7194,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     toVerse: toV,
                     assessment: assess,
                     notes: notesVal || null,
-                    recitationType: recTypeVal
+                    recitationType: recTypeVal === 2 ? "Revision" : "Memorization"
                 };
                 await apiRequest(`/sessions/${id}`, "PUT", dto);
                 showAlert("تم تحديث جلسة التسميع بنجاح.", "success");
@@ -7192,7 +7208,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     assessment: assess,
                     notes: notesVal || null,
                     viaLottery: viaLotteryVal,
-                    recitationType: recTypeVal
+                    recitationType: recTypeVal === 2 ? "Revision" : "Memorization"
                 };
                 await apiRequest("/sessions", "POST", dto);
                 showAlert("تم تسجيل جلسة التسميع بنجاح.", "success");
@@ -7333,11 +7349,13 @@ async function showAnnouncementFormModal() {
     } else if (currentRole === "Parent") {
         targetOptions = `
             <option value="Teacher">معلم حلقة ابنك (المحفظ)</option>
+            <option value="Admin">إدارة المركز</option>
         `;
     } else if (currentRole === "Student") {
         targetOptions = `
             <option value="Teacher">معلم الحلقة (محفظك)</option>
             <option value="Circle">طلاب حلقتي</option>
+            <option value="Admin">إدارة المركز</option>
         `;
     } else {
         targetOptions = `
@@ -7556,8 +7574,16 @@ async function showAnnouncementFormModal() {
                     try { cachedCircles = await apiRequest("/circles"); } catch(err) { cachedCircles = []; }
                 }
 
-                const parentsList = await apiRequest("/parent/audit");
+                let parentsList = await apiRequest("/parent/audit");
                 let availableCircles = (cachedCircles || []).filter(c => c.isActive);
+
+                if (currentRole === "Teacher") {
+                    const tId = currentUser?.teacherId || parseInt(currentUserId);
+                    const teacherName = currentUser?.fullName;
+                    availableCircles = availableCircles.filter(c => c.teacherId === tId || (teacherName && c.teacherName === teacherName));
+                    const myCircleIds = availableCircles.map(c => c.id);
+                    parentsList = parentsList.filter(p => p.children && p.children.some(ch => ch.circleId && myCircleIds.includes(ch.circleId)));
+                }
 
                 selectionsContainer.innerHTML = `
                     <div class="row g-2 mb-2">
