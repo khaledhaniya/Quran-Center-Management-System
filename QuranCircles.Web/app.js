@@ -8418,12 +8418,6 @@ async function loadCoursesList() {
         if (!container) return;
         container.innerHTML = "";
 
-        // Bind Create modal trigger
-        const createBtn = document.getElementById("btn-create-course-modal");
-        if (createBtn) {
-            createBtn.onclick = () => showCreateCourseModal();
-        }
-
         if (courses.length === 0) {
             container.innerHTML = `
                 <div class="card shadow-sm p-5 text-center text-muted w-100" style="grid-column: 1/-1;">
