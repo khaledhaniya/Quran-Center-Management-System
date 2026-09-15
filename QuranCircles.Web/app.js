@@ -7432,6 +7432,7 @@ async function showAnnouncementFormModal() {
     handleTargetTypeChange();
 
     async function handleTargetTypeChange() {
+        const currentUser = (typeof getCurrentUser === "function") ? getCurrentUser() : { teacherId: 0, fullName: "" };
         const type = targetTypeSelect.value;
         selectionsContainer.innerHTML = "";
         selectionsContainer.classList.add("hidden");
@@ -8416,6 +8417,12 @@ async function loadCoursesList() {
         const container = document.getElementById("courses-cards-container");
         if (!container) return;
         container.innerHTML = "";
+
+        // Bind Create modal trigger
+        const createBtn = document.getElementById("btn-create-course-modal");
+        if (createBtn) {
+            createBtn.onclick = () => showCreateCourseModal();
+        }
 
         if (courses.length === 0) {
             container.innerHTML = `
