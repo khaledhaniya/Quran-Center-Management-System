@@ -9774,51 +9774,48 @@ function toggleJuzMode(mode) {
 }
 
 async function updateNominateStudentsList() {
-    const type = document.getElementById("nominate-type-select").value;
+    const type = document.getElementById("nominate-type-select")?.value || "Quran";
     const studentSelect = document.getElementById("nominate-student-select");
+    if (!studentSelect) return;
     studentSelect.innerHTML = '<option value="">-- جاري تحميل الطلاب... --</option>';
 
     try {
         if (type === "Quran") {
-            if (currentRole === "Teacher") {
-                const circlesList = await apiRequest("/circles");
-                const myCircleIds = circlesList
-                    .filter(c => c.isActive && c.teacherId == currentUserId)
-                    .map(c => c.id);
-                const students = await apiRequest("/students");
-                studentSelect.innerHTML = '<option value="">-- اختر طالب من الحلقة --</option>';
-                students.filter(s => s.isActive && s.circleId && myCircleIds.includes(s.circleId)).forEach(s => {
-                    const opt = document.createElement("option");
-                    opt.value = s.id;
-                    opt.textContent = `${s.fullName} (${s.circleName || 'بدون حلقة'})`;
-                    studentSelect.appendChild(opt);
-                });
+            const curUser = (typeof getCurrentUser === "function") ? getCurrentUser() : { teacherId: 0, fullName: "" };
+            const students = await apiRequest("/students");
+            studentSelect.innerHTML = '<option value="">-- اختر طالب من الحلقة --</option>';
+            
+            let list = (students || []).filter(s => s.isActive !== false);
+            if (list.length === 0) {
+                studentSelect.innerHTML = '<option value="">-- لا يوجد طلاب متاحين للترشيح حالياً --</option>';
             } else {
-                const students = await apiRequest("/students");
-                studentSelect.innerHTML = '<option value="">-- اختر طالب --</option>';
-                students.filter(s => s.isActive).forEach(s => {
+                list.forEach(s => {
                     const opt = document.createElement("option");
                     opt.value = s.id;
-                    opt.textContent = `${s.fullName} (${s.circleName || 'بدون حلقة'})`;
+                    opt.textContent = `${s.fullName} (${s.circleName || 'حلقة المعلم'})`;
                     studentSelect.appendChild(opt);
                 });
             }
         } else {
             // Course nomination
             const courseSelect = document.getElementById("nominate-course-select");
-            const courseId = courseSelect.value;
+            const courseId = courseSelect?.value;
             if (!courseId) {
                 studentSelect.innerHTML = '<option value="">-- يرجى اختيار الدورة أولاً --</option>';
                 return;
             }
             const enrollments = await apiRequest(`/courses/${courseId}/enrollments`);
             studentSelect.innerHTML = '<option value="">-- اختر طالب مسجل بالدورة --</option>';
-            enrollments.forEach(e => {
-                const opt = document.createElement("option");
-                opt.value = e.studentId;
-                opt.textContent = `${e.studentName} (${e.halaqahName || 'بدون حلقة'})`;
-                studentSelect.appendChild(opt);
-            });
+            if (!enrollments || enrollments.length === 0) {
+                studentSelect.innerHTML = '<option value="">-- لا يوجد طلاب مسجلون في هذه الدورة --</option>';
+            } else {
+                enrollments.forEach(e => {
+                    const opt = document.createElement("option");
+                    opt.value = e.studentId;
+                    opt.textContent = `${e.studentName} (${e.halaqahName || 'بدون حلقة'})`;
+                    studentSelect.appendChild(opt);
+                });
+            }
         }
     } catch (err) {
         studentSelect.innerHTML = '<option value="">فشل تحميل الطلاب</option>';
