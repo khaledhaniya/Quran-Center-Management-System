@@ -1,5 +1,42 @@
 // Quran Circles Management System - Main JS File (Single Page Application Router & API Client)
 
+// ==========================================
+// SYSTEM STABILITY & ERROR SHIELD (SafeGuard)
+// ==========================================
+window.addEventListener('error', function (event) {
+    console.warn('[Global SafeShield Caught Error]:', event.message, event.filename, event.lineno);
+});
+
+window.addEventListener('unhandledrejection', function (event) {
+    console.warn('[Global SafeShield Caught Promise Rejection]:', event.reason);
+    if (event.preventDefault) event.preventDefault();
+});
+
+// Safe async/sync runner that isolates crashes to the failing component without freezing the app
+async function safeExecute(fn, contextName, fallbackContainerId = null) {
+    try {
+        if (typeof fn !== 'function') return;
+        const res = fn();
+        if (res && typeof res.then === 'function') {
+            return await res;
+        }
+        return res;
+    } catch (err) {
+        console.error(`[SafeShield Error in ${contextName}]:`, err);
+        if (fallbackContainerId) {
+            const el = document.getElementById(fallbackContainerId);
+            if (el) {
+                el.innerHTML = `
+                    <div class="alert alert-warning m-3 p-3 text-center shadow-sm" style="border-radius: 12px; background: rgba(254, 243, 199, 0.95); border: 1px solid #f59e0b; color: #92400e;">
+                        <i class="fa-solid fa-triangle-exclamation text-warning fa-lg me-2"></i>
+                        <span class="fw-bold">تعذر تحميل بيانات (${contextName}) مؤقتاً.</span>
+                        <div class="text-muted small mt-1">تمت حماية النظام بنجاح وبقية الشاشات تعمل بكفاءة.</div>
+                    </div>`;
+            }
+        }
+    }
+}
+
 let savedApiUrl = localStorage.getItem("custom_api_url");
 if (window.location.protocol === "https:" && savedApiUrl && savedApiUrl.startsWith("http:")) {
     localStorage.removeItem("custom_api_url");
@@ -5630,41 +5667,95 @@ function setupFormsAndModals() {
     const modalContainer = document.getElementById("modal-container");
     const closeBtn = document.getElementById("modal-close");
     
-    closeBtn.addEventListener("click", closeModal);
-    modalContainer.addEventListener("click", (e) => {
-        if (e.target === modalContainer) closeModal();
-    });
+    if (closeBtn) closeBtn.addEventListener("click", closeModal);
+    if (modalContainer) {
+        modalContainer.addEventListener("click", (e) => {
+            if (e.target === modalContainer) closeModal();
+        });
+    }
     
-    // Bind triggers on static buttons
-    document.getElementById("btn-add-circle").addEventListener("click", () => showCircleModal());
-    document.getElementById("btn-add-teacher").addEventListener("click", () => showTeacherModal());
-    document.getElementById("btn-add-student").addEventListener("click", () => showStudentModal());
-    // btn-add-announcement removed - notifications are now automatic
-    document.getElementById("btn-refresh-report").addEventListener("click", loadAdminDashboard);
+    // Bind triggers on static buttons safely
+    document.getElementById("btn-add-circle")?.addEventListener("click", () => showCircleModal());
+    document.getElementById("btn-add-teacher")?.addEventListener("click", () => showTeacherModal());
+    document.getElementById("btn-add-student")?.addEventListener("click", () => showStudentModal());
+    document.getElementById("btn-refresh-report")?.addEventListener("click", () => safeExecute(loadAdminDashboard, "تحديث التقرير"));
     
-    // Bind search inputs
+    // Bind search inputs safely
     const teacherSearch = document.getElementById("teacher-search-input");
-    teacherSearch.addEventListener("input", debounce(() => {
-        loadAdminTeachers(teacherSearch.value);
-    }, 400));
+    if (teacherSearch) {
+        teacherSearch.addEventListener("input", debounce(() => {
+            safeExecute(() => loadAdminTeachers(teacherSearch.value), "بحث المعلمين");
+        }, 400));
+    }
     
     const studentSearch = document.getElementById("student-search-input");
-    studentSearch.addEventListener("input", debounce(() => {
-        loadAdminStudents(studentSearch.value);
-    }, 400));
+    if (studentSearch) {
+        studentSearch.addEventListener("input", debounce(() => {
+            safeExecute(() => loadAdminStudents(studentSearch.value), "بحث الطلاب");
+        }, 400));
+    }
 
     const usersSearch = document.getElementById("users-search-input");
     if (usersSearch) {
         usersSearch.addEventListener("input", debounce(() => {
-            filterUsersTable(usersSearch.value);
+            safeExecute(() => filterUsersTable(usersSearch.value), "بحث الحسابات");
         }, 300));
     }
 
-    // Bind Teacher buttons
-    document.getElementById("btn-load-attendance").addEventListener("click", loadAttendanceSheet);
-    document.getElementById("btn-save-attendance").addEventListener("click", saveAttendance);
-    document.getElementById("btn-draw-lottery").addEventListener("click", drawLottery);
+    // Bind Teacher buttons safely
+    document.getElementById("btn-load-attendance")?.addEventListener("click", () => safeExecute(loadAttendanceSheet, "تحميل كشف الحضور"));
+    document.getElementById("btn-save-attendance")?.addEventListener("click", () => safeExecute(saveAttendance, "حفظ كشف الحضور"));
+    document.getElementById("btn-draw-lottery")?.addEventListener("click", () => safeExecute(drawLottery, "سحب القرعة"));
 }
+
+// =========================================================================
+// PERMANENT GLOBAL EVENT DELEGATION SHIELD
+// Survives any innerHTML wiping, re-renders, or dynamic DOM replacements
+// =========================================================================
+document.addEventListener("click", (e) => {
+    // 1. Add Course button delegation
+    const courseBtn = e.target.closest("#btn-create-course-modal, .btn-create-course-trigger");
+    if (courseBtn) {
+        e.preventDefault();
+        if (typeof showCreateCourseModal === "function") {
+            showCreateCourseModal();
+        }
+        return;
+    }
+
+    // 2. Universal Modal Close delegation
+    const modalCloseBtn = e.target.closest("#modal-close, .modal-close, [data-dismiss='modal'], .btn-close-modal");
+    if (modalCloseBtn) {
+        e.preventDefault();
+        if (typeof closeModal === "function") {
+            closeModal();
+        }
+        return;
+    }
+
+    // 3. Quick Action Buttons delegation (Circle, Teacher, Student)
+    const addCircleBtn = e.target.closest(".btn-trigger-add-circle");
+    if (addCircleBtn) {
+        e.preventDefault();
+        if (typeof showCircleModal === "function") showCircleModal();
+        return;
+    }
+
+    const addTeacherBtn = e.target.closest(".btn-trigger-add-teacher");
+    if (addTeacherBtn) {
+        e.preventDefault();
+        if (typeof showTeacherModal === "function") showTeacherModal();
+        return;
+    }
+
+    const addStudentBtn = e.target.closest(".btn-trigger-add-student");
+    if (addStudentBtn) {
+        e.preventDefault();
+        if (typeof showStudentModal === "function") showStudentModal();
+        return;
+    }
+});
+
 
 function openModal(title, isLarge = false) {
     document.getElementById("modal-title").textContent = title;
