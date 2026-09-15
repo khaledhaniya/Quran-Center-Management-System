@@ -54,12 +54,17 @@ public class ParentController : ControllerBase
         foreach (var parent in parentUsers)
         {
             int pId = parent.ParentId ?? parent.Id;
+            var uName = (parent.Username ?? "").Trim();
+
             var linkedChildren = allStudents
-                .Where(s => s.ParentId == pId)
+                .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == parent.Id))
+                         || (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && !string.IsNullOrWhiteSpace(uName) && s.ParentIdentityNumber.Trim() == uName)
+                         || (!string.IsNullOrWhiteSpace(s.FamilyContact) && !string.IsNullOrWhiteSpace(uName) && s.FamilyContact.Trim() == uName))
                 .Select(s => new
                 {
                     s.Id,
                     s.FullName,
+                    CircleId = s.CircleId,
                     CircleName = s.Circle?.Name ?? "غير مسند حلقة",
                     DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
                     s.FamilyContact,
@@ -71,12 +76,30 @@ public class ParentController : ControllerBase
                 })
                 .ToList();
 
+            // Derive parent identity number from children's parentIdentityNumber field or username
+            var parentIdNumber = linkedChildren.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.ParentIdentityNumber))?.ParentIdentityNumber;
+            if (string.IsNullOrWhiteSpace(parentIdNumber))
+            {
+                parentIdNumber = !string.IsNullOrWhiteSpace(parent.Username) ? parent.Username : "غير مسجل";
+            }
+
+            // Derive parent name if FullName is missing or generic
+            var rawName = (parent.FullName ?? "").Trim();
+            var isGeneric = string.IsNullOrWhiteSpace(rawName) || rawName == "ولي أمر" || rawName.StartsWith("ولي أمر (");
+            
+            var resolvedParentName = !isGeneric
+                ? rawName
+                : (linkedChildren.Any() 
+                    ? $"ولي أمر الطالب ({string.Join("، ", linkedChildren.Select(c => c.FullName))})" 
+                    : (!string.IsNullOrWhiteSpace(rawName) ? rawName : $"ولي أمر ({parent.Username})"));
+
             result.Add(new
             {
                 parentId = pId,
                 parentUserId = parent.Id,
-                parentName = parent.FullName,
+                parentName = resolvedParentName,
                 username = parent.Username,
+                parentIdentityNumber = parentIdNumber,
                 childrenCount = linkedChildren.Count,
                 children = linkedChildren
             });

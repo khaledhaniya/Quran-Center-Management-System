@@ -6881,15 +6881,21 @@ function renderParentAuditView(auditList) {
         const hasChildren = parent.childrenCount > 0;
         const badgeColor = parent.childrenCount > 1 ? 'bg-primary' : (parent.childrenCount === 1 ? 'bg-success' : 'bg-secondary');
 
+        const idNumber = parent.parentIdentityNumber || parent.username || 'غير مسجل';
         html += `
-            <div class="col-12 parent-audit-card-item" data-search="${(parent.parentName + ' ' + parent.username).toLowerCase()}">
+            <div class="col-12 parent-audit-card-item" data-search="${(parent.parentName + ' ' + parent.username + ' ' + idNumber).toLowerCase()}">
                 <div class="card card-custom shadow-sm border-top border-4 ${parent.childrenCount > 1 ? 'border-primary' : 'border-secondary'}">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
                         <div>
                             <h5 class="mb-1 text-dark fw-bold">
-                                <i class="fa-solid fa-user-tie text-primary me-2"></i> ${parent.parentName}
+                                <i class="fa-solid fa-user-tie text-primary me-2"></i> ${escapeXml(parent.parentName)}
                             </h5>
-                            <span class="text-muted small"><i class="fa-solid fa-id-card"></i> رقم المستخدم / الهوية: <code>${parent.username}</code></span>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                                <span class="badge bg-dark bg-opacity-75 text-white font-monospace px-2.5 py-1.5 fs-6 shadow-xs border">
+                                    <i class="fa-solid fa-id-card text-warning me-1"></i> رقم الهوية: ${escapeXml(idNumber)}
+                                </span>
+                                <span class="text-muted small">اسم المستخدم: <code>${escapeXml(parent.username)}</code></span>
+                            </div>
                         </div>
                         <div>
                             <span class="badge ${badgeColor} fs-6 px-3 py-2">
@@ -7588,7 +7594,7 @@ async function showAnnouncementFormModal() {
         }
         else if (type === "Parent") {
             selectionsContainer.innerHTML = `
-                <div class="text-center p-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل بيانات أولياء الأمور...</div>
+                <div class="text-center p-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري تحميل وتجهيز بيانات أولياء الأمور...</div>
             `;
 
             try {
@@ -7596,15 +7602,142 @@ async function showAnnouncementFormModal() {
                     try { cachedCircles = await apiRequest("/circles"); } catch(err) { cachedCircles = []; }
                 }
 
-                let parentsList = await apiRequest("/parent/audit");
+                // Fetch parent audit list and students in parallel to ensure no missing parent data
+                let rawParentsList = [];
+                try {
+                    rawParentsList = await apiRequest("/parent/audit");
+                } catch(e) {
+                    console.warn("Parent audit fetch failed, falling back to students:", e);
+                    rawParentsList = [];
+                }
+
+                let allStudentsList = [];
+                try {
+                    allStudentsList = await apiRequest("/students");
+                } catch(e) {
+                    allStudentsList = cachedStudents || [];
+                }
+
                 let availableCircles = (cachedCircles || []).filter(c => c.isActive);
+                let finalParentsList = [];
 
                 if (currentRole === "Teacher") {
-                    const tId = currentUser?.teacherId || parseInt(currentUserId);
-                    const teacherName = currentUser?.fullName;
-                    availableCircles = availableCircles.filter(c => c.teacherId === tId || (teacherName && c.teacherName === teacherName));
+                    const cu = getCurrentUser();
+                    const tId = cu.teacherId || parseInt(currentUserId);
+                    const teacherFullName = getAuthStorage("fullName") || "";
+                    const teacherFirstWord = (teacherFullName.split(' ')[0] || "").trim().toLowerCase();
+
+                    // Match circles belonging to this teacher
+                    availableCircles = availableCircles.filter(c => 
+                        c.teacherId == tId || 
+                        (c.teacherName && teacherFirstWord && c.teacherName.toLowerCase().includes(teacherFirstWord))
+                    );
+
+                    // Fallback: if no circles matched by id/name, don't leave empty
+                    if (availableCircles.length === 0 && (cachedCircles || []).length > 0) {
+                        availableCircles = (cachedCircles || []).filter(c => c.isActive);
+                    }
+
                     const myCircleIds = availableCircles.map(c => c.id);
-                    parentsList = parentsList.filter(p => p.children && p.children.some(ch => ch.circleId && myCircleIds.includes(ch.circleId)));
+                    const myCircleNames = availableCircles.map(c => (c.name || "").toLowerCase());
+
+                    // Students in teacher's circles
+                    const myStudents = allStudentsList.filter(s => 
+                        (s.circleId && myCircleIds.includes(s.circleId)) ||
+                        (s.circleName && myCircleNames.includes(s.circleName.toLowerCase()))
+                    );
+
+                    // Map parents from audit whose children are in teacher's circles
+                    const auditParents = (rawParentsList || []).filter(p => p.children && p.children.some(ch => 
+                        (ch.circleId && myCircleIds.includes(ch.circleId)) ||
+                        (ch.circleName && myCircleNames.includes(ch.circleName.toLowerCase()))
+                    ));
+
+                    // Build a comprehensive list combining audit parents and students data
+                    const parentMap = new Map();
+
+                    // 1. Add from auditParents
+                    auditParents.forEach(p => {
+                        const key = String(p.parentId || p.parentUserId || p.username);
+                        const idNum = p.parentIdentityNumber && p.parentIdentityNumber !== 'غير مسجل' 
+                            ? p.parentIdentityNumber 
+                            : (p.username && /^\d+$/.test(p.username) ? p.username : '-');
+                        
+                        const childNames = (p.children || []).map(c => c.fullName).filter(Boolean).join('، ');
+                        const resolvedName = p.parentName && p.parentName.trim() !== '' 
+                            ? p.parentName.trim() 
+                            : (childNames ? `ولي أمر الطالب (${childNames})` : `ولي أمر (${p.username})`);
+
+                        parentMap.set(key, {
+                            parentId: p.parentId || p.parentUserId,
+                            parentUserId: p.parentUserId,
+                            parentName: resolvedName,
+                            username: p.username || '',
+                            parentIdentityNumber: idNum,
+                            familyContact: (p.children && p.children.length > 0 ? p.children[0].familyContact : '') || '-',
+                            children: p.children || [],
+                            childrenNames: childNames || 'طالب مسجل'
+                        });
+                    });
+
+                    // 2. Also ensure every student in teacher's circle has their parent represented
+                    myStudents.forEach(s => {
+                        const sParentKey = String(s.parentId || s.parentIdentityNumber || s.familyContact || s.id);
+                        if (!parentMap.has(sParentKey)) {
+                            // Find matching audit parent if any
+                            const matchedAudit = (rawParentsList || []).find(ap => 
+                                (s.parentId && ap.parentId == s.parentId) ||
+                                (s.parentIdentityNumber && ap.parentIdentityNumber == s.parentIdentityNumber) ||
+                                (s.familyContact && ap.username == s.familyContact)
+                            );
+
+                            const idNum = s.parentIdentityNumber || (matchedAudit ? matchedAudit.parentIdentityNumber : '') || '-';
+                            const pName = matchedAudit?.parentName || s.parentName || `ولي أمر الطالب: ${s.fullName}`;
+                            const pTargetId = matchedAudit ? (matchedAudit.parentId || matchedAudit.parentUserId) : (s.parentId || s.id);
+
+                            parentMap.set(sParentKey, {
+                                parentId: pTargetId,
+                                parentUserId: matchedAudit?.parentUserId || pTargetId,
+                                parentName: pName,
+                                username: matchedAudit?.username || s.parentIdentityNumber || '',
+                                parentIdentityNumber: idNum,
+                                familyContact: s.familyContact || s.parentMobile || '-',
+                                children: [{ id: s.id, fullName: s.fullName, circleId: s.circleId, circleName: s.circleName }],
+                                childrenNames: s.fullName
+                            });
+                        } else {
+                            // Enrich existing parent with phone/contact if missing
+                            const existing = parentMap.get(sParentKey);
+                            if ((!existing.familyContact || existing.familyContact === '-') && s.familyContact) {
+                                existing.familyContact = s.familyContact;
+                            }
+                            if ((!existing.parentIdentityNumber || existing.parentIdentityNumber === '-') && s.parentIdentityNumber) {
+                                existing.parentIdentityNumber = s.parentIdentityNumber;
+                            }
+                        }
+                    });
+
+                    finalParentsList = Array.from(parentMap.values());
+                } else {
+                    // Admin / Developer: include all parents
+                    finalParentsList = (rawParentsList || []).map(p => {
+                        const childNames = (p.children || []).map(c => c.fullName).filter(Boolean).join('، ');
+                        const resolvedName = p.parentName && p.parentName.trim() !== '' 
+                            ? p.parentName.trim() 
+                            : (childNames ? `ولي أمر الطالب (${childNames})` : `ولي أمر (${p.username})`);
+                        const idNum = p.parentIdentityNumber || (p.username && /^\d+$/.test(p.username) ? p.username : '-');
+
+                        return {
+                            parentId: p.parentId || p.parentUserId,
+                            parentUserId: p.parentUserId,
+                            parentName: resolvedName,
+                            username: p.username || '',
+                            parentIdentityNumber: idNum,
+                            familyContact: (p.children && p.children.length > 0 ? p.children[0].familyContact : '') || '-',
+                            children: p.children || [],
+                            childrenNames: childNames || 'غير محدد'
+                        };
+                    });
                 }
 
                 selectionsContainer.innerHTML = `
@@ -7612,19 +7745,23 @@ async function showAnnouncementFormModal() {
                         <div class="col-md-6">
                             <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-warning me-1"></i> فلترة بحلقة الأبناء:</label>
                             <select id="announcement-parent-circle-filter" class="form-select border-warning shadow-xs">
-                                <option value="ALL">-- جميع أولياء الأمور (${parentsList.length}) --</option>
-                                ${availableCircles.map(c => `<option value="${c.id}">🕌 ${c.name}</option>`).join('')}
+                                <option value="ALL">-- جميع أولياء الأمور (${finalParentsList.length}) --</option>
+                                ${availableCircles.map(c => `<option value="${c.id}" data-name="${(c.name||'').toLowerCase()}">🕌 ${escapeXml(c.name)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-primary me-1"></i> بحث بالاسم / الهوية:</label>
-                            <input type="text" id="announcement-target-search" class="form-control border-primary shadow-xs" placeholder="🔍 اكتب للاسم..." autocomplete="off">
+                            <label class="form-label fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-primary me-1"></i> بحث بالاسم / الهوية / الابن:</label>
+                            <input type="text" id="announcement-target-search" class="form-control border-primary shadow-xs" placeholder="🔍 ابحث باسم ولي الأمر، الابن، أو رقم الهوية..." autocomplete="off">
                         </div>
                     </div>
                     <div class="form-group mt-2">
-                        <label for="announcement-form-target-id" class="form-label fw-bold text-dark">اختر ولي الأمر المستهدف (<span id="target-search-count">${parentsList.length}</span>):</label>
-                        <select id="announcement-form-target-id" class="form-select border-success" size="6" required>
-                            ${parentsList.map(p => `<option value="${p.parentId}" style="padding: 6px 10px;">👨‍👩‍👧‍👦 ${p.parentName} (هوية: ${p.parentIdentityNumber || '-'} | الأبناء: ${p.children ? p.children.length : 0})</option>`).join('')}
+                        <label for="announcement-form-target-id" class="form-label fw-bold text-dark">اختر ولي الأمر المستهدف (<span id="target-search-count">${finalParentsList.length}</span>):</label>
+                        <select id="announcement-form-target-id" class="form-select border-success" size="7" required style="font-size: 0.95rem;">
+                            ${finalParentsList.map(p => {
+                                const idStr = p.parentIdentityNumber && p.parentIdentityNumber !== '-' ? ` | هوية: ${p.parentIdentityNumber}` : '';
+                                const phoneStr = p.familyContact && p.familyContact !== '-' ? ` | هاتف: ${p.familyContact}` : '';
+                                return `<option value="${p.parentId}" style="padding: 8px 12px; font-weight: 500;">👨‍👩‍👧‍👦 ${escapeXml(p.parentName)} [الابن: ${escapeXml(p.childrenNames)}]${idStr}${phoneStr}</option>`;
+                            }).join('')}
                         </select>
                     </div>
                 `;
@@ -7638,23 +7775,42 @@ async function showAnnouncementFormModal() {
                     const selectedCircle = circleFilter.value;
                     const q = searchInput.value.trim().toLowerCase();
 
-                    let matched = parentsList;
+                    let matched = finalParentsList;
                     if (selectedCircle !== "ALL") {
                         const cId = parseInt(selectedCircle);
-                        matched = matched.filter(p => p.children && p.children.some(c => c.circleId === cId));
+                        const selectedOption = circleFilter.options[circleFilter.selectedIndex];
+                        const cName = (selectedOption?.dataset?.name || "").toLowerCase();
+                        matched = matched.filter(p => p.children && p.children.some(c => 
+                            (c.circleId && c.circleId === cId) ||
+                            (cName && c.circleName && c.circleName.toLowerCase() === cName)
+                        ));
                     }
 
                     if (q) {
                         matched = matched.filter(p => 
-                            p.parentName.toLowerCase().includes(q) || 
+                            (p.parentName && p.parentName.toLowerCase().includes(q)) || 
                             (p.parentIdentityNumber && p.parentIdentityNumber.includes(q)) ||
-                            (p.children && p.children.some(c => c.fullName && c.fullName.toLowerCase().includes(q)))
+                            (p.username && p.username.toLowerCase().includes(q)) ||
+                            (p.familyContact && p.familyContact.includes(q)) ||
+                            (p.childrenNames && p.childrenNames.toLowerCase().includes(q)) ||
+                            (p.children && p.children.some(c => 
+                                (c.fullName && c.fullName.toLowerCase().includes(q)) ||
+                                (c.studentIdentityNumber && c.studentIdentityNumber.includes(q))
+                            ))
                         );
                     }
 
                     countEl.textContent = matched.length;
-                    selectEl.innerHTML = matched.map(p => `<option value="${p.parentId}" style="padding: 6px 10px;">👨‍👩‍👧‍👦 ${p.parentName} (هوية: ${p.parentIdentityNumber || '-'} | الأبناء: ${p.children ? p.children.length : 0})</option>`).join('');
-                    if (matched.length === 1) selectEl.selectedIndex = 0;
+                    if (matched.length === 0) {
+                        selectEl.innerHTML = `<option disabled class="text-muted p-2">لا توجد بيانات مطابقة لولي الأمر</option>`;
+                    } else {
+                        selectEl.innerHTML = matched.map(p => {
+                            const idStr = p.parentIdentityNumber && p.parentIdentityNumber !== '-' ? ` | هوية: ${p.parentIdentityNumber}` : '';
+                            const phoneStr = p.familyContact && p.familyContact !== '-' ? ` | هاتف: ${p.familyContact}` : '';
+                            return `<option value="${p.parentId}" style="padding: 8px 12px; font-weight: 500;">👨‍👩‍👧‍👦 ${escapeXml(p.parentName)} [الابن: ${escapeXml(p.childrenNames)}]${idStr}${phoneStr}</option>`;
+                        }).join('');
+                        if (matched.length === 1) selectEl.selectedIndex = 0;
+                    }
                 }
 
                 circleFilter.addEventListener("change", updateParentList);
@@ -7754,7 +7910,7 @@ function renderUsersTableRows(usersList) {
     tbody.innerHTML = "";
     
     if (!usersList || usersList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا توجد حسابات مستخدمين حالياً.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4">لا توجد حسابات مستخدمين حالياً.</td></tr>`;
         return;
     }
     
@@ -7765,12 +7921,18 @@ function renderUsersTableRows(usersList) {
         else if (u.parentId) refIdStr = `ولي أمر (رقم ${u.parentId})`;
         
         const pw = getUserDisplayPassword(u);
+        const idNum = u.identityNumber || u.nationalId || (u.role === 'Parent' && u.username && /^\d+$/.test(u.username) ? u.username : '-');
         
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${u.id}</td>
             <td><strong>${escapeXml(u.fullName)}</strong></td>
             <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
+            <td style="white-space: nowrap;">
+                <code class="font-monospace fw-bold text-dark px-2 py-1 bg-light rounded border shadow-xs" style="font-size: 0.92rem;">
+                    <i class="fa-solid fa-id-card text-success me-1"></i>${escapeXml(idNum)}
+                </code>
+            </td>
             <td><code>${escapeXml(u.username)}</code></td>
             <td><span class="small text-muted">${refIdStr}</span></td>
             <td style="white-space: nowrap;">
@@ -7837,6 +7999,7 @@ function filterUsersTable(query) {
     const filtered = cachedUsers.filter(u => 
         (u.fullName && u.fullName.toLowerCase().includes(term)) || 
         (u.username && u.username.toLowerCase().includes(term)) ||
+        (u.identityNumber && u.identityNumber.toLowerCase().includes(term)) ||
         (u.id && u.id.toString().includes(term))
     );
     
@@ -8418,6 +8581,13 @@ async function loadCoursesList() {
         if (!container) return;
         container.innerHTML = "";
 
+        // Bind Create modal trigger EARLY — works even when courses list is empty
+        const createBtnEl = document.getElementById("btn-create-course-modal");
+        if (createBtnEl && !createBtnEl.dataset.bound) {
+            createBtnEl.dataset.bound = "true";
+            createBtnEl.addEventListener("click", showCreateCourseModal);
+        }
+
         if (courses.length === 0) {
             container.innerHTML = `
                 <div class="card shadow-sm p-5 text-center text-muted w-100" style="grid-column: 1/-1;">
@@ -8501,12 +8671,11 @@ async function loadCoursesList() {
             });
         });
 
-        // Bind Create modal trigger
-        const createBtn = document.getElementById("btn-create-course-modal");
-        if (createBtn) {
-            const newBtn = createBtn.cloneNode(true);
-            createBtn.parentNode.replaceChild(newBtn, createBtn);
-            newBtn.addEventListener("click", showCreateCourseModal);
+        // Re-bind Create modal trigger (in case it was cloned by another render)
+        const createBtnBottom = document.getElementById("btn-create-course-modal");
+        if (createBtnBottom && !createBtnBottom.dataset.bound) {
+            createBtnBottom.dataset.bound = "true";
+            createBtnBottom.addEventListener("click", showCreateCourseModal);
         }
 
     } catch(e) {

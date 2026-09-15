@@ -28,7 +28,51 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var users = await _db.Users
-            .Select(u => new {
+            .Include(u => u.Teacher)
+            .Include(u => u.Student)
+            .ToListAsync();
+
+        var allStudents = await _db.Students
+            .Select(s => new { s.Id, s.FullName, s.ParentId, s.ParentIdentityNumber, s.FamilyContact })
+            .ToListAsync();
+
+        var result = users.Select(u => {
+            string? idNum = null;
+            if (u.Role == UserRole.Teacher && u.Teacher != null)
+            {
+                idNum = u.Teacher.IdentityNumber;
+            }
+            else if (u.Role == UserRole.Student && u.Student != null)
+            {
+                idNum = u.Student.StudentIdentityNumber;
+            }
+            else if (u.Role == UserRole.Parent)
+            {
+                int pId = u.ParentId ?? u.Id;
+                // 1. Try matching student by ParentId
+                var matchedStudent = allStudents.FirstOrDefault(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == u.Id)) && !string.IsNullOrWhiteSpace(s.ParentIdentityNumber));
+                
+                // 2. If not found, try matching by Username matching student's ParentIdentityNumber or FamilyContact
+                if (matchedStudent == null && !string.IsNullOrWhiteSpace(u.Username))
+                {
+                    var uName = u.Username.Trim();
+                    matchedStudent = allStudents.FirstOrDefault(s => 
+                        (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && s.ParentIdentityNumber.Trim() == uName) ||
+                        (!string.IsNullOrWhiteSpace(s.FamilyContact) && s.FamilyContact.Trim() == uName)
+                    );
+                }
+
+                if (matchedStudent != null && !string.IsNullOrWhiteSpace(matchedStudent.ParentIdentityNumber))
+                {
+                    idNum = matchedStudent.ParentIdentityNumber.Trim();
+                }
+                else if (!string.IsNullOrWhiteSpace(u.Username) && u.Username.Trim().All(char.IsDigit))
+                {
+                    idNum = u.Username.Trim();
+                }
+            }
+
+            return new {
                 u.Id,
                 u.Username,
                 u.FullName,
@@ -37,12 +81,14 @@ public class UsersController : ControllerBase
                 u.TeacherId,
                 u.StudentId,
                 u.ParentId,
+                IdentityNumber = !string.IsNullOrWhiteSpace(idNum) ? idNum : "-",
                 PlainPassword = !string.IsNullOrEmpty(u.PlainPassword) 
                     ? u.PlainPassword 
                     : (u.Username == "dev" ? "dev123" : (u.Username == "admin" ? "admin123" : (u.Username == "wael" ? "wael123" : "123456")))
-            })
-            .ToListAsync();
-        return Ok(users);
+            };
+        }).ToList();
+
+        return Ok(result);
     }
 
     [HttpPost]

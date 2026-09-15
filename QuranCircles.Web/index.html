@@ -1267,7 +1267,7 @@
                     <div class="requests-toolbar-card shadow-sm">
                         <div class="requests-search-box w-100">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="users-search-input" class="requests-search-input" placeholder="ابحث باسم الحساب أو اسم المستخدم (Username)..." oninput="filterUsersTable(this.value)">
+                            <input type="text" id="users-search-input" class="requests-search-input" placeholder="ابحث باسم الحساب، رقم الهوية، أو اسم المستخدم (Username)..." oninput="filterUsersTable(this.value)">
                         </div>
                     </div>
 
@@ -1279,6 +1279,7 @@
                                         <th>رقم الحساب</th>
                                         <th>الاسم الكامل</th>
                                         <th>الدور والصلاحيات</th>
+                                        <th><i class="fa-solid fa-id-card text-success me-1"></i> رقم الهوية</th>
                                         <th>اسم المستخدم (Username)</th>
                                         <th>رقم المرجع (Ref Id)</th>
                                         <th>كلمة المرور</th>
@@ -1423,7 +1424,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <h4 class="fw-bold text-success m-0" style="font-size: 1.15rem;"><i class="fa-solid fa-graduation-cap text-warning"></i> المساقات والدورات الأكاديمية</h4>
                             <div class="admin-only developer-only">
-                                <button class="btn btn-success rounded-pill shadow-sm px-4 fw-bold" id="btn-create-course-modal" style="display:none; background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%); border:none;"><i class="fa-solid fa-plus me-1"></i> إضافة دورة أكاديمية جديدة</button>
+                                <button class="btn btn-success rounded-pill shadow-sm px-4 fw-bold" id="btn-create-course-modal" onclick="showCreateCourseModal()" style="display:none; background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%); border:none;"><i class="fa-solid fa-plus me-1"></i> إضافة دورة أكاديمية جديدة</button>
                             </div>
                         </div>
 
