@@ -338,23 +338,20 @@ public class StudentsController : ControllerBase
                 if (teacherObj != null) tId = teacherObj.Id;
             }
 
-            bool isHisStudent = student.CircleId.HasValue && (student.Circle?.TeacherId == tId || (student.Circle?.Teacher != null && student.Circle.Teacher.FullName == currentUser.FullName));
             var taskRole = teacherObj?.TaskRole ?? "";
             bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
 
-            if (!isHisStudent && !isSupervisorOrAdmin)
+            bool isHisStudent = false;
+            if (student.CircleId.HasValue)
             {
                 var teacherCircleIds = await _db.Circles
-                    .Where(c => c.TeacherId == tId || (c.Teacher != null && c.Teacher.FullName == currentUser.FullName))
+                    .Where(c => c.TeacherId == tId || (teacherObj != null && c.TeacherId == teacherObj.Id) || (c.Teacher != null && c.Teacher.FullName == currentUser.FullName))
                     .Select(c => c.Id)
                     .ToListAsync();
-                if (student.CircleId.HasValue && teacherCircleIds.Contains(student.CircleId.Value))
-                {
-                    isHisStudent = true;
-                }
+                isHisStudent = teacherCircleIds.Contains(student.CircleId.Value);
             }
 
-            if (!isHisStudent && !isSupervisorOrAdmin && student.CircleId.HasValue)
+            if (!isHisStudent && !isSupervisorOrAdmin)
             {
                 return Forbid();
             }
@@ -372,7 +369,16 @@ public class StudentsController : ControllerBase
         await _db.SaveChangesAsync();
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateStudentPlan", $"تحديث خطة حفظ الطالب: {student.FullName} (نوع الخطة: {student.PlanType}، المستهدف: {student.TargetAjzaaCount} أجزاء)");
 
-        return Ok(new { Message = "تم حفظ خطة الحفظ للطالب بنجاح.", Student = student });
+        return Ok(new 
+        { 
+            Message = "تم حفظ خطة الحفظ للطالب بنجاح.",
+            StudentId = student.Id,
+            PlanType = student.PlanType,
+            TargetAjzaaCount = student.TargetAjzaaCount,
+            DailyPacePages = student.DailyPacePages,
+            CompletedAjzaa = student.CompletedAjzaa,
+            PreviousQuranMemorization = student.PreviousQuranMemorization
+        });
     }
 
     [HttpPost("{id:int}/complete-juz")]

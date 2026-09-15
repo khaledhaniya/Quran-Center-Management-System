@@ -20,6 +20,24 @@ let currentRole = "";
 let currentUserId = "";
 let authToken = "";
 
+function getCurrentUser() {
+    return {
+        id: currentUserId || getAuthStorage("userId") || "",
+        userId: currentUserId || getAuthStorage("userId") || "",
+        role: currentRole || getAuthStorage("role") || "",
+        teacherId: parseInt(getAuthStorage("teacherId") || currentUserId || "0"),
+        studentId: parseInt(getAuthStorage("studentId") || "0"),
+        parentId: parseInt(getAuthStorage("parentId") || "0"),
+        fullName: getAuthStorage("fullName") || ""
+    };
+}
+
+function invalidateTeacherComprehensiveCache() {
+    if (typeof currentTeacherComprehensiveData !== "undefined") {
+        currentTeacherComprehensiveData = null;
+    }
+}
+
 // Cache for listings
 let cachedTeachers = [];
 let cachedCircles = [];
@@ -7197,7 +7215,6 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     recitationType: recTypeVal === 2 ? "Revision" : "Memorization"
                 };
                 await apiRequest(`/sessions/${id}`, "PUT", dto);
-                showAlert("تم تحديث جلسة التسميع بنجاح.", "success");
             } else {
                 const dto = {
                     studentId: parseInt(studentId),
@@ -7211,20 +7228,24 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     recitationType: recTypeVal === 2 ? "Revision" : "Memorization"
                 };
                 await apiRequest("/sessions", "POST", dto);
-                showAlert("تم تسجيل جلسة التسميع بنجاح.", "success");
             }
-            invalidateTeacherComprehensiveCache();
+
             closeModal();
+            invalidateTeacherComprehensiveCache();
             
             const selectedStudent = document.querySelector(".student-list-item.active");
             if (selectedStudent) {
                 const stId = selectedStudent.dataset.studentId;
-                const stName = selectedStudent.querySelector("h4").textContent;
-                const cName = document.getElementById("session-circle-select").options[document.getElementById("session-circle-select").selectedIndex].text;
-                showStudentRecitations(stId, stName, cName);
+                const stName = selectedStudent.querySelector("h4")?.textContent || "";
+                const circleSelect = document.getElementById("session-circle-select");
+                const cName = circleSelect && circleSelect.selectedIndex >= 0 ? circleSelect.options[circleSelect.selectedIndex].text : "";
+                await showStudentRecitations(stId, stName, cName);
             }
+            
+            showAlert(id ? "تم تحديث جلسة التسميع بنجاح." : "تم تسجيل جلسة التسميع بنجاح.", "success");
         } catch(e) {
-            console.error(e);
+            console.error("Error saving recitation session:", e);
+            showAlert(e.message || "حدث خطأ أثناء حفظ جلسة التسميع.", "danger");
         }
     });
 }
