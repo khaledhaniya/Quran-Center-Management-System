@@ -88,6 +88,8 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
       selectedSupervisor = supervisors.first;
     }
 
+    bool isSaving = false;
+
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
@@ -216,10 +218,16 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-              icon: const Icon(Icons.save, color: Colors.white, size: 18),
-              label: Text(course == null ? 'حفظ الدورة' : 'حفظ التعديلات', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              onPressed: () async {
+              icon: isSaving 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.save, color: Colors.white, size: 18),
+              label: Text(
+                isSaving ? 'جاري الحفظ...' : (course == null ? 'حفظ الدورة' : 'حفظ التعديلات'),
+                style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              onPressed: isSaving ? null : () async {
                 if (nameController.text.trim().isEmpty) return;
+                setModalState(() => isSaving = true);
 
                 bool ok = false;
                 if (course == null) {
@@ -255,6 +263,153 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCourseEnrollmentsModal(Course course) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('طلاب دورة: ${course.name}', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: FutureBuilder<List<Map<String, dynamic>>>(
+          future: ApiService.getCourseEnrollments(course.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+            }
+            final list = snapshot.data ?? [];
+            if (list.isEmpty) {
+              return Text('لا يوجد طلاب مسجلين في هذه الدورة حالياً.', style: AppTheme.cairoStyle(color: Colors.grey));
+            }
+            return SizedBox(
+              width: double.maxFinite,
+              height: 320,
+              child: ListView.builder(
+                itemCount: list.length,
+                itemBuilder: (context, index) {
+                  final item = list[index];
+                  final name = item['studentName'] ?? 'طالب';
+                  final grade = item['grade'];
+                  final status = item['status'] ?? 'Enrolled';
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      dense: true,
+                      title: Text(name, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('الحلقة: ${item['halaqahName'] ?? "بدون حلقة"}', style: AppTheme.cairoStyle(fontSize: 11)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: status == 'Passed'
+                                  ? Colors.green.withOpacity(0.15)
+                                  : (status == 'Failed' ? Colors.red.withOpacity(0.15) : Colors.blue.withOpacity(0.15)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              grade != null ? '$grade%' : (status == 'Passed' ? 'ناجح' : 'قيد الدراسة'),
+                              style: AppTheme.cairoStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: status == 'Passed' ? Colors.green : (status == 'Failed' ? Colors.red : Colors.blue),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.edit_note, color: AppTheme.primary, size: 22),
+                            tooltip: 'رصد درجة الطالب مباشرة',
+                            onPressed: () => _promptRecordStudentGrade(item, course),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+        ],
+      ),
+    );
+  }
+
+  void _promptRecordStudentGrade(Map<String, dynamic> enrollmentItem, Course course) {
+    final gradeCtrl = TextEditingController(text: enrollmentItem['grade']?.toString() ?? '');
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.grade, color: Colors.amber),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'رصد درجة: ${enrollmentItem['studentName']}',
+                style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('دورة: ${course.name}', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: gradeCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'العلامة المستحقة (من 100) *',
+                prefixIcon: Icon(Icons.percent, color: AppTheme.primary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            icon: const Icon(Icons.save, color: Colors.white, size: 16),
+            label: Text('حفظ واعتتماد', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              final val = double.tryParse(gradeCtrl.text.trim());
+              if (val == null || val < 0 || val > 100) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('يرجى إدخال علامة صحيحة بين 0 و 100'), backgroundColor: Colors.orange),
+                );
+                return;
+              }
+              try {
+                final enrollmentId = enrollmentItem['id'] ?? enrollmentItem['enrollmentId'];
+                await ApiService.recordCourseGrade(enrollmentId: enrollmentId, grade: val);
+                if (!dialogCtx.mounted) return;
+                Navigator.pop(dialogCtx);
+                Navigator.pop(context); // close enrollments dialog
+                _showCourseEnrollmentsModal(course); // re-open updated
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم رصد العلامة واعتتماد النتيجة بنجاح ✨'), backgroundColor: Colors.green),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+                );
+              }
+            },
+          ),
+        ],
       ),
     );
   }

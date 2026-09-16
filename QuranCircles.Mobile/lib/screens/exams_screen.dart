@@ -787,13 +787,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                       ),
                                     ],
 
-                                    // ═══ Action Buttons: ONLY for Supervisor/Admin/Developer ═══
-                                    if (isSupervisor && (isPending || isScheduled)) ...[
+                                    // ═══ Action Buttons: Supervisor / Admin / Developer / Course Supervisor ═══
+                                    final canScheduleThis = isSupervisor || item.canSchedule;
+                                    final canEvaluateThis = isSupervisor || item.canEvaluate;
+                                    if ((canScheduleThis && isPending) || (canEvaluateThis && isScheduled)) ...[
                                       const SizedBox(height: 10),
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
-                                          if (isPending)
+                                          if (canScheduleThis && isPending)
                                             ElevatedButton.icon(
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: Colors.blue.shade700,
@@ -805,7 +807,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                               icon: const Icon(Icons.calendar_month, size: 14),
                                               label: Text('جدولة موعد', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
                                             ),
-                                          if (isScheduled)
+                                          if (canEvaluateThis && isScheduled)
                                             ElevatedButton.icon(
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: AppTheme.statusPresent,

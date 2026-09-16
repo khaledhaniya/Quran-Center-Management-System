@@ -3139,11 +3139,11 @@ button, input, select, textarea {
 
 .course-info-grid-2026 {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 10px;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
     .course-info-grid-2026 {
         grid-template-columns: 1fr;
     }
@@ -3157,6 +3157,12 @@ button, input, select, textarea {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+}
+
+.course-info-box > div {
+    min-width: 0;
+    flex: 1;
 }
 
 .course-info-box i {
@@ -3175,9 +3181,10 @@ button, input, select, textarea {
     font-size: 0.85rem;
     font-weight: 700;
     color: #1e293b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.35;
 }
 
 .course-card-footer-2026 {

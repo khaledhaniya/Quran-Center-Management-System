@@ -65,11 +65,21 @@ public class CoursesController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { Message = "اسم الدورة مطلوب." });
 
+        var trimmedName = dto.Name.Trim();
+
+        // Idempotency: Prevent duplicate creation if same course was created with same teacher
+        var existingCourse = await _db.Courses
+            .FirstOrDefaultAsync(c => c.Name.Trim().ToLower() == trimmedName.ToLower() && c.TeacherId == dto.TeacherId && c.IsActive);
+        if (existingCourse != null)
+        {
+            return Ok(existingCourse);
+        }
+
         int? resolvedSupervisorId = await ResolveSupervisorUserIdAsync(dto.ExamSupervisorId);
 
         var course = new Course
         {
-            Name = dto.Name,
+            Name = trimmedName,
             Description = dto.Description ?? string.Empty,
             TeacherId = dto.TeacherId,
             ExamSupervisorId = resolvedSupervisorId,
@@ -460,7 +470,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpPut("grade")]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.ExamSupervisor)]
     public async Task<IActionResult> RecordGrade([FromBody] RecordGradeDto dto)
     {
         var enrollment = await _db.CourseEnrollments
@@ -470,18 +480,30 @@ public class CoursesController : ControllerBase
 
         if (enrollment == null) return NotFound(new { Message = "سجل التسجيل غير موجود." });
 
-        // RBAC validation: If teacher, make sure the student is in one of their circles
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
-        
-        if (currentUser?.Role == UserRole.Teacher)
-        {
-            var teacherCircleIds = await _db.Circles
-                .Where(c => c.TeacherId == currentUser.TeacherId)
-                .Select(c => c.Id)
-                .ToListAsync();
+        if (currentUser == null) return Unauthorized();
 
-            if (!enrollment.Student!.CircleId.HasValue || !teacherCircleIds.Contains(enrollment.Student.CircleId.Value))
+        // RBAC validation: Allow Admin, Developer, ExamSupervisor.
+        // If Teacher: Allow if course teacher, course supervisor, exam specialist, or circle teacher.
+        if (currentUser.Role == UserRole.Teacher)
+        {
+            var teacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
+            bool isExamSpecialist = teacher?.TaskRole != null && teacher.TaskRole.Contains("مشرف اختبارات");
+
+            bool isCourseTeacher = enrollment.Course != null && enrollment.Course.TeacherId == currentUser.TeacherId;
+            bool isCourseSupervisor = enrollment.Course != null && (
+                enrollment.Course.ExamSupervisorId == currentUser.Id ||
+                (currentUser.TeacherId.HasValue && enrollment.Course.ExamSupervisorId == currentUser.TeacherId.Value)
+            );
+
+            bool isCircleTeacher = false;
+            if (enrollment.Student?.CircleId.HasValue == true)
+            {
+                isCircleTeacher = await _db.Circles.AnyAsync(c => c.Id == enrollment.Student.CircleId.Value && c.TeacherId == currentUser.TeacherId);
+            }
+
+            if (!isExamSpecialist && !isCourseTeacher && !isCourseSupervisor && !isCircleTeacher)
             {
                 return Forbid();
             }

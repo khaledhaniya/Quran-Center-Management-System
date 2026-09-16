@@ -593,6 +593,24 @@ class ApiService {
     return [];
   }
 
+  static Future<bool> recordCourseGrade({
+    required int enrollmentId,
+    required double grade,
+    String code2FA = '123456',
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/courses/grade'),
+      headers: _headers(code2FA: code2FA),
+      body: jsonEncode({
+        'enrollmentId': enrollmentId,
+        'grade': grade,
+      }),
+    );
+    if (response.statusCode == 200) return true;
+    final err = jsonDecode(response.body);
+    throw Exception(err['message'] ?? 'فشل رصد العلامة');
+  }
+
   // --- Active Toggles ---
   static Future<bool> toggleStudentActive(int id) async {
     final response = await http.post(Uri.parse('$baseUrl/students/$id/toggle-active'), headers: _headers());

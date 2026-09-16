@@ -194,6 +194,12 @@ public class ExamsController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser == null) return Unauthorized();
 
+        var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
+        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin || 
+                                   currentUser.Role == UserRole.Developer || 
+                                   currentUser.Role == UserRole.ExamSupervisor || 
+                                   (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+
         var query = _db.ExamNominations
             .Include(n => n.Student)
             .ThenInclude(s => s!.Circle)
@@ -202,17 +208,18 @@ public class ExamsController : ControllerBase
             .Include(n => n.Result)
             .AsQueryable();
 
-        if (currentUser.Role == UserRole.Teacher)
+        if (isGeneralSupervisor)
+        {
+            // Exam Supervisors, Admins, and Developers can see all nominations
+        }
+        else if (currentUser.Role == UserRole.Teacher)
         {
             query = query.Where(n => 
                 (n.Student != null && n.Student.Circle != null && n.Student.Circle.TeacherId == currentUser.TeacherId) ||
                 (n.Course != null && n.Course.TeacherId == currentUser.TeacherId) ||
+                (n.Course != null && (n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value))) ||
                 n.TeacherId == currentUser.TeacherId
             );
-        }
-        else if (currentUser.Role == UserRole.ExamSupervisor || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer)
-        {
-            // Exam Supervisors, Admins, and Developers can see all nominations
         }
         else if (currentUser.Role == UserRole.Student)
         {
@@ -227,8 +234,17 @@ public class ExamsController : ControllerBase
             query = query.Where(n => studentIds.Contains(n.StudentId));
         }
 
-        var list = await query
-            .Select(n => new
+        var nominationsList = await query.ToListAsync();
+
+        var list = nominationsList.Select(n => 
+        {
+            bool canManage = isGeneralSupervisor || (n.Course != null && (
+                n.Course.ExamSupervisorId == currentUser.Id ||
+                (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value) ||
+                (n.Course.TeacherId == currentUser.TeacherId && (n.Course.ExamSupervisorId == null || n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+            ));
+
+            return new
             {
                 n.Id,
                 n.StudentId,
@@ -243,6 +259,8 @@ public class ExamsController : ControllerBase
                 n.Status,
                 n.NominationDate,
                 n.ExamDate,
+                CanSchedule = canManage,
+                CanEvaluate = canManage,
                 Result = n.Result != null ? new
                 {
                     n.Result.Id,
@@ -252,14 +270,14 @@ public class ExamsController : ControllerBase
                     n.Result.Notes,
                     n.Result.ExamDate
                 } : null
-            })
-            .ToListAsync();
+            };
+        }).ToList();
 
         return Ok(list);
     }
 
     [HttpPut("schedule")]
-    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher)]
     public async Task<IActionResult> Schedule([FromBody] ScheduleExamDto dto)
     {
         var nomination = await _db.ExamNominations
@@ -268,6 +286,30 @@ public class ExamsController : ControllerBase
             .FirstOrDefaultAsync(n => n.Id == dto.NominationId);
 
         if (nomination == null) return NotFound(new { Message = "طلب الترشيح غير موجود." });
+
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        if (currentUser == null) return Unauthorized();
+
+        var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
+        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin || 
+                                   currentUser.Role == UserRole.Developer || 
+                                   currentUser.Role == UserRole.ExamSupervisor || 
+                                   (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+
+        if (!isGeneralSupervisor)
+        {
+            bool isCourseSupervisor = nomination.Course != null && (
+                nomination.Course.ExamSupervisorId == currentUser.Id ||
+                (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value) ||
+                (nomination.Course.TeacherId == currentUser.TeacherId && (nomination.Course.ExamSupervisorId == null || nomination.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+            );
+
+            if (!isCourseSupervisor)
+            {
+                return Forbid();
+            }
+        }
 
         nomination.Status = "Scheduled";
         nomination.ExamDate = dto.ExamDate;
@@ -296,8 +338,6 @@ public class ExamsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        var currentUserId = FakeAuth.GetUserId(HttpContext);
-        var currentUser = await _db.Users.FindAsync(currentUserId);
         _db.AuditLogs.Add(new AuditLog
         {
             Username = currentUser?.Username ?? "Unknown",
@@ -312,7 +352,7 @@ public class ExamsController : ControllerBase
     }
 
     [HttpPost("evaluate")]
-    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher)]
     public async Task<IActionResult> Evaluate([FromBody] EvaluateExamDto dto)
     {
         var nomination = await _db.ExamNominations
@@ -322,6 +362,30 @@ public class ExamsController : ControllerBase
             .FirstOrDefaultAsync(n => n.Id == dto.NominationId);
 
         if (nomination == null) return NotFound(new { Message = "طلب الترشيح غير موجود." });
+
+        var currentUserId = FakeAuth.GetUserId(HttpContext);
+        var currentUser = await _db.Users.FindAsync(currentUserId);
+        if (currentUser == null) return Unauthorized();
+
+        var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
+        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin || 
+                                   currentUser.Role == UserRole.Developer || 
+                                   currentUser.Role == UserRole.ExamSupervisor || 
+                                   (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+
+        if (!isGeneralSupervisor)
+        {
+            bool isCourseSupervisor = nomination.Course != null && (
+                nomination.Course.ExamSupervisorId == currentUser.Id ||
+                (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value) ||
+                (nomination.Course.TeacherId == currentUser.TeacherId && (nomination.Course.ExamSupervisorId == null || nomination.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+            );
+
+            if (!isCourseSupervisor)
+            {
+                return Forbid();
+            }
+        }
 
         var code2FA = HttpContext.Request.Headers["X-2FA-Code"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(code2FA) || code2FA != "123456")
@@ -377,8 +441,6 @@ public class ExamsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        var currentUserId = FakeAuth.GetUserId(HttpContext);
-        var currentUser = await _db.Users.FindAsync(currentUserId);
         _db.AuditLogs.Add(new AuditLog
         {
             Username = currentUser?.Username ?? "Unknown",

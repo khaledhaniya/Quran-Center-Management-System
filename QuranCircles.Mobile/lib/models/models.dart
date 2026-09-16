@@ -361,6 +361,8 @@ class ExamNomination {
   final String nominationDate;
   final String? examDate;
   final ExamResultData? result;
+  final bool canSchedule;
+  final bool canEvaluate;
 
   ExamNomination({
     required this.id,
@@ -377,6 +379,8 @@ class ExamNomination {
     required this.nominationDate,
     this.examDate,
     this.result,
+    this.canSchedule = false,
+    this.canEvaluate = false,
   });
 
   factory ExamNomination.fromJson(Map<String, dynamic> json) {
@@ -395,6 +399,8 @@ class ExamNomination {
       nominationDate: json['nominationDate'] ?? '',
       examDate: json['examDate'],
       result: json['result'] != null ? ExamResultData.fromJson(json['result']) : null,
+      canSchedule: json['canSchedule'] == true || json['CanSchedule'] == true,
+      canEvaluate: json['canEvaluate'] == true || json['CanEvaluate'] == true,
     );
   }
 

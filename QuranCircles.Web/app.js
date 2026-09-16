@@ -9106,12 +9106,22 @@ async function showCreateCourseModal() {
         });
     }
 
-    document.getElementById("create-course-form").addEventListener("submit", async (e) => {
+    const createCourseForm = document.getElementById("create-course-form");
+    let isCreatingCourse = false;
+    createCourseForm.addEventListener("submit", async (e) => {
         e.preventDefault();
+        if (isCreatingCourse) return;
+        const submitBtn = createCourseForm.querySelector('button[type="submit"]');
         const name = document.getElementById("course-name-input").value;
         const desc = document.getElementById("course-desc-input").value;
         const teacherId = document.getElementById("course-teacher-input").value;
         const supervisorId = document.getElementById("course-supervisor-input").value;
+
+        isCreatingCourse = true;
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري حفظ الدورة...';
+        }
 
         try {
             await apiRequest("/courses", "POST", { 
@@ -9123,7 +9133,13 @@ async function showCreateCourseModal() {
             showAlert("تم إنشاء الدورة التعليمية بنجاح.", "success");
             closeModal();
             loadCoursesList();
-        } catch(e) {}
+        } catch(e) {
+            isCreatingCourse = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-save me-1"></i> حفظ الدورة الأكاديمية';
+            }
+        }
     });
 }
 
@@ -9989,13 +10005,13 @@ function renderExamsTable(list, filterType, isAdmin, isSupervisor) {
         else if (n.status === "Completed") statusBadge = '<span class="badge badge-success">مكتمل واجتاز</span>';
         else if (n.status === "Failed") statusBadge = '<span class="badge badge-danger">مكتمل ولم يجتز</span>';
 
+        const canSchedule = isAdmin || isSupervisor || n.canSchedule || n.CanSchedule;
+        const canEvaluate = isAdmin || isSupervisor || n.canEvaluate || n.CanEvaluate;
         let actionsHtml = "-";
-        if (isAdmin || isSupervisor) {
-            if (n.status === "Pending") {
-                actionsHtml = `<button class="btn btn-primary btn-sm" onclick="scheduleExam(${n.id})"><i class="fa-solid fa-calendar-plus"></i> جدولة موعد</button>`;
-            } else if (n.status === "Scheduled") {
-                actionsHtml = `<button class="btn btn-success btn-sm" onclick="showEvaluateExamModal(${n.id}, '${n.studentName}', '${n.nominationType}')"><i class="fa-solid fa-marker"></i> تقييم واختبار</button>`;
-            }
+        if (n.status === "Pending" && canSchedule) {
+            actionsHtml = `<button class="btn btn-primary btn-sm" onclick="scheduleExam(${n.id})"><i class="fa-solid fa-calendar-plus"></i> جدولة موعد</button>`;
+        } else if (n.status === "Scheduled" && canEvaluate) {
+            actionsHtml = `<button class="btn btn-success btn-sm" onclick="showEvaluateExamModal(${n.id}, '${n.studentName}', '${n.nominationType}')"><i class="fa-solid fa-marker"></i> تقييم واختبار</button>`;
         }
 
         tr.innerHTML = `
