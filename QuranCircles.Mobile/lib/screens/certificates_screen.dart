@@ -23,9 +23,20 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
   void _loadCertificates() async {
     try {
       final list = await ApiService.getNominations();
+      final rawList = list.where((n) => n.status == 'Completed' && n.result != null && n.result!.grade >= 60).toList();
+      final Map<String, ExamNomination> dedupMap = {};
+      for (var item in rawList) {
+        final isQuran = item.nominationType == 'Quran';
+        final key = isQuran
+            ? 'quran_${item.studentId}_${item.juzStart}_${item.juzEnd}'
+            : 'course_${item.studentId}_${item.courseId ?? item.courseName ?? ''}';
+        if (!dedupMap.containsKey(key) || (dedupMap[key]!.result?.grade ?? 0) < (item.result?.grade ?? 0)) {
+          dedupMap[key] = item;
+        }
+      }
       if (mounted) {
         setState(() {
-          _completedExams = list.where((n) => n.status == 'Completed' && n.result != null && n.result!.grade >= 60).toList();
+          _completedExams = dedupMap.values.toList();
           _isLoading = false;
         });
       }

@@ -5721,6 +5721,10 @@ document.addEventListener("click", (e) => {
     const courseBtn = e.target.closest("#btn-create-course-modal, .btn-create-course-trigger");
     if (courseBtn) {
         e.preventDefault();
+        e.stopPropagation();
+        if (window._courseModalDebounce) return;
+        window._courseModalDebounce = true;
+        setTimeout(() => { window._courseModalDebounce = false; }, 1000);
         if (typeof showCreateCourseModal === "function") {
             showCreateCourseModal();
         }
@@ -8677,13 +8681,6 @@ async function loadCoursesList() {
         if (!container) return;
         container.innerHTML = "";
 
-        // Bind Create modal trigger EARLY — works even when courses list is empty
-        const createBtnEl = document.getElementById("btn-create-course-modal");
-        if (createBtnEl && !createBtnEl.dataset.bound) {
-            createBtnEl.dataset.bound = "true";
-            createBtnEl.addEventListener("click", showCreateCourseModal);
-        }
-
         if (courses.length === 0) {
             container.innerHTML = `
                 <div class="card shadow-sm p-5 text-center text-muted w-100" style="grid-column: 1/-1;">
@@ -8766,13 +8763,6 @@ async function loadCoursesList() {
                 showEnrollModal(id);
             });
         });
-
-        // Re-bind Create modal trigger (in case it was cloned by another render)
-        const createBtnBottom = document.getElementById("btn-create-course-modal");
-        if (createBtnBottom && !createBtnBottom.dataset.bound) {
-            createBtnBottom.dataset.bound = "true";
-            createBtnBottom.addEventListener("click", showCreateCourseModal);
-        }
 
     } catch(e) {
         console.error(e);
@@ -8933,8 +8923,7 @@ async function loadPortfolio() {
         const enrollments = enrollmentsRes.status === "fulfilled" && Array.isArray(enrollmentsRes.value) ? enrollmentsRes.value : [];
         const nominations = nominationsRes.status === "fulfilled" && Array.isArray(nominationsRes.value) ? nominationsRes.value : [];
 
-        const allCertificates = [];
-        const seenCourseKeys = new Set();
+        const uniqueCertsMap = new Map();
         const emirName = cachedSystemSettings?.signatoryName || "الشيخ / علي حسن النبيه";
 
         // 1. Process Completed Exam Nominations (Quran + Courses)
@@ -8942,47 +8931,56 @@ async function loadPortfolio() {
             if (n.status === "Completed" && n.result && (parseFloat(n.result.grade) >= 60)) {
                 const gradeVal = parseFloat(n.result.grade);
                 const certDate = n.result.examDate ? new Date(n.result.examDate).toLocaleDateString('ar-EG') : (n.examDate ? new Date(n.examDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG'));
+                const sName = (n.studentName || "طالب العلم").trim();
+                const sIdentifier = (n.studentId ? String(n.studentId) : sName.toLowerCase()).trim();
                 
                 if (n.nominationType === "Quran") {
-                    const juzText = (n.juzStart === n.juzEnd) ? `للجزء (${n.juzStart}) من القرآن الكريم` : `للأجزاء من (${n.juzStart}) إلى (${n.juzEnd}) من القرآن الكريم`;
-                    const cardTitle = (n.juzStart === n.juzEnd) ? `شهادة حفظ الجزء (${n.juzStart})` : `شهادة حفظ الأجزاء (${n.juzStart} - ${n.juzEnd})`;
+                    const jStart = n.juzStart || 1;
+                    const jEnd = n.juzEnd || 1;
+                    const dedupKey = `quran_${sIdentifier}_${jStart}_${jEnd}`;
+                    const juzText = (jStart === jEnd) ? `للجزء (${jStart}) من القرآن الكريم` : `للأجزاء من (${jStart}) إلى (${jEnd}) من القرآن الكريم`;
+                    const cardTitle = (jStart === jEnd) ? `شهادة حفظ الجزء (${jStart})` : `شهادة حفظ الأجزاء (${jStart} - ${jEnd})`;
                     const certCode = `QURAN-${1000 + n.id}`;
                     
-                    allCertificates.push({
-                        id: `cert-quran-${n.id}`,
-                        isQuran: true,
-                        studentName: n.studentName || "طالب العلم",
-                        courseOrJuzText: juzText,
-                        grade: gradeVal,
-                        teacherRole: "محفظ ومربي الحلقة",
-                        teacherName: n.teacherName || "شيخ ومعلم الحلقة",
-                        centerEmirRole: "أمير المركز / المشرف العام",
-                        centerEmirName: emirName,
-                        certCode: certCode,
-                        certDate: certDate,
-                        cardTitle: cardTitle
-                    });
+                    if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
+                        uniqueCertsMap.set(dedupKey, {
+                            id: `cert-quran-${n.id}`,
+                            isQuran: true,
+                            studentName: sName,
+                            courseOrJuzText: juzText,
+                            grade: gradeVal,
+                            teacherRole: "محفظ ومربي الحلقة",
+                            teacherName: n.teacherName || "شيخ ومعلم الحلقة",
+                            centerEmirRole: "أمير المركز / المشرف العام",
+                            centerEmirName: emirName,
+                            certCode: certCode,
+                            certDate: certDate,
+                            cardTitle: cardTitle
+                        });
+                    }
                 } else {
                     // Course Exam Nomination
-                    const courseKey = `course_${n.studentId || n.studentName}_${n.courseId || n.courseName}`;
-                    seenCourseKeys.add(courseKey);
-                    const courseTitle = n.courseName || "الدورة العلمية التخصصية";
+                    const cTitle = (n.courseName || "الدورة العلمية التخصصية").trim();
+                    const cIdentifier = (n.courseId ? String(n.courseId) : cTitle.toLowerCase()).trim();
+                    const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
                     const certCode = `CERT-CRS-${2000 + n.id}`;
 
-                    allCertificates.push({
-                        id: `cert-exam-course-${n.id}`,
-                        isQuran: false,
-                        studentName: n.studentName || "طالب العلم",
-                        courseOrJuzText: `مقرر الدورة العلمية التخصصية: (${courseTitle})`,
-                        grade: gradeVal,
-                        teacherRole: "معلم ومحاضر الدورة",
-                        teacherName: n.teacherName || "معلم ومحاضر الدورة",
-                        centerEmirRole: "أمير المركز / المشرف العام",
-                        centerEmirName: emirName,
-                        certCode: certCode,
-                        certDate: certDate,
-                        cardTitle: courseTitle
-                    });
+                    if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
+                        uniqueCertsMap.set(dedupKey, {
+                            id: `cert-exam-course-${n.id}`,
+                            isQuran: false,
+                            studentName: sName,
+                            courseOrJuzText: `مقرر الدورة العلمية التخصصية: (${cTitle})`,
+                            grade: gradeVal,
+                            teacherRole: "معلم ومحاضر الدورة",
+                            teacherName: n.teacherName || "معلم ومحاضر الدورة",
+                            centerEmirRole: "أمير المركز / المشرف العام",
+                            centerEmirName: emirName,
+                            certCode: certCode,
+                            certDate: certDate,
+                            cardTitle: cTitle
+                        });
+                    }
                 }
             }
         });
@@ -8990,19 +8988,22 @@ async function loadPortfolio() {
         // 2. Process Passed Course Enrollments (Direct Grading or Course completions)
         enrollments.forEach(e => {
             if ((e.status === "Passed" || e.status === "Certified") && (parseFloat(e.grade) >= 60)) {
-                const courseKey = `course_${e.studentId || e.studentName}_${e.courseId || e.courseName}`;
-                if (!seenCourseKeys.has(courseKey)) {
-                    seenCourseKeys.add(courseKey);
-                    const gradeVal = parseFloat(e.grade);
-                    const certDate = e.certificateDate ? new Date(e.certificateDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
-                    const certCode = e.certificateCode || `CERT-${1000 + e.id}`;
-                    const courseTitle = e.courseName || "الدورة العلمية التخصصية";
+                const sName = (e.studentName || "طالب العلم").trim();
+                const sIdentifier = (e.studentId ? String(e.studentId) : sName.toLowerCase()).trim();
+                const cTitle = (e.courseName || "الدورة العلمية التخصصية").trim();
+                const cIdentifier = (e.courseId ? String(e.courseId) : cTitle.toLowerCase()).trim();
+                const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
 
-                    allCertificates.push({
+                const gradeVal = parseFloat(e.grade);
+                const certDate = e.certificateDate ? new Date(e.certificateDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
+                const certCode = e.certificateCode || `CERT-${1000 + e.id}`;
+
+                if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
+                    uniqueCertsMap.set(dedupKey, {
                         id: `cert-course-${e.id}`,
                         isQuran: false,
-                        studentName: e.studentName || "طالب العلم",
-                        courseOrJuzText: `مقرر الدورة العلمية التخصصية: (${courseTitle})`,
+                        studentName: sName,
+                        courseOrJuzText: `مقرر الدورة العلمية التخصصية: (${cTitle})`,
                         grade: gradeVal,
                         teacherRole: "معلم ومحاضر الدورة",
                         teacherName: e.teacherName || "معلم ومحاضر الدورة",
@@ -9010,11 +9011,13 @@ async function loadPortfolio() {
                         centerEmirName: emirName,
                         certCode: certCode,
                         certDate: certDate,
-                        cardTitle: courseTitle
+                        cardTitle: cTitle
                     });
                 }
             }
         });
+
+        const allCertificates = Array.from(uniqueCertsMap.values());
 
         container.innerHTML = "";
 
@@ -9301,7 +9304,12 @@ async function ensureTeachersLoaded() {
     return cachedTeachers || [];
 }
 
+let _isCreatingCourseModalBusy = false;
 async function showCreateCourseModal() {
+    if (_isCreatingCourseModalBusy) return;
+    _isCreatingCourseModalBusy = true;
+    setTimeout(() => { _isCreatingCourseModalBusy = false; }, 800);
+
     openModal("إضافة دورة أكاديمية جديدة");
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
@@ -9363,16 +9371,23 @@ async function showCreateCourseModal() {
 
     const createCourseForm = document.getElementById("create-course-form");
     let isCreatingCourse = false;
-    createCourseForm.addEventListener("submit", async (e) => {
+    createCourseForm.onsubmit = async (e) => {
         e.preventDefault();
+        e.stopPropagation();
         if (isCreatingCourse) return;
-        const submitBtn = createCourseForm.querySelector('button[type="submit"]');
-        const name = document.getElementById("course-name-input").value;
-        const desc = document.getElementById("course-desc-input").value;
-        const teacherId = document.getElementById("course-teacher-input").value;
-        const supervisorId = document.getElementById("course-supervisor-input").value;
+
+        const name = (document.getElementById("course-name-input")?.value || "").trim();
+        const desc = (document.getElementById("course-desc-input")?.value || "").trim();
+        const teacherId = document.getElementById("course-teacher-input")?.value;
+        const supervisorId = document.getElementById("course-supervisor-input")?.value;
+
+        if (!name) {
+            showAlert("اسم الدورة الأكاديمية مطلوب.", "warning");
+            return;
+        }
 
         isCreatingCourse = true;
+        const submitBtn = createCourseForm.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري حفظ الدورة...';
@@ -9382,20 +9397,20 @@ async function showCreateCourseModal() {
             await apiRequest("/courses", "POST", { 
                 name, 
                 description: desc, 
-                teacherId: parseInt(teacherId),
+                teacherId: teacherId ? parseInt(teacherId) : null,
                 examSupervisorId: supervisorId ? parseInt(supervisorId) : null
             });
             showAlert("تم إنشاء الدورة التعليمية بنجاح.", "success");
             closeModal();
             loadCoursesList();
-        } catch(e) {
+        } catch(err) {
             isCreatingCourse = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-save me-1"></i> حفظ الدورة الأكاديمية';
             }
         }
-    });
+    };
 }
 
 async function showEditCourseSupervisorModal(courseId, courseName, courseDesc, currentTeacherId, currentSupervisorId) {

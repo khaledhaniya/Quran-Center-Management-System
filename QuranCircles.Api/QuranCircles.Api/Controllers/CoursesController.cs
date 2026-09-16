@@ -67,9 +67,9 @@ public class CoursesController : ControllerBase
 
         var trimmedName = dto.Name.Trim();
 
-        // Idempotency: Prevent duplicate creation if same course was created with same teacher
+        // Idempotency: Prevent duplicate creation if a course with the same name is already active
         var existingCourse = await _db.Courses
-            .FirstOrDefaultAsync(c => c.Name.Trim().ToLower() == trimmedName.ToLower() && c.TeacherId == dto.TeacherId && c.IsActive);
+            .FirstOrDefaultAsync(c => c.Name.Trim().ToLower() == trimmedName.ToLower() && c.IsActive);
         if (existingCourse != null)
         {
             return Ok(existingCourse);
@@ -368,6 +368,7 @@ public class CoursesController : ControllerBase
                 .Select(e => new
                 {
                     e.Id,
+                    e.StudentId,
                     e.CourseId,
                     CourseName = e.Course != null ? e.Course.Name : "",
                     CourseDescription = e.Course != null ? e.Course.Description : "",
@@ -392,6 +393,7 @@ public class CoursesController : ControllerBase
             .Select(e => new
             {
                 e.Id,
+                e.StudentId,
                 e.CourseId,
                 CourseName = e.Course != null ? e.Course.Name : "",
                 CourseDescription = e.Course != null ? e.Course.Description : "",
