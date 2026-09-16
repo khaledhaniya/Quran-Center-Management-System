@@ -8667,6 +8667,7 @@ async function loadCourses() {
 
 async function loadCoursesList() {
     try {
+        ensureTeachersLoaded();
         const courses = await apiRequest("/courses");
         const container = document.getElementById("courses-cards-container");
         if (!container) return;
@@ -8696,7 +8697,7 @@ async function loadCoursesList() {
             const card = document.createElement("div");
             card.className = "course-card-2026";
             
-            const isSameSupervisor = c.teacherId && c.examSupervisorId && (c.teacherId === c.examSupervisorId);
+            const isSameSupervisor = c.teacherId && (c.examSupervisorId === c.teacherId || c.examSupervisorTeacherId === c.teacherId || (c.examSupervisorName && c.teacherName && c.examSupervisorName === c.teacherName));
 
             card.innerHTML = `
                 <div class="course-card-header-2026">
@@ -8745,7 +8746,7 @@ async function loadCoursesList() {
                     <button class="btn btn-light btn-sm rounded-pill px-3 border shadow-xs" onclick="showCourseEnrollmentsModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="رصد وعرض الدرجات والشهادات"><i class="fa-solid fa-marker text-warning me-1"></i> الدرجات</button>
 
                     ${isAdminOrDev ? `
-                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 ms-auto" onclick="showEditCourseSupervisorModal(${c.id}, '${c.name.replace(/'/g, "\\'")}', '${(c.description || '').replace(/'/g, "\\'")}', ${c.teacherId || 'null'}, ${c.examSupervisorId || 'null'})" title="تعديل وتحديد المشرف والمعلم"><i class="fa-solid fa-user-gear me-1"></i> المشرف والمعلم</button>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 ms-auto" onclick="showEditCourseSupervisorModal(${c.id}, '${c.name.replace(/'/g, "\\'")}', '${(c.description || '').replace(/'/g, "\\'")}', ${c.teacherId || 'null'}, ${c.examSupervisorTeacherId || c.examSupervisorId || 'null'})" title="تعديل وتحديد المشرف والمعلم"><i class="fa-solid fa-user-gear me-1"></i> المشرف والمعلم</button>
 
                         <button class="btn btn-outline-danger btn-sm rounded-pill px-3" onclick="confirmDeleteCourse(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="حذف الدورة نهائياً"><i class="fa-solid fa-trash-can me-1"></i> حذف الدورة</button>
                     ` : ''}
@@ -9034,9 +9035,30 @@ function printCertificate(elementId, studentName) {
     printWindow.document.close();
 }
 
-function showCreateCourseModal() {
+async function ensureTeachersLoaded() {
+    if (!cachedTeachers || cachedTeachers.length === 0) {
+        try {
+            cachedTeachers = await apiRequest("/teachers");
+        } catch(e) {
+            console.error("Failed to load teachers for course modal:", e);
+        }
+    }
+    return cachedTeachers || [];
+}
+
+async function showCreateCourseModal() {
     openModal("إضافة دورة أكاديمية جديدة");
     const content = document.getElementById("modal-body-content");
+    content.innerHTML = `
+        <div class="text-center p-4">
+            <i class="fa-solid fa-spinner fa-spin fa-2x text-success mb-2"></i>
+            <div class="fw-bold">جاري تحميل قائمة المشايخ والمعلمين والمشرفين...</div>
+        </div>
+    `;
+
+    const teachers = await ensureTeachersLoaded();
+    const activeTeachers = (teachers || []).filter(t => t.isActive !== false);
+
     content.innerHTML = `
         <form id="create-course-form">
             <div class="form-group mb-3">
@@ -9050,9 +9072,10 @@ function showCreateCourseModal() {
             <div class="form-group mb-3">
                 <label for="course-teacher-input" class="fw-bold"><i class="fa-solid fa-chalkboard-user text-success me-1"></i> الشيخ المعلم المحفّظ للدورة:</label>
                 <select id="course-teacher-input" class="form-control" required>
-                    <option value="">-- اختر الشيخ المعلم --</option>
-                    ${cachedTeachers.filter(t => t.isActive).map(t => `<option value="${t.id}">${t.fullName}</option>`).join('')}
+                    <option value="">-- اختر الشيخ المعلم المحفّظ --</option>
+                    ${activeTeachers.map(t => `<option value="${t.id}">فضيلة الشيخ / ${t.fullName}</option>`).join('')}
                 </select>
+                <small class="text-muted"><i class="fa-solid fa-info-circle me-1 text-primary"></i> حدد الشيخ المعلم المسؤول عن تدريس الدورة وإدارتها.</small>
             </div>
 
             <div class="form-group mb-3">
@@ -9061,8 +9084,9 @@ function showCreateCourseModal() {
                     <button type="button" class="btn btn-sm btn-outline-warning rounded-pill py-1 px-3 fw-bold" onclick="setSameSupervisorForCourse()"><i class="fa-solid fa-bolt me-1"></i> اجعل المعلم هو المشرف ذاته</button>
                 </div>
                 <select id="course-supervisor-input" class="form-control" required>
-                    <option value="">-- جاري تحميل المشرفين والمدرسين... --</option>
+                    <option value="">-- جاري تحميل المشرفين المعتمدين... --</option>
                 </select>
+                <small class="text-muted"><i class="fa-solid fa-clipboard-check me-1 text-warning"></i> يظهر المشرفون المختصون بالاختبارات المحددة صلاحياتهم في صفحة إدارة المعلمين، أو يمكنك جعل معلم الدورة مشرفاً ذاتياً.</small>
             </div>
 
             <div class="mt-4 d-flex justify-content-between">
@@ -9072,7 +9096,15 @@ function showCreateCourseModal() {
         </form>
     `;
 
-    populateCourseSupervisorsDropdown("course-supervisor-input");
+    await populateCourseSupervisorsDropdown("course-supervisor-input", null, "course-teacher-input");
+
+    const teacherSelect = document.getElementById("course-teacher-input");
+    if (teacherSelect) {
+        teacherSelect.addEventListener("change", () => {
+            const currentSupVal = document.getElementById("course-supervisor-input").value;
+            populateCourseSupervisorsDropdown("course-supervisor-input", currentSupVal, "course-teacher-input");
+        });
+    }
 
     document.getElementById("create-course-form").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -9086,7 +9118,7 @@ function showCreateCourseModal() {
                 name, 
                 description: desc, 
                 teacherId: parseInt(teacherId),
-                examSupervisorId: parseInt(supervisorId)
+                examSupervisorId: supervisorId ? parseInt(supervisorId) : null
             });
             showAlert("تم إنشاء الدورة التعليمية بنجاح.", "success");
             closeModal();
@@ -9095,9 +9127,19 @@ function showCreateCourseModal() {
     });
 }
 
-function showEditCourseSupervisorModal(courseId, courseName, courseDesc, currentTeacherId, currentSupervisorId) {
+async function showEditCourseSupervisorModal(courseId, courseName, courseDesc, currentTeacherId, currentSupervisorId) {
     openModal(`تحديد وتعديل مشرف ومعلم دورة: ${courseName}`);
     const content = document.getElementById("modal-body-content");
+    content.innerHTML = `
+        <div class="text-center p-4">
+            <i class="fa-solid fa-spinner fa-spin fa-2x text-success mb-2"></i>
+            <div class="fw-bold">جاري تحميل بيانات المعلمين والمشرفين...</div>
+        </div>
+    `;
+
+    const teachers = await ensureTeachersLoaded();
+    const activeTeachers = (teachers || []).filter(t => t.isActive !== false || t.id == currentTeacherId);
+
     content.innerHTML = `
         <form id="edit-course-form">
             <div class="form-group mb-3">
@@ -9112,7 +9154,7 @@ function showEditCourseSupervisorModal(courseId, courseName, courseDesc, current
                 <label for="edit-course-teacher-input" class="fw-bold"><i class="fa-solid fa-chalkboard-user text-success me-1"></i> الشيخ المعلم المحفّظ للدورة:</label>
                 <select id="edit-course-teacher-input" class="form-control" required>
                     <option value="">-- اختر الشيخ المعلم --</option>
-                    ${cachedTeachers.filter(t => t.isActive).map(t => `<option value="${t.id}" ${currentTeacherId == t.id ? 'selected' : ''}>${t.fullName}</option>`).join('')}
+                    ${activeTeachers.map(t => `<option value="${t.id}" ${currentTeacherId == t.id ? 'selected' : ''}>فضيلة الشيخ / ${t.fullName}</option>`).join('')}
                 </select>
             </div>
 
@@ -9124,6 +9166,7 @@ function showEditCourseSupervisorModal(courseId, courseName, courseDesc, current
                 <select id="edit-course-supervisor-input" class="form-control" required>
                     <option value="">-- جاري تحميل المشرفين والمدرسين... --</option>
                 </select>
+                <small class="text-muted"><i class="fa-solid fa-clipboard-check me-1 text-warning"></i> يظهر المشرفون المختصون بالاختبارات المحددة صلاحياتهم في صفحة إدارة المعلمين، أو يمكنك جعل معلم الدورة مشرفاً ذاتياً.</small>
             </div>
 
             <div class="mt-4 d-flex justify-content-between">
@@ -9133,7 +9176,15 @@ function showEditCourseSupervisorModal(courseId, courseName, courseDesc, current
         </form>
     `;
 
-    populateCourseSupervisorsDropdown("edit-course-supervisor-input", currentSupervisorId);
+    await populateCourseSupervisorsDropdown("edit-course-supervisor-input", currentSupervisorId, "edit-course-teacher-input");
+
+    const editTeacherSelect = document.getElementById("edit-course-teacher-input");
+    if (editTeacherSelect) {
+        editTeacherSelect.addEventListener("change", () => {
+            const currentSupVal = document.getElementById("edit-course-supervisor-input").value;
+            populateCourseSupervisorsDropdown("edit-course-supervisor-input", currentSupVal, "edit-course-teacher-input");
+        });
+    }
 
     document.getElementById("edit-course-form").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -9147,7 +9198,7 @@ function showEditCourseSupervisorModal(courseId, courseName, courseDesc, current
                 name, 
                 description: desc, 
                 teacherId: parseInt(teacherId),
-                examSupervisorId: parseInt(supervisorId)
+                examSupervisorId: supervisorId ? parseInt(supervisorId) : null
             });
             showAlert("تم تحديث الدورة الأكاديمية وتحديد المشرف والمعلم بنجاح.", "success");
             closeModal();
@@ -9159,64 +9210,138 @@ function showEditCourseSupervisorModal(courseId, courseName, courseDesc, current
 function setSameSupervisorForCourse() {
     const teacherSelect = document.getElementById("course-teacher-input");
     const supervisorSelect = document.getElementById("course-supervisor-input");
-    if (teacherSelect && supervisorSelect) {
-        if (!teacherSelect.value) {
-            showAlert("يرجى اختيار المعلم أولاً.", "warning");
-            return;
-        }
-        supervisorSelect.value = teacherSelect.value;
-        showAlert("تم تعيين معلم الدورة كمشرف للتقييم ذاته بنجاح.", "success");
+    if (!teacherSelect || !supervisorSelect) return;
+
+    const teacherId = teacherSelect.value;
+    if (!teacherId) {
+        showAlert("يرجى اختيار الشيخ المعلم المحفّظ للدورة أولاً.", "warning");
+        return;
     }
+
+    populateCourseSupervisorsDropdown("course-supervisor-input", teacherId, "course-teacher-input").then(() => {
+        supervisorSelect.value = teacherId;
+        const teacher = (cachedTeachers || []).find(t => t.id == teacherId);
+        const name = teacher ? teacher.fullName : "";
+        showAlert(`تم تعيين الشيخ (${name}) كمعلم للدورة ومشرف على اختباراتها ذاتياً بنجاح.`, "success");
+    });
 }
 
 function setSameSupervisorForEditCourse() {
     const teacherSelect = document.getElementById("edit-course-teacher-input");
     const supervisorSelect = document.getElementById("edit-course-supervisor-input");
-    if (teacherSelect && supervisorSelect) {
-        if (!teacherSelect.value) {
-            showAlert("يرجى اختيار المعلم أولاً.", "warning");
-            return;
-        }
-        supervisorSelect.value = teacherSelect.value;
-        showAlert("تم تعيين معلم الدورة كمشرف للتقييم ذاته بنجاح.", "success");
+    if (!teacherSelect || !supervisorSelect) return;
+
+    const teacherId = teacherSelect.value;
+    if (!teacherId) {
+        showAlert("يرجى اختيار الشيخ المعلم المحفّظ للدورة أولاً.", "warning");
+        return;
     }
+
+    populateCourseSupervisorsDropdown("edit-course-supervisor-input", teacherId, "edit-course-teacher-input").then(() => {
+        supervisorSelect.value = teacherId;
+        const teacher = (cachedTeachers || []).find(t => t.id == teacherId);
+        const name = teacher ? teacher.fullName : "";
+        showAlert(`تم تعيين الشيخ (${name}) كمعلم للدورة ومشرف على اختباراتها ذاتياً بنجاح.`, "success");
+    });
 }
 
-async function populateCourseSupervisorsDropdown(selectId = "course-supervisor-input", selectedVal = null) {
+async function populateCourseSupervisorsDropdown(selectId = "course-supervisor-input", selectedVal = null, teacherSelectId = "course-teacher-input") {
     const supervisorSelect = document.getElementById(selectId);
     if (!supervisorSelect) return;
 
     try {
-        const supervisorsList = await apiRequest("/users/supervisors").catch(() => []);
-        supervisorSelect.innerHTML = '<option value="">-- اختر مشرف التقييم --</option>';
+        await ensureTeachersLoaded();
+        const apiSupervisors = await apiRequest("/users/supervisors").catch(() => []);
+        
+        supervisorSelect.innerHTML = '<option value="">-- اختر مشرف التقييم والاختبارات --</option>';
 
-        if (supervisorsList.length > 0) {
-            const grpSv = document.createElement("optgroup");
-            grpSv.label = "مشرفو الاختبارات المعتمدون";
-            supervisorsList.forEach(sv => {
-                const opt = document.createElement("option");
-                opt.value = sv.id;
-                opt.textContent = sv.fullName;
-                if (selectedVal && selectedVal == sv.id) opt.selected = true;
-                grpSv.appendChild(opt);
-            });
-            supervisorSelect.appendChild(grpSv);
-        }
+        // 1. Identify Teachers with "مشرف اختبارات" permission from taskRole
+        const examSpecialistTeachers = (cachedTeachers || []).filter(t => {
+            if (t.isActive === false) return false;
+            const task = (t.taskRole || "").trim();
+            return task.includes("مشرف اختبارات") || task.includes("اختبار") || task.includes("امتحان");
+        });
 
-        if (cachedTeachers && cachedTeachers.length > 0) {
-            const grpTc = document.createElement("optgroup");
-            grpTc.label = "مشايخ ومعلمو المركز";
-            cachedTeachers.filter(t => t.isActive).forEach(t => {
+        const specialistGroup = document.createElement("optgroup");
+        specialistGroup.label = "⭐ المشرفون المختصون بالاختبارات (المعتمدون بصلاحيات إدارة المعلمين)";
+        
+        let hasSpecialists = false;
+
+        // Add from apiSupervisors
+        (apiSupervisors || []).forEach(sv => {
+            const opt = document.createElement("option");
+            opt.value = sv.teacherId || sv.id;
+            opt.textContent = `⭐ فضيلة الشيخ / ${sv.fullName} (مشرف اختبارات معتمد)`;
+            if (selectedVal && (selectedVal == sv.id || selectedVal == sv.teacherId)) {
+                opt.selected = true;
+            }
+            specialistGroup.appendChild(opt);
+            hasSpecialists = true;
+        });
+
+        // Add teachers who have taskRole with "مشرف اختبارات" but not already added
+        examSpecialistTeachers.forEach(t => {
+            const alreadyAdded = Array.from(specialistGroup.children).some(o => o.value == t.id);
+            if (!alreadyAdded) {
                 const opt = document.createElement("option");
                 opt.value = t.id;
-                opt.textContent = `${t.fullName} (معلم)`;
-                if (selectedVal && selectedVal == t.id) opt.selected = true;
-                grpTc.appendChild(opt);
-            });
-            supervisorSelect.appendChild(grpTc);
+                opt.textContent = `⭐ فضيلة الشيخ / ${t.fullName} (مشرف اختبارات معتمد)`;
+                if (selectedVal && selectedVal == t.id) {
+                    opt.selected = true;
+                }
+                specialistGroup.appendChild(opt);
+                hasSpecialists = true;
+            }
+        });
+
+        if (hasSpecialists) {
+            supervisorSelect.appendChild(specialistGroup);
         }
+
+        // 2. Course Teacher Option (Self-supervision)
+        const teacherSelect = document.getElementById(teacherSelectId);
+        const selectedTeacherId = teacherSelect ? teacherSelect.value : null;
+        if (selectedTeacherId) {
+            const courseTeacher = (cachedTeachers || []).find(t => t.id == selectedTeacherId);
+            if (courseTeacher) {
+                const selfGroup = document.createElement("optgroup");
+                selfGroup.label = "⚡ خيار الإشراف الذاتي (معلم الدورة نفسه)";
+                const selfOpt = document.createElement("option");
+                selfOpt.value = courseTeacher.id;
+                selfOpt.textContent = `⚡ الشيخ / ${courseTeacher.fullName} (معلم الدورة نفسه - مشرفاً للاختبار)`;
+                if (selectedVal && (selectedVal == courseTeacher.id)) {
+                    selfOpt.selected = true;
+                }
+                selfGroup.appendChild(selfOpt);
+                supervisorSelect.appendChild(selfGroup);
+            }
+        }
+
+        // 3. All other active teachers
+        const otherTeachers = (cachedTeachers || []).filter(t => {
+            if (t.isActive === false) return false;
+            const isSpecialist = examSpecialistTeachers.some(st => st.id == t.id);
+            return !isSpecialist;
+        });
+
+        if (otherTeachers.length > 0) {
+            const allTeachersGroup = document.createElement("optgroup");
+            allTeachersGroup.label = "👨‍🏫 بقية مشايخ ومعلمي المركز";
+            otherTeachers.forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.id;
+                opt.textContent = `الشيخ / ${t.fullName} (معلم)`;
+                if (selectedVal && selectedVal == t.id) {
+                    opt.selected = true;
+                }
+                allTeachersGroup.appendChild(opt);
+            });
+            supervisorSelect.appendChild(allTeachersGroup);
+        }
+
     } catch(e) {
-        supervisorSelect.innerHTML = '<option value="">فشل تحميل المشرفين</option>';
+        console.error("Error populating supervisors dropdown:", e);
+        supervisorSelect.innerHTML = '<option value="">فشل تحميل قائمة المشرفين</option>';
     }
 }
 

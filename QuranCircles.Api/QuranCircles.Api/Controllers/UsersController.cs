@@ -192,14 +192,49 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("supervisors")]
-    [RequireRole(UserRole.Developer, UserRole.Admin)]
+    [RequireRole(UserRole.Developer, UserRole.Admin, UserRole.Teacher, UserRole.ExamSupervisor)]
     public async Task<IActionResult> GetSupervisors()
     {
-        var supervisors = await _db.Users
+        var result = new List<object>();
+
+        // 1. Direct ExamSupervisor users
+        var userSupervisors = await _db.Users
             .Where(u => u.Role == UserRole.ExamSupervisor && u.IsActive)
-            .Select(u => new { u.Id, u.FullName, u.Username })
+            .Select(u => new
+            {
+                u.Id,
+                u.TeacherId,
+                u.FullName,
+                u.Username,
+                IsSpecialist = true
+            })
             .ToListAsync();
-        return Ok(supervisors);
+
+        result.AddRange(userSupervisors);
+
+        // 2. Teachers whose TaskRole in Teachers Management specifies exam supervision
+        var examTeachers = await _db.Teachers
+            .Where(t => t.IsActive && t.TaskRole != null &&
+                       (t.TaskRole.Contains("مشرف اختبارات") || t.TaskRole.Contains("اختبار") || t.TaskRole.Contains("امتحان")))
+            .ToListAsync();
+
+        foreach (var t in examTeachers)
+        {
+            var u = await _db.Users.FirstOrDefaultAsync(x => x.TeacherId == t.Id);
+            if (!userSupervisors.Any(us => us.TeacherId == t.Id || us.FullName == t.FullName))
+            {
+                result.Add(new
+                {
+                    Id = u?.Id ?? t.Id,
+                    TeacherId = (int?)t.Id,
+                    FullName = t.FullName,
+                    Username = u?.Username ?? t.IdentityNumber ?? "",
+                    IsSpecialist = true
+                });
+            }
+        }
+
+        return Ok(result);
     }
 }
 

@@ -44,7 +44,12 @@ public class CoursesController : ControllerBase
                 c.TeacherId,
                 TeacherName = c.Teacher != null ? c.Teacher.FullName : "بدون معلم",
                 c.ExamSupervisorId,
-                ExamSupervisorName = c.ExamSupervisor != null ? c.ExamSupervisor.FullName : "بدون مشرف",
+                ExamSupervisorTeacherId = c.ExamSupervisor != null ? c.ExamSupervisor.TeacherId : null,
+                ExamSupervisorName = c.ExamSupervisor != null 
+                    ? c.ExamSupervisor.FullName 
+                    : (c.ExamSupervisorId != null && _db.Teachers.Any(t => t.Id == c.ExamSupervisorId)
+                        ? _db.Teachers.First(t => t.Id == c.ExamSupervisorId).FullName
+                        : "بدون مشرف"),
                 c.IsActive,
                 EnrollmentCount = c.Enrollments.Count
             })
@@ -60,12 +65,14 @@ public class CoursesController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { Message = "اسم الدورة مطلوب." });
 
+        int? resolvedSupervisorId = await ResolveSupervisorUserIdAsync(dto.ExamSupervisorId);
+
         var course = new Course
         {
             Name = dto.Name,
             Description = dto.Description ?? string.Empty,
             TeacherId = dto.TeacherId,
-            ExamSupervisorId = dto.ExamSupervisorId,
+            ExamSupervisorId = resolvedSupervisorId,
             IsActive = true
         };
 
@@ -98,10 +105,12 @@ public class CoursesController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { Message = "اسم الدورة مطلوب." });
 
+        int? resolvedSupervisorId = await ResolveSupervisorUserIdAsync(dto.ExamSupervisorId);
+
         course.Name = dto.Name;
         course.Description = dto.Description ?? string.Empty;
         course.TeacherId = dto.TeacherId;
-        course.ExamSupervisorId = dto.ExamSupervisorId;
+        course.ExamSupervisorId = resolvedSupervisorId;
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
@@ -116,6 +125,43 @@ public class CoursesController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { Message = "تم تحديث بيانات الدورة والمشرف بنجاح.", Course = course });
+    }
+
+    private async Task<int?> ResolveSupervisorUserIdAsync(int? supervisorInputId)
+    {
+        if (!supervisorInputId.HasValue || supervisorInputId.Value <= 0)
+            return null;
+
+        int id = supervisorInputId.Value;
+
+        // 1. Is it an existing User Id?
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+        if (user != null) return user.Id;
+
+        // 2. Is it a Teacher Id that has a User account?
+        var userByTeacher = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == id);
+        if (userByTeacher != null) return userByTeacher.Id;
+
+        // 3. Is it an existing Teacher? Create linked user account so FK constraint holds cleanly
+        var teacher = await _db.Teachers.FindAsync(id);
+        if (teacher != null)
+        {
+            var newUser = new User
+            {
+                Username = !string.IsNullOrWhiteSpace(teacher.IdentityNumber) ? teacher.IdentityNumber : $"teacher_{teacher.Id}",
+                FullName = teacher.FullName,
+                Role = UserRole.Teacher,
+                TeacherId = teacher.Id,
+                PasswordHash = "AQAAAAIAAYagAAAAEJrM9mFp9G1Gv8eO6Wl1k6Y1U2Z7Q8W9E0R1T2Y3U4I5O6P7A8S9D0F1G2H3J4K5L6",
+                PlainPassword = "123",
+                IsActive = true
+            };
+            _db.Users.Add(newUser);
+            await _db.SaveChangesAsync();
+            return newUser.Id;
+        }
+
+        return null;
     }
 
     [HttpDelete("{id:int}")]
