@@ -171,6 +171,14 @@ public class CircleService
         if (s is null) return (false, "الطالب غير موجود.");
         if (!s.IsActive) return (false, "لا يمكن إضافة طالب غير مفعّل.");
 
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync();
+        int maxCap = (settings != null && settings.MaxStudentsPerCircle > 0) ? settings.MaxStudentsPerCircle : 20;
+        int currentCount = await _db.Students.CountAsync(st => st.CircleId == circleId && st.IsActive);
+        if (currentCount >= maxCap)
+        {
+            return (false, $"الحلقة ممتلئة بالفعل ووصلت لسعتها القصوى ({maxCap} طلاب).");
+        }
+
         s.CircleId = circleId;
         await _db.SaveChangesAsync();
         return (true, null);

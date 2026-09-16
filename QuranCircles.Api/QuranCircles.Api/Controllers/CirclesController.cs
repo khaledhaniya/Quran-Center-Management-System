@@ -114,6 +114,9 @@ public class CirclesController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
 
+        var circle = await _db.Circles.Include(c => c.Teacher).FirstOrDefaultAsync(c => c.Id == id);
+        if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
+
         if (currentUser?.Role == UserRole.Teacher)
         {
             if (!settings.AllowTeacherSelfEnrollment)
@@ -121,16 +124,45 @@ public class CirclesController : ControllerBase
                 return BadRequest(new { error = "عذراً، تنسيب الطلاب بواسطة المعلم معطل حالياً من قبل إدارة المركز." });
             }
 
-            var circle = await _db.Circles.FindAsync(id);
-            if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
             if (circle.TeacherId != currentUser.TeacherId && circle.AssistantTeacherId != currentUser.TeacherId && circle.Teacher?.FullName != currentUser.FullName)
             {
                 return Forbid();
             }
         }
 
+        // 1. Enforce circle capacity limit
+        int maxCap = settings.MaxStudentsPerCircle > 0 ? settings.MaxStudentsPerCircle : 20;
+        int currentCount = await _db.Students.CountAsync(s => s.CircleId == id && s.IsActive);
+        if (currentCount >= maxCap)
+        {
+            return BadRequest(new { error = $"عذراً، لا يمكن تنسيب الطالب لأن الحلقة ممتلئة بالفعل ووصلت لسعتها القصوى المحددة ({maxCap} طلاب)." });
+        }
+
+        // 2. Check student existence and status
+        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == dto.StudentId);
+        if (student == null) return NotFound(new { error = "الطالب غير موجود." });
+        if (!student.IsActive) return BadRequest(new { error = "لا يمكن تنسيب طالب غير مفعّل." });
+
+        // 3. Forbid teacher from taking a student assigned to another circle
+        if (student.CircleId.HasValue)
+        {
+            if (student.CircleId.Value == id)
+            {
+                return BadRequest(new { error = "الطالب مُنسّب بالفعل في هذه الحلقة." });
+            }
+
+            if (currentUser?.Role == UserRole.Teacher)
+            {
+                var otherCircleName = student.Circle?.Name ?? "أخرى";
+                var otherTeacherName = student.Circle?.Teacher?.FullName ?? "معلم الحلقة";
+                return BadRequest(new { error = $"ممنوع: الطالب تم تنسيبه لحلقة أخرى ({otherCircleName}). إذا كنت تريده تواصل مع المعلم ({otherTeacherName}) أو إدارة المركز." });
+            }
+        }
+
         var (ok, error) = await _svc.AddStudentAsync(id, dto.StudentId);
         if (!ok) return BadRequest(new { error });
+
+        await AuditLogger.LogAsync(_db, HttpContext, "AssignStudentToCircle", $"تنسيب الطالب {student.FullName} للحلقة: {circle.Name}");
         return NoContent();
     }
 

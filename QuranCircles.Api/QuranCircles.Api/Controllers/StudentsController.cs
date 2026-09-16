@@ -191,7 +191,7 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> GetAllForEnrollment([FromQuery] string? search)
     {
-        var query = _db.Students.Include(s => s.Circle).AsQueryable();
+        var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
         {
             var q = search.Trim().ToLower();

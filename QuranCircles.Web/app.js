@@ -3996,6 +3996,14 @@ async function showTeacherEnrollExistingModal() {
                 <div id="teacher-enroll-results-container" style="max-height: 380px; overflow-y: auto;" class="border rounded-3 p-2 bg-light">
                     <p class="text-center text-muted my-4"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب كافة طلاب المركز...</p>
                 </div>
+
+                <!-- Footer with Dynamic Capacity and Cancel Button -->
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
+                    <div id="teacher-enroll-capacity-footer" class="small fw-bold"></div>
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 shadow-xs" onclick="closeModal()">
+                        <i class="fa-solid fa-xmark me-1"></i> إلغاء / إغلاق النافذة
+                    </button>
+                </div>
             </div>
         `;
 
@@ -4022,9 +4030,33 @@ async function showTeacherEnrollExistingModal() {
 
         let currentFilterStatus = "all";
 
+        const updateCapacityFooter = () => {
+            const circleSelect = document.getElementById("teacher-enroll-target-circle");
+            const footer = document.getElementById("teacher-enroll-capacity-footer");
+            if (!circleSelect || !footer) return;
+
+            const targetCircleId = parseInt(circleSelect.value);
+            const targetCircle = myCircles.find(c => c.id === targetCircleId);
+            const currentCount = allStudents.filter(s => s.circleId === targetCircleId && s.isActive !== false).length;
+            const maxCap = window.SYS_MAX_STUDENTS_CIRCLE || 20;
+            const isFull = currentCount >= maxCap;
+
+            footer.innerHTML = `
+                <span class="badge ${isFull ? 'bg-danger' : 'bg-success'} fs-6 px-3 py-2 rounded-pill shadow-xs">
+                    <i class="fa-solid ${isFull ? 'fa-triangle-exclamation' : 'fa-users'} me-1"></i>
+                    سعة حلقة (${escapeXml(targetCircle ? targetCircle.name : 'الحلقة')}): ${currentCount} / ${maxCap} طالب ${isFull ? '(الحلقة ممتلئة)' : ''}
+                </span>
+            `;
+            return { currentCount, maxCap, isFull };
+        };
+
         const renderResults = () => {
             const container = document.getElementById("teacher-enroll-results-container");
             if (!container) return;
+
+            const circleSelect = document.getElementById("teacher-enroll-target-circle");
+            const targetCircleId = circleSelect ? parseInt(circleSelect.value) : 0;
+            const capInfo = updateCapacityFooter() || { currentCount: 0, maxCap: 20, isFull: false };
 
             const searchInput = document.getElementById("teacher-enroll-search-input");
             const q = (searchInput ? searchInput.value : "").trim();
@@ -4056,7 +4088,38 @@ async function showTeacherEnrollExistingModal() {
             html += '<div class="list-group list-group-flush gap-2">';
             filtered.forEach(s => {
                 const hasCircle = s.circleId && s.circleId > 0 && s.circleName && s.circleName !== "غير مسند حلقة";
-                const currentCircle = hasCircle ? s.circleName : null;
+                const isAlreadyInThisCircle = (s.circleId === targetCircleId);
+                const isInAnotherCircle = hasCircle && !isAlreadyInThisCircle;
+
+                let actionButtonHtml = "";
+                if (isAlreadyInThisCircle) {
+                    actionButtonHtml = `
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-bold flex-shrink-0" disabled>
+                            <i class="fa-solid fa-check me-1"></i> مُنسّب بحلقتك
+                        </button>
+                    `;
+                } else if (isInAnotherCircle) {
+                    actionButtonHtml = `
+                        <button type="button" class="btn btn-outline-warning text-dark btn-sm rounded-pill px-3 fw-bold flex-shrink-0" onclick="warnStudentInOtherCircle('${s.fullName.replace(/'/g, "\\'")}', '${(s.circleName || '').replace(/'/g, "\\'")}', '${(s.teacherName || '').replace(/'/g, "\\'")}')" title="الطالب منسب لحلقة أخرى">
+                            <i class="fa-solid fa-lock me-1"></i> مُنسّب لحلقة أخرى
+                        </button>
+                    `;
+                } else {
+                    // Unassigned student
+                    if (capInfo.isFull) {
+                        actionButtonHtml = `
+                            <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold flex-shrink-0" disabled title="الحلقة ممتلئة بالكامل">
+                                <i class="fa-solid fa-ban me-1"></i> الحلقة ممتلئة
+                            </button>
+                        `;
+                    } else {
+                        actionButtonHtml = `
+                            <button type="button" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-xs flex-shrink-0 btn-enroll-action-${s.id}" onclick="executeTeacherStudentEnrollment(${s.id}, '${s.fullName.replace(/'/g, "\\'")}', this)">
+                                <i class="fa-solid fa-plus me-1"></i> تنسيب لحلقتي
+                            </button>
+                        `;
+                    }
+                }
 
                 html += `
                     <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 rounded-3 shadow-xs bg-white border">
@@ -4068,12 +4131,10 @@ async function showTeacherEnrollExistingModal() {
                             <div class="small text-muted mt-1 d-flex flex-wrap gap-2 align-items-center">
                                 <span class="badge bg-light text-secondary border">هوية: ${escapeXml(s.studentIdentityNumber || s.id)}</span>
                                 ${s.familyContact ? `<span class="badge bg-light text-muted border"><i class="fa-solid fa-phone me-1"></i>${escapeXml(s.familyContact)}</span>` : ''}
-                                ${currentCircle ? `<span class="badge bg-warning bg-opacity-25 text-dark border"><i class="fa-solid fa-mosque me-1"></i>الحلقة الحالية: ${escapeXml(currentCircle)}</span>` : '<span class="badge bg-success bg-opacity-25 text-success border"><i class="fa-solid fa-check me-1"></i>غير مسند حلقة</span>'}
+                                ${hasCircle ? `<span class="badge bg-warning bg-opacity-25 text-dark border"><i class="fa-solid fa-mosque me-1"></i>الحلقة: ${escapeXml(s.circleName)} ${s.teacherName ? `(الشيخ: ${escapeXml(s.teacherName)})` : ''}</span>` : '<span class="badge bg-success bg-opacity-25 text-success border"><i class="fa-solid fa-check me-1"></i>غير مسند حلقة</span>'}
                             </div>
                         </div>
-                        <button type="button" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-xs flex-shrink-0" onclick="executeTeacherStudentEnrollment(${s.id}, '${s.fullName.replace(/'/g, "\\'")}')">
-                            <i class="fa-solid fa-plus me-1"></i> ${currentCircle ? 'نقل وتنسيب لحلقتي' : 'تنسيب لحلقتي'}
-                        </button>
+                        ${actionButtonHtml}
                     </div>
                 `;
             });
@@ -4082,6 +4143,14 @@ async function showTeacherEnrollExistingModal() {
         };
 
         renderResults();
+
+        // When target circle changes, update capacity and re-render
+        const targetCircleSelect = document.getElementById("teacher-enroll-target-circle");
+        if (targetCircleSelect) {
+            targetCircleSelect.addEventListener("change", () => {
+                renderResults();
+            });
+        }
 
         let liveSearchTimer = null;
         const searchInput = document.getElementById("teacher-enroll-search-input");
@@ -4138,8 +4207,34 @@ async function showTeacherEnrollExistingModal() {
     }
 }
 
-// Execute the student enrollment into teacher's circle
-async function executeTeacherStudentEnrollment(studentId, studentName) {
+// Warning modal when trying to enroll student already in another circle
+function warnStudentInOtherCircle(studentName, circleName, teacherName) {
+    const displayTeacher = teacherName && teacherName !== "غير محدد" ? teacherName : "معلم الحلقة";
+    const displayCircle = circleName && circleName !== "غير مسند حلقة" ? circleName : "حلقة أخرى";
+    
+    if (typeof Swal !== "undefined") {
+        Swal.fire({
+            icon: "warning",
+            title: "ممنوع تنسيب الطالب",
+            html: `
+                <div style="text-align: right; direction: rtl; font-size: 0.95rem; line-height: 1.8;">
+                    <p class="mb-2">⚠️ <strong>ممنوع:</strong> الطالب <b>(${escapeXml(studentName)})</b> تم تنسيبه مسبقاً لحلقة <b>(${escapeXml(displayCircle)})</b>.</p>
+                    <div class="alert alert-warning py-2 px-3 border my-2">
+                        <i class="fa-solid fa-chalkboard-user me-1 text-warning"></i> الشيخ المعلم المسؤول: <strong>${escapeXml(displayTeacher)}</strong>
+                    </div>
+                    <p class="text-muted small mb-0">إذا كنت ترغب بنقل الطالب إلى حلقتك، يرجى التواصل والتنسيق مع فضيلة الشيخ <b>(${escapeXml(displayTeacher)})</b> أو مراجعة إدارة المركز.</p>
+                </div>
+            `,
+            confirmButtonText: "حسناً، فهمت",
+            confirmButtonColor: "#d97706"
+        });
+    } else {
+        showAlert(`ممنوع: الطالب تم تنسيبه لحلقة أخرى (${displayCircle}). إذا كنت تريده تواصل مع المعلم (${displayTeacher}) أو إدارة المركز.`, "warning");
+    }
+}
+
+// Execute the student enrollment into teacher's circle (Keeps modal open, updates immediately in background)
+async function executeTeacherStudentEnrollment(studentId, studentName, btnElement) {
     const circleSelect = document.getElementById("teacher-enroll-target-circle");
     if (!circleSelect || !circleSelect.value) {
         showAlert("الرجاء اختيار الحلقة أولاً.", "warning");
@@ -4148,32 +4243,53 @@ async function executeTeacherStudentEnrollment(studentId, studentName) {
     const circleId = parseInt(circleSelect.value);
     const circleName = circleSelect.options[circleSelect.selectedIndex].text;
 
+    // Check capacity client-side
+    const maxCap = window.SYS_MAX_STUDENTS_CIRCLE || 20;
+    const currentStudentsInTable = document.querySelectorAll("#teacher-students-table-body tr:not(.empty-row)").length;
+    
+    if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري التنسيب...';
+    }
+
     try {
         await apiRequest(`/circles/${circleId}/students`, "POST", { studentId: studentId });
 
-        closeModal();
-
-        if (typeof Swal !== "undefined") {
-            Swal.fire({
-                icon: "success",
-                title: "تم التنسيب بنجاح! 🎉",
-                html: `تم إضافة الطالب <b>${studentName}</b> إلى حلقة <b>${circleName}</b> بنجاح.`,
-                confirmButtonText: "رائع، حسناً",
-                confirmButtonColor: "#10b981"
-            });
-        } else {
-            showAlert(`تم تنسيب الطالب (${studentName}) إلى حلقة (${circleName}) بنجاح.`, "success");
+        // Update button in-place to show success and prevent double click
+        if (btnElement) {
+            btnElement.className = "btn btn-outline-success btn-sm rounded-pill px-3 fw-bold flex-shrink-0";
+            btnElement.innerHTML = '<i class="fa-solid fa-check me-1"></i> تم التنسيب بنجاح';
+            btnElement.disabled = true;
         }
 
-        // Refresh teacher views
+        // Show friendly alert/toast without closing the modal
+        showAlert(`تم تنسيب الطالب (${studentName}) إلى حلقة (${circleName}) بنجاح! 🎉`, "success");
+
+        // Refresh teacher views in the background immediately
         if (typeof loadTeacherStudentsTable === "function") loadTeacherStudentsTable();
         if (typeof loadAttendanceSheet === "function") loadAttendanceSheet();
         if (typeof loadAdminStudents === "function") loadAdminStudents();
+
+        // Update student in memory if available
+        const searchInput = document.getElementById("teacher-enroll-search-input");
+        const footer = document.getElementById("teacher-enroll-capacity-footer");
+        if (footer) {
+            // Re-fetch or trigger capacity update
+            setTimeout(() => {
+                if (typeof loadTeacherStudentsTable === "function") loadTeacherStudentsTable();
+            }, 300);
+        }
 
     } catch (err) {
         console.error("Error enrolling student:", err);
         const errMsg = err && err.error ? err.error : (err.message || "تعذر إتمام عملية التنسيب.");
         showAlert(errMsg, "danger");
+
+        // Restore button state on failure
+        if (btnElement) {
+            btnElement.disabled = false;
+            btnElement.innerHTML = '<i class="fa-solid fa-plus me-1"></i> تنسيب لحلقتي';
+        }
     }
 }
 
