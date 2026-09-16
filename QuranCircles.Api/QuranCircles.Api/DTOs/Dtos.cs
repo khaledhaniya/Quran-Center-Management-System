@@ -221,4 +221,5 @@ public class EvaluateExamDto
     public int MinorMistakes { get; set; }
     public double Grade { get; set; }
     public string? Notes { get; set; }
+    public string? Code2FA { get; set; }
 }
