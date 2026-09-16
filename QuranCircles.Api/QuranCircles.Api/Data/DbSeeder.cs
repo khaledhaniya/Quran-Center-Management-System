@@ -35,18 +35,7 @@ public static partial class DbSeeder
             });
         }
 
-        if (!db.Users.Any(u => u.Username.ToLower() == "wael"))
-        {
-            db.Users.Add(new User
-            {
-                Username = "wael",
-                PasswordHash = hasher.HashPassword("wael123"),
-                PlainPassword = "wael123",
-                Role = UserRole.ExamSupervisor,
-                FullName = "المشرف وائل هلية",
-                IsActive = true
-            });
-        }
+        // Note: Wael seed removed to prevent reviving deleted supervisor
         db.SaveChanges();
 
         // 2. استيراد بيانات الطلاب الأساسية لمرة واحدة فقط إذا كان جدول الطلاب فارغاً
@@ -83,6 +72,8 @@ public static partial class DbSeeder
         EnsureSeedTeachers(db);
         EnsureSeedTalents(db);
         EnsureSeedHuffaz(db);
+        CleanupWaelUser(db);
+        CleanupDuplicateCourses(db);
 
         if (isSqlite)
         {
@@ -1044,6 +1035,65 @@ public static partial class DbSeeder
         catch (Exception ex)
         {
             Console.WriteLine($"[Seeder Notice] Seeding Huffaz: {ex.Message}");
+        }
+    }
+
+    private static void CleanupWaelUser(AppDbContext db)
+    {
+        try
+        {
+            var waelUsers = db.Users.Where(u => u.Username.ToLower() == "wael" || (u.FullName != null && u.FullName.Contains("وائل هلية"))).ToList();
+            if (waelUsers.Any())
+            {
+                db.Users.RemoveRange(waelUsers);
+                db.SaveChanges();
+                Console.WriteLine("[Database] 🧹 Removed wael user permanently from database.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CleanupWaelUser Error] {ex.Message}");
+        }
+    }
+
+    private static void CleanupDuplicateCourses(AppDbContext db)
+    {
+        try
+        {
+            var duplicates = db.Courses
+                .Include(c => c.Enrollments)
+                .AsEnumerable()
+                .GroupBy(c => c.Name.Trim().ToLower())
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            foreach (var group in duplicates)
+            {
+                var toKeep = group.OrderByDescending(c => c.Enrollments.Count).ThenBy(c => c.Id).First();
+                var toRemove = group.Where(c => c.Id != toKeep.Id).ToList();
+
+                foreach (var r in toRemove)
+                {
+                    var enrollments = db.CourseEnrollments.Where(e => e.CourseId == r.Id).ToList();
+                    foreach (var e in enrollments)
+                    {
+                        if (!db.CourseEnrollments.Any(x => x.CourseId == toKeep.Id && x.StudentId == e.StudentId))
+                        {
+                            e.CourseId = toKeep.Id;
+                        }
+                        else
+                        {
+                            db.CourseEnrollments.Remove(e);
+                        }
+                    }
+                    db.Courses.Remove(r);
+                }
+            }
+            db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CleanupDuplicateCourses Error] {ex.Message}");
         }
     }
 }

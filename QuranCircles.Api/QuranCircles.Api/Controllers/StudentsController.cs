@@ -48,7 +48,7 @@ public class StudentsController : ControllerBase
 
     [HttpGet]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.Parent, UserRole.Student)]
-    public async Task<IActionResult> GetAll([FromQuery] string? search)
+    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? onlyCircle = null)
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
@@ -111,7 +111,7 @@ public class StudentsController : ControllerBase
                 var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
                 if (t != null) teacherId = t.Id;
             }
-            return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search));
+            return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search, onlyCircle == true));
         }
         return Ok(await _svc.GetAllAsync(search));
     }

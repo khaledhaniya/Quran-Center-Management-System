@@ -8694,7 +8694,18 @@ async function loadCoursesList() {
 
         const isAdminOrDev = (currentRole === "Admin" || currentRole === "Developer");
 
-        courses.forEach(c => {
+        // Deduplicate courses by trimmed name to ensure no duplicate cards appear
+        const seenCourseNames = new Set();
+        const uniqueCourses = [];
+        (courses || []).forEach(c => {
+            const key = (c.name || '').trim().toLowerCase();
+            if (!seenCourseNames.has(key)) {
+                seenCourseNames.add(key);
+                uniqueCourses.push(c);
+            }
+        });
+
+        uniqueCourses.forEach((c, index) => {
             const card = document.createElement("div");
             card.className = "course-card-2026";
             
@@ -8702,7 +8713,7 @@ async function loadCoursesList() {
 
             card.innerHTML = `
                 <div class="course-card-header-2026">
-                    <span class="course-id-badge"><i class="fa-solid fa-hashtag"></i> ${c.id}</span>
+                    <span class="course-id-badge"><i class="fa-solid fa-hashtag"></i> ${index + 1}</span>
                     <span class="badge ${c.isActive ? 'badge-success' : 'badge-danger'} px-3 py-2 rounded-pill fw-bold" style="font-size: 0.78rem;">
                         <i class="fa-solid ${c.isActive ? 'fa-circle-check' : 'fa-circle-xmark'} me-1"></i> ${c.isActive ? 'نشطة ومتاحة' : 'غير نشطة'}
                     </span>
@@ -10461,12 +10472,21 @@ async function updateNominateStudentsList() {
     try {
         if (type === "Quran") {
             const curUser = (typeof getCurrentUser === "function") ? getCurrentUser() : { teacherId: 0, fullName: "" };
-            const students = await apiRequest("/students");
+            const students = await apiRequest("/students?onlyCircle=true");
             studentSelect.innerHTML = '<option value="">-- اختر طالب من الحلقة --</option>';
             
-            let list = (students || []).filter(s => s.isActive !== false);
+            // Strictly filter: student must be active, must belong to a valid halaqah (not unassigned),
+            // and for teachers, must belong to their specific halaqah
+            let list = (students || []).filter(s => {
+                if (s.isActive === false) return false;
+                if (!s.circleId) return false;
+                if (s.circleName && (s.circleName.includes("غير مسند") || s.circleName.includes("بدون حلقة"))) return false;
+                if (currentRole === "Teacher" && curUser?.teacherId && s.teacherId && s.teacherId != curUser.teacherId) return false;
+                return true;
+            });
+
             if (list.length === 0) {
-                studentSelect.innerHTML = '<option value="">-- لا يوجد طلاب متاحين للترشيح حالياً --</option>';
+                studentSelect.innerHTML = '<option value="">-- لا يوجد طلاب مسندون لحلقتك القرآنية حالياً --</option>';
             } else {
                 list.forEach(s => {
                     const opt = document.createElement("option");

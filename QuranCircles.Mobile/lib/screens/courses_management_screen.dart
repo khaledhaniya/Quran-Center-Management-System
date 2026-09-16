@@ -795,7 +795,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                     color: AppTheme.primary,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: Text('#${c.id}', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  child: Text('#${index + 1}', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

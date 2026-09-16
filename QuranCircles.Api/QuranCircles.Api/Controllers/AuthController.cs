@@ -61,20 +61,6 @@ public class AuthController : ControllerBase
                 _db.Users.Add(user);
                 await _db.SaveChangesAsync();
             }
-            else if (uLower == "wael" && dto.Password == "wael123")
-            {
-                user = new User
-                {
-                    Username = "wael",
-                    FullName = "المشرف وائل هلية",
-                    Role = UserRole.ExamSupervisor,
-                    PasswordHash = _hasher.HashPassword("wael123"),
-                    PlainPassword = "wael123",
-                    IsActive = true
-                };
-                _db.Users.Add(user);
-                await _db.SaveChangesAsync();
-            }
             else if (uLower == "ahmad" && (dto.Password == "123456" || dto.Password == "ahmad123"))
             {
                 var firstTeacher = await _db.Teachers.FirstOrDefaultAsync();

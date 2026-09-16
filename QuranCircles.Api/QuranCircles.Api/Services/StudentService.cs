@@ -38,12 +38,19 @@ public class StudentService
         return students.Select(s => MapStudentToFullObject(s, s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null)).ToList();
     }
 
-    public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search)
+    public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search, bool onlyCircle = false)
     {
         var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
 
-        query = query.Where(s => (s.Circle != null && s.Circle.TeacherId == teacherId)
-            || _db.CourseEnrollments.Any(ce => ce.StudentId == s.Id && ce.Course != null && ce.Course.TeacherId == teacherId));
+        if (onlyCircle)
+        {
+            query = query.Where(s => s.Circle != null && s.Circle.TeacherId == teacherId);
+        }
+        else
+        {
+            query = query.Where(s => (s.Circle != null && s.Circle.TeacherId == teacherId)
+                || _db.CourseEnrollments.Any(ce => ce.StudentId == s.Id && ce.Course != null && ce.Course.TeacherId == teacherId));
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {

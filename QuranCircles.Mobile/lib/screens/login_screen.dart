@@ -245,11 +245,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () => _quickFill('admin', 'admin123'),
                     ),
                     ActionChip(
-                      avatar: const Icon(Icons.verified, size: 16, color: AppTheme.primary),
-                      label: const Text('مشرف (wael)'),
-                      onPressed: () => _quickFill('wael', 'wael123'),
-                    ),
-                    ActionChip(
                       avatar: const Icon(Icons.school, size: 16, color: AppTheme.primary),
                       label: const Text('المعلم (ahmad)'),
                       onPressed: () => _quickFill('ahmad', '123456'),
