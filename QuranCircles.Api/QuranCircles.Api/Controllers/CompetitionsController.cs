@@ -21,6 +21,7 @@ public class CompetitionsController : ControllerBase
     }
 
     [HttpGet("leaderboard")]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> GetLeaderboard()
     {
         var circles = await _db.Circles

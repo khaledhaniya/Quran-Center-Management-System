@@ -366,12 +366,15 @@ function setupAuth() {
 window.handleLogin = handleLogin;
 async function handleLogin(e) {
     if (e && e.preventDefault) e.preventDefault();
+    if (window._isLoggingIn) return false;
+    window._isLoggingIn = true;
     const usernameInput = (document.getElementById("login-username")?.value || "").trim();
     const passwordInput = (document.getElementById("login-password")?.value || "");
     const rememberMe = document.getElementById("remember-me-checkbox")?.checked || false;
     const errorContainer = document.getElementById("login-error-container");
     
     if (!usernameInput || !passwordInput) {
+        window._isLoggingIn = false;
         if (errorContainer) {
             errorContainer.innerHTML = `
                 <div class="alert alert-warning animate-shake" style="margin-top:0; margin-bottom:15px; padding: 10px 15px;" dir="rtl">
@@ -487,6 +490,7 @@ async function handleLogin(e) {
             `;
         }
     } finally {
+        window._isLoggingIn = false;
         clearInterval(timerInterval);
         if (submitBtn) {
             submitBtn.disabled = false;
@@ -699,6 +703,16 @@ function updateSidebarMenu() {
         const studentEl = document.querySelector(".student-links");
         if (studentEl) studentEl.classList.remove("hidden");
         if (sharedEl) sharedEl.classList.remove("hidden");
+    }
+
+    // Strict Role-based access control for Competitions Leaderboard: Teachers, Admins, Developers ONLY
+    const btnComp = document.getElementById("btn-competitions");
+    if (btnComp) {
+        if (currentRole === "Teacher" || currentRole === "Admin" || currentRole === "Developer") {
+            btnComp.classList.remove("hidden");
+        } else {
+            btnComp.classList.add("hidden");
+        }
     }
 }
 
@@ -1010,9 +1024,13 @@ function handleRouting() {
         loadAnnouncements();
     }
     else if (hash === "#competitions") {
-        document.getElementById("btn-competitions")?.classList.add("active");
-        document.getElementById("competitions-section")?.classList.remove("hidden");
-        loadCompetitions();
+        if (currentRole === "Teacher" || currentRole === "Admin" || currentRole === "Developer") {
+            document.getElementById("btn-competitions")?.classList.add("active");
+            document.getElementById("competitions-section")?.classList.remove("hidden");
+            loadCompetitions();
+        } else {
+            window.location.hash = defaultHash;
+        }
     }
     else if (hash === "#courses") {
         document.getElementById("btn-courses")?.classList.add("active");
@@ -9138,9 +9156,15 @@ function getHijriDateShort(date) {
         .trim();
 }
 
-// 2. FAITH TOAST NOTIFICATION
+// 2. FAITH TOAST NOTIFICATION (Single instance + debounced + 55+ authentic reflections)
+let _lastFaithToastTime = 0;
 function triggerFaithToast() {
     if (!authToken) return;
+
+    // Strict debounce: Prevent spamming / double toast within 4 seconds
+    const now = Date.now();
+    if (now - _lastFaithToastTime < 4000) return;
+    _lastFaithToastTime = now;
 
     // Check if container exists
     let container = document.getElementById("toast-container");
@@ -9149,6 +9173,9 @@ function triggerFaithToast() {
         container.id = "toast-container";
         document.body.appendChild(container);
     }
+
+    // Clean up any existing faith toasts to guarantee only 1 shows
+    container.querySelectorAll(".faith-toast").forEach(t => t.remove());
 
     const quotes = [
         "صلّ على النبي صلى الله عليه وسلم، تطيب بها القلوب وتُغفر بها الذنوب.",
@@ -9181,7 +9208,30 @@ function triggerFaithToast() {
         "يا حي يا قيوم برحمتك أستغيث، أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين.",
         "أفلا يتدبرون القرآن؟ اجعل من تلاوتك اليوم وقفة مع التفكر والخشوع.",
         "الدعاء هو العبادة، فلا تحرم نفسك وأهلك وبلدك من صالح دعائك اليوم.",
-        "رضيت بالله رباً، وبالإسلام ديناً، وبمحمد صلى الله عليه وسلم نبياً ورسولاً."
+        "رضيت بالله رباً، وبالإسلام ديناً، وبمحمد صلى الله عليه وسلم نبياً ورسولاً.",
+        "يُقال لقارئ القرآن يوم القيامة: اقرأ وارقَ ورتّل كما كنت ترتّل في الدنيا.",
+        "من أراد الدنيا فعليه بالقرآن، ومن أراد الآخرة فعليه بالقرآن، ومن أرادهما معاً فعليه بالقرآن.",
+        "قلوب أهل القرآن بيوت مضيئة، تحفّها الملائكة وتغشاها السكينة وتتنزل عليها الرحمات.",
+        "إذا أردت أن يكلمك الله فاقرأ القرآن، وإذا أردت أن تكلم الله فقم إلى الصلاة.",
+        "إن هذا القرآن مأدبة الله، فتعلّموا من مأدبته ما استطعتم.",
+        "تعاهدوا هذا القرآن، فوالذي نفس محمد بيده لهو أشد تفلتاً من الإبل في عُقُلها.",
+        "لا حسد إلا في اثنتين: رجل آتاه الله القرآن فهو يقوم به آناء الليل وآناء النهار.",
+        "مثل المؤمن الذي يقرأ القرآن مثل الأترجة، ريحها طيب وطعمها طيب.",
+        "اللهم ألبس والدينا تاج الوقار بحفظنا لكتابك العظيم، واجعلنا بارّين بهم.",
+        "يا حامل القرآن قد خصّك الرحمن بالفضل والإحسان، فطوبى لمن عاش في رحاب الآيات.",
+        "أعظم الكرامة لزوم الاستقامة، وأعظم الاستقامة عمارة الأوقات بالذكر وتلاوة القرآن.",
+        "كلما زاد تعلّقك بالمصحف كلما بورك لك في وقتك ورزقك وراحتك النفسية.",
+        "طهورٌ لقلبك، جلاءٌ لصدرك، شفيعٌ لك في حشرك.. هذا كتاب الله فتمسك به.",
+        "إنما العلم بالتعلم، وإنما الحلم بالتحلم، ومن يتحر الخير يُعطه.",
+        "من سلك طريقاً يطلب فيه علماً، سلك الله به طريقاً من طرق الجنة.",
+        "ما اجتمع قوم في بيت من بيوت الله يتلون كتاب الله ويتدارسونه بينهم إلا نزلت عليهم السكينة.",
+        "اللهم إنا نعوذ بك من علم لا ينفع، ومن قلب لا يخشع، ومن عين لا تدمع، ومن دعاء لا يُستجاب له.",
+        "كن على يقين بأن ما تزرعه اليوم في حفظ كتاب الله وتدبره ستجني ثماره نوراً وأمناً ورضواناً.",
+        "اللهم يسّر لحفاظ مركزنا إتمام حفظ كتابك والعمل بمحكمه والتمسك بسنة نبيك.",
+        "لا يزال لسانك رطباً من ذكر الله، فإنه حصن حصين وأجر عظيم.",
+        "من أحب القرآن أحب الله ورسوله، فاجعل كتاب الله أنيسك في الخلوات وجليسك في الساعات.",
+        "حفظ القرآن مشروع العمر، فاجعل لك كل يوم خطوة تقربك من التاج والنور المبين.",
+        "توكل على الحي الذي لا يموت، واعلم أن كل حرف ترتله يكتب لك به عشر حسنات إلى سبعمائة ضعف."
     ];
 
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
@@ -9215,64 +9265,302 @@ function triggerFaithToast() {
     }, 6000);
 }
 
-// 3. GAMIFICATION: COMPETITIONS & LEADERBOARD
+// 3. GAMIFICATION: COMPETITIONS & LEADERBOARD (2026 Grand Luxury Edition)
+let _currentLeaderboardData = [];
+let _currentLeaderboardFilter = "overall";
+
+window.filterCompetitionTable = function(filterType) {
+    _currentLeaderboardFilter = filterType || "overall";
+    document.querySelectorAll(".competition-filter-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.filter === _currentLeaderboardFilter);
+    });
+    renderCompetitionTable(_currentLeaderboardData, _currentLeaderboardFilter);
+};
+
+function renderCompetitionTable(board, filterKey = "overall") {
+    const tbody = document.getElementById("comprehensive-leaderboard-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (!board || board.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">لا توجد بيانات مسابقات حالياً.</td></tr>`;
+        return;
+    }
+
+    // Sort based on active filter key
+    const sorted = [...board].sort((a, b) => {
+        if (filterKey === "quran") return (b.quranScore || 0) - (a.quranScore || 0);
+        if (filterKey === "hadith") return (b.hadithScore || 0) - (a.hadithScore || 0);
+        if (filterKey === "courses") return (b.courseScore || 0) - (a.courseScore || 0);
+        if (filterKey === "attendance") return (b.attendanceScore || 0) - (a.attendanceScore || 0);
+        return (b.overallScore || 0) - (a.overallScore || 0);
+    });
+
+    sorted.forEach((item, index) => {
+        const tr = document.createElement("tr");
+
+        let rankBadge = "";
+        let rowClass = "";
+        let honorBadge = "";
+
+        if (index === 0) {
+            rankBadge = `<span class="badge bg-warning text-dark border border-warning rounded-circle p-2 shadow-xs" style="width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; font-size:1rem;"><i class="fa-solid fa-crown"></i></span>`;
+            rowClass = "table-warning bg-opacity-10";
+            honorBadge = `<span class="badge bg-warning text-dark border border-warning"><i class="fa-solid fa-crown me-1"></i> بطل المركز</span>`;
+        } else if (index === 1) {
+            rankBadge = `<span class="badge bg-secondary text-white rounded-circle p-2 shadow-xs" style="width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; font-size:0.95rem; background: #64748b !important;">#2</span>`;
+            rowClass = "";
+            honorBadge = `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary"><i class="fa-solid fa-medal me-1"></i> وصيف الصدارة</span>`;
+        } else if (index === 2) {
+            rankBadge = `<span class="badge bg-danger text-white rounded-circle p-2 shadow-xs" style="width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; font-size:0.95rem; background: #b45309 !important;">#3</span>`;
+            rowClass = "";
+            honorBadge = `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning"><i class="fa-solid fa-award me-1"></i> المركز الثالث</span>`;
+        } else if (index < 6) {
+            rankBadge = `<span class="badge bg-light text-dark border rounded-circle" style="width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; font-size:0.85rem; font-weight:700;">${index + 1}</span>`;
+            honorBadge = `<span class="badge bg-success bg-opacity-10 text-success border border-success">حلقة متميزة</span>`;
+        } else {
+            rankBadge = `<span class="badge bg-light text-muted border rounded-circle" style="width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; font-size:0.85rem;">${index + 1}</span>`;
+            honorBadge = `<span class="badge bg-light text-muted border">حلقة نشطة</span>`;
+        }
+
+        if (rowClass) tr.className = rowClass;
+
+        tr.innerHTML = `
+            <td>${rankBadge}</td>
+            <td class="text-start">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center" style="width: 34px; height: 34px; flex-shrink: 0;">
+                        <i class="fa-solid fa-mosque"></i>
+                    </div>
+                    <div>
+                        <strong class="d-block text-dark">${item.circleName}</strong>
+                        <small class="text-muted" style="font-size:0.75rem;">رقم الحلقة: #${item.circleId}</small>
+                    </div>
+                </div>
+            </td>
+            <td class="text-start">
+                <span class="fw-bold text-secondary"><i class="fa-solid fa-user-tie me-1 text-muted"></i> ${item.teacherName}</span>
+            </td>
+            <td>
+                <span class="badge bg-light text-dark border px-2 py-1">${item.studentCount} طلاب</span>
+            </td>
+            <td>
+                <span class="badge ${filterKey === 'quran' ? 'bg-success text-white' : 'bg-success bg-opacity-10 text-success'} px-2 py-1">
+                    ${Number(item.quranScore || 0).toLocaleString("ar-EG")} آية
+                </span>
+            </td>
+            <td>
+                <span class="badge ${filterKey === 'hadith' ? 'bg-info text-white' : 'bg-info bg-opacity-10 text-info'} px-2 py-1">
+                    ${item.hadithScore || 0} نقطة
+                </span>
+            </td>
+            <td>
+                <span class="badge ${filterKey === 'courses' ? 'bg-primary text-white' : 'bg-primary bg-opacity-10 text-primary'} px-2 py-1">
+                    ${item.courseScore || 0}%
+                </span>
+            </td>
+            <td>
+                <span class="badge ${filterKey === 'attendance' ? 'bg-warning text-dark' : 'bg-warning bg-opacity-10 text-dark'} px-2 py-1">
+                    ${item.attendanceScore || 0}%
+                </span>
+            </td>
+            <td class="bg-success bg-opacity-10">
+                <strong class="text-success fs-6">${item.overallScore || 0}</strong>
+                <small class="text-muted d-block" style="font-size:0.7rem;">نقطة درع</small>
+            </td>
+            <td>${honorBadge}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+function renderGrandPodium(board) {
+    const container = document.getElementById("grand-podium-container");
+    if (!container) return;
+
+    if (!board || board.length === 0) {
+        container.innerHTML = `<div class="text-center p-4 text-muted w-100"><i class="fa-solid fa-circle-info me-2"></i> لا توجد بيانات كافية لعرض منصة التتويج.</div>`;
+        return;
+    }
+
+    const first = board[0];
+    const second = board.length > 1 ? board[1] : null;
+    const third = board.length > 2 ? board[2] : null;
+
+    let html = '';
+
+    // In RTL display: Right pillar is Second (🥈), Center is First (🥇), Left is Third (🥉)
+    if (second) {
+        html += `
+            <div class="podium-item podium-silver">
+                <div class="podium-header-card">
+                    <div class="podium-crown-badge"><i class="fa-solid fa-medal"></i></div>
+                    <h4 class="podium-circle-name">${second.circleName}</h4>
+                    <span class="podium-teacher-name">بإشراف: ${second.teacherName}</span>
+                    <span class="podium-score-pill"><i class="fa-solid fa-shield-halved text-secondary"></i> ${second.overallScore} نقطة</span>
+                </div>
+                <div class="podium-pillar">
+                    <div class="podium-pillar-rank">2</div>
+                    <div class="podium-pillar-label"><i class="fa-solid fa-trophy me-1"></i> وصيف المركز (الفضة)</div>
+                    <div class="podium-mini-stats">
+                        <div class="podium-mini-row"><span>حفظ القرآن:</span> <strong>${Number(second.quranScore || 0).toLocaleString("ar-EG")} آية</strong></div>
+                        <div class="podium-mini-row"><span>الحديث النبوي:</span> <strong>${second.hadithScore || 0} نقطة</strong></div>
+                        <div class="podium-mini-row"><span>الانضباط:</span> <strong>${second.attendanceScore || 0}%</strong></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (first) {
+        html += `
+            <div class="podium-item podium-gold">
+                <div class="podium-header-card">
+                    <div class="podium-crown-badge"><i class="fa-solid fa-crown"></i></div>
+                    <h4 class="podium-circle-name" style="font-size:1.25rem; color:#0d5c3a;">${first.circleName}</h4>
+                    <span class="podium-teacher-name">بإشراف الشيخ: ${first.teacherName} (${first.studentCount} طلاب)</span>
+                    <span class="podium-score-pill"><i class="fa-solid fa-trophy text-warning"></i> ${first.overallScore} نقطة درع</span>
+                </div>
+                <div class="podium-pillar">
+                    <div class="podium-pillar-rank">1</div>
+                    <div class="podium-pillar-label"><i class="fa-solid fa-crown me-1"></i> بطل المركز المتصدر (الذهب)</div>
+                    <div class="podium-mini-stats">
+                        <div class="podium-mini-row"><span>حفظ القرآن:</span> <strong>${Number(first.quranScore || 0).toLocaleString("ar-EG")} آية</strong></div>
+                        <div class="podium-mini-row"><span>الحديث النبوي:</span> <strong>${first.hadithScore || 0} نقطة</strong></div>
+                        <div class="podium-mini-row"><span>معدل الدورات:</span> <strong>${first.courseScore || 0}%</strong></div>
+                        <div class="podium-mini-row"><span>نسبة الحضور:</span> <strong>${first.attendanceScore || 0}%</strong></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (third) {
+        html += `
+            <div class="podium-item podium-bronze">
+                <div class="podium-header-card">
+                    <div class="podium-crown-badge"><i class="fa-solid fa-award"></i></div>
+                    <h4 class="podium-circle-name">${third.circleName}</h4>
+                    <span class="podium-teacher-name">بإشراف: ${third.teacherName}</span>
+                    <span class="podium-score-pill"><i class="fa-solid fa-shield text-warning"></i> ${third.overallScore} نقطة</span>
+                </div>
+                <div class="podium-pillar">
+                    <div class="podium-pillar-rank">3</div>
+                    <div class="podium-pillar-label"><i class="fa-solid fa-award me-1"></i> المركز الثالث (البرونز)</div>
+                    <div class="podium-mini-stats">
+                        <div class="podium-mini-row"><span>حفظ القرآن:</span> <strong>${Number(third.quranScore || 0).toLocaleString("ar-EG")} آية</strong></div>
+                        <div class="podium-mini-row"><span>الحديث النبوي:</span> <strong>${third.hadithScore || 0} نقطة</strong></div>
+                        <div class="podium-mini-row"><span>الانضباط:</span> <strong>${third.attendanceScore || 0}%</strong></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderCategoryBreakdown(board) {
+    const renderList = (elementId, key, unit, badgeClass) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        el.innerHTML = "";
+
+        if (!board || board.length === 0) {
+            el.innerHTML = `<div class="text-center text-muted py-3 small">لا توجد بيانات متوفرة</div>`;
+            return;
+        }
+
+        const top5 = [...board].sort((a, b) => (b[key] || 0) - (a[key] || 0)).slice(0, 5);
+        const maxVal = Math.max(...top5.map(x => x[key] || 0), 1);
+
+        top5.forEach((item, idx) => {
+            const val = item[key] || 0;
+            const pct = Math.min(100, Math.round((val / maxVal) * 100));
+
+            let rankIcon = `#${idx + 1}`;
+            let rankColor = "bg-light text-dark";
+            if (idx === 0) { rankIcon = "🥇"; rankColor = "bg-warning bg-opacity-25 text-dark border border-warning"; }
+            else if (idx === 1) { rankIcon = "🥈"; rankColor = "bg-secondary bg-opacity-25 text-dark"; }
+            else if (idx === 2) { rankIcon = "🥉"; rankColor = "bg-danger bg-opacity-25 text-dark"; }
+
+            const div = document.createElement("div");
+            div.className = "category-rank-item";
+            div.innerHTML = `
+                <div class="d-flex align-items-center gap-2" style="flex:1; overflow:hidden;">
+                    <span class="category-rank-badge ${rankColor}">${rankIcon}</span>
+                    <div class="text-truncate">
+                        <strong class="d-block text-dark small text-truncate">${item.circleName}</strong>
+                        <small class="text-muted" style="font-size:0.7rem;">${item.teacherName}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2" style="width: 140px; justify-content: flex-end;">
+                    <div class="progress flex-grow-1" style="height: 6px; border-radius: 4px; background: #e2e8f0;">
+                        <div class="progress-bar ${badgeClass}" style="width: ${pct}%;"></div>
+                    </div>
+                    <span class="badge bg-white text-dark border shadow-2xs small" style="min-width: 60px; font-weight:700;">
+                        ${Number(val).toLocaleString("ar-EG")} ${unit}
+                    </span>
+                </div>
+            `;
+            el.appendChild(div);
+        });
+    };
+
+    renderList("category-quran-list", "quranScore", "آية", "bg-success");
+    renderList("category-hadith-list", "hadithScore", "نقطة", "bg-info");
+    renderList("category-courses-list", "courseScore", "%", "bg-primary");
+    renderList("category-attendance-list", "attendanceScore", "%", "bg-warning");
+}
+
 async function loadCompetitions() {
     try {
         const board = await apiRequest("/competitions/leaderboard");
-        
-        // Render Honor Board winner (First place)
-        const winner = board[0];
-        if (winner) {
-            document.getElementById("winner-circle-name").textContent = winner.circleName;
-            document.getElementById("winner-teacher-name").textContent = `بإشراف الشيخ: ${winner.teacherName} (${winner.studentCount} طلاب)`;
+        _currentLeaderboardData = board || [];
+
+        // 1. Update Stat Strip
+        if (_currentLeaderboardData.length > 0) {
+            const topCircle = _currentLeaderboardData[0];
+            const topEl = document.getElementById("strip-top-circle-name");
+            if (topEl) topEl.textContent = topCircle.circleName;
+            const topTchEl = document.getElementById("strip-top-circle-teacher");
+            if (topTchEl) topTchEl.textContent = `بإشراف الشيخ: ${topCircle.teacherName} (${topCircle.overallScore} نقطة)`;
+
+            const totalVerses = _currentLeaderboardData.reduce((acc, c) => acc + (c.quranScore || 0), 0);
+            const totalHadith = _currentLeaderboardData.reduce((acc, c) => acc + (c.hadithScore || 0), 0);
+            const avgAttendance = _currentLeaderboardData.reduce((acc, c) => acc + (c.attendanceScore || 0), 0) / _currentLeaderboardData.length;
+
+            const versesEl = document.getElementById("strip-total-verses");
+            if (versesEl) versesEl.textContent = Number(totalVerses).toLocaleString("ar-EG");
+
+            const hadithEl = document.getElementById("strip-total-hadith");
+            if (hadithEl) hadithEl.textContent = Number(totalHadith).toLocaleString("ar-EG");
+
+            const attEl = document.getElementById("strip-avg-attendance");
+            if (attEl) attEl.textContent = `${avgAttendance.toFixed(1)}%`;
         } else {
-            document.getElementById("winner-circle-name").textContent = "لا يوجد بيانات";
-            document.getElementById("winner-teacher-name").textContent = "";
+            const topEl = document.getElementById("strip-top-circle-name");
+            if (topEl) topEl.textContent = "لا يوجد حلقات حالياً";
+            const topTchEl = document.getElementById("strip-top-circle-teacher");
+            if (topTchEl) topTchEl.textContent = "";
         }
 
-        // Helper to fill category tables
-        const fillTable = (tableId, key, metricName) => {
-            const tbody = document.getElementById(tableId);
-            tbody.innerHTML = "";
+        // 2. Render Royal Grand Podium
+        renderGrandPodium(_currentLeaderboardData);
 
-            if (board.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">لا توجد بيانات حالياً.</td></tr>`;
-                return;
-            }
+        // 3. Render Comprehensive Leaderboard Table
+        renderCompetitionTable(_currentLeaderboardData, _currentLeaderboardFilter);
 
-            // Sort based on category key
-            const sorted = [...board].sort((a, b) => b[key] - a[key]);
-
-            sorted.forEach((item, index) => {
-                const tr = document.createElement("tr");
-                if (index === 0) tr.className = "winner-row";
-
-                let rankSymbol = index + 1;
-                if (index === 0) rankSymbol = `<i class="fa-solid fa-trophy trophy-gold" style="font-size:1.1rem;"></i>`;
-                else if (index === 1) rankSymbol = `<i class="fa-solid fa-trophy trophy-silver" style="font-size:1.1rem;"></i>`;
-                else if (index === 2) rankSymbol = `<i class="fa-solid fa-trophy trophy-bronze" style="font-size:1.1rem;"></i>`;
-
-                let val = item[key];
-                if (key === "attendanceScore") val = `${val}%`;
-
-                tr.innerHTML = `
-                    <td><strong>${rankSymbol}</strong></td>
-                    <td><strong>${item.circleName}</strong></td>
-                    <td><span class="text-muted small">${item.teacherName}</span></td>
-                    <td><span class="badge ${index === 0 ? 'badge-success' : 'badge-info'}">${val} ${metricName}</span></td>
-                `;
-                tbody.appendChild(tr);
-            });
-        };
-
-        // Fill all 4 leaderboards
-        fillTable("leaderboard-quran-body", "quranScore", "آية");
-        fillTable("leaderboard-hadith-body", "hadithScore", "نقطة");
-        fillTable("leaderboard-courses-body", "courseScore", "درجة");
-        fillTable("leaderboard-attendance-body", "attendanceScore", "");
+        // 4. Render Category Breakdown Cards
+        renderCategoryBreakdown(_currentLeaderboardData);
 
     } catch(e) {
-        console.error(e);
+        console.error("Error loading competitions:", e);
+        const tbody = document.getElementById("comprehensive-leaderboard-body");
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i> تعذر تحميل بيانات لوحة الصدارة: ${e.message || e}</td></tr>`;
+        }
     }
 }
 

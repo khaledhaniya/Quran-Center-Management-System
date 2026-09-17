@@ -82,6 +82,33 @@ public class ExamsController : ControllerBase
                 {
                     return BadRequest(new { Message = "الطالب غير مسجل في هذه الدورة." });
                 }
+
+                // Check Course Attendance threshold strictly for teachers
+                if (currentUser.Role == UserRole.Teacher)
+                {
+                    var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+                    int minAttendance = settings.MinAttendancePercentForExam;
+                    if (minAttendance > 0)
+                    {
+                        var courseRecords = await _db.CourseAttendances
+                            .Where(ca => ca.CourseId == dto.CourseId.Value && ca.StudentId == student.Id)
+                            .ToListAsync();
+
+                        if (courseRecords.Count > 0)
+                        {
+                            int presentCount = courseRecords.Count(ca => ca.Status == AttendanceStatus.Present || ca.Status == AttendanceStatus.Late);
+                            int totalSessions = courseRecords.Count;
+                            double attendanceRate = Math.Round((double)presentCount / totalSessions * 100, 1);
+
+                            if (attendanceRate < minAttendance)
+                            {
+                                return BadRequest(new { 
+                                    Message = $"لا يمكن لمعلم الدورة ترشيح الطالب للاختبار لتجاوزه نسبة الغياب المحددة (نسبة حضوره {attendanceRate}% والحد الأدنى المطلوب {minAttendance}%). يتطلب ترشيحه استثناءً وموافقة مباشرة من إدارة المركز." 
+                                });
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -431,21 +458,33 @@ public class ExamsController : ControllerBase
             nomination.Result.ExamDate = DateTime.UtcNow;
         }
 
-        nomination.Status = dto.Grade >= 60 ? "Completed" : "Failed";
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+        int passingScore = settings.PassingScoreThreshold > 0 ? settings.PassingScoreThreshold : 70;
+
+        nomination.Status = dto.Grade >= passingScore ? "Completed" : "Failed";
 
         // Sync with CourseEnrollment if this is a Course exam
-        if (nomination.CourseId.HasValue && dto.Grade >= 60)
+        if (nomination.CourseId.HasValue)
         {
             var enrollment = await _db.CourseEnrollments
                 .FirstOrDefaultAsync(e => e.CourseId == nomination.CourseId.Value && e.StudentId == nomination.StudentId);
             if (enrollment != null)
             {
                 enrollment.Grade = dto.Grade;
-                enrollment.Status = "Passed";
-                if (string.IsNullOrEmpty(enrollment.CertificateCode))
+                if (dto.Grade >= passingScore)
                 {
-                    enrollment.CertificateCode = $"CERT-{DateTime.Today.Year}{DateTime.Today.Month:00}-{new Random().Next(1000, 9999)}";
-                    enrollment.CertificateDate = DateOnly.FromDateTime(DateTime.Today);
+                    enrollment.Status = "Passed";
+                    if (string.IsNullOrEmpty(enrollment.CertificateCode))
+                    {
+                        enrollment.CertificateCode = $"CERT-{DateTime.Today.Year}{DateTime.Today.Month:00}-{new Random().Next(1000, 9999)}";
+                        enrollment.CertificateDate = DateOnly.FromDateTime(DateTime.Today);
+                    }
+                }
+                else
+                {
+                    enrollment.Status = "Failed";
+                    enrollment.CertificateCode = null;
+                    enrollment.CertificateDate = null;
                 }
             }
         }

@@ -639,10 +639,13 @@ public class CoursesController : ControllerBase
             return BadRequest(new { Message = "رمز التحقق الثنائي (2FA) غير صحيح. رمز التوجيه هو: 123456", Require2FA = true });
         }
 
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+        int passingScore = settings.PassingScoreThreshold > 0 ? settings.PassingScoreThreshold : 70;
+
         enrollment.Grade = dto.Grade;
         
         string oldStatus = enrollment.Status;
-        if (dto.Grade >= 60)
+        if (dto.Grade >= passingScore)
         {
             enrollment.Status = "Passed";
             if (string.IsNullOrEmpty(enrollment.CertificateCode))

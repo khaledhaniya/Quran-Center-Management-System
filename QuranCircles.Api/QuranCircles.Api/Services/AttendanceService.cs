@@ -30,6 +30,12 @@ public class AttendanceService
         {
             existing.Status = dto.Status; 
             await _db.SaveChangesAsync();
+
+            if (dto.Status == AttendanceStatus.Absent)
+            {
+                await CheckAndSendAbsenceWarningAsync(student, circle);
+            }
+
             return (Map(existing, student.FullName, circle.Name), null);
         }
 
@@ -42,7 +48,57 @@ public class AttendanceService
         };
         _db.Attendances.Add(a);
         await _db.SaveChangesAsync();
+
+        if (dto.Status == AttendanceStatus.Absent)
+        {
+            await CheckAndSendAbsenceWarningAsync(student, circle);
+        }
+
         return (Map(a, student.FullName, circle.Name), null);
+    }
+
+    private async Task CheckAndSendAbsenceWarningAsync(Student student, Circle circle)
+    {
+        try
+        {
+            var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+            if (settings.EnableAbsenceAutoAlert && settings.MaxAbsenceDaysWarning > 0)
+            {
+                var totalAbsences = await _db.Attendances.CountAsync(x => x.StudentId == student.Id && x.Status == AttendanceStatus.Absent);
+                if (totalAbsences >= settings.MaxAbsenceDaysWarning)
+                {
+                    var today = DateTime.UtcNow.Date;
+                    var alreadyWarnedToday = await _db.Announcements.AnyAsync(an =>
+                        an.TargetType == AnnouncementTarget.Student &&
+                        an.TargetId == student.Id &&
+                        an.Title.Contains("إنذار غياب") &&
+                        an.DateTimeSent >= today);
+
+                    if (!alreadyWarnedToday)
+                    {
+                        var template = !string.IsNullOrWhiteSpace(settings.AbsenceAlertTemplate)
+                            ? settings.AbsenceAlertTemplate
+                            : "نود إشعاركم بتكرار غياب الطالب/ة عن حلقة القرآن الكريم، نرجو المتابعة العاجلة مع إدارة المركز.";
+
+                        var warning = new Announcement
+                        {
+                            Title = $"⚠️ إنذار غياب رسمي ({totalAbsences} أيام غياب)",
+                            Content = $"تنبيه هام لولي أمر الطالب {student.FullName}: وصل عدد أيام غياب الطالب إلى {totalAbsences} أيام في حلقة {circle.Name} (الحد الأقصى المسموح به: {settings.MaxAbsenceDaysWarning} أيام). {template}",
+                            DateTimeSent = DateTime.UtcNow,
+                            TargetType = AnnouncementTarget.Student,
+                            TargetId = student.Id,
+                            SenderName = "إدارة المركز - نظام المتابعة والإنذار الآلي"
+                        };
+                        _db.Announcements.Add(warning);
+                        await _db.SaveChangesAsync();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Non-blocking for attendance recording
+        }
     }
 
     public async Task<List<AttendanceDto>> GetByStudentAsync(int studentId)
