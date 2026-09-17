@@ -515,38 +515,60 @@ public class StudentService
             .OrderByDescending(ce => ce.CertificateDate ?? ce.EnrollmentDate)
             .ToListAsync();
 
-        var examCerts = exams.Select(e => new {
-            e.Id,
-            e.StudentId,
-            StudentName = s.FullName,
-            e.NominationType,
-            CourseId = e.CourseId,
-            CourseName = e.Course?.Name ?? (e.NominationType == "Quran" ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : "مساق ودورة شرعية"),
-            TeacherName = e.Teacher?.FullName ?? teacherName,
-            JuzStart = e.JuzStart,
-            JuzEnd = e.JuzEnd,
-            FormattedDetails = e.NominationType == "Quran" ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : (e.Course?.Name ?? "مساق ودورة شرعية"),
-            Grade = e.Result?.Grade ?? 100.0,
-            ExamDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? e.NominationDate.ToString("yyyy-MM-dd"),
-            CertificateCode = $"CERT-EX-{1000 + e.Id}",
-            CertificateDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
-        }).ToList();
+        var passedCourseIds = passedCourses.Select(pc => pc.CourseId).ToHashSet();
 
-        var courseCerts = passedCourses.Select(pc => new {
-            Id = 10000 + pc.Id,
-            pc.StudentId,
-            StudentName = s.FullName,
-            NominationType = "Course",
-            CourseId = (int?)pc.CourseId,
-            CourseName = pc.Course?.Name ?? "دورة معتمدة",
-            TeacherName = pc.Course?.Teacher?.FullName ?? teacherName,
-            JuzStart = (int?)null,
-            JuzEnd = (int?)null,
-            FormattedDetails = $"دورة: {pc.Course?.Name ?? "مساق معتمد"}",
-            Grade = pc.Grade.HasValue ? (double)pc.Grade.Value : 90.0,
-            ExamDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? pc.EnrollmentDate.ToString("yyyy-MM-dd"),
-            CertificateCode = pc.CertificateCode ?? $"CERT-CR-{1000 + pc.Id}",
-            CertificateDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
+        // Include Quran exams, and course exams ONLY if not already represented in passedCourses
+        var examCerts = exams
+            .Where(e => e.NominationType == "Quran" || !e.CourseId.HasValue || !passedCourseIds.Contains(e.CourseId.Value))
+            .Select(e => {
+                var isQuran = e.NominationType == "Quran";
+                var exYear = e.ExamDate?.Year ?? DateTime.Today.Year;
+                var exMonth = e.ExamDate?.Month ?? DateTime.Today.Month;
+                var certCode = isQuran
+                    ? $"CERT-Q-{exYear}{exMonth:00}-{1000 + e.Id}"
+                    : $"CERT-C-{exYear}{exMonth:00}-{1000 + e.Id}";
+
+                return new {
+                    e.Id,
+                    e.StudentId,
+                    StudentName = s.FullName,
+                    e.NominationType,
+                    CourseId = e.CourseId,
+                    CourseName = e.Course?.Name ?? (isQuran ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : "مساق ودورة شرعية"),
+                    TeacherName = e.Teacher?.FullName ?? teacherName,
+                    JuzStart = e.JuzStart,
+                    JuzEnd = e.JuzEnd,
+                    FormattedDetails = isQuran ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : (e.Course?.Name ?? "مساق ودورة شرعية"),
+                    Grade = e.Result?.Grade ?? 100.0,
+                    ExamDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? e.NominationDate.ToString("yyyy-MM-dd"),
+                    CertificateCode = certCode,
+                    CertificateDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
+                };
+            }).ToList();
+
+        var courseCerts = passedCourses.Select(pc => {
+            var certYear = pc.CertificateDate?.Year ?? pc.EnrollmentDate.Year;
+            var certMonth = pc.CertificateDate?.Month ?? pc.EnrollmentDate.Month;
+            var certCode = !string.IsNullOrWhiteSpace(pc.CertificateCode)
+                ? pc.CertificateCode
+                : $"CERT-{certYear}{certMonth:00}-{1000 + pc.Id}";
+
+            return new {
+                Id = 10000 + pc.Id,
+                pc.StudentId,
+                StudentName = s.FullName,
+                NominationType = "Course",
+                CourseId = (int?)pc.CourseId,
+                CourseName = pc.Course?.Name ?? "دورة معتمدة",
+                TeacherName = pc.Course?.Teacher?.FullName ?? teacherName,
+                JuzStart = (int?)null,
+                JuzEnd = (int?)null,
+                FormattedDetails = $"دورة: {pc.Course?.Name ?? "مساق معتمد"}",
+                Grade = pc.Grade.HasValue ? (double)pc.Grade.Value : 90.0,
+                ExamDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? pc.EnrollmentDate.ToString("yyyy-MM-dd"),
+                CertificateCode = certCode,
+                CertificateDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
+            };
         }).ToList();
 
         var allCompletedCerts = examCerts.Concat(courseCerts).OrderByDescending(c => c.ExamDate).ToList();

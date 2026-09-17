@@ -5371,7 +5371,19 @@ async function showStudent360Modal(studentId) {
         const sessions = (data && (data.sessions || data.recentSessions)) || [];
         const centerAttendances = (data && (data.centerAttendance || data.attendance || data.attendances)) || [];
         const courseAttendances = (data && (data.courseAttendance || data.courseAttendances)) || [];
-        const allCertificates = (data && (data.completedExams || data.exams)) || [];
+        const rawCertificates = (data && (data.completedExams || data.exams)) || [];
+        const allCertificates = [];
+        const seenCertKeys = new Set();
+        rawCertificates.forEach(c => {
+            const isQuran = c.nominationType === "Quran";
+            const dedupKey = isQuran 
+                ? `quran_${c.juzStart || 1}_${c.juzEnd || 1}`
+                : `course_${c.courseId || c.courseName || c.formattedDetails}`;
+            if (!seenCertKeys.has(dedupKey)) {
+                seenCertKeys.add(dedupKey);
+                allCertificates.push(c);
+            }
+        });
         const talents = (data && data.talents) || [];
 
         const presentCount = (data && data.presentDays !== undefined) ? data.presentDays : centerAttendances.filter(a => a.status === 'Present' || a.status === 0 || a.statusText === 'حاضر').length;
@@ -5949,8 +5961,19 @@ async function downloadStudent360Pdf(studentId) {
         const completedPercent = Math.min(100, Math.round((completedCount / (targetAjzaa || 30)) * 100));
 
         const sessions = (data && (data.sessions || data.recentSessions)) || [];
-        const attendances = (data && (data.attendance || data.attendances || data.centerAttendance)) || [];
-        const completedExams = (data && (data.completedExams || data.exams)) || [];
+        const rawCompletedExams = (data && (data.completedExams || data.exams)) || [];
+        const completedExams = [];
+        const seenExamKeys = new Set();
+        rawCompletedExams.forEach(e => {
+            const isQuran = e.nominationType === "Quran";
+            const dedupKey = isQuran 
+                ? `quran_${e.juzStart || 1}_${e.juzEnd || 1}`
+                : `course_${e.courseId || e.courseName || e.formattedDetails}`;
+            if (!seenExamKeys.has(dedupKey)) {
+                seenExamKeys.add(dedupKey);
+                completedExams.push(e);
+            }
+        });
         const talents = (data && data.talents) || [];
 
         const presentCount = (data && data.presentDays !== undefined) ? data.presentDays : attendances.filter(a => a.status === 'Present' || a.status === 0 || a.statusText === 'حاضر').length;
@@ -9582,7 +9605,8 @@ async function loadPortfolio() {
                     const dedupKey = `quran_${sIdentifier}_${jStart}_${jEnd}`;
                     const juzText = (jStart === jEnd) ? `للجزء (${jStart}) من القرآن الكريم` : `للأجزاء من (${jStart}) إلى (${jEnd}) من القرآن الكريم`;
                     const cardTitle = (jStart === jEnd) ? `شهادة حفظ الجزء (${jStart})` : `شهادة حفظ الأجزاء (${jStart} - ${jEnd})`;
-                    const certCode = `QURAN-${1000 + n.id}`;
+                    const cYear = n.examDate ? new Date(n.examDate).getFullYear() : 2026;
+                    const certCode = `CERT-Q-${cYear}-${1000 + n.id}`;
                     
                     if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
                         uniqueCertsMap.set(dedupKey, {
@@ -9605,9 +9629,16 @@ async function loadPortfolio() {
                     const cTitle = (n.courseName || "الدورة العلمية التخصصية").trim();
                     const cIdentifier = (n.courseId ? String(n.courseId) : cTitle.toLowerCase()).trim();
                     const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
-                    const certCode = `CERT-CRS-${2000 + n.id}`;
 
-                    if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
+                    // Check if an enrollment exists with an official certificate code
+                    const matchingEnrollment = enrollments.find(e => 
+                        (e.courseId && n.courseId && String(e.courseId) === String(n.courseId)) &&
+                        ((e.studentId && n.studentId && String(e.studentId) === String(n.studentId)) || (e.studentName && n.studentName && e.studentName === n.studentName))
+                    );
+                    const cYear = n.examDate ? new Date(n.examDate).getFullYear() : 2026;
+                    const certCode = matchingEnrollment?.certificateCode || `CERT-C-${cYear}-${1000 + n.id}`;
+
+                    if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade <= gradeVal) {
                         uniqueCertsMap.set(dedupKey, {
                             id: `cert-exam-course-${n.id}`,
                             isQuran: false,
@@ -9638,9 +9669,11 @@ async function loadPortfolio() {
 
                 const gradeVal = parseFloat(e.grade);
                 const certDate = e.certificateDate ? new Date(e.certificateDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
-                const certCode = e.certificateCode || `CERT-${1000 + e.id}`;
+                const cYear = e.certificateDate ? new Date(e.certificateDate).getFullYear() : 2026;
+                const certCode = e.certificateCode || `CERT-C-${cYear}-${1000 + e.id}`;
 
-                if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
+                // Always prefer official enrollment record or higher grade
+                if (!uniqueCertsMap.has(dedupKey) || e.certificateCode || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
                     uniqueCertsMap.set(dedupKey, {
                         id: `cert-course-${e.id}`,
                         isQuran: false,
