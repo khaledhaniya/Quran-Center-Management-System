@@ -43,6 +43,7 @@ public class Student
     public DateOnly? PlanTargetDate { get; set; }
     public double DailyPacePages { get; set; } = 1.0;
     public string? CompletedAjzaa { get; set; } // Comma separated e.g. "30,29,28"
+    public string? PlanNotes { get; set; }
 
     // العلاقات
     public ICollection<RecitationSession> Sessions { get; set; } = new List<RecitationSession>();

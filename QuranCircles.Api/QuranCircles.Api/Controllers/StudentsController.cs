@@ -364,7 +364,8 @@ public class StudentsController : ControllerBase
         student.DailyPacePages = dto.DailyPacePages > 0 ? dto.DailyPacePages : 1.0;
         if (dto.CompletedAjzaa != null) student.CompletedAjzaa = dto.CompletedAjzaa;
         if (dto.PreviousQuranMemorization != null) student.PreviousQuranMemorization = dto.PreviousQuranMemorization;
-        if (dto.Notes != null) student.Notes = dto.Notes;
+        if (dto.PlanNotes != null) student.PlanNotes = dto.PlanNotes;
+        else if (dto.Notes != null && student.PlanNotes == null) student.PlanNotes = dto.Notes;
 
         await _db.SaveChangesAsync();
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateStudentPlan", $"تحديث خطة حفظ الطالب: {student.FullName} (نوع الخطة: {student.PlanType}، المستهدف: {student.TargetAjzaaCount} أجزاء)");
@@ -377,7 +378,8 @@ public class StudentsController : ControllerBase
             TargetAjzaaCount = student.TargetAjzaaCount,
             DailyPacePages = student.DailyPacePages,
             CompletedAjzaa = student.CompletedAjzaa,
-            PreviousQuranMemorization = student.PreviousQuranMemorization
+            PreviousQuranMemorization = student.PreviousQuranMemorization,
+            PlanNotes = student.PlanNotes
         });
     }
 
@@ -449,6 +451,7 @@ public record UpdateStudentPlanDto(
     double DailyPacePages,
     string? CompletedAjzaa,
     string? PreviousQuranMemorization = null,
+    string? PlanNotes = null,
     string? Notes = null
 );
 

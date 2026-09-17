@@ -4391,7 +4391,7 @@ async function showTeacherEditStudentPlanModal(studentId, studentName, currentPl
         const curDailyPace = student.dailyPacePages || 1.0;
         const curStartDate = student.planStartDate ? student.planStartDate.substring(0, 10) : new Date().toISOString().substring(0, 10);
         const curTargetDate = student.planTargetDate ? student.planTargetDate.substring(0, 10) : '';
-        const curNotes = student.notes || '';
+        const curPlanNotes = student.planNotes || '';
 
         modalBody.innerHTML = `
             <form id="teacher-edit-plan-form" class="p-2 p-md-3">
@@ -4526,10 +4526,11 @@ async function showTeacherEditStudentPlanModal(studentId, studentName, currentPl
                     </div>
                 </div>
 
-                <!-- Section 5: Teacher Notes & Recommendations -->
+                <!-- Section 5: Teacher Plan Notes & Recommendations -->
                 <div class="card p-3 mb-3 border-0 bg-light rounded-3 shadow-xs">
-                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-comment-dots text-info me-1"></i> توجيهات وملاحظات المحفظ للطالب وولي أمره:</label>
-                    <textarea id="tplan-notes" class="form-control" rows="3" placeholder="توجيهات المحفظ حول أحكام التجويد، مخارج الحروف، خطة المراجعة والتثبيت المنزلية...">${escapeXml(curNotes)}</textarea>
+                    <label class="form-label fw-bold text-dark"><i class="fa-solid fa-comment-dots text-info me-1"></i> توجيهات وملاحظات المحفظ حول الخطة القرآنية:</label>
+                    <textarea id="tplan-notes" class="form-control" rows="3" placeholder="توجيهات المحفظ حول أحكام التجويد، مخارج الحروف، خطة المراجعة والتثبيت المنزلية...">${escapeXml(curPlanNotes)}</textarea>
+                    <small class="text-muted mt-1 d-block"><i class="fa-solid fa-circle-info text-primary me-1"></i> هذه الملاحظات خاصة ومحصورة بالخطة القرآنية ومستقلة تماماً عن الملاحظات الشخصية للطالب في ملفه وبياناته العامة.</small>
                 </div>
 
                 <!-- Form Actions -->
@@ -4654,7 +4655,7 @@ async function showTeacherEditStudentPlanModal(studentId, studentName, currentPl
                     dailyPacePages: newDailyPace,
                     completedAjzaa: newCompletedAjzaa,
                     previousQuranMemorization: newMem,
-                    notes: newNotes
+                    planNotes: newNotes
                 };
 
                 await apiRequest(`/students/${studentId}/plan`, "PUT", payload);
@@ -5349,7 +5350,8 @@ async function showStudent360Modal(studentId) {
         const dailyPace = (data && data.dailyPacePages) || sInfo.dailyPacePages || 1.0;
         const planStartDate = (data && data.planStartDate) || sInfo.planStartDate || '-';
         const planTargetDate = (data && data.planTargetDate) || sInfo.planTargetDate || '-';
-        const notes = (data && data.notes) || sInfo.notes || '';
+        const planNotes = (data && data.planNotes) || sInfo.planNotes || '';
+        const personalNotes = (data && data.notes) || sInfo.notes || '';
 
         const planTypeMap = {
             "Standard": "مسار الحفظ القياسي (المعتمد)",
@@ -5554,11 +5556,19 @@ async function showStudent360Modal(studentId) {
                                     <span class="fw-bold text-danger font-monospace">${planTargetDate}</span>
                                 </div>
                                 <div class="mt-2">
-                                    <span class="text-muted small d-block mb-1"><i class="fa-solid fa-comment-dots text-info me-1"></i> توجيهات المحفظ للطالب:</span>
+                                    <span class="text-muted small d-block mb-1"><i class="fa-solid fa-comment-dots text-info me-1"></i> توجيهات وملاحظات المحفظ حول الخطة:</span>
                                     <div class="p-2 bg-white rounded border small text-dark" style="min-height: 48px;">
-                                        ${notes ? escapeXml(notes) : '<span class="text-muted fst-italic">لا توجد توجيهات مسجلة حالياً.</span>'}
+                                        ${planNotes ? escapeXml(planNotes) : '<span class="text-muted fst-italic">لا توجد توجيهات مسجلة حالياً للخطة.</span>'}
                                     </div>
                                 </div>
+                                ${personalNotes ? `
+                                <div class="mt-2 pt-2 border-top">
+                                    <span class="text-muted small d-block mb-1"><i class="fa-solid fa-address-card text-secondary me-1"></i> ملاحظات السجل الشخصي والعام للطالب:</span>
+                                    <div class="p-2 bg-white rounded border small text-muted">
+                                        ${escapeXml(personalNotes)}
+                                    </div>
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -12447,12 +12457,26 @@ function saveTeacherDayNote(dateStr, noteText) {
     localStorage.setItem(getTeacherDayNotesKey(), JSON.stringify(notes));
 }
 
+function formatRosterLocalDate(d) {
+    if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function onTeacherRosterDateInputChange() {
+    const periodSelect = document.getElementById("teacher-roster-period-select");
+    if (periodSelect && periodSelect.value !== 'custom') {
+        periodSelect.value = 'custom';
+        currentTeacherRecitationFilter.period = 'custom';
+    }
+}
+
 function onTeacherRosterPeriodChange(val) {
     currentTeacherRecitationFilter.period = val;
     const fromInput = document.getElementById("teacher-roster-from-date");
     const toInput = document.getElementById("teacher-roster-to-date");
-    const fromWrap = document.getElementById("teacher-roster-from-wrapper");
-    const toWrap = document.getElementById("teacher-roster-to-wrapper");
 
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -12463,11 +12487,29 @@ function onTeacherRosterPeriodChange(val) {
         if (toInput) toInput.value = '';
         currentTeacherRecitationFilter.fromDate = '';
         currentTeacherRecitationFilter.toDate = '';
+    } else if (val === 'today') {
+        const todayStr = formatRosterLocalDate(now);
+        if (fromInput) fromInput.value = todayStr;
+        if (toInput) toInput.value = todayStr;
+        currentTeacherRecitationFilter.fromDate = todayStr;
+        currentTeacherRecitationFilter.toDate = todayStr;
+    } else if (val === 'this_week') {
+        // Islamic / Arab week starting Saturday
+        const dayOfWeek = now.getDay(); // 0 is Sunday, 6 is Saturday
+        const diffToSaturday = (dayOfWeek + 1) % 7;
+        const saturday = new Date(now);
+        saturday.setDate(now.getDate() - diffToSaturday);
+        const fStr = formatRosterLocalDate(saturday);
+        const tStr = formatRosterLocalDate(now);
+        if (fromInput) fromInput.value = fStr;
+        if (toInput) toInput.value = tStr;
+        currentTeacherRecitationFilter.fromDate = fStr;
+        currentTeacherRecitationFilter.toDate = tStr;
     } else if (val === 'current_month') {
         const firstDay = new Date(currentYear, currentMonth, 1);
         const lastDay = new Date(currentYear, currentMonth + 1, 0);
-        const fStr = firstDay.toISOString().slice(0, 10);
-        const tStr = lastDay.toISOString().slice(0, 10);
+        const fStr = formatRosterLocalDate(firstDay);
+        const tStr = formatRosterLocalDate(lastDay);
         if (fromInput) fromInput.value = fStr;
         if (toInput) toInput.value = tStr;
         currentTeacherRecitationFilter.fromDate = fStr;
@@ -12475,30 +12517,13 @@ function onTeacherRosterPeriodChange(val) {
     } else if (val === 'last_month') {
         const firstDay = new Date(currentYear, currentMonth - 1, 1);
         const lastDay = new Date(currentYear, currentMonth, 0);
-        const fStr = firstDay.toISOString().slice(0, 10);
-        const tStr = lastDay.toISOString().slice(0, 10);
-        if (fromInput) fromInput.value = fStr;
-        if (toInput) toInput.value = tStr;
-        currentTeacherRecitationFilter.fromDate = fStr;
-        currentTeacherRecitationFilter.toDate = tStr;
-    } else if (val === 'month_8') {
-        // August
-        const fStr = `${currentYear}-08-01`;
-        const tStr = `${currentYear}-08-31`;
-        if (fromInput) fromInput.value = fStr;
-        if (toInput) toInput.value = tStr;
-        currentTeacherRecitationFilter.fromDate = fStr;
-        currentTeacherRecitationFilter.toDate = tStr;
-    } else if (val === 'month_9') {
-        // September
-        const fStr = `${currentYear}-09-01`;
-        const tStr = `${currentYear}-09-30`;
+        const fStr = formatRosterLocalDate(firstDay);
+        const tStr = formatRosterLocalDate(lastDay);
         if (fromInput) fromInput.value = fStr;
         if (toInput) toInput.value = tStr;
         currentTeacherRecitationFilter.fromDate = fStr;
         currentTeacherRecitationFilter.toDate = tStr;
     } else if (val === 'custom') {
-        // keep whatever inputs have
         if (fromInput) currentTeacherRecitationFilter.fromDate = fromInput.value;
         if (toInput) currentTeacherRecitationFilter.toDate = toInput.value;
     }
@@ -12516,6 +12541,25 @@ function applyTeacherRosterDateFilter() {
         processAndRenderTeacherComprehensiveReport();
     } else {
         loadTeacherComprehensiveReport();
+    }
+}
+
+function toggleTeacherMatrixDetails(btn) {
+    const table = document.getElementById("teacher-recitation-matrix-table");
+    const textSpan = document.getElementById("toggle-matrix-details-text");
+    if (!table) return;
+
+    const isShown = table.classList.toggle("show-extra-info");
+    if (textSpan) {
+        textSpan.textContent = isShown ? "إخفاء البيانات الإضافية" : "إظهار بيانات الهوية والجوال";
+    }
+    if (btn) {
+        const icon = btn.querySelector("i");
+        if (icon) {
+            icon.className = isShown ? "fa-solid fa-eye-slash me-1" : "fa-solid fa-eye me-1";
+        }
+        btn.classList.toggle("btn-success", isShown);
+        btn.classList.toggle("btn-outline-dark", !isShown);
     }
 }
 
@@ -12954,9 +12998,9 @@ function renderTeacherRecitationMatrix(matrix) {
                         <span>${escapeHtml(row.fullName)}</span>
                     </div>
                 </td>
-                <td class="text-secondary small">${escapeHtml(row.studentIdentityNumber)}</td>
-                <td class="text-secondary small dir-ltr text-center">${escapeHtml(row.mobile)}</td>
-                <td class="text-muted small">${escapeHtml(row.dateOfBirth)}</td>
+                <td class="col-extra-info text-secondary small">${escapeHtml(row.studentIdentityNumber)}</td>
+                <td class="col-extra-info text-secondary small dir-ltr text-center">${escapeHtml(row.mobile)}</td>
+                <td class="col-extra-info text-muted small">${escapeHtml(row.dateOfBirth)}</td>
                 ${daysCells}
                 <td class="fw-bold text-success bg-light">${row.presentDays}</td>
                 <td class="fw-bold text-danger bg-light">${row.absentDays}</td>
@@ -12968,14 +13012,20 @@ function renderTeacherRecitationMatrix(matrix) {
     }).join('');
 
     const html = `
+        <div class="d-md-none bg-light border-bottom p-2 px-3 text-muted small d-flex justify-content-between align-items-center">
+            <span><i class="fa-solid fa-arrows-left-right text-success me-1"></i> اسحب أفقياً لعرض أيام التسميع والمراجعة</span>
+            <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 rounded-pill fw-bold" onclick="switchTeacherRosterView('cards')">
+                <i class="fa-solid fa-id-card me-1"></i> عرض الكروت
+            </button>
+        </div>
         <table id="teacher-recitation-matrix-table" class="recitation-matrix-table table table-bordered">
             <thead>
                 <tr>
                     <th rowspan="2" class="col-sticky-idx">#</th>
                     <th rowspan="2" class="col-sticky-name">اسم الطالب الرباعي</th>
-                    <th rowspan="2" style="min-width: 95px;">رقم الهوية</th>
-                    <th rowspan="2" style="min-width: 105px;">رقم الجوال</th>
-                    <th rowspan="2" style="min-width: 90px;">تاريخ الميلاد</th>
+                    <th rowspan="2" class="col-extra-info" style="min-width: 95px;">رقم الهوية</th>
+                    <th rowspan="2" class="col-extra-info" style="min-width: 105px;">رقم الجوال</th>
+                    <th rowspan="2" class="col-extra-info" style="min-width: 90px;">تاريخ الميلاد</th>
                     ${dateHeadersTier1}
                     <th colspan="5" class="bg-dark text-white">إحصائيات الفترة</th>
                 </tr>

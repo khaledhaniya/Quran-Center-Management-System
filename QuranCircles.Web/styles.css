@@ -5690,27 +5690,48 @@ body.dark-mode .cert-card-360 {
 }
 
 /* Sticky Frozen Columns in RTL (right-aligned) */
-.recitation-matrix-table th.col-sticky-idx,
+.recitation-matrix-table th.col-sticky-idx {
+    position: sticky;
+    right: 0;
+    z-index: 25 !important;
+    background-color: #0d5c3a !important;
+    color: #ffffff !important;
+    min-width: 40px;
+    max-width: 40px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+}
+
 .recitation-matrix-table td.col-sticky-idx {
     position: sticky;
     right: 0;
-    z-index: 4;
-    background-color: inherit;
+    z-index: 7 !important;
+    background-color: #ffffff !important;
     min-width: 40px;
     max-width: 40px;
-    box-shadow: -2px 0 5px rgba(0,0,0,0.03);
+    box-shadow: -2px 0 5px rgba(0,0,0,0.05);
 }
 
-.recitation-matrix-table th.col-sticky-name,
-.recitation-matrix-table td.col-sticky-name {
+.recitation-matrix-table th.col-sticky-name {
     position: sticky;
     right: 40px;
-    z-index: 4;
-    background-color: inherit;
+    z-index: 25 !important;
+    background-color: #0d5c3a !important;
+    color: #ffffff !important;
     min-width: 170px;
     max-width: 200px;
     text-align: right;
-    box-shadow: -3px 0 6px rgba(0,0,0,0.05);
+    box-shadow: -3px 0 8px rgba(0,0,0,0.08);
+}
+
+.recitation-matrix-table td.col-sticky-name {
+    position: sticky;
+    right: 40px;
+    z-index: 7 !important;
+    background-color: #ffffff !important;
+    min-width: 170px;
+    max-width: 200px;
+    text-align: right;
+    box-shadow: -3px 0 8px rgba(0,0,0,0.08);
 }
 
 .recitation-matrix-table tbody tr {
@@ -5724,7 +5745,51 @@ body.dark-mode .cert-card-360 {
 
 .recitation-matrix-table tbody tr:hover .col-sticky-idx,
 .recitation-matrix-table tbody tr:hover .col-sticky-name {
-    background-color: #f8fafc;
+    background-color: #f8fafc !important;
+}
+
+/* Mobile Responsiveness for Recitation Matrix */
+@media (max-width: 768px) {
+    .recitation-matrix-table {
+        font-size: 0.74rem;
+    }
+    .recitation-matrix-table th,
+    .recitation-matrix-table td {
+        padding: 5px 4px;
+    }
+    .recitation-matrix-table th.col-sticky-idx,
+    .recitation-matrix-table td.col-sticky-idx {
+        min-width: 32px !important;
+        max-width: 34px !important;
+        padding: 6px 2px !important;
+        font-size: 0.72rem !important;
+    }
+    .recitation-matrix-table th.col-sticky-name,
+    .recitation-matrix-table td.col-sticky-name {
+        right: 34px !important;
+        min-width: 115px !important;
+        max-width: 135px !important;
+        padding: 6px 4px !important;
+        font-size: 0.75rem !important;
+        white-space: normal !important;
+        line-height: 1.25 !important;
+    }
+    .rec-cell {
+        min-width: 75px !important;
+        max-width: 100px !important;
+        padding: 4px 2px !important;
+        font-size: 0.69rem !important;
+    }
+    .rec-date-header {
+        padding: 4px 2px !important;
+    }
+    /* Hide extra identification columns on mobile by default */
+    .recitation-matrix-table .col-extra-info {
+        display: none;
+    }
+    .recitation-matrix-table.show-extra-info .col-extra-info {
+        display: table-cell !important;
+    }
 }
 
 /* Date headers & Sub-columns */
@@ -5811,10 +5876,16 @@ body.dark-mode .recitation-matrix-table tbody tr {
     background-color: #0f172a;
 }
 
+body.dark-mode .recitation-matrix-table td.col-sticky-idx,
+body.dark-mode .recitation-matrix-table td.col-sticky-name {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
+
 body.dark-mode .recitation-matrix-table tbody tr:hover,
-body.dark-mode .recitation-matrix-table tbody tr:hover .col-sticky-idx,
-body.dark-mode .recitation-matrix-table tbody tr:hover .col-sticky-name {
-    background-color: #1e293b;
+body.dark-mode .recitation-matrix-table tbody tr:hover td.col-sticky-idx,
+body.dark-mode .recitation-matrix-table tbody tr:hover td.col-sticky-name {
+    background-color: #1e293b !important;
 }
 
 body.dark-mode .rec-memorized {

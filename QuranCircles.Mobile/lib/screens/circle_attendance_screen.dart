@@ -620,6 +620,11 @@ class _TeacherComprehensiveReportModalState extends State<_TeacherComprehensiveR
   }
 
   void _onPeriodChanged(String period) {
+    if (period == 'custom') {
+      _pickCustomDateRange();
+      return;
+    }
+
     setState(() {
       _selectedPeriod = period;
       final now = DateTime.now();
@@ -629,6 +634,14 @@ class _TeacherComprehensiveReportModalState extends State<_TeacherComprehensiveR
       if (period == 'all') {
         _fromDate = null;
         _toDate = null;
+      } else if (period == 'today') {
+        _fromDate = "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+        _toDate = _fromDate;
+      } else if (period == 'this_week') {
+        final daysFromSat = (now.weekday % 7 + 1) % 7;
+        final sat = now.subtract(Duration(days: daysFromSat));
+        _fromDate = "${sat.year.toString().padLeft(4, '0')}-${sat.month.toString().padLeft(2, '0')}-${sat.day.toString().padLeft(2, '0')}";
+        _toDate = "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       } else if (period == 'current_month') {
         final f = DateTime(year, month, 1);
         final t = DateTime(year, month + 1, 0);
@@ -639,15 +652,32 @@ class _TeacherComprehensiveReportModalState extends State<_TeacherComprehensiveR
         final t = DateTime(year, month, 0);
         _fromDate = "${f.year.toString().padLeft(4, '0')}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}";
         _toDate = "${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}";
-      } else if (period == 'month_8') {
-        _fromDate = "$year-08-01";
-        _toDate = "$year-08-31";
-      } else if (period == 'month_9') {
-        _fromDate = "$year-09-01";
-        _toDate = "$year-09-30";
       }
       _loadReport();
     });
+  }
+
+  Future<void> _pickCustomDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2023),
+      lastDate: DateTime(2030),
+      initialDateRange: DateTimeRange(
+        start: DateTime.now().subtract(const Duration(days: 14)),
+        end: DateTime.now(),
+      ),
+      helpText: 'اختر نطاق التاريخ للكشف',
+      cancelText: 'إلغاء',
+      confirmText: 'تطبيق',
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedPeriod = 'custom';
+        _fromDate = "${picked.start.year.toString().padLeft(4, '0')}-${picked.start.month.toString().padLeft(2, '0')}-${picked.start.day.toString().padLeft(2, '0')}";
+        _toDate = "${picked.end.year.toString().padLeft(4, '0')}-${picked.end.month.toString().padLeft(2, '0')}-${picked.end.day.toString().padLeft(2, '0')}";
+        _loadReport();
+      });
+    }
   }
 
   String _getArabicDayName(String dateStr) {
@@ -704,10 +734,16 @@ class _TeacherComprehensiveReportModalState extends State<_TeacherComprehensiveR
               child: Row(
                 children: [
                   _buildPeriodChip('all', 'كامل الفترة'),
+                  _buildPeriodChip('today', 'اليوم'),
+                  _buildPeriodChip('this_week', 'هذا الأسبوع'),
                   _buildPeriodChip('current_month', 'الشهر الحالي'),
                   _buildPeriodChip('last_month', 'الشهر السابق'),
-                  _buildPeriodChip('month_8', 'شهر 8 (أغسطس)'),
-                  _buildPeriodChip('month_9', 'شهر 9 (سبتمبر)'),
+                  _buildPeriodChip(
+                    'custom',
+                    (_selectedPeriod == 'custom' && _fromDate != null)
+                        ? '$_fromDate إلى $_toDate'
+                        : 'نطاق مخصص 📅',
+                  ),
                 ],
               ),
             ),

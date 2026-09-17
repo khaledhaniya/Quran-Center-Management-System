@@ -104,6 +104,7 @@ public class StudentService
         s.CurrentAddress,
         s.CurrentHousingType,
         s.Notes,
+        s.PlanNotes,
         s.TargetAjzaaCount,
         s.PlanType,
         PlanStartDate = s.PlanStartDate?.ToString("yyyy-MM-dd"),
@@ -617,6 +618,7 @@ public class StudentService
             s.CurrentAddress,
             s.CurrentHousingType,
             s.Notes,
+            s.PlanNotes,
             CircleName = s.Circle?.Name ?? "غير مسند",
             TeacherName = teacherName,
             TargetAjzaa = s.TargetAjzaaCount,
@@ -665,7 +667,8 @@ public class StudentService
                 PlanStartDate = s.PlanStartDate?.ToString("yyyy-MM-dd"),
                 PlanTargetDate = s.PlanTargetDate?.ToString("yyyy-MM-dd"),
                 CompletedAjzaa = s.CompletedAjzaa ?? "",
-                Notes = s.Notes
+                Notes = s.Notes,
+                PlanNotes = s.PlanNotes
             },
             RecentSessions = sessionsDto
         };

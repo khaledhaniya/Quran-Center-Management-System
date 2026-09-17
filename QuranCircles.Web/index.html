@@ -1539,33 +1539,38 @@
                     </div>
 
                     <!-- Date Range & Period Filter Bar -->
-                    <div class="card border-0 shadow-sm p-3 mb-4 rounded-3" style="background: #f8fafc; border: 1px solid #e2e8f0 !important;">
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-filter me-1 text-success"></i> تحديد النطاق الزمني / الشهر:</label>
+                    <div class="card border-0 shadow-sm p-3 mb-3 rounded-3" style="background: #f8fafc; border: 1px solid #e2e8f0 !important;">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-sm-6 col-md-3">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-calendar-days me-1 text-success"></i> تحديد النطاق الزمني:</label>
                                 <select id="teacher-roster-period-select" class="form-select form-select-sm fw-bold border-success" onchange="onTeacherRosterPeriodChange(this.value)">
                                     <option value="all">كامل الفترة المسجلة</option>
+                                    <option value="today">اليوم الحالي</option>
+                                    <option value="this_week">هذا الأسبوع</option>
                                     <option value="current_month">الشهر الحالي</option>
                                     <option value="last_month">الشهر السابق</option>
-                                    <option value="month_8">شهر 8 (أغسطس)</option>
-                                    <option value="month_9">شهر 9 (سبتمبر)</option>
                                     <option value="custom">نطاق مخصص (من تاريخ - إلى تاريخ)</option>
                                 </select>
                             </div>
-                            <div class="col-md-2" id="teacher-roster-from-wrapper">
-                                <label class="form-label small fw-bold text-muted mb-1">من تاريخ:</label>
-                                <input type="date" id="teacher-roster-from-date" class="form-control form-control-sm">
+                            <div class="col-6 col-sm-3 col-md-2" id="teacher-roster-from-wrapper">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-calendar-plus text-primary me-1"></i> من تاريخ:</label>
+                                <input type="date" id="teacher-roster-from-date" class="form-control form-control-sm" onchange="onTeacherRosterDateInputChange()">
                             </div>
-                            <div class="col-md-2" id="teacher-roster-to-wrapper">
-                                <label class="form-label small fw-bold text-muted mb-1">إلى تاريخ:</label>
-                                <input type="date" id="teacher-roster-to-date" class="form-control form-control-sm">
+                            <div class="col-6 col-sm-3 col-md-2" id="teacher-roster-to-wrapper">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-calendar-check text-danger me-1"></i> إلى تاريخ:</label>
+                                <input type="date" id="teacher-roster-to-date" class="form-control form-control-sm" onchange="onTeacherRosterDateInputChange()">
                             </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button class="btn btn-sm btn-success fw-bold w-100" onclick="applyTeacherRosterDateFilter()"><i class="fa-solid fa-magnifying-glass me-1"></i> تطبيق الفلترة</button>
+                            <div class="col-12 col-sm-6 col-md-2">
+                                <button class="btn btn-sm btn-success fw-bold w-100 shadow-xs" onclick="applyTeacherRosterDateFilter()">
+                                    <i class="fa-solid fa-magnifying-glass me-1"></i> تطبيق الفلترة
+                                </button>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-user-check me-1"></i> بحث سريع باسم الطالب:</label>
-                                <input type="text" id="teacher-roster-search-input" class="form-control form-control-sm" placeholder="ابحث باسم الطالب..." oninput="filterTeacherRosterRows(this.value)">
+                            <div class="col-12 col-sm-6 col-md-3">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fa-solid fa-user-check me-1 text-success"></i> بحث سريع باسم الطالب:</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-search text-muted"></i></span>
+                                    <input type="text" id="teacher-roster-search-input" class="form-control border-start-0" placeholder="ابحث باسم الطالب أو الهوية..." oninput="filterTeacherRosterRows(this.value)">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1602,17 +1607,22 @@
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <div class="btn-group p-1 bg-white border rounded-pill shadow-sm" role="group">
                             <button id="btn-view-recitation-matrix" class="btn btn-sm btn-success rounded-pill px-3 fw-bold active" onclick="switchTeacherRosterView('matrix')">
-                                <i class="fa-solid fa-table me-1"></i> مصفوفة التسميع اليومية (الحفظ الجديد والمراجعة)
+                                <i class="fa-solid fa-table me-1"></i> مصفوفة التسميع اليومية
                             </button>
                             <button id="btn-view-student-cards" class="btn btn-sm btn-outline-secondary border-0 rounded-pill px-3 fw-bold" onclick="switchTeacherRosterView('cards')">
-                                <i class="fa-solid fa-id-card me-1"></i> كروت الطلاب التراكمية
+                                <i class="fa-solid fa-id-card me-1"></i> كروت الطلاب التراكمية <span class="badge bg-success bg-opacity-25 text-success ms-1">📱 للجوال</span>
                             </button>
                         </div>
-                        <div class="small text-muted d-flex align-items-center gap-3">
-                            <span><span class="badge bg-success bg-opacity-25 text-success border border-success p-1 px-2">● تسميع منجز</span></span>
-                            <span><span class="badge bg-danger bg-opacity-25 text-danger border border-danger p-1 px-2">● لم يحفظ / لم يراجع</span></span>
-                            <span><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary p-1 px-2">● غياب</span></span>
-                            <span><span class="badge bg-warning bg-opacity-25 text-dark border border-warning p-1 px-2">● إجازة / دورة</span></span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button id="btn-toggle-matrix-details" class="btn btn-sm btn-outline-dark rounded-pill px-2 shadow-xs" onclick="toggleTeacherMatrixDetails(this)" title="إظهار/إخفاء أعمدة الهوية والجوال والميلاد">
+                                <i class="fa-solid fa-eye-slash me-1"></i> <span id="toggle-matrix-details-text">إخفاء البيانات الإضافية</span>
+                            </button>
+                            <div class="small text-muted d-flex align-items-center gap-2 flex-wrap">
+                                <span><span class="badge bg-success bg-opacity-25 text-success border border-success p-1 px-2">● تسميع منجز</span></span>
+                                <span><span class="badge bg-danger bg-opacity-25 text-danger border border-danger p-1 px-2">● لم يحفظ</span></span>
+                                <span><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary p-1 px-2">● غياب</span></span>
+                                <span><span class="badge bg-warning bg-opacity-25 text-dark border border-warning p-1 px-2">● إجازة</span></span>
+                            </div>
                         </div>
                     </div>
 

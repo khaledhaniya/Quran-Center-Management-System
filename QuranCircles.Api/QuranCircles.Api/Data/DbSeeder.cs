@@ -144,7 +144,8 @@ public static partial class DbSeeder
             ("OriginalHousingStatus", "NVARCHAR(100) NULL"),
             ("CurrentAddress", "NVARCHAR(255) NULL"),
             ("CurrentHousingType", "NVARCHAR(100) NULL"),
-            ("Notes", "NVARCHAR(MAX) NULL")
+            ("Notes", "NVARCHAR(MAX) NULL"),
+            ("PlanNotes", "NVARCHAR(MAX) NULL")
         };
 
         foreach (var (colName, colType) in studentColumns)
@@ -427,7 +428,8 @@ public static partial class DbSeeder
             ("OriginalHousingStatus", "TEXT"),
             ("CurrentAddress", "TEXT"),
             ("CurrentHousingType", "TEXT"),
-            ("Notes", "TEXT")
+            ("Notes", "TEXT"),
+            ("PlanNotes", "TEXT")
         };
 
         var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
