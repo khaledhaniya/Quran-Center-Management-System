@@ -9284,11 +9284,14 @@ async function loadCourses() {
     // Role based view scoping
     const isAcad = (currentRole === "Admin" || currentRole === "Developer" || currentRole === "Teacher");
     const addBtn = document.getElementById("btn-create-course-modal");
+    const exportBtn = document.getElementById("btn-export-courses-report");
     
     if (currentRole === "Admin" || currentRole === "Developer") {
         if (addBtn) addBtn.style.display = "inline-block";
+        if (exportBtn) exportBtn.style.display = "inline-flex";
     } else {
         if (addBtn) addBtn.style.display = "none";
+        if (exportBtn) exportBtn.style.display = "none";
     }
 
     // Default tab switcher visibility
@@ -9935,6 +9938,384 @@ function printCertificate(elementOrHtml, studentName) {
         </html>
     `);
     printWindow.document.close();
+}
+
+// -------------------------------------------------------------
+// COMPREHENSIVE COURSES & STUDENTS EXPORT ENGINE (.xlsx & .xls)
+// Admin and Developer Roles Only
+// -------------------------------------------------------------
+async function showCoursesExportModal() {
+    if (currentRole !== "Admin" && currentRole !== "Developer") {
+        showAlert("عذراً، هذه الميزة مخصصة للمطور والإدارة فقط.", "warning");
+        return;
+    }
+
+    Swal.fire({
+        title: '<i class="fa-solid fa-file-excel text-success me-2"></i> جاري تجهيز تقرير الدورات الشامل...',
+        html: '<div class="text-center p-3"><i class="fa-solid fa-circle-notch fa-spin fa-2x text-success mb-2"></i><p class="text-muted m-0">جاري تجميع بيانات الدورات والطلاب ولجان الاختبار والنتائج...</p></div>',
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
+    try {
+        const reportData = await apiRequest("/courses/comprehensive-report");
+        Swal.close();
+
+        if (!reportData || !reportData.courses || reportData.courses.length === 0) {
+            showAlert("لا توجد دورات مسجلة في النظام لتصديرها.", "info");
+            return;
+        }
+
+        Swal.fire({
+            title: '<i class="fa-solid fa-file-export text-success me-2"></i> تصدير إكسل للدورات والطلاب',
+            html: `
+                <div class="text-start rtl p-2" dir="rtl">
+                    <p class="text-muted mb-3 fs-6">
+                        تصدير شامل لجميع الدورات والمساقات الأكاديمية (<b>${reportData.totalCourses} دورة</b>، <b>${reportData.totalStudentsEnrolled} طالب مسجل</b>) متضمناً حالة النجاح والرسوب، المعلم، مشرف الاختبار، مواعيد ونتائج الاختبار، الأرقام والشهادات.
+                    </p>
+                    <div class="d-flex flex-column gap-3">
+                        <button id="btn-export-courses-xls" class="btn btn-outline-success p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2 shadow-sm">
+                            <div class="d-flex align-items-center gap-3">
+                                <div style="width: 44px; height: 44px; background: rgba(25, 135, 84, 0.12); color: #198754; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                    <i class="fa-solid fa-file-excel"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark fs-6">ملف إكسل منسق فاخر بالألوان (.xls)</div>
+                                    <small class="text-muted" style="font-size: 0.76rem;">تصميم فاخر بألوان وهوية المركز، مع ترويسات لكل دورة، وتمييز الناجحين والراسبين ومواعيد الاختبارات.</small>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-download text-success fs-5"></i>
+                        </button>
+
+                        <button id="btn-export-courses-xlsx" class="btn btn-outline-primary p-3 rounded-3 text-start d-flex align-items-center justify-content-between border-2 shadow-sm">
+                            <div class="d-flex align-items-center gap-3">
+                                <div style="width: 44px; height: 44px; background: rgba(13, 110, 253, 0.12); color: #0d6efd; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                    <i class="fa-solid fa-table-cells"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark fs-6">ملف إكسل قياسي حديث (.xlsx)</div>
+                                    <small class="text-muted" style="font-size: 0.76rem;">مصنف إكسل رسمي متعدد الأعمدة عبر SheetJS، جاهز للتحليل، التصفية والفرز الفوري.</small>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-download text-primary fs-5"></i>
+                        </button>
+                    </div>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: 560,
+            didOpen: () => {
+                document.getElementById("btn-export-courses-xls")?.addEventListener("click", () => {
+                    Swal.close();
+                    exportCoursesReportXls(reportData);
+                });
+                document.getElementById("btn-export-courses-xlsx")?.addEventListener("click", () => {
+                    Swal.close();
+                    exportCoursesReportXlsx(reportData);
+                });
+            }
+        });
+    } catch (err) {
+        console.error("Failed to load comprehensive courses report:", err);
+        showAlert("تعذر جلب تقرير الدورات الشامل: " + (err.message || err), "error");
+    }
+}
+
+// 1. Export Styled XML/HTML Courses Excel (.xls)
+function exportCoursesReportXls(reportData) {
+    if (!reportData || !reportData.courses || reportData.courses.length === 0) {
+        showAlert("لا توجد بيانات لتصديرها.", "warning");
+        return;
+    }
+
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
+    const nowStr = new Date().toLocaleDateString('ar-EG');
+    const totalCols = 18;
+
+    let coursesHtml = "";
+
+    reportData.courses.forEach((c, cIdx) => {
+        const cStatusBadge = c.isActive 
+            ? `<span style="background-color:#ecfdf5;color:#065f46;padding:2px 8px;border-radius:4px;font-weight:bold;">نشطة</span>`
+            : `<span style="background-color:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-weight:bold;">مؤرشفة</span>`;
+
+        coursesHtml += `
+            <tr style="height: 14px;"></tr>
+            <tr>
+                <th colspan="${totalCols}" style="background-color: #0d5c3a; color: #ffffff; font-size: 14px; padding: 8px 12px; text-align: right; font-weight: bold; border: 1px solid #064e3b;">
+                    📚 دورة (${cIdx + 1}): ${escapeHtml(c.courseName)} - ${cStatusBadge}
+                </th>
+            </tr>
+            <tr>
+                <td colspan="${totalCols}" style="background-color: #f8fafc; padding: 7px 10px; font-size: 12px; border: 1px solid #cbd5e1; line-height: 1.6;">
+                    <b>الشيخ المعلم:</b> ${escapeHtml(c.teacherName)} (${escapeHtml(c.teacherMobile)}) &nbsp;|&nbsp; 
+                    <b>مشرف الاختبار:</b> ${escapeHtml(c.examSupervisorName)} &nbsp;|&nbsp; 
+                    <b>إجمالي المسجلين:</b> <span style="color:#0f172a;font-weight:bold;">${c.totalEnrolled}</span> &nbsp;|&nbsp; 
+                    <b>الناجحون:</b> <span style="color:#059669;font-weight:bold;">${c.totalPassed}</span> &nbsp;|&nbsp; 
+                    <b>الراسبون:</b> <span style="color:#dc2626;font-weight:bold;">${c.totalFailed}</span> &nbsp;|&nbsp; 
+                    <b>قيد المتابعة:</b> <span style="color:#d97706;font-weight:bold;">${c.totalPending}</span>
+                </td>
+            </tr>
+            <thead>
+                <tr style="background-color: #1e293b; color: #ffffff; font-size: 11px;">
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">#</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: right; min-width: 140px;">اسم الطالب</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">رقم الهوية</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">رقم الجوال</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: right;">الحلقة</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">تاريخ التسجيل</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">حالة النتيجة</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">الدرجة</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">التقدير</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">كود الشهادة</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">تاريخ الشهادة</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">موعد الاختبار</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">حالة الاختبار</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">درجة الاختبار</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: right;">ملاحظات الاختبار</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">حضور</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">غياب</th>
+                    <th style="border: 1px solid #64748b; padding: 5px; text-align: center;">الالتزام %</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        if (c.students.length === 0) {
+            coursesHtml += `
+                <tr>
+                    <td colspan="${totalCols}" style="text-align: center; color: #94a3b8; padding: 12px; font-style: italic; border: 1px solid #e2e8f0;">
+                        لا يوجد طلاب ملتحقين بهذه الدورة حتى الآن.
+                    </td>
+                </tr>
+            `;
+        } else {
+            c.students.forEach((st, sIdx) => {
+                let statusBg = "#ffffff";
+                let statusColor = "#334155";
+                let statusBadgeText = st.statusArabic || st.status;
+
+                if (st.status === "Passed" || st.status === "Certified") {
+                    statusBg = "#ecfdf5";
+                    statusColor = "#065f46";
+                } else if (st.status === "Failed") {
+                    statusBg = "#fef2f2";
+                    statusColor = "#dc2626";
+                } else if (st.status === "Enrolled") {
+                    statusBg = "#eff6ff";
+                    statusColor = "#1d4ed8";
+                }
+
+                const attendancePct = st.totalCourseDays > 0 ? Math.round((st.presentDays / st.totalCourseDays) * 100) : 0;
+
+                coursesHtml += `
+                    <tr>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${sIdx + 1}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: right; font-weight: bold; padding: 5px;">${escapeHtml(st.studentName)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center;">${escapeHtml(st.studentIdentityNumber)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; direction: ltr;">${escapeHtml(st.studentMobile)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: right;">${escapeHtml(st.circleName)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center;">${escapeHtml(st.enrollmentDate)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold; background-color: ${statusBg}; color: ${statusColor};">${escapeHtml(statusBadgeText)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${st.grade !== null && st.grade !== undefined ? st.grade : "-"}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center;">${escapeHtml(st.evaluation)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-family: monospace;">${escapeHtml(st.certificateCode)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center;">${escapeHtml(st.certificateDate)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center;">${escapeHtml(st.examScheduledDate)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center;">${escapeHtml(st.examStatus)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${st.examScore !== null && st.examScore !== undefined ? st.examScore : "-"}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: right; font-size: 10px;">${escapeHtml(st.examNotes)}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: #059669;">${st.presentDays}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: #dc2626;">${st.absentDays}</td>
+                        <td style="border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${attendancePct}%</td>
+                    </tr>
+                `;
+            });
+        }
+        coursesHtml += `</tbody>`;
+    });
+
+    const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+            <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>تقرير الدورات والطلاب</x:Name><x:WorksheetOptions><x:DisplayRightToLeft/><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+            <style>
+                body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+                table { border-collapse: collapse; width: 100%; }
+                th, td { white-space: nowrap; font-family: 'Cairo', Tahoma, sans-serif; }
+            </style>
+        </head>
+        <body dir="rtl">
+            <table>
+                <tr>
+                    <th colspan="${totalCols}" style="background-color: #0d5c3a; color: #ffffff; font-size: 16px; padding: 12px; text-align: center; font-weight: bold;">
+                        ${escapeHtml(centerName)} - ${escapeHtml(mosqueName)}
+                    </th>
+                </tr>
+                <tr>
+                    <th colspan="${totalCols}" style="background-color: #10b981; color: #ffffff; font-size: 13px; padding: 8px; text-align: center; font-weight: bold;">
+                        التقرير الشامل للدورات العلمية والمساقات القرآنية وبيانات الطلاب والنتائج المعتمدة
+                    </th>
+                </tr>
+                <tr>
+                    <td colspan="${totalCols}" style="background-color: #f1f5f9; padding: 8px; font-size: 12px; text-align: center; border-bottom: 2px solid #0d5c3a;">
+                        <b>إجمالي الدورات:</b> ${reportData.totalCourses} &nbsp;|&nbsp; 
+                        <b>إجمالي الطلاب المسجلين:</b> ${reportData.totalStudentsEnrolled} &nbsp;|&nbsp; 
+                        <b>تاريخ التصدير:</b> ${nowStr}
+                    </td>
+                </tr>
+                ${coursesHtml}
+            </table>
+        </body>
+        </html>
+    `;
+
+    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    const fileName = `تقرير_الدورات_والطلاب_الشامل_${new Date().toISOString().slice(0, 10)}.xls`;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("تم تنزيل ملف الإكسل المنسق الفاخر للدورات بنجاح (.xls) 🎉", "success");
+}
+
+// 2. Export Standard OpenXML Courses Excel (.xlsx) using SheetJS
+function exportCoursesReportXlsx(reportData) {
+    if (typeof XLSX === 'undefined') {
+        showAlert("مكتبة تصدير الإكسل القياسي غير محملة، جاري التصدير بالصيغة المنسقة (.xls)", "info");
+        exportCoursesReportXls(reportData);
+        return;
+    }
+
+    if (!reportData || !reportData.courses || reportData.courses.length === 0) {
+        showAlert("لا توجد بيانات لتصديرها.", "warning");
+        return;
+    }
+
+    const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
+    const wb = XLSX.utils.book_new();
+    const aoa = [];
+
+    // Title rows
+    aoa.push([centerName]);
+    aoa.push(["التقرير الشامل للدورات العلمية والمساقات وبيانات الطلاب والنتائج والاختبارات"]);
+    aoa.push([`تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')} | إجمالي الدورات: ${reportData.totalCourses} | إجمالي المسجلين: ${reportData.totalStudentsEnrolled}`]);
+    aoa.push([]); // empty line
+
+    // Header columns
+    aoa.push([
+        "#",
+        "اسم الدورة",
+        "حالة الدورة",
+        "معلم الدورة",
+        "جوال المعلم",
+        "مشرف الاختبار",
+        "اسم الطالب",
+        "رقم الهوية",
+        "رقم الجوال",
+        "الحلقة التابع لها",
+        "تاريخ الالتحاق",
+        "حالة النتيجة",
+        "الدرجة",
+        "التقدير",
+        "كود الشهادة الرقمية",
+        "تاريخ إصدار الشهادة",
+        "موعد الاختبار الشفوي",
+        "حالة الاختبار",
+        "درجة الاختبار",
+        "ملاحظات الاختبار",
+        "أيام الحضور",
+        "أيام الغياب",
+        "أيام التأخر",
+        "نسبة الحضور %"
+    ]);
+
+    let seq = 1;
+    reportData.courses.forEach(c => {
+        const courseStatusText = c.isActive ? "نشطة" : "مؤرشفة";
+        if (c.students.length === 0) {
+            aoa.push([
+                seq++,
+                c.courseName,
+                courseStatusText,
+                c.teacherName,
+                c.teacherMobile,
+                c.examSupervisorName,
+                "لا يوجد طلاب مسجلين",
+                "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", 0, 0, 0, "0%"
+            ]);
+        } else {
+            c.students.forEach(st => {
+                const attPct = st.totalCourseDays > 0 ? Math.round((st.presentDays / st.totalCourseDays) * 100) : 0;
+                aoa.push([
+                    seq++,
+                    c.courseName,
+                    courseStatusText,
+                    c.teacherName,
+                    c.teacherMobile,
+                    c.examSupervisorName,
+                    st.studentName,
+                    st.studentIdentityNumber,
+                    st.studentMobile,
+                    st.circleName,
+                    st.enrollmentDate,
+                    st.statusArabic || st.status,
+                    st.grade !== null && st.grade !== undefined ? st.grade : "-",
+                    st.evaluation || "-",
+                    st.certificateCode || "-",
+                    st.certificateDate || "-",
+                    st.examScheduledDate || "-",
+                    st.examStatus || "-",
+                    st.examScore !== null && st.examScore !== undefined ? st.examScore : "-",
+                    st.examNotes || "-",
+                    st.presentDays,
+                    st.absentDays,
+                    st.lateDays,
+                    `${attPct}%`
+                ]);
+            });
+        }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 28 }, // Course Name
+        { wch: 10 }, // Course Status
+        { wch: 20 }, // Teacher
+        { wch: 15 }, // Teacher Mobile
+        { wch: 20 }, // Supervisor
+        { wch: 24 }, // Student Name
+        { wch: 16 }, // Identity
+        { wch: 16 }, // Mobile
+        { wch: 20 }, // Circle
+        { wch: 14 }, // Enroll Date
+        { wch: 14 }, // Result Status
+        { wch: 10 }, // Grade
+        { wch: 12 }, // Evaluation
+        { wch: 20 }, // Cert Code
+        { wch: 14 }, // Cert Date
+        { wch: 18 }, // Exam Date
+        { wch: 14 }, // Exam Status
+        { wch: 12 }, // Exam Score
+        { wch: 25 }, // Exam Notes
+        { wch: 10 }, // Present
+        { wch: 10 }, // Absent
+        { wch: 10 }, // Late
+        { wch: 12 }  // Attendance %
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "تقرير الدورات والطلاب");
+    const fileName = `مصنف_الدورات_والطلاب_الشامل_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    showToast("تم تنزيل مصنف الإكسل القياسي للدورات بنجاح (.xlsx) 🎉", "success");
 }
 
 async function ensureTeachersLoaded() {

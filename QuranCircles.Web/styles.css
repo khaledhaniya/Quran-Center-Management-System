@@ -6351,10 +6351,399 @@ body.dark-mode .plan-juz-btn:hover {
     margin-top: 3px;
 }
 
+/* ==========================================================================
+   2026 LUXURY REDESIGN: TEACHER COMPREHENSIVE ROSTER (كشف متابعة وتسميع الطلاب)
+   ========================================================================== */
 
+/* 1. Header Hero Banner Hub */
+.roster-header-hub-2026 {
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 50%, #ecfdf5 100%);
+    border: 1.5px solid rgba(13, 92, 58, 0.15);
+    border-radius: 20px;
+    padding: 22px 26px;
+    box-shadow: 0 10px 30px -10px rgba(13, 92, 58, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
 
+.roster-header-hub-2026::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -20%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+    pointer-events: none;
+}
 
+.roster-hub-icon-badge {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0d5c3a 0%, #10b981 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 1.6rem;
+    box-shadow: 0 8px 18px rgba(13, 92, 58, 0.25);
+    flex-shrink: 0;
+}
 
+.roster-hub-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #064e3b;
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+}
 
+.roster-hub-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(13, 92, 58, 0.1);
+    color: #0d5c3a;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
 
+.roster-action-btn-2026 {
+    border-radius: 12px !important;
+    padding: 9px 16px !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid transparent !important;
+}
 
+.roster-action-btn-2026:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+.roster-action-btn-2026:active {
+    transform: translateY(0);
+}
+
+.roster-btn-note {
+    background: #ffffff !important;
+    border-color: #f59e0b !important;
+    color: #b45309 !important;
+}
+
+.roster-btn-note:hover {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+.roster-btn-excel {
+    background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(13, 92, 58, 0.25) !important;
+}
+
+.roster-btn-print {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+}
+
+.roster-btn-refresh {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+}
+
+.roster-btn-refresh:hover i {
+    transform: rotate(180deg);
+    transition: transform 0.5s ease;
+}
+
+/* 2. Modern Filter Console */
+.roster-filter-console-2026 {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 18px 22px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    margin-bottom: 22px;
+    transition: all 0.3s ease;
+}
+
+.roster-filter-console-2026:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.roster-filter-label {
+    font-size: 0.80rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.roster-filter-input {
+    border-radius: 11px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    padding: 8px 12px !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    background-color: #ffffff !important;
+    transition: all 0.2s ease !important;
+    min-height: 40px !important;
+}
+
+.roster-filter-input:focus {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.15) !important;
+    outline: none !important;
+}
+
+.roster-filter-apply-btn {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    color: #ffffff !important;
+    border-radius: 11px !important;
+    padding: 8px 16px !important;
+    font-size: 0.88rem !important;
+    font-weight: 800 !important;
+    border: none !important;
+    min-height: 40px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25) !important;
+    transition: all 0.25s ease !important;
+    width: 100%;
+}
+
+.roster-filter-apply-btn:hover {
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+    transform: translateY(-1.5px);
+    box-shadow: 0 6px 14px rgba(5, 150, 105, 0.35) !important;
+}
+
+/* 3. Luxury 2026 KPI Stat Cards Grid */
+.roster-kpi-grid-2026 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+@media (max-width: 992px) {
+    .roster-kpi-grid-2026 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .roster-kpi-grid-2026 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+}
+
+.roster-kpi-card-2026 {
+    border-radius: 18px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    min-height: 125px;
+}
+
+.roster-kpi-card-2026:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.16);
+}
+
+.roster-kpi-card-2026::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
+    pointer-events: none;
+}
+
+/* Card Themes */
+.kpi-theme-emerald {
+    background: linear-gradient(135deg, #064e3b 0%, #047857 60%, #059669 100%);
+    color: #ffffff;
+}
+
+.kpi-theme-blue {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 60%, #2563eb 100%);
+    color: #ffffff;
+}
+
+.kpi-theme-purple {
+    background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 60%, #7c3aed 100%);
+    color: #ffffff;
+}
+
+.kpi-theme-amber {
+    background: linear-gradient(135deg, #78350f 0%, #b45309 60%, #d97706 100%);
+    color: #ffffff;
+}
+
+.roster-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.roster-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: #ffffff;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.roster-kpi-badge {
+    font-size: 0.70rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.95);
+    letter-spacing: 0.2px;
+}
+
+.roster-kpi-value {
+    font-size: 2.3rem;
+    font-weight: 900;
+    line-height: 1.1;
+    margin: 0;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.roster-kpi-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+    margin-top: 4px;
+}
+
+@media (max-width: 576px) {
+    .roster-kpi-card-2026 {
+        padding: 12px 14px;
+        min-height: 110px;
+        border-radius: 14px;
+    }
+    .roster-kpi-value {
+        font-size: 1.7rem;
+    }
+    .roster-kpi-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+    }
+    .roster-kpi-label {
+        font-size: 0.76rem;
+    }
+    .roster-hub-title {
+        font-size: 1.15rem;
+    }
+    .roster-header-hub-2026 {
+        padding: 16px;
+    }
+}
+
+/* 4. Luxury View Switcher & Legend Bar */
+.roster-tools-bar-2026 {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 12px 18px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+    margin-bottom: 20px;
+}
+
+.roster-segmented-tabs {
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 30px;
+    display: inline-flex;
+    border: 1px solid #e2e8f0;
+}
+
+.roster-seg-btn {
+    border-radius: 26px !important;
+    padding: 6px 18px !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    border: none !important;
+    background: transparent !important;
+    color: #475569 !important;
+    transition: all 0.25s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+}
+
+.roster-seg-btn.active {
+    background: linear-gradient(135deg, #0d5c3a 0%, #10b981 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(13, 92, 58, 0.25) !important;
+}
+
+.roster-legend-dot-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+}
+
+.roster-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Courses & Tracks Export Button & Modals */
+#btn-export-courses-report {
+    transition: all 0.25s ease;
+}
+
+#btn-export-courses-report:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(25, 135, 84, 0.2) !important;
+}

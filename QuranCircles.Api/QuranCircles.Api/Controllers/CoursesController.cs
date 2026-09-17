@@ -58,6 +58,123 @@ public class CoursesController : ControllerBase
         return Ok(courses);
     }
 
+    [HttpGet("comprehensive-report")]
+    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    public async Task<IActionResult> GetComprehensiveReport()
+    {
+        var courses = await _db.Courses
+            .Include(c => c.Teacher)
+            .Include(c => c.ExamSupervisor)
+            .Include(c => c.Enrollments)
+                .ThenInclude(e => e.Student)
+                    .ThenInclude(s => s!.Circle)
+            .ToListAsync();
+
+        var courseIds = courses.Select(c => c.Id).ToList();
+
+        // Get all nominations for these courses
+        var nominations = await _db.ExamNominations
+            .Include(n => n.Result)
+            .Where(n => n.CourseId.HasValue && courseIds.Contains(n.CourseId.Value))
+            .ToListAsync();
+
+        // Get all attendance records for these courses
+        var attendances = await _db.CourseAttendances
+            .Where(ca => courseIds.Contains(ca.CourseId))
+            .ToListAsync();
+
+        var report = courses.Select(c =>
+        {
+            var cSupervisorName = c.ExamSupervisor != null
+                ? c.ExamSupervisor.FullName
+                : (c.ExamSupervisorId != null && _db.Teachers.Any(t => t.Id == c.ExamSupervisorId)
+                    ? _db.Teachers.First(t => t.Id == c.ExamSupervisorId).FullName
+                    : "بدون مشرف");
+
+            var courseNoms = nominations.Where(n => n.CourseId == c.Id).ToList();
+            var courseAtts = attendances.Where(ca => ca.CourseId == c.Id).ToList();
+
+            var studentRows = c.Enrollments.Select(e =>
+            {
+                var st = e.Student;
+                var nom = courseNoms.FirstOrDefault(n => n.StudentId == e.StudentId);
+                var stAtts = courseAtts.Where(ca => ca.StudentId == e.StudentId).ToList();
+                int presentCount = stAtts.Count(a => a.Status == AttendanceStatus.Present);
+                int absentCount = stAtts.Count(a => a.Status == AttendanceStatus.Absent);
+                int lateCount = stAtts.Count(a => a.Status == AttendanceStatus.Late);
+
+                string statusDesc = e.Status switch
+                {
+                    "Passed" => "ناجح",
+                    "Failed" => "راسب",
+                    "Certified" => "مجاز بشهادة",
+                    _ => "قيد الدراسة"
+                };
+
+                string evaluation = "";
+                if (e.Grade.HasValue)
+                {
+                    double g = e.Grade.Value;
+                    if (g >= 90) evaluation = "ممتاز";
+                    else if (g >= 80) evaluation = "جيد جداً";
+                    else if (g >= 70) evaluation = "جيد";
+                    else if (g >= 60) evaluation = "مقبول";
+                    else evaluation = "راسب";
+                }
+
+                return new
+                {
+                    EnrollmentId = e.Id,
+                    StudentId = e.StudentId,
+                    StudentName = st != null ? st.FullName : "طالب غير معروف",
+                    StudentIdentityNumber = st?.StudentIdentityNumber ?? "-",
+                    StudentMobile = st?.StudentMobile ?? st?.FamilyContact ?? "-",
+                    CircleName = st?.Circle != null ? st.Circle.Name : "بدون حلقة",
+                    EnrollmentDate = e.EnrollmentDate.ToString("yyyy-MM-dd"),
+                    Status = e.Status,
+                    StatusArabic = statusDesc,
+                    Grade = e.Grade,
+                    Evaluation = evaluation,
+                    CertificateCode = e.CertificateCode ?? "-",
+                    CertificateDate = e.CertificateDate?.ToString("yyyy-MM-dd") ?? "-",
+                    ExamScheduledDate = nom?.ExamDate?.ToString("yyyy-MM-dd HH:mm") ?? "-",
+                    ExamStatus = nom != null ? (nom.Status switch { "Completed" => "مكتمل", "Scheduled" => "مجدول", "Cancelled" => "ملغي", _ => "قيد الانتظار" }) : "-",
+                    ExamScore = nom?.Result?.Grade,
+                    ExamNotes = nom?.Result?.Notes ?? "-",
+                    PresentDays = presentCount,
+                    AbsentDays = absentCount,
+                    LateDays = lateCount,
+                    TotalCourseDays = stAtts.Count
+                };
+            }).OrderBy(x => x.StudentName).ToList();
+
+            return new
+            {
+                CourseId = c.Id,
+                CourseName = c.Name,
+                Description = c.Description,
+                IsActive = c.IsActive,
+                TeacherName = c.Teacher != null ? c.Teacher.FullName : "بدون معلم",
+                TeacherMobile = c.Teacher != null ? (c.Teacher.WhatsappNumber ?? "-") : "-",
+                ExamSupervisorName = cSupervisorName,
+                TotalEnrolled = c.Enrollments.Count,
+                TotalPassed = c.Enrollments.Count(e => e.Status == "Passed" || e.Status == "Certified"),
+                TotalFailed = c.Enrollments.Count(e => e.Status == "Failed"),
+                TotalPending = c.Enrollments.Count(e => e.Status != "Passed" && e.Status != "Certified" && e.Status != "Failed"),
+                Students = studentRows
+            };
+        }).OrderByDescending(c => c.CourseId).ToList();
+
+        return Ok(new
+        {
+            CenterName = "مركز البيان القرآني",
+            GeneratedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+            TotalCourses = report.Count,
+            TotalStudentsEnrolled = report.Sum(r => r.TotalEnrolled),
+            Courses = report
+        });
+    }
+
     [HttpPost]
     [RequireRole(UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> Create([FromBody] CreateCourseDto dto)
