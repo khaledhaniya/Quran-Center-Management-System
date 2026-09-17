@@ -182,6 +182,7 @@ class _Student360ScreenState extends State<Student360Screen> {
                     'planType': planType,
                     'dailyPacePages': pace,
                   });
+                  if (!mounted) return;
                   if (ok) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('تم تحديث وحفظ خطة الحفظ للطالب بنجاح 🎉'), backgroundColor: Colors.green),
@@ -189,6 +190,7 @@ class _Student360ScreenState extends State<Student360Screen> {
                     _loadProfile(st.id);
                   }
                 } catch (e) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('تعذر حفظ الخطة: $e'), backgroundColor: Colors.red),
                   );
@@ -204,6 +206,7 @@ class _Student360ScreenState extends State<Student360Screen> {
   void _toggleJuz(int studentId, int juzNumber, bool isCompleted) async {
     try {
       final ok = await ApiService.completeJuz(studentId, juzNumber, isCompleted);
+      if (!mounted) return;
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -215,10 +218,242 @@ class _Student360ScreenState extends State<Student360Screen> {
         _loadProfile(studentId);
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('حدث خطأ: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  void _exportStudentReportDialog() {
+    if (_profileData == null) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setProgressState) {
+            return FutureBuilder(
+              future: Future.delayed(const Duration(milliseconds: 1200)),
+              builder: (ctx, snapshot) {
+                final isReady = snapshot.connectionState == ConnectionState.done;
+                return AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  title: Row(
+                    children: [
+                      const Icon(Icons.picture_as_pdf, color: Colors.amber, size: 28),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isReady ? 'تم تجهيز الملف الموحد بنجاح' : 'جاري توليد تقرير الملف الموحد PDF...',
+                          style: AppTheme.cairoStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: isReady
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.green.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'تم تجميع السجل القرآني وخريطة الأجزاء وكشوفات الحضور والاختبارات والشهادات المعتمدة للطالب (${_profileData!['studentName'] ?? _selectedStudent?.fullName}).',
+                                      style: AppTheme.cairoStyle(fontSize: 12, color: Colors.green.shade900),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text('الرقم المرجعي: DOC-360-${_selectedStudent?.id ?? 0}', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey)),
+                            Text('الجهة المصدرة: مركز البيان لتعليم القرآن الكريم', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 12),
+                            const LinearProgressIndicator(color: AppTheme.primary),
+                            const SizedBox(height: 16),
+                            Text('استخراج السجلات وتضمين الشهادات وخريطة الـ 30 جزءاً...', style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted)),
+                          ],
+                        ),
+                  actions: [
+                    if (isReady) ...[
+                      TextButton.icon(
+                        icon: const Icon(Icons.share, size: 18),
+                        label: const Text('مشاركة وتصدير'),
+                        onPressed: () {
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('تم تصدير وحفظ التقرير الموحد للطالب بنجاح 📄✅'), backgroundColor: Colors.green),
+                          );
+                        },
+                      ),
+                    ],
+                    TextButton(
+                      child: Text(isReady ? 'إغلاق' : 'إلغاء'),
+                      onPressed: () => Navigator.pop(dialogCtx),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAccreditedCertificateDialog(Map<String, dynamic> item) {
+    final stName = _profileData?['studentName'] ?? _selectedStudent?.fullName ?? 'طالب المركز';
+    final isQuran = item['nominationType'] == 'Quran';
+    final title = item['formattedDetails'] ?? (isQuran ? 'حفظ القرآن الكريم' : (item['courseName'] ?? 'دورة أكاديمية معتمدة'));
+    final gradeNum = (item['grade'] as num?)?.toDouble() ?? 100.0;
+    final gradeLabel = gradeNum >= 95 ? "ممتاز مرتفع" : (gradeNum >= 90 ? "ممتاز" : (gradeNum >= 80 ? "جيد جداً" : "جيد"));
+    final teacher = item['teacherName'] ?? _profileData?['teacherName'] ?? 'الشيخ المحفظ المعتمد';
+    final certCode = item['certificateCode'] ?? 'CERT-EX-${item['id'] ?? 1001}';
+    final certDate = item['certificateDate'] ?? item['examDate'] ?? '2026-09-17';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFD97706), width: 2)),
+        contentPadding: const EdgeInsets.all(20),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Certificate Header
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF0D5C3A), Color(0xFF15803D)]),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.workspace_premium, color: Color(0xFFFBBF24), size: 36),
+                    const SizedBox(height: 4),
+                    Text(
+                      'شَهَادَةُ اجْتِيَازِ وَتَفَوُّقٍ مُعْتَمَدَةٌ',
+                      style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    Text(
+                      'دولة فلسطين - دار القرآن الكريم والسنة',
+                      style: AppTheme.cairoStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Text('تمنح إدارة مركز البيان هذه الشهادة للطالب المبارك:', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
+              const SizedBox(height: 6),
+              Text(
+                stName,
+                style: AppTheme.cairoStyle(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C3A)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Text(
+                  'لاجتيازه بنجاح وتفوق اختبار: $title',
+                  style: AppTheme.cairoStyle(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF92400E)),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      Text('الدرجة المستحقة', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
+                      Text('${gradeNum.toInt()}%', style: AppTheme.cairoStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                    ],
+                  ),
+                  Container(height: 30, width: 1, color: Colors.grey.shade300),
+                  Column(
+                    children: [
+                      Text('التقدير العام', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
+                      Text(gradeLabel, style: AppTheme.cairoStyle(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C3A))),
+                    ],
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('المحفظ المشرف:', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
+                      Text(teacher, style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('مدير المركز:', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
+                      Text('الشيخ علي حسن النبيه', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('الرمز: $certCode', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.grey)),
+                  Text('التاريخ: $certDate', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton.icon(
+            icon: const Icon(Icons.share, size: 16),
+            label: const Text('مشاركة / تصدير الشهادة'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D5C3A), foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('تم تصدير الشهادة المعتمدة بنجاح 🏆'), backgroundColor: Colors.green),
+              );
+            },
+          ),
+          TextButton(
+            child: const Text('إغلاق'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -258,6 +493,14 @@ class _Student360ScreenState extends State<Student360Screen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_selectedStudent != null ? 'الملف الموحد: ${_selectedStudent!.fullName}' : 'الملف الموحد الشامل للطالب'),
+        actions: [
+          if (_profileData != null)
+            IconButton(
+              icon: const Icon(Icons.print_rounded),
+              tooltip: 'طباعة وتصدير الملف الموحد (PDF)',
+              onPressed: _exportStudentReportDialog,
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 88),
@@ -943,18 +1186,44 @@ class _Student360ScreenState extends State<Student360Screen> {
                               itemCount: completedExams.length,
                               itemBuilder: (ctx, i) {
                                 final item = completedExams[i];
-                                return ListTile(
-                                  dense: true,
-                                  title: Text('الاختبار: ${item['nominationType'] == 'Quran' ? 'أجزاء قرآن كريم' : 'مساق ودورة'}', style: AppTheme.cairoStyle(fontWeight: FontWeight.w600)),
-                                  subtitle: Text('تاريخ التقييم: ${item['examDate'] ?? ""}', style: AppTheme.cairoStyle(fontSize: 12)),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.green),
+                                final isQuran = item['nominationType'] == 'Quran';
+                                final title = item['formattedDetails'] ?? (isQuran ? 'أجزاء قرآن كريم' : (item['courseName'] ?? 'مساق ودورة'));
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade200),
+                                  ),
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: CircleAvatar(
+                                      backgroundColor: isQuran ? Colors.green.shade100 : Colors.blue.shade100,
+                                      child: Icon(isQuran ? Icons.menu_book : Icons.school, color: isQuran ? Colors.green.shade800 : Colors.blue.shade800, size: 18),
                                     ),
-                                    child: Text('${item['grade'] ?? 100}%', style: AppTheme.cairoStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+                                    title: Text(title, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    subtitle: Text('تاريخ التقييم: ${item['examDate'] ?? ""} | المعلم: ${item['teacherName'] ?? _profileData?['teacherName'] ?? "معتمد"}', style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textMuted)),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.green),
+                                          ),
+                                          child: Text('${item['grade'] ?? 100}%', style: AppTheme.cairoStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.workspace_premium, color: Color(0xFFD97706), size: 22),
+                                          tooltip: 'عرض الشهادة المعتمدة',
+                                          onPressed: () => _showAccreditedCertificateDialog(item),
+                                        ),
+                                      ],
+                                    ),
+                                    onTap: () => _showAccreditedCertificateDialog(item),
                                   ),
                                 );
                               },

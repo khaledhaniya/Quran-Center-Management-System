@@ -494,19 +494,61 @@ public class StudentService
 
         var exams = await _db.ExamNominations
             .Include(x => x.Result)
+            .Include(x => x.Teacher)
+            .Include(x => x.Course)
             .Where(x => x.StudentId == s.Id && x.Status == "Completed")
             .OrderByDescending(x => x.ExamDate)
             .ToListAsync();
 
-        var completedExamsDto = exams.Select(e => new {
+        string teacherName = "غير مسند";
+        if (s.CircleId.HasValue && s.Circle != null && s.Circle.TeacherId > 0)
+        {
+            var teacher = await _db.Teachers.FindAsync(s.Circle.TeacherId);
+            if (teacher != null) teacherName = teacher.FullName;
+        }
+
+        var passedCourses = await _db.CourseEnrollments
+            .Include(ce => ce.Course)
+                .ThenInclude(c => c!.Teacher)
+            .Where(ce => ce.StudentId == s.Id && ce.Status == "Passed")
+            .OrderByDescending(ce => ce.CertificateDate ?? ce.EnrollmentDate)
+            .ToListAsync();
+
+        var examCerts = exams.Select(e => new {
             e.Id,
             e.StudentId,
             StudentName = s.FullName,
             e.NominationType,
-            FormattedDetails = e.NominationType == "Quran" ? $"أجزاء قرآن كريم ({e.JuzStart} - {e.JuzEnd})" : "مساق ودورة شرعية",
-            Grade = e.Result?.Grade ?? 100,
-            ExamDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? e.NominationDate.ToString("yyyy-MM-dd")
+            CourseId = e.CourseId,
+            CourseName = e.Course?.Name ?? (e.NominationType == "Quran" ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : "مساق ودورة شرعية"),
+            TeacherName = e.Teacher?.FullName ?? teacherName,
+            JuzStart = e.JuzStart,
+            JuzEnd = e.JuzEnd,
+            FormattedDetails = e.NominationType == "Quran" ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : (e.Course?.Name ?? "مساق ودورة شرعية"),
+            Grade = e.Result?.Grade ?? 100.0,
+            ExamDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? e.NominationDate.ToString("yyyy-MM-dd"),
+            CertificateCode = $"CERT-EX-{1000 + e.Id}",
+            CertificateDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
         }).ToList();
+
+        var courseCerts = passedCourses.Select(pc => new {
+            Id = 10000 + pc.Id,
+            pc.StudentId,
+            StudentName = s.FullName,
+            NominationType = "Course",
+            CourseId = (int?)pc.CourseId,
+            CourseName = pc.Course?.Name ?? "دورة معتمدة",
+            TeacherName = pc.Course?.Teacher?.FullName ?? teacherName,
+            JuzStart = (int?)null,
+            JuzEnd = (int?)null,
+            FormattedDetails = $"دورة: {pc.Course?.Name ?? "مساق معتمد"}",
+            Grade = pc.Grade.HasValue ? (double)pc.Grade.Value : 90.0,
+            ExamDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? pc.EnrollmentDate.ToString("yyyy-MM-dd"),
+            CertificateCode = pc.CertificateCode ?? $"CERT-CR-{1000 + pc.Id}",
+            CertificateDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
+        }).ToList();
+
+        var allCompletedCerts = examCerts.Concat(courseCerts).OrderByDescending(c => c.ExamDate).ToList();
 
         var talents = await _db.TalentRecords
             .Include(t => t.SupervisorTeacher)
@@ -552,13 +594,6 @@ public class StudentService
             }
         }
 
-        string teacherName = "غير مسند";
-        if (s.CircleId.HasValue && s.Circle != null && s.Circle.TeacherId > 0)
-        {
-            var teacher = await _db.Teachers.FindAsync(s.Circle.TeacherId);
-            if (teacher != null) teacherName = teacher.FullName;
-        }
-
         return new
         {
             StudentId = s.Id,
@@ -584,6 +619,13 @@ public class StudentService
             s.Notes,
             CircleName = s.Circle?.Name ?? "غير مسند",
             TeacherName = teacherName,
+            TargetAjzaa = s.TargetAjzaaCount,
+            TargetAjzaaCount = s.TargetAjzaaCount,
+            PlanType = s.PlanType ?? "Standard",
+            DailyPacePages = s.DailyPacePages,
+            PlanStartDate = s.PlanStartDate?.ToString("yyyy-MM-dd"),
+            PlanTargetDate = s.PlanTargetDate?.ToString("yyyy-MM-dd"),
+            CompletedAjzaa = s.CompletedAjzaa ?? "",
             AttendanceRatePercentage = rate,
             AttendanceRate = rate,
             PresentDaysCount = presentCount,
@@ -596,12 +638,12 @@ public class StudentService
             LateDays = lateCount,
             LateCount = lateCount,
             TotalDays = total,
-            CertificatesCount = completedExamsDto.Count,
+            CertificatesCount = allCompletedCerts.Count,
             Sessions = sessionsDto,
             AttendanceHistory = attendancesDto,
             CenterAttendance = attendancesDto,
             CourseAttendance = courseAttendancesDto,
-            CompletedExams = completedExamsDto,
+            CompletedExams = allCompletedCerts,
             Talents = talentsDto,
             IsTalented = talentsDto.Count > 0,
             JuzStatus = juzStatus,
@@ -618,9 +660,11 @@ public class StudentService
                 StudentIdentityNumber = s.StudentIdentityNumber,
                 PreviousQuranMemorization = s.PreviousQuranMemorization,
                 TargetAjzaaCount = s.TargetAjzaaCount,
-                PlanType = s.PlanType,
+                PlanType = s.PlanType ?? "Standard",
                 DailyPacePages = s.DailyPacePages,
+                PlanStartDate = s.PlanStartDate?.ToString("yyyy-MM-dd"),
                 PlanTargetDate = s.PlanTargetDate?.ToString("yyyy-MM-dd"),
+                CompletedAjzaa = s.CompletedAjzaa ?? "",
                 Notes = s.Notes
             },
             RecentSessions = sessionsDto
