@@ -595,10 +595,13 @@ public class StudentService
             t.PerformanceNotes
         }).ToList();
 
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+        int passingScore = settings.PassingScoreThreshold > 0 ? settings.PassingScoreThreshold : 70;
+
         var juzStatus = new Dictionary<int, string>();
         for (int i = 1; i <= 30; i++)
         {
-            var passedExam = exams.FirstOrDefault(e => e.NominationType == "Quran" && i >= e.JuzStart && i <= e.JuzEnd && e.Result?.Grade >= 60);
+            var passedExam = exams.FirstOrDefault(e => e.NominationType == "Quran" && i >= e.JuzStart && i <= e.JuzEnd && (e.Status == "Completed" || e.Result?.Grade >= passingScore));
             if (passedExam != null)
             {
                 juzStatus[i] = "Completed";

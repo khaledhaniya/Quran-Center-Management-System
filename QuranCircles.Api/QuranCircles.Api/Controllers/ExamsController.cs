@@ -497,7 +497,7 @@ public class ExamsController : ControllerBase
             teacherId = circle?.TeacherId;
         }
 
-        string resultText = dto.Grade >= 60 ? "مكتمـل واجتـاز بنجـاح" : "مكتمـل ولم يجتـز";
+        string resultText = dto.Grade >= passingScore ? "مكتمـل واجتـاز بنجـاح" : "مكتمـل ولم يجتـز";
         string examTypeName = nomination.NominationType == "Quran" ? "حفظ قرآن كريم" : $"دورة ({(nomination.Course != null ? nomination.Course.Name : "شرعية")})";
         string msgTitle = "إشعار اعتماد نتيجة اختبار";
         string msgContent = $"تم رصد واعتتماد نتيجة اختبار {examTypeName} للطالب ({student?.FullName}) بدرجة ({dto.Grade}%) - حالة الاختبار: ({resultText}).";

@@ -11634,7 +11634,17 @@ function renderExamsTable(list, filterType, isAdmin, isSupervisor) {
         if (n.status === "Pending" && canSchedule) {
             actionsHtml = `<button class="btn btn-primary btn-sm" onclick="scheduleExam(${n.id})"><i class="fa-solid fa-calendar-plus"></i> جدولة موعد</button>`;
         } else if (n.status === "Scheduled" && canEvaluate) {
-            actionsHtml = `<button class="btn btn-success btn-sm" onclick="showEvaluateExamModal(${n.id}, '${n.studentName}', '${n.nominationType}')"><i class="fa-solid fa-marker"></i> تقييم واختبار</button>`;
+            const escapedName = (n.studentName || '').replace(/'/g, "\\'");
+            const escapedHalaqah = (n.halaqahName || '').replace(/'/g, "\\'");
+            const escapedTeacher = (n.teacherName || '').replace(/'/g, "\\'");
+            if (n.nominationType === 'Quran') {
+                actionsHtml = `
+                    <button class="btn btn-warning btn-sm" onclick="openQuranExamSystemModal({ nominationId: ${n.id}, studentName: '${escapedName}', juzStart: ${n.juzStart || 1}, juzEnd: ${n.juzEnd || 1}, halaqahName: '${escapedHalaqah}', teacherName: '${escapedTeacher}', nominationType: '${n.nominationType}' })"><i class="fa-solid fa-book-quran me-1"></i> اختبار ورصد قرآن</button>
+                    <button class="btn btn-outline-success btn-sm ms-1" onclick="showEvaluateExamModal(${n.id}, '${escapedName}', '${n.nominationType}')"><i class="fa-solid fa-marker"></i> يدوي</button>
+                `;
+            } else {
+                actionsHtml = `<button class="btn btn-success btn-sm" onclick="showEvaluateExamModal(${n.id}, '${escapedName}', '${n.nominationType}')"><i class="fa-solid fa-marker"></i> تقييم واختبار</button>`;
+            }
         }
 
         tr.innerHTML = `
@@ -12028,6 +12038,611 @@ function showEvaluateExamModal(nominationId, studentName, nominationType) {
         });
     });
 }
+
+// ==========================================================================
+// QURAN EXAM SYSTEM & QUESTION BANK CONTROLLER (2026)
+// ==========================================================================
+let currentActiveQuranExam = null;
+let currentExamDeductions = {};
+let currentExamNomination = null;
+let currentExamCategory = "single"; // "single" or "combined"
+
+function closeQuranExamModal() {
+    const modal = document.getElementById("quran-exam-modal-container");
+    if (modal) modal.style.display = "none";
+}
+
+function openQuranExamSystemModal(nominationData = null) {
+    const role = currentUser?.role || "";
+    if (role !== "Admin" && role !== "Developer" && role !== "ExamSupervisor" && role !== "Teacher") {
+        showAlert("عفواً، نظام الاختبارات القرآنية متاح فقط للمشرفين والمعلمين وإدارة المركز.", "warning");
+        return;
+    }
+
+    currentExamNomination = nominationData;
+    currentExamDeductions = {};
+    const modal = document.getElementById("quran-exam-modal-container");
+    if (!modal) return;
+
+    modal.style.display = "flex";
+
+    // Auto-detect exam key
+    let defaultKey = "1";
+    currentExamCategory = "single";
+
+    if (nominationData && (nominationData.juzStart || nominationData.juzEnd)) {
+        const jStart = Number(nominationData.juzStart) || 1;
+        const jEnd = Number(nominationData.juzEnd) || jStart;
+
+        if (jStart === jEnd) {
+            defaultKey = jStart.toString();
+            currentExamCategory = "single";
+        } else {
+            const s = String(Math.min(jStart, jEnd)).padStart(2, '0');
+            const e = String(Math.max(jStart, jEnd)).padStart(2, '0');
+            const candidateKey = `${e}-${s}`;
+            const combinedList = (typeof QuranExamEngine !== "undefined" && QuranExamEngine.getCombinedExamList) ? QuranExamEngine.getCombinedExamList() : [];
+            if (combinedList.includes(candidateKey)) {
+                defaultKey = candidateKey;
+                currentExamCategory = "combined";
+            } else {
+                defaultKey = jStart.toString();
+                currentExamCategory = "single";
+            }
+        }
+    }
+
+    renderQuranExamModalLayout(defaultKey);
+}
+
+function switchQuranExamCategory(cat) {
+    currentExamCategory = cat;
+    let newKey = cat === "single" ? "1" : "10-08";
+    renderQuranExamModalLayout(newKey);
+}
+
+function selectQuranExamKey(key) {
+    renderQuranExamModalLayout(key);
+}
+
+function generateNewQuranExamQuestions() {
+    if (!currentActiveQuranExam || !currentActiveQuranExam.examKey) return;
+    renderQuranExamModalLayout(currentActiveQuranExam.examKey, true);
+}
+
+function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
+    if (typeof QuranExamEngine === "undefined") {
+        console.error("QuranExamEngine is not loaded");
+        return;
+    }
+
+    if (forceRegenerate || !currentActiveQuranExam || currentActiveQuranExam.examKey !== examKey) {
+        const generated = QuranExamEngine.generateExam(examKey);
+        if (!generated) {
+            showAlert("تعذر العثور على إعدادات الاختبار المحدد.", "danger");
+            return;
+        }
+        currentActiveQuranExam = {
+            ...generated,
+            examKey: examKey
+        };
+        // Reset deductions
+        currentExamDeductions = {};
+        for (let i = 1; i <= currentActiveQuranExam.questionCount; i++) {
+            currentExamDeductions[i] = {
+                startVerse: 0,
+                word: 0,
+                letter: 0,
+                tune: 0
+            };
+        }
+    }
+
+    const singleList = QuranExamEngine.getSingleJuzList();
+    const combinedList = QuranExamEngine.getCombinedExamList();
+    const body = document.getElementById("quran-exam-modal-body");
+    if (!body) return;
+
+    let candidateBanner = "";
+    if (currentExamNomination) {
+        candidateBanner = `
+            <div class="alert alert-success d-flex justify-content-between align-items-center mb-3" style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #6ee7b7; border-radius: 12px; padding: 12px 18px;">
+                <div class="d-flex align-items-center gap-3">
+                    <i class="fa-solid fa-user-graduate fs-3 text-success"></i>
+                    <div>
+                        <h5 class="mb-0 fw-bold text-dark">مرشح للاختبار: <span class="text-success">${currentExamNomination.studentName || 'طالب'}</span></h5>
+                        <div class="small text-muted mt-1">
+                            ${currentExamNomination.halaqahName ? `<span class="me-3"><i class="fa-solid fa-users text-secondary me-1"></i> الحلقة: <strong>${currentExamNomination.halaqahName}</strong></span>` : ''}
+                            ${currentExamNomination.teacherName ? `<span class="me-3"><i class="fa-solid fa-chalkboard-user text-secondary me-1"></i> المعلم: <strong>${currentExamNomination.teacherName}</strong></span>` : ''}
+                            <span><i class="fa-solid fa-hashtag text-secondary me-1"></i> رقم الطلب: <strong>${currentExamNomination.nominationId || '-'}</strong></span>
+                        </div>
+                    </div>
+                </div>
+                <span class="badge bg-success px-3 py-2 fs-6">وضع الرصد المباشر</span>
+            </div>
+        `;
+    }
+
+    let singleButtonsHtml = singleList.map(j => {
+        const activeClass = (currentExamCategory === "single" && examKey === j) ? "active" : "";
+        return `<button type="button" class="quran-exam-btn ${activeClass}" onclick="selectQuranExamKey('${j}')">جزء ${j}</button>`;
+    }).join("");
+
+    let combinedButtonsHtml = combinedList.map(c => {
+        const activeClass = (currentExamCategory === "combined" && examKey === c) ? "active" : "";
+        const parts = c.split("-");
+        const label = `الأجزاء ${parts[1]} - ${parts[0]}`;
+        return `<button type="button" class="quran-exam-btn ${activeClass}" onclick="selectQuranExamKey('${c}')">${label}</button>`;
+    }).join("");
+
+    let questionsHtml = "";
+    currentActiveQuranExam.mainQuestions.forEach(q => {
+        const d = currentExamDeductions[q.number] || { startVerse: 0, word: 0, letter: 0, tune: 0 };
+        const qDeduct = (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
+        
+        let diffBadgeColor = "#0d5c3a";
+        if (q.difficulty === "سهل") diffBadgeColor = "#16a34a";
+        else if (q.difficulty === "متوسط") diffBadgeColor = "#d97706";
+        else if (q.difficulty === "صعب") diffBadgeColor = "#dc2626";
+
+        questionsHtml += `
+            <div class="quran-question-card" id="quran-card-q-${q.number}">
+                <div class="q-header">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-dark fs-6 px-3 py-1">السؤال ${q.number}</span>
+                        <span class="badge" style="background:${diffBadgeColor}; color:#fff;">مستوى: ${q.difficulty}</span>
+                    </div>
+                    <div class="q-meta">
+                        <span><i class="fa-solid fa-book-open text-muted me-1"></i> سورة: <strong>${q.surah}</strong></span>
+                        <span><i class="fa-solid fa-bookmark text-muted me-1"></i> الجزء: <strong>${q.juz}</strong></span>
+                        <span><i class="fa-solid fa-file text-muted me-1"></i> الصفحة: <strong>${q.page}</strong></span>
+                        <span><i class="fa-solid fa-hashtag text-muted me-1"></i> الآية: <strong>${q.verseStart} إلى ${q.verseEnd}</strong></span>
+                    </div>
+                </div>
+                
+                <div class="quran-question-text">
+                    <div style="font-weight:700; color:#0d5c3a; margin-bottom:4px;"><i class="fa-solid fa-quote-right me-1"></i> اقرأ من قوله تعالى:</div>
+                    <div style="font-size:1.18rem; padding-right:12px;">« ${q.startText} »</div>
+                    <div style="font-weight:700; color:#0d5c3a; margin-top:8px; margin-bottom:4px;"><i class="fa-solid fa-quote-left me-1"></i> إلى قوله تعالى:</div>
+                    <div style="font-size:1.18rem; padding-right:12px;">« ${q.endText} »</div>
+                </div>
+
+                <div class="deduction-panel">
+                    <div class="deduction-btn-group">
+                        <button type="button" class="deduction-btn deduction-btn-7" onclick="adjustQuranDeduction(${q.number}, 'startVerse', 1)">
+                            <i class="fa-solid fa-circle-minus"></i> رد ببداية آية (-7)
+                            <span class="badge bg-danger text-white ms-1">${d.startVerse}</span>
+                        </button>
+                        <button type="button" class="deduction-btn deduction-btn-3" onclick="adjustQuranDeduction(${q.number}, 'word', 1)">
+                            <i class="fa-solid fa-circle-minus"></i> خطأ كلمة (-3)
+                            <span class="badge bg-warning text-dark ms-1">${d.word}</span>
+                        </button>
+                        <button type="button" class="deduction-btn deduction-btn-25" onclick="adjustQuranDeduction(${q.number}, 'letter', 1)">
+                            <i class="fa-solid fa-circle-minus"></i> حرف / حركة (-2.5)
+                            <span class="badge bg-secondary text-white ms-1">${d.letter}</span>
+                        </button>
+                        <button type="button" class="deduction-btn deduction-btn-15" onclick="adjustQuranDeduction(${q.number}, 'tune', 1)">
+                            <i class="fa-solid fa-circle-minus"></i> تنبيه / لحن خفي (-1.5)
+                            <span class="badge bg-info text-dark ms-1">${d.tune}</span>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small fw-bold text-muted">خصم السؤال: <span class="text-danger fw-bold fs-6">-${qDeduct.toFixed(1)}</span></span>
+                        <button type="button" class="deduction-reset-btn" onclick="resetQuranQuestionDeduction(${q.number})" title="تصفير أخطاء هذا السؤال">
+                            <i class="fa-solid fa-rotate-left"></i> تصفير
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    let altQuestionsRows = "";
+    currentActiveQuranExam.altQuestions.forEach(aq => {
+        altQuestionsRows += `
+            <tr>
+                <td class="fw-bold text-center">${aq.number}</td>
+                <td class="text-center"><span class="badge bg-light text-dark border">${aq.difficulty}</span></td>
+                <td><strong>${aq.surah}</strong></td>
+                <td class="text-center">${aq.juz}</td>
+                <td class="text-center">${aq.page}</td>
+                <td><span class="font-arabic">« ${aq.startText} »</span></td>
+                <td><span class="font-arabic">« ${aq.endText} »</span></td>
+                <td class="text-center">${aq.verseStart} - ${aq.verseEnd}</td>
+            </tr>
+        `;
+    });
+
+    body.innerHTML = `
+        ${candidateBanner}
+
+        <!-- Navigation Tabs -->
+        <div class="quran-exam-nav-tabs">
+            <button type="button" class="quran-exam-nav-btn ${currentExamCategory === 'single' ? 'active' : ''}" onclick="switchQuranExamCategory('single')">
+                <i class="fa-solid fa-book me-1"></i> الأجزاء المنفردة (1 - 30)
+            </button>
+            <button type="button" class="quran-exam-nav-btn ${currentExamCategory === 'combined' ? 'active' : ''}" onclick="switchQuranExamCategory('combined')">
+                <i class="fa-solid fa-layer-group me-1"></i> الاختبارات المجمعة
+            </button>
+        </div>
+
+        <!-- Exam Selection Grid -->
+        <div class="${currentExamCategory === 'single' ? 'quran-exam-grid' : 'quran-exam-combined-grid'}">
+            ${currentExamCategory === 'single' ? singleButtonsHtml : combinedButtonsHtml}
+        </div>
+
+        <!-- Exam Controls Bar -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3 bg-white rounded border mb-3">
+            <div>
+                <h5 class="mb-0 fw-bold" style="color:#0d5c3a;">
+                    <i class="fa-solid fa-feather me-1"></i> اختبار: <strong>${examKey}</strong>
+                    <span class="badge bg-secondary fs-6 ms-2">عدد الأسئلة: ${currentActiveQuranExam.questionCount}</span>
+                </h5>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateNewQuranExamQuestions()">
+                    <i class="fa-solid fa-arrows-rotate me-1"></i> توليد نموذج أسئلة جديد
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleQuranAltQuestions()">
+                    <i class="fa-solid fa-table-list me-1"></i> <span id="btn-toggle-alt-text">عرض الأسئلة البديلة</span>
+                </button>
+                <button type="button" class="btn btn-outline-dark btn-sm" onclick="printQuranExamSheet()">
+                    <i class="fa-solid fa-print me-1"></i> طباعة النموذج
+                </button>
+            </div>
+        </div>
+
+        <!-- Alternative Questions Container (Initially Hidden) -->
+        <div id="quran-alt-questions-container" class="card p-3 mb-3 border shadow-sm" style="display:none; background:#fbfdff;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold text-primary mb-0"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> جدول الأسئلة الاحتياطية (البديلة في حال تعثر الطالب)</h6>
+                <button type="button" class="btn-close btn-sm" onclick="toggleQuranAltQuestions()"></button>
+            </div>
+            <div class="table-responsive">
+                <table class="quran-alt-table">
+                    <thead>
+                        <tr>
+                            <th>رقم</th>
+                            <th>المستوى</th>
+                            <th>السورة</th>
+                            <th>الجزء</th>
+                            <th>الصفحة</th>
+                            <th>بداية الموضع</th>
+                            <th>نهاية الموضع</th>
+                            <th>الآيات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${altQuestionsRows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Questions List with Interactive Deduction Controls -->
+        <div id="quran-questions-list">
+            ${questionsHtml}
+        </div>
+
+        <!-- Live Score & Adoption Footer Card -->
+        <div class="quran-exam-summary-card">
+            <div class="row align-items-center">
+                <div class="col-md-3 text-center border-end">
+                    <div class="small text-muted mb-1">الدرجة النهائية (من 100)</div>
+                    <div class="score-badge-large" id="quran-final-score-display">100%</div>
+                    <div id="quran-pass-status-badge" class="badge bg-success px-3 py-1 mt-1">ناجح ومجتاز بنجاح</div>
+                </div>
+                <div class="col-md-4 px-3 border-end">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small text-muted">مجموع الخصم الكلي:</span>
+                        <strong class="text-danger" id="quran-total-deduct-display">0.0 درجة</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small text-muted">نسبة النجاح المعتمدة:</span>
+                        <strong class="text-dark">${window.SYS_PASSING_SCORE || 80}%</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="small text-muted">حالة الطالب:</span>
+                        <strong id="quran-student-state-text" class="text-success">مكتمل</strong>
+                    </div>
+                </div>
+                <div class="col-md-5 d-flex flex-column gap-2 justify-content-center">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="withdrawQuranStudent()">
+                            <i class="fa-solid fa-user-xmark me-1"></i> انسحاب الطالب (0%)
+                        </button>
+                        <button type="button" class="btn btn-light btn-sm flex-fill border" onclick="resetAllQuranDeductions()">
+                            <i class="fa-solid fa-rotate-left me-1"></i> تصفير جميع الأخطاء
+                        </button>
+                    </div>
+                    ${currentExamNomination ? `
+                        <button type="button" class="btn btn-success fw-bold py-2 shadow-sm" onclick="submitQuranExamDirect()">
+                            <i class="fa-solid fa-award me-1"></i> اعتماد ورصد النتيجة رسمياً في النظام
+                        </button>
+                    ` : `
+                        <button type="button" class="btn btn-secondary fw-bold py-2" onclick="closeQuranExamModal()">
+                            <i class="fa-solid fa-check me-1"></i> إنهاء التدريب وإغلاق
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+
+    updateQuranScoreSummary();
+}
+
+function adjustQuranDeduction(qNum, errorType, delta) {
+    if (!currentExamDeductions[qNum]) {
+        currentExamDeductions[qNum] = { startVerse: 0, word: 0, letter: 0, tune: 0 };
+    }
+    currentExamDeductions[qNum][errorType] = Math.max(0, (currentExamDeductions[qNum][errorType] || 0) + delta);
+    
+    // Update question card visuals
+    const d = currentExamDeductions[qNum];
+    const qDeduct = (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
+    const card = document.getElementById(`quran-card-q-${qNum}`);
+    if (card) {
+        const badges = card.querySelectorAll(".deduction-btn-group .badge");
+        if (badges[0]) badges[0].textContent = d.startVerse;
+        if (badges[1]) badges[1].textContent = d.word;
+        if (badges[2]) badges[2].textContent = d.letter;
+        if (badges[3]) badges[3].textContent = d.tune;
+
+        const deductText = card.querySelector(".text-danger.fw-bold.fs-6");
+        if (deductText) deductText.textContent = `-${qDeduct.toFixed(1)}`;
+    }
+
+    updateQuranScoreSummary();
+}
+
+function resetQuranQuestionDeduction(qNum) {
+    if (!currentExamDeductions[qNum]) return;
+    currentExamDeductions[qNum] = { startVerse: 0, word: 0, letter: 0, tune: 0 };
+    const card = document.getElementById(`quran-card-q-${qNum}`);
+    if (card) {
+        const badges = card.querySelectorAll(".deduction-btn-group .badge");
+        badges.forEach(b => b.textContent = "0");
+        const deductText = card.querySelector(".text-danger.fw-bold.fs-6");
+        if (deductText) deductText.textContent = "-0.0";
+    }
+    updateQuranScoreSummary();
+}
+
+function resetAllQuranDeductions() {
+    for (let k in currentExamDeductions) {
+        currentExamDeductions[k] = { startVerse: 0, word: 0, letter: 0, tune: 0 };
+    }
+    if (currentActiveQuranExam && currentActiveQuranExam.examKey) {
+        renderQuranExamModalLayout(currentActiveQuranExam.examKey, false);
+    }
+}
+
+function updateQuranScoreSummary() {
+    if (!currentActiveQuranExam) return;
+    const count = currentActiveQuranExam.questionCount || 4;
+    let totalDeduct = 0;
+    for (let k in currentExamDeductions) {
+        const d = currentExamDeductions[k];
+        totalDeduct += (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
+    }
+
+    const finalScore = QuranExamEngine.calculateScore(count, totalDeduct);
+    const passing = window.SYS_PASSING_SCORE || 80;
+    const isPassed = finalScore >= passing;
+
+    const scoreDisplay = document.getElementById("quran-final-score-display");
+    const deductDisplay = document.getElementById("quran-total-deduct-display");
+    const statusBadge = document.getElementById("quran-pass-status-badge");
+    const stateText = document.getElementById("quran-student-state-text");
+
+    if (scoreDisplay) scoreDisplay.textContent = `${finalScore}%`;
+    if (deductDisplay) deductDisplay.textContent = `${totalDeduct.toFixed(1)} درجة`;
+    
+    if (statusBadge) {
+        if (isPassed) {
+            statusBadge.className = "badge bg-success px-3 py-1 mt-1";
+            statusBadge.textContent = "ناجح ومجتاز بنجاح";
+        } else {
+            statusBadge.className = "badge bg-danger px-3 py-1 mt-1";
+            statusBadge.textContent = "راسب / لم يجتز بنجاح";
+        }
+    }
+
+    if (stateText) {
+        stateText.textContent = isPassed ? "مكتمل واجتاز" : "مكتمل ولم يجتز";
+        stateText.className = isPassed ? "text-success fw-bold" : "text-danger fw-bold";
+    }
+}
+
+function withdrawQuranStudent() {
+    Swal.fire({
+        title: "تأكيد انسحاب الطالب",
+        text: "هل أنت متأكد من تسجيل انسحاب الطالب؟ ستعتبر الدرجة 0% وحالة الاختبار (لم يجتز).",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "نعم، تسجيل الانسحاب",
+        cancelButtonText: "إلغاء"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            for (let k in currentExamDeductions) {
+                currentExamDeductions[k] = { startVerse: 20, word: 0, letter: 0, tune: 0 };
+            }
+            const scoreDisplay = document.getElementById("quran-final-score-display");
+            const statusBadge = document.getElementById("quran-pass-status-badge");
+            const stateText = document.getElementById("quran-student-state-text");
+            if (scoreDisplay) scoreDisplay.textContent = "0%";
+            if (statusBadge) {
+                statusBadge.className = "badge bg-danger px-3 py-1 mt-1";
+                statusBadge.textContent = "منسحب (راسب)";
+            }
+            if (stateText) {
+                stateText.textContent = "منسحب ولم يجتز";
+                stateText.className = "text-danger fw-bold";
+            }
+            showAlert("تم تسجيل انسحاب الطالب بدرجة 0%", "info");
+        }
+    });
+}
+
+function toggleQuranAltQuestions() {
+    const box = document.getElementById("quran-alt-questions-container");
+    const txt = document.getElementById("btn-toggle-alt-text");
+    if (!box) return;
+    if (box.style.display === "none" || !box.style.display) {
+        box.style.display = "block";
+        if (txt) txt.textContent = "إخفاء الأسئلة البديلة";
+    } else {
+        box.style.display = "none";
+        if (txt) txt.textContent = "عرض الأسئلة البديلة";
+    }
+}
+
+function printQuranExamSheet() {
+    if (!currentActiveQuranExam) return;
+    const printWindow = window.open('', '_blank');
+    let questionsRows = currentActiveQuranExam.mainQuestions.map(q => `
+        <tr>
+            <td style="padding:10px; border:1px solid #333; text-align:center; font-weight:bold;">${q.number}</td>
+            <td style="padding:10px; border:1px solid #333; text-align:center;">${q.difficulty}</td>
+            <td style="padding:10px; border:1px solid #333; text-align:center;"><strong>${q.surah}</strong></td>
+            <td style="padding:10px; border:1px solid #333; text-align:center;">جزء ${q.juz} - ص ${q.page}</td>
+            <td style="padding:10px; border:1px solid #333; font-family:'Amiri', serif; font-size:1.15rem; line-height:1.7;">
+                اقرأ من قوله تعالى: <strong>« ${q.startText} »</strong><br>
+                إلى قوله تعالى: <strong>« ${q.endText} »</strong>
+            </td>
+            <td style="padding:10px; border:1px solid #333; text-align:center;">${q.verseStart} إلى ${q.verseEnd}</td>
+        </tr>
+    `).join("");
+
+    const html = `
+        <!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="utf-8">
+            <title>نموذج اختبار قرآني - ${currentActiveQuranExam.examKey}</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 25px; color: #111; }
+                .header { text-align: center; border-bottom: 2px solid #0d5c3a; padding-bottom: 12px; margin-bottom: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th { background-color: #f1f5f9; padding: 10px; border: 1px solid #333; }
+                .footer { margin-top: 30px; display: flex; justify-content: space-between; font-weight: bold; }
+            </style>
+        </head>
+        <body onload="window.print()">
+            <div class="header">
+                <h2>مركز تعليم القرآن الكريم</h2>
+                <h3>نموذج اختبار قرآني: ${currentActiveQuranExam.examKey}</h3>
+                <p>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-EG')}</p>
+                ${currentExamNomination ? `<p><strong>اسم الطالب:</strong> ${currentExamNomination.studentName} | <strong>الحلقة:</strong> ${currentExamNomination.halaqahName || '-'}</p>` : ''}
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="8%">رقم</th>
+                        <th width="12%">المستوى</th>
+                        <th width="15%">السورة</th>
+                        <th width="15%">الموضع</th>
+                        <th width="40%">الآيات المقررة</th>
+                        <th width="10%">أرقام الآيات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${questionsRows}
+                </tbody>
+            </table>
+            <div class="footer">
+                <div>توقيع الممتحن: ........................</div>
+                <div>الدرجة النهائية: ............ / 100</div>
+                <div>اعتماد الإدارة: ........................</div>
+            </div>
+        </body>
+        </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+}
+
+async function submitQuranExamDirect() {
+    if (!currentExamNomination || !currentExamNomination.nominationId) {
+        showAlert("لا يوجد طلب ترشيح مرتبط بهذا الاختبار لرصده.", "warning");
+        return;
+    }
+
+    const count = currentActiveQuranExam?.questionCount || 4;
+    let totalDeduct = 0;
+    let majorMistakes = 0;
+    let minorMistakes = 0;
+
+    for (let k in currentExamDeductions) {
+        const d = currentExamDeductions[k];
+        totalDeduct += (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
+        majorMistakes += (d.startVerse + d.word + d.letter);
+        minorMistakes += d.tune;
+    }
+
+    const finalScore = QuranExamEngine.calculateScore(count, totalDeduct);
+    const passing = window.SYS_PASSING_SCORE || 80;
+    const isPassed = finalScore >= passing;
+    const statusText = isPassed ? "مكتمل واجتاز بنجاح" : "مكتمل ولم يجتز";
+
+    const confirmMsg = `
+        هل تؤكد رصد نتيجة اختبار الطالب: <strong>${currentExamNomination.studentName}</strong>؟<br><br>
+        <ul style="text-align:right; display:inline-block;">
+            <li>نموذج الاختبار: <strong>${currentActiveQuranExam?.examKey || '-'}</strong></li>
+            <li>الدرجة المحسوبة: <strong>${finalScore}%</strong></li>
+            <li>حالة النتيجة: <strong class="${isPassed ? 'text-success' : 'text-danger'}">${statusText}</strong></li>
+            <li>اللحن الجلي/الأخطاء الكبرى: <strong>${majorMistakes}</strong></li>
+            <li>اللحن الخفي/التنبيهات: <strong>${minorMistakes}</strong></li>
+        </ul>
+    `;
+
+    Swal.fire({
+        title: "تأكيد اعتماد النتيجة",
+        html: confirmMsg,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#0d5c3a",
+        cancelButtonColor: "#64748b",
+        confirmButtonText: "متابعة وتأكيد (2FA)",
+        cancelButtonText: "مراجعة الاختبار"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            promptTwoFactor(async (code) => {
+                try {
+                    const notesVal = `تم الاختبار بواسطة بنك الأسئلة القرآني لنظام (${currentActiveQuranExam?.examKey || '-'}). خصم إجمالي: ${totalDeduct.toFixed(1)} درجة.`;
+                    const res = await apiRequest("/exams/evaluate", "POST", {
+                        nominationId: currentExamNomination.nominationId,
+                        majorMistakes: majorMistakes,
+                        minorMistakes: minorMistakes,
+                        grade: finalScore,
+                        notes: notesVal,
+                        code2FA: code
+                    }, { "X-2FA-Code": code });
+
+                    showAlert("تم حفظ نتيجة التقييم القرآني واعتمادها بنجاح.", "success");
+                    closeQuranExamModal();
+
+                    if (typeof loadExams === "function") {
+                        loadExams();
+                    }
+                    if (typeof loadPortfolio === "function") {
+                        loadPortfolio();
+                    }
+
+                    if (res && res.whatsappAlert) {
+                        showWhatsAppSimulateModal(res.whatsappAlert);
+                    }
+                } catch (err) {
+                    showAlert(err.message || "حدث خطأ أثناء حفظ التقييم.", "danger");
+                }
+            });
+        }
+    });
+}
+
 
 // 8. SECURITY AUDIT LOG VIEWER
 async function loadAuditLogs() {

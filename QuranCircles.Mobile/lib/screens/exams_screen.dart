@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'quran_exam_system_screen.dart';
 
 class ExamsScreen extends StatefulWidget {
   final User currentUser;
@@ -379,7 +380,59 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 children: [
                   Text('الطالب: ${nomination.studentName}', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: AppTheme.primary)),
                   Text('التفاصيل: ${nomination.formattedDetails}', style: AppTheme.cairoStyle(fontSize: 13)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+
+                  if (nomination.nominationType == 'Quran') ...[
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(dialogCtx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => QuranExamSystemScreen(
+                              currentUser: widget.currentUser,
+                              nomination: nomination,
+                            ),
+                          ),
+                        ).then((_) => _loadNominations());
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D5C3A).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF0D5C3A), width: 1.2),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.book_rounded, color: Color(0xFF0D5C3A), size: 28),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'فتح نظام الاختبارات القرآنية المتقدم',
+                                    style: AppTheme.cairoStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0D5C3A),
+                                    ),
+                                  ),
+                                  Text(
+                                    'توليد الأسئلة، الأخطاء والخصم التلقائي، الأسئلة البديلة',
+                                    style: AppTheme.cairoStyle(fontSize: 11, color: Colors.black87),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF0D5C3A)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   Row(
                     children: [
@@ -407,9 +460,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: currentGrade >= 60 ? Colors.green.shade50 : Colors.red.shade50,
+                      color: currentGrade >= 80.0 ? Colors.green.shade50 : Colors.red.shade50,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: currentGrade >= 60 ? Colors.green : Colors.red),
+                      border: Border.all(color: currentGrade >= 80.0 ? Colors.green : Colors.red),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -420,7 +473,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           style: AppTheme.cairoStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: currentGrade >= 60 ? Colors.green.shade800 : Colors.red.shade800,
+                            color: currentGrade >= 80.0 ? Colors.green.shade800 : Colors.red.shade800,
                           ),
                         ),
                       ],
@@ -529,6 +582,20 @@ class _ExamsScreenState extends State<ExamsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('إدارة الاختبارات والترشيحات'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu_book, color: Color(0xFFCDA250)),
+            tooltip: 'نظام الاختبارات القرآنية وبنك الأسئلة',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => QuranExamSystemScreen(currentUser: widget.currentUser),
+                ),
+              ).then((_) => _loadNominations());
+            },
+          ),
+        ],
       ),
       floatingActionButton: canNominate
           ? FloatingActionButton.extended(
@@ -807,18 +874,43 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                               icon: const Icon(Icons.calendar_month, size: 14),
                                               label: Text('جدولة موعد', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
                                             ),
-                                          if (canEvaluateThis && isScheduled)
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: AppTheme.statusPresent,
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                              ),
-                                              onPressed: () => _showEvaluateDialog(item),
-                                              icon: const Icon(Icons.edit_note, size: 14),
-                                              label: Text('تقييم واختبار', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                                            ),
+                                           if (canEvaluateThis && isScheduled) ...[
+                                             if (item.nominationType == 'Quran') ...[
+                                               ElevatedButton.icon(
+                                                 style: ElevatedButton.styleFrom(
+                                                   backgroundColor: const Color(0xFFCDA250),
+                                                   foregroundColor: Colors.black87,
+                                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                 ),
+                                                 onPressed: () {
+                                                   Navigator.push(
+                                                     context,
+                                                     MaterialPageRoute(
+                                                       builder: (_) => QuranExamSystemScreen(
+                                                         currentUser: widget.currentUser,
+                                                         nomination: item,
+                                                       ),
+                                                     ),
+                                                   ).then((_) => _loadNominations());
+                                                 },
+                                                 icon: const Icon(Icons.menu_book, size: 14),
+                                                 label: Text('اختبار قرآني', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                               ),
+                                               const SizedBox(width: 8),
+                                             ],
+                                             ElevatedButton.icon(
+                                               style: ElevatedButton.styleFrom(
+                                                 backgroundColor: AppTheme.statusPresent,
+                                                 foregroundColor: Colors.white,
+                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                               ),
+                                               onPressed: () => _showEvaluateDialog(item),
+                                               icon: const Icon(Icons.edit_note, size: 14),
+                                               label: Text(item.nominationType == 'Quran' ? 'رصد يدوي' : 'تقييم واختبار', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                             ),
+                                           ],
                                         ],
                                       ),
                                     ],
