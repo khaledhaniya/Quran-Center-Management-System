@@ -141,12 +141,160 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
       return;
     }
 
+    final totalMajor = _deductionMajorVerseCount + _deductionWordCount;
+    final totalMinor = _deductionLetterCount + _deductionMinorMelodyCount;
+    final passingScore = widget.initialPassingScore;
+    final isPassed = _finalGrade >= passingScore;
+    final statusText = isPassed ? 'مكتمل واجتاز بنجاح' : 'مكتمل ولم يجتز';
+
+    // Show Confirmation Dialog first
+    final bool? proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.help_outline, color: Color(0xFF0D5C3A)),
+            const SizedBox(width: 8),
+            Text(
+              'تأكيد اعتماد النتيجة',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'هل تؤكد رصد نتيجة اختبار الطالب: ${widget.nomination!.studentName}؟',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                children: [
+                  _buildConfirmRow('نموذج الاختبار:', _selectedExamKey),
+                  const Divider(height: 12),
+                  _buildConfirmRow('الدرجة المحسوبة:', '${_finalGrade.toStringAsFixed(1)}%', isHighlight: true, isPass: isPassed),
+                  const Divider(height: 12),
+                  _buildConfirmRow('حالة النتيجة:', statusText, isPass: isPassed),
+                  const Divider(height: 12),
+                  _buildConfirmRow('اللحن الجلي/الأخطاء الكبرى:', '$totalMajor', isDanger: totalMajor > 0),
+                  const Divider(height: 12),
+                  _buildConfirmRow('اللحن الخفي/التنبيهات:', '$totalMinor', isWarning: totalMinor > 0),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(
+              'مراجعة الاختبار',
+              style: AppTheme.cairoStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D5C3A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            icon: const Icon(Icons.check, size: 18),
+            label: Text(
+              'متابعة وتأكيد',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed != true || !mounted) return;
+
+    // Supervisor Password / PIN Prompt
+    final TextEditingController pinController = TextEditingController();
+    final bool? pinConfirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (pinCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.lock, color: Color(0xFF0D5C3A)),
+            const SizedBox(width: 8),
+            Text(
+              'إدخال كلمة مرور المشرف',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'يرجى إدخال كلمة المرور الخاصة بالمشرف أو رمز الاعتماد لتأكيد رصد وحفظ النتيجة رسمياً.',
+              style: AppTheme.cairoStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinController,
+              obscureText: true,
+              keyboardType: TextInputType.visiblePassword,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 3),
+              decoration: InputDecoration(
+                hintText: '******',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                helperText: 'الرمز التجريبي: 123456',
+                helperStyle: const TextStyle(color: Color(0xFF0D5C3A)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(pinCtx, false),
+            child: Text('إلغاء', style: AppTheme.cairoStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D5C3A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              if (pinController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('يرجى إدخال كلمة المرور أو رمز الاعتماد')),
+                );
+                return;
+              }
+              Navigator.pop(pinCtx, true);
+            },
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: Text('اعتماد النتيجة رسمياً', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (pinConfirmed != true || !mounted) return;
+
     setState(() => _isSubmitting = true);
 
     try {
-      final totalMajor = _deductionMajorVerseCount + _deductionWordCount;
-      final totalMinor = _deductionLetterCount + _deductionMinorMelodyCount;
-
       final success = await ApiService.evaluateExam(
         nominationId: widget.nomination!.id,
         grade: _finalGrade,
@@ -176,6 +324,32 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
         SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     }
+  }
+
+  Widget _buildConfirmRow(String label, String value, {bool isHighlight = false, bool? isPass, bool isDanger = false, bool isWarning = false}) {
+    Color valColor = Colors.black87;
+    if (isPass != null) {
+      valColor = isPass ? Colors.green.shade800 : Colors.red.shade800;
+    } else if (isDanger) {
+      valColor = Colors.red.shade800;
+    } else if (isWarning) {
+      valColor = Colors.orange.shade800;
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: AppTheme.cairoStyle(fontSize: 13, color: Colors.grey.shade700)),
+        Text(
+          value,
+          style: AppTheme.cairoStyle(
+            fontSize: isHighlight ? 15 : 13,
+            fontWeight: FontWeight.bold,
+            color: valColor,
+          ),
+        ),
+      ],
+    );
   }
 
   Color _getDifficultyColor(String diff) {

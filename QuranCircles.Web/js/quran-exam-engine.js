@@ -1636,24 +1636,24 @@ var QuranExamEngine = (function() {
         },
         getCombinedExamLabel: function(key) {
             const labels = {
-                // فئة 5 أجزاء
-                '05-01': 'الأجزاء (1 - 5)',
-                '10-06': 'الأجزاء (6 - 10)',
-                '15-11': 'الأجزاء (11 - 15)',
-                '20-16': 'الأجزاء (16 - 20)',
-                '25-21': 'الأجزاء (21 - 25)',
-                '30-26': 'الأجزاء (26 - 30)',
-                // فئة 10 أجزاء
-                '10-01': 'الأجزاء (1 - 10)',
-                '20-11': 'الأجزاء (11 - 20)',
-                '30-21': 'الأجزاء (21 - 30)',
-                // فئة 3 أجزاء
-                '05-03': 'الأجزاء (3 - 5)',
-                '10-08': 'الأجزاء (8 - 10)',
-                '15-13': 'الأجزاء (13 - 15)',
-                '20-18': 'الأجزاء (18 - 20)',
-                '25-23': 'الأجزاء (23 - 25)',
-                '30-28': 'الأجزاء (28 - 30)'
+                // فئة 5 أجزاء (4 أسئلة)
+                '05-01': 'الأجزاء (1 - 5) [4 أسئلة]',
+                '10-06': 'الأجزاء (6 - 10) [4 أسئلة]',
+                '15-11': 'الأجزاء (11 - 15) [4 أسئلة]',
+                '20-16': 'الأجزاء (16 - 20) [4 أسئلة]',
+                '25-21': 'الأجزاء (21 - 25) [4 أسئلة]',
+                '30-26': 'الأجزاء (26 - 30) [4 أسئلة]',
+                // فئة 10 أجزاء (5 أسئلة)
+                '10-01': 'الأجزاء (1 - 10) [5 أسئلة]',
+                '20-11': 'الأجزاء (11 - 20) [5 أسئلة]',
+                '30-21': 'الأجزاء (21 - 30) [5 أسئلة]',
+                // فئة 3 أجزاء (3 أسئلة)
+                '05-03': 'الأجزاء (3 - 5) [3 أسئلة]',
+                '10-08': 'الأجزاء (8 - 10) [3 أسئلة]',
+                '15-13': 'الأجزاء (13 - 15) [3 أسئلة]',
+                '20-18': 'الأجزاء (18 - 20) [3 أسئلة]',
+                '25-23': 'الأجزاء (23 - 25) [3 أسئلة]',
+                '30-28': 'الأجزاء (28 - 30) [3 أسئلة]'
             };
             if (labels[key]) return labels[key];
             if (key && key.includes('-')) {
@@ -1666,14 +1666,39 @@ var QuranExamEngine = (function() {
             let raw = examKey ? examKey.toString().trim() : '1';
             let key = raw.replace('-', '_');
 
+            // خريطة عدد الأسئلة ومراحل الصعوبة المعتمدة في منهج المركز
+            // [سهل, متوسط, صعب]
+            const explicitStages = {
+                // فئة 5 أجزاء: 4 أسئلة
+                '05_01': [1, 2, 1],
+                '10_06': [1, 2, 1],
+                '15_11': [1, 2, 1],
+                '20_16': [1, 2, 1],
+                '25_21': [1, 2, 1],
+                '30_26': [1, 2, 1],
+                // فئة 10 أجزاء: 5 أسئلة
+                '10_01': [2, 2, 1],
+                '20_11': [2, 2, 1],
+                '30_21': [2, 2, 1],
+                // فئة 3 أجزاء: 3 أسئلة
+                '05_03': [1, 1, 1],
+                '10_08': [1, 1, 1],
+                '15_13': [1, 1, 1],
+                '20_18': [1, 1, 1],
+                '25_23': [1, 1, 1],
+                '30_28': [1, 1, 1]
+            };
+
             let stageVar = 'ExamStage' + key;
             let qstnVar = 'ExamQstn' + key;
 
-            let stages = null;
+            let stages = explicitStages[key] ? [...explicitStages[key]] : null;
             let qstns = null;
 
-            try { if (typeof window !== 'undefined' && window[stageVar]) stages = window[stageVar]; } catch(e){}
-            try { if (!stages && typeof eval !== 'undefined') stages = eval(stageVar); } catch(e){}
+            if (!stages) {
+                try { if (typeof window !== 'undefined' && window[stageVar]) stages = [...window[stageVar]]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = [...eval(stageVar)]; } catch(e){}
+            }
 
             try { if (typeof window !== 'undefined' && window[qstnVar]) qstns = window[qstnVar]; } catch(e){}
             try { if (!qstns && typeof eval !== 'undefined') qstns = eval(qstnVar); } catch(e){}
@@ -1681,15 +1706,17 @@ var QuranExamEngine = (function() {
             // Normalize single digits (e.g., '01' -> '1' or '1' -> '01')
             if (!qstns && key.startsWith('0')) {
                 const altKey = key.replace(/^0+/, '');
-                try { if (typeof window !== 'undefined' && window['ExamStage' + altKey]) stages = stages || window['ExamStage' + altKey]; } catch(e){}
-                try { if (!stages && typeof eval !== 'undefined') stages = stages || eval('ExamStage' + altKey); } catch(e){}
+                if (!stages && explicitStages[altKey]) stages = [...explicitStages[altKey]];
+                try { if (!stages && typeof window !== 'undefined' && window['ExamStage' + altKey]) stages = [...window['ExamStage' + altKey]]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = [...eval('ExamStage' + altKey)]; } catch(e){}
                 try { if (typeof window !== 'undefined' && window['ExamQstn' + altKey]) qstns = window['ExamQstn' + altKey]; } catch(e){}
                 try { if (!qstns && typeof eval !== 'undefined') qstns = eval('ExamQstn' + altKey); } catch(e){}
             }
             if (!qstns && /^\d+$/.test(key)) {
                 const paddedKey = key.padStart(2, '0');
-                try { if (typeof window !== 'undefined' && window['ExamStage' + paddedKey]) stages = stages || window['ExamStage' + paddedKey]; } catch(e){}
-                try { if (!stages && typeof eval !== 'undefined') stages = stages || eval('ExamStage' + paddedKey); } catch(e){}
+                if (!stages && explicitStages[paddedKey]) stages = [...explicitStages[paddedKey]];
+                try { if (!stages && typeof window !== 'undefined' && window['ExamStage' + paddedKey]) stages = stages || [...window['ExamStage' + paddedKey]]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = stages || [...eval('ExamStage' + paddedKey)]; } catch(e){}
                 try { if (typeof window !== 'undefined' && window['ExamQstn' + paddedKey]) qstns = window['ExamQstn' + paddedKey]; } catch(e){}
                 try { if (!qstns && typeof eval !== 'undefined') qstns = eval('ExamQstn' + paddedKey); } catch(e){}
             }
@@ -1697,8 +1724,9 @@ var QuranExamEngine = (function() {
             if (!qstns && key.includes('_')) {
                 const parts = key.split('_');
                 const normKey = parts[0].padStart(2, '0') + '_' + parts[1].padStart(2, '0');
-                try { if (typeof window !== 'undefined' && window['ExamStage' + normKey]) stages = stages || window['ExamStage' + normKey]; } catch(e){}
-                try { if (!stages && typeof eval !== 'undefined') stages = stages || eval('ExamStage' + normKey); } catch(e){}
+                if (!stages && explicitStages[normKey]) stages = [...explicitStages[normKey]];
+                try { if (!stages && typeof window !== 'undefined' && window['ExamStage' + normKey]) stages = stages || [...window['ExamStage' + normKey]]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = stages || [...eval('ExamStage' + normKey)]; } catch(e){}
                 try { if (typeof window !== 'undefined' && window['ExamQstn' + normKey]) qstns = window['ExamQstn' + normKey]; } catch(e){}
                 try { if (!qstns && typeof eval !== 'undefined') qstns = eval('ExamQstn' + normKey); } catch(e){}
             }

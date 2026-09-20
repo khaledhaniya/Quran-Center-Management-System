@@ -7506,12 +7506,27 @@ body.dark-mode .plan-juz-btn:hover {
 }
 
 .quran-exam-summary-card {
-    background: linear-gradient(135deg, #ffffff, #f0fdf4);
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
     border: 2px solid #bbf7d0;
     border-radius: 16px;
-    padding: 16px 20px;
+    padding: 18px 22px;
     margin-top: 18px;
     box-shadow: 0 4px 15px rgba(13, 92, 58, 0.08);
+}
+
+.quran-summary-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.quran-summary-score-box {
+    text-align: center;
+    flex: 0 0 170px;
+    padding-inline-end: 20px;
+    border-inline-end: 2px solid #e2e8f0;
 }
 
 .score-badge-large {
@@ -7519,6 +7534,124 @@ body.dark-mode .plan-juz-btn:hover {
     font-weight: 900;
     line-height: 1;
     color: #0d5c3a;
+}
+
+.quran-summary-details-box {
+    flex: 1 1 240px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-inline-end: 20px;
+    border-inline-end: 2px solid #e2e8f0;
+}
+
+.quran-summary-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+}
+
+.quran-summary-actions-box {
+    flex: 1 1 270px;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Confirmation Dialog (Step before Password Verification) */
+.quran-confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.2s ease;
+}
+
+.quran-confirm-card {
+    background: #ffffff;
+    border-radius: 18px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    animation: zoomIn 0.25s ease;
+}
+
+.quran-confirm-header {
+    background: linear-gradient(135deg, #064e3b, #047857);
+    color: #ffffff;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quran-confirm-body {
+    padding: 20px;
+}
+
+.quran-confirm-table {
+    width: 100%;
+    margin-top: 14px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    border-collapse: collapse;
+}
+
+.quran-confirm-table tr {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.quran-confirm-table tr:last-child {
+    border-bottom: none;
+}
+
+.quran-confirm-table td {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+}
+
+.quran-confirm-table td.label-col {
+    color: #475569;
+    font-weight: 600;
+    width: 48%;
+}
+
+.quran-confirm-table td.val-col {
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.quran-confirm-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Manual Exam Scoring without Verses */
+.quran-manual-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    border-right: 4px solid #0d5c3a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 /* Alternative Questions Cards (Luxury Redesign) */
@@ -7684,14 +7817,35 @@ body.dark-mode .plan-juz-btn:hover {
     }
 
     .quran-exam-summary-card {
-        padding: 12px !important;
+        padding: 14px !important;
     }
 
-    .quran-exam-summary-card .border-end {
-        border-right: none !important;
+    .quran-summary-container {
+        flex-direction: column !important;
+        gap: 14px !important;
+    }
+
+    .quran-summary-score-box {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        border-inline-end: none !important;
         border-bottom: 1px solid #e2e8f0 !important;
         padding-bottom: 12px !important;
-        margin-bottom: 12px !important;
+        padding-inline-end: 0 !important;
+    }
+
+    .quran-summary-details-box {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        border-inline-end: none !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding-bottom: 12px !important;
+        padding-inline-end: 0 !important;
+    }
+
+    .quran-summary-actions-box {
+        flex: 1 1 100% !important;
+        width: 100% !important;
     }
 }
 
