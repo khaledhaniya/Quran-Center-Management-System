@@ -2330,7 +2330,7 @@
     </div>
 
     <!-- Quran Exam Specialized Modal Container -->
-    <div class="modal-overlay" id="quran-exam-modal-container" style="display:none; z-index: 10500;">
+    <div class="modal-overlay" id="quran-exam-modal-container" style="display:none; z-index: 10500;" onclick="if(event.target===this) closeQuranExamModal()">
         <div class="modal-card modal-xl quran-exam-modal-card animate-zoom">
             <div class="modal-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #0d5c3a, #15803d); color: #fff; padding: 14px 20px;">
                 <div class="d-flex align-items-center gap-2">
@@ -2398,7 +2398,7 @@
     <!-- Script loading with cache busting -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
-    <script src="js/quran-exam-engine.js?v=20260920_v2"></script>
-    <script src="app.js?v=20260920_v2_quran_exam_fixes"></script>
+    <script src="js/quran-exam-engine.js?v=20260920_v3_engine_fix"></script>
+    <script src="app.js?v=20260920_v3_modal_open_fix"></script>
 </body>
 </html>

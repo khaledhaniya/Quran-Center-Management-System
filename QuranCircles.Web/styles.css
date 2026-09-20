@@ -7155,8 +7155,16 @@ body.dark-mode .plan-juz-btn:hover {
 }
 
 /* ==========================================================================
-   QURAN EXAM SYSTEM & QUESTION BANK STYLING (2026)
-   ========================================================================== */
+#quran-exam-modal-container {
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+#quran-exam-modal-container.open {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+}
+
 .quran-exam-modal-card {
     max-width: 1100px !important;
     width: 95% !important;

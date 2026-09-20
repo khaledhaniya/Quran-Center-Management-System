@@ -1619,7 +1619,7 @@ function myFunction(ExamStage,ExamQstn,ExamName) {
 	
 }
 
-const QuranExamEngine = (function() {
+var QuranExamEngine = (function() {
     return {
         getSingleJuzList: function() {
             return Array.from({length: 30}, (_, i) => (i + 1).toString());
@@ -1638,26 +1638,38 @@ const QuranExamEngine = (function() {
             let stageVar = 'ExamStage' + key;
             let qstnVar = 'ExamQstn' + key;
 
-            let stages = window[stageVar];
-            let qstns = window[qstnVar];
+            let stages = null;
+            let qstns = null;
+
+            try { if (typeof window !== 'undefined' && window[stageVar]) stages = window[stageVar]; } catch(e){}
+            try { if (!stages && typeof eval !== 'undefined') stages = eval(stageVar); } catch(e){}
+
+            try { if (typeof window !== 'undefined' && window[qstnVar]) qstns = window[qstnVar]; } catch(e){}
+            try { if (!qstns && typeof eval !== 'undefined') qstns = eval(qstnVar); } catch(e){}
 
             // Normalize single digits (e.g., '01' -> '1' or '1' -> '01')
             if (!qstns && key.startsWith('0')) {
                 const altKey = key.replace(/^0+/, '');
-                stages = stages || window['ExamStage' + altKey];
-                qstns = window['ExamQstn' + altKey];
+                try { if (typeof window !== 'undefined' && window['ExamStage' + altKey]) stages = stages || window['ExamStage' + altKey]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = stages || eval('ExamStage' + altKey); } catch(e){}
+                try { if (typeof window !== 'undefined' && window['ExamQstn' + altKey]) qstns = window['ExamQstn' + altKey]; } catch(e){}
+                try { if (!qstns && typeof eval !== 'undefined') qstns = eval('ExamQstn' + altKey); } catch(e){}
             }
             if (!qstns && /^\d+$/.test(key)) {
                 const paddedKey = key.padStart(2, '0');
-                stages = stages || window['ExamStage' + paddedKey];
-                qstns = window['ExamQstn' + paddedKey];
+                try { if (typeof window !== 'undefined' && window['ExamStage' + paddedKey]) stages = stages || window['ExamStage' + paddedKey]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = stages || eval('ExamStage' + paddedKey); } catch(e){}
+                try { if (typeof window !== 'undefined' && window['ExamQstn' + paddedKey]) qstns = window['ExamQstn' + paddedKey]; } catch(e){}
+                try { if (!qstns && typeof eval !== 'undefined') qstns = eval('ExamQstn' + paddedKey); } catch(e){}
             }
             // Normalize ranges (e.g., '5_1' -> '05_01' or '10_8' -> '10_08')
             if (!qstns && key.includes('_')) {
                 const parts = key.split('_');
                 const normKey = parts[0].padStart(2, '0') + '_' + parts[1].padStart(2, '0');
-                stages = stages || window['ExamStage' + normKey];
-                qstns = window['ExamQstn' + normKey];
+                try { if (typeof window !== 'undefined' && window['ExamStage' + normKey]) stages = stages || window['ExamStage' + normKey]; } catch(e){}
+                try { if (!stages && typeof eval !== 'undefined') stages = stages || eval('ExamStage' + normKey); } catch(e){}
+                try { if (typeof window !== 'undefined' && window['ExamQstn' + normKey]) qstns = window['ExamQstn' + normKey]; } catch(e){}
+                try { if (!qstns && typeof eval !== 'undefined') qstns = eval('ExamQstn' + normKey); } catch(e){}
             }
 
             return {

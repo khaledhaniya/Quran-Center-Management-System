@@ -11503,6 +11503,10 @@ async function loadExams() {
     }
 
     if (quranExamSystemBtn) {
+        quranExamSystemBtn.onclick = function(e) {
+            if (e && typeof e.preventDefault === 'function') e.preventDefault();
+            openQuranExamSystemModal();
+        };
         // Only visible to ExamSupervisor, Admin, and Developer - hidden from non-supervisor teachers
         if (isAdmin || isSupervisor) {
             quranExamSystemBtn.style.display = "inline-block";
@@ -12061,7 +12065,13 @@ let currentExamCategory = "single"; // "single" or "combined"
 
 function closeQuranExamModal() {
     const modal = document.getElementById("quran-exam-modal-container");
-    if (modal) modal.style.display = "none";
+    if (modal) {
+        modal.classList.remove("open");
+        modal.style.display = "none";
+        modal.style.opacity = "0";
+        modal.style.pointerEvents = "none";
+        modal.style.visibility = "hidden";
+    }
 }
 
 function openQuranExamByNominationId(nominationId) {
@@ -12083,6 +12093,11 @@ function openQuranExamByNominationId(nominationId) {
 }
 
 function openQuranExamSystemModal(nominationData = null) {
+    // If event object was passed from inline onclick="openQuranExamSystemModal(event)"
+    if (nominationData && (nominationData instanceof Event || typeof nominationData.preventDefault === 'function' || nominationData.target)) {
+        nominationData = null;
+    }
+
     const user = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
     const role = (user && user.role) ? user.role : (currentRole || "");
     const tRole = (getAuthStorage("taskRole") || "").trim();
@@ -12124,9 +12139,16 @@ function openQuranExamSystemModal(nominationData = null) {
     currentExamNomination = nominationData;
     currentExamDeductions = {};
     const modal = document.getElementById("quran-exam-modal-container");
-    if (!modal) return;
+    if (!modal) {
+        console.error("Modal element #quran-exam-modal-container not found!");
+        return;
+    }
 
     modal.style.display = "flex";
+    modal.classList.add("open");
+    modal.style.opacity = "1";
+    modal.style.pointerEvents = "auto";
+    modal.style.visibility = "visible";
 
     // Auto-detect exam key
     let defaultKey = "1";
@@ -12143,7 +12165,8 @@ function openQuranExamSystemModal(nominationData = null) {
             const s = String(Math.min(jStart, jEnd)).padStart(2, '0');
             const e = String(Math.max(jStart, jEnd)).padStart(2, '0');
             const candidateKey = `${e}-${s}`;
-            const combinedList = (typeof QuranExamEngine !== "undefined" && QuranExamEngine.getCombinedExamList) ? QuranExamEngine.getCombinedExamList() : [];
+            const engine = (typeof QuranExamEngine !== "undefined") ? QuranExamEngine : (typeof window !== "undefined" ? window.QuranExamEngine : null);
+            const combinedList = (engine && engine.getCombinedExamList) ? engine.getCombinedExamList() : [];
             if (combinedList.includes(candidateKey)) {
                 defaultKey = candidateKey;
                 currentExamCategory = "combined";
@@ -12173,15 +12196,17 @@ function generateNewQuranExamQuestions() {
 }
 
 function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
-    if (typeof QuranExamEngine === "undefined") {
+    const engine = (typeof QuranExamEngine !== "undefined") ? QuranExamEngine : (typeof window !== "undefined" ? window.QuranExamEngine : null);
+    if (!engine) {
         console.error("QuranExamEngine is not loaded");
+        showAlert("جاري تهيئة بنك الأسئلة القرآني، يرجى المحاولة بعد قليل.", "warning");
         return;
     }
 
     if (forceRegenerate || !currentActiveQuranExam || currentActiveQuranExam.examKey !== examKey) {
-        const generated = QuranExamEngine.generateExam(examKey);
+        const generated = engine.generateExam(examKey);
         if (!generated) {
-            showAlert("تعذر العثور على إعدادات الاختبار المحدد.", "danger");
+            showAlert("تعذر العثور على إعدادات الاختبار المحدد: " + examKey, "danger");
             return;
         }
         currentActiveQuranExam = {
@@ -12200,8 +12225,8 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
         }
     }
 
-    const singleList = QuranExamEngine.getSingleJuzList();
-    const combinedList = QuranExamEngine.getCombinedExamList();
+    const singleList = engine.getSingleJuzList();
+    const combinedList = engine.getCombinedExamList();
     const body = document.getElementById("quran-exam-modal-body");
     if (!body) return;
 
@@ -12489,7 +12514,8 @@ function updateQuranScoreSummary() {
         totalDeduct += (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
     }
 
-    const finalScore = QuranExamEngine.calculateScore(count, totalDeduct);
+    const engine = (typeof QuranExamEngine !== "undefined") ? QuranExamEngine : (typeof window !== "undefined" ? window.QuranExamEngine : null);
+    const finalScore = engine ? engine.calculateScore(count, totalDeduct) : Math.max(0, Math.round(100 - (totalDeduct / count)));
     const passing = window.SYS_PASSING_SCORE || 80;
     const isPassed = finalScore >= passing;
 
@@ -12645,7 +12671,8 @@ async function submitQuranExamDirect() {
         minorMistakes += d.tune;
     }
 
-    const finalScore = QuranExamEngine.calculateScore(count, totalDeduct);
+    const engine = (typeof QuranExamEngine !== "undefined") ? QuranExamEngine : (typeof window !== "undefined" ? window.QuranExamEngine : null);
+    const finalScore = engine ? engine.calculateScore(count, totalDeduct) : Math.max(0, Math.round(100 - (totalDeduct / count)));
     const passing = window.SYS_PASSING_SCORE || 80;
     const isPassed = finalScore >= passing;
     const statusText = isPassed ? "مكتمل واجتاز بنجاح" : "مكتمل ولم يجتز";
