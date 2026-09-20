@@ -1632,14 +1632,38 @@ const QuranExamEngine = (function() {
             ];
         },
         getExamConfig: function(examKey) {
-            const key = examKey.toString().replace('-', '_');
-            const stageVar = 'ExamStage' + key;
-            const qstnVar = 'ExamQstn' + key;
+            let raw = examKey ? examKey.toString().trim() : '1';
+            let key = raw.replace('-', '_');
 
-            const stages = window[stageVar] ? [...window[stageVar]] : [1, 2, 1];
-            const qstns = window[qstnVar] ? window[qstnVar] : null;
+            let stageVar = 'ExamStage' + key;
+            let qstnVar = 'ExamQstn' + key;
 
-            return { stages, qstns };
+            let stages = window[stageVar];
+            let qstns = window[qstnVar];
+
+            // Normalize single digits (e.g., '01' -> '1' or '1' -> '01')
+            if (!qstns && key.startsWith('0')) {
+                const altKey = key.replace(/^0+/, '');
+                stages = stages || window['ExamStage' + altKey];
+                qstns = window['ExamQstn' + altKey];
+            }
+            if (!qstns && /^\d+$/.test(key)) {
+                const paddedKey = key.padStart(2, '0');
+                stages = stages || window['ExamStage' + paddedKey];
+                qstns = window['ExamQstn' + paddedKey];
+            }
+            // Normalize ranges (e.g., '5_1' -> '05_01' or '10_8' -> '10_08')
+            if (!qstns && key.includes('_')) {
+                const parts = key.split('_');
+                const normKey = parts[0].padStart(2, '0') + '_' + parts[1].padStart(2, '0');
+                stages = stages || window['ExamStage' + normKey];
+                qstns = window['ExamQstn' + normKey];
+            }
+
+            return {
+                stages: stages ? [...stages] : [1, 2, 1],
+                qstns: qstns || null
+            };
         },
         generateExam: function(examKey) {
             const cfg = this.getExamConfig(examKey);
@@ -1655,17 +1679,24 @@ const QuranExamEngine = (function() {
             for (let i = 0; i < stages.length; i++) {
                 noOfQstn += stages[i];
             }
+            if (noOfQstn <= 0) noOfQstn = 4;
 
             const mainQuestions = [];
             const altQuestions = [];
 
             for (let i = 0; i < noOfQstn; i++) {
                 let qstnType = 0;
-                for (;;) {
-                    qstnType = Math.floor(Math.random() * 3);
-                    if (stages[qstnType] !== 0) break;
+                let availableTypes = [];
+                for (let t = 0; t < stages.length; t++) {
+                    if (stages[t] > 0) availableTypes.push(t);
                 }
-                if (stages[qstnType] !== 0) stages[qstnType]--;
+
+                if (availableTypes.length > 0) {
+                    qstnType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+                    stages[qstnType]--;
+                } else {
+                    qstnType = Math.floor(Math.random() * Math.min(3, stages.length || 1));
+                }
 
                 const qstnRange = qstns[i] && qstns[i][qstnType] ? qstns[i][qstnType] : (qstns[0] ? qstns[0][qstnType] : [1, 10]);
                 const minIdx = qstnRange[0];
@@ -1673,12 +1704,14 @@ const QuranExamEngine = (function() {
 
                 let qstnNo = Math.floor(Math.random() * (maxIdx - minIdx + 1)) + minIdx;
                 let tempNo = Math.floor(Math.random() * (maxIdx - minIdx + 1)) + minIdx;
-                while (qstnNo === tempNo && (maxIdx > minIdx)) {
+                let loopGuard = 0;
+                while (qstnNo === tempNo && (maxIdx > minIdx) && loopGuard < 25) {
                     tempNo = Math.floor(Math.random() * (maxIdx - minIdx + 1)) + minIdx;
+                    loopGuard++;
                 }
 
-                const item1 = Aya[qstnNo] || Aya[1];
-                const item2 = Aya[tempNo] || Aya[2];
+                const item1 = (typeof Aya !== 'undefined' && Aya[qstnNo]) ? Aya[qstnNo] : ((typeof window.Aya !== 'undefined' && window.Aya[qstnNo]) ? window.Aya[qstnNo] : ["1","الفاتحة","1","1","1","بسم الله الرحمن الرحيم","ولا الضالين","7","سهل"]);
+                const item2 = (typeof Aya !== 'undefined' && Aya[tempNo]) ? Aya[tempNo] : ((typeof window.Aya !== 'undefined' && window.Aya[tempNo]) ? window.Aya[tempNo] : item1);
 
                 mainQuestions.push({
                     number: i + 1,
@@ -1723,4 +1756,9 @@ const QuranExamEngine = (function() {
     };
 })();
 
-window.QuranExamEngine = QuranExamEngine;
+if (typeof window !== "undefined") {
+    window.QuranExamEngine = QuranExamEngine;
+    if (typeof Aya !== "undefined") {
+        window.Aya = Aya;
+    }
+}

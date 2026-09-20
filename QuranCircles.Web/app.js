@@ -11486,8 +11486,10 @@ function showWhatsAppSimulateModal(alertData) {
 async function loadExams() {
     const isTeacher = currentRole === "Teacher";
     const isAdmin = (currentRole === "Admin" || currentRole === "Developer");
-    const isSupervisor = (currentRole === "ExamSupervisor");
+    const tRole = (getAuthStorage("taskRole") || "").trim();
+    const isSupervisor = (currentRole === "ExamSupervisor" || (isTeacher && tRole.includes("اختبار")));
     const nominateBtn = document.getElementById("btn-nominate-student-modal");
+    const quranExamSystemBtn = document.getElementById("btn-open-quran-exam-system");
 
     if (nominateBtn) {
         if (isTeacher || isAdmin) {
@@ -11500,8 +11502,18 @@ async function loadExams() {
         }
     }
 
+    if (quranExamSystemBtn) {
+        // Only visible to ExamSupervisor, Admin, and Developer - hidden from non-supervisor teachers
+        if (isAdmin || isSupervisor) {
+            quranExamSystemBtn.style.display = "inline-block";
+        } else {
+            quranExamSystemBtn.style.display = "none";
+        }
+    }
+
     try {
         const list = await apiRequest("/exams/nominations");
+        window.allExamsNominations = list || [];
 
         let supCard = document.getElementById("supervisor-hero-card");
         if (isSupervisor) {
@@ -11639,7 +11651,7 @@ function renderExamsTable(list, filterType, isAdmin, isSupervisor) {
             const escapedTeacher = (n.teacherName || '').replace(/'/g, "\\'");
             if (n.nominationType === 'Quran') {
                 actionsHtml = `
-                    <button class="btn btn-warning btn-sm" onclick="openQuranExamSystemModal({ nominationId: ${n.id}, studentName: '${escapedName}', juzStart: ${n.juzStart || 1}, juzEnd: ${n.juzEnd || 1}, halaqahName: '${escapedHalaqah}', teacherName: '${escapedTeacher}', nominationType: '${n.nominationType}' })"><i class="fa-solid fa-book-quran me-1"></i> اختبار ورصد قرآن</button>
+                    <button class="btn btn-warning btn-sm" onclick="openQuranExamByNominationId(${n.id})"><i class="fa-solid fa-book-quran me-1"></i> اختبار ورصد قرآن</button>
                     <button class="btn btn-outline-success btn-sm ms-1" onclick="showEvaluateExamModal(${n.id}, '${escapedName}', '${n.nominationType}')"><i class="fa-solid fa-marker"></i> يدوي</button>
                 `;
             } else {
@@ -12052,10 +12064,60 @@ function closeQuranExamModal() {
     if (modal) modal.style.display = "none";
 }
 
+function openQuranExamByNominationId(nominationId) {
+    const list = window.allExamsNominations || [];
+    const item = list.find(n => n.id === nominationId || n.id === parseInt(nominationId));
+    if (item) {
+        openQuranExamSystemModal({
+            nominationId: item.id,
+            studentName: item.studentName || '',
+            juzStart: item.juzStart || 1,
+            juzEnd: item.juzEnd || item.juzStart || 1,
+            halaqahName: item.halaqahName || '',
+            teacherName: item.teacherName || '',
+            nominationType: item.nominationType || 'Quran'
+        });
+    } else {
+        openQuranExamSystemModal({ nominationId });
+    }
+}
+
 function openQuranExamSystemModal(nominationData = null) {
-    const role = currentUser?.role || "";
-    if (role !== "Admin" && role !== "Developer" && role !== "ExamSupervisor" && role !== "Teacher") {
-        showAlert("عفواً، نظام الاختبارات القرآنية متاح فقط للمشرفين والمعلمين وإدارة المركز.", "warning");
+    const user = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
+    const role = (user && user.role) ? user.role : (currentRole || "");
+    const tRole = (getAuthStorage("taskRole") || "").trim();
+    const isAdmin = (role === "Admin" || role === "Developer");
+    const isSupervisor = (role === "ExamSupervisor" || (role === "Teacher" && tRole.includes("اختبار")));
+
+    // Support nominationId directly
+    if (typeof nominationData === "number" || (typeof nominationData === "string" && !isNaN(Number(nominationData)))) {
+        const nomId = parseInt(nominationData);
+        const item = (window.allExamsNominations || []).find(x => x.id === nomId);
+        if (item) {
+            nominationData = {
+                nominationId: item.id,
+                studentName: item.studentName || '',
+                juzStart: item.juzStart || 1,
+                juzEnd: item.juzEnd || item.juzStart || 1,
+                halaqahName: item.halaqahName || '',
+                teacherName: item.teacherName || '',
+                nominationType: item.nominationType || 'Quran'
+            };
+        } else {
+            nominationData = { nominationId: nomId };
+        }
+    }
+
+    // Role verification:
+    // If opening without nomination data (the standalone question bank system), only supervisors, admins, and developers can open it
+    if (!nominationData && !isAdmin && !isSupervisor) {
+        showAlert("عفواً، نظام الاختبارات القرآنية وبنك الأسئلة متاح فقط لمشرف الاختبار والإدارة والمطور.", "warning");
+        return;
+    }
+
+    // If opening with nomination data, ensure user is Admin, Supervisor, or Teacher
+    if (nominationData && !isAdmin && !isSupervisor && role !== "Teacher") {
+        showAlert("عفواً، نظام الاختبارات متاح فقط للمشرفين والمعلمين وإدارة المركز.", "warning");
         return;
     }
 

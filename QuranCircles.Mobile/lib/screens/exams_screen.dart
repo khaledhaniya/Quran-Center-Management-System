@@ -583,18 +583,19 @@ class _ExamsScreenState extends State<ExamsScreen> {
       appBar: AppBar(
         title: const Text('إدارة الاختبارات والترشيحات'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.menu_book, color: Color(0xFFCDA250)),
-            tooltip: 'نظام الاختبارات القرآنية وبنك الأسئلة',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => QuranExamSystemScreen(currentUser: widget.currentUser),
-                ),
-              ).then((_) => _loadNominations());
-            },
-          ),
+          if (isSupervisor)
+            IconButton(
+              icon: const Icon(Icons.menu_book, color: Color(0xFFCDA250)),
+              tooltip: 'نظام الاختبارات القرآنية وبنك الأسئلة',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuranExamSystemScreen(currentUser: widget.currentUser),
+                  ),
+                ).then((_) => _loadNominations());
+              },
+            ),
         ],
       ),
       floatingActionButton: canNominate
