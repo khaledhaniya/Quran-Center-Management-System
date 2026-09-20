@@ -286,10 +286,11 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
                     itemBuilder: (ctx, idx) {
                       final key = QuranExamEngine.getCombinedExamList()[idx];
                       final isSelected = _selectedExamKey == key;
+                      final labelTitle = QuranExamEngine.getCombinedExamTitle(key);
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: ChoiceChip(
-                          label: Text('الأجزاء ($key)', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          label: Text(labelTitle, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           selected: isSelected,
                           selectedColor: Colors.teal.shade700,
                           labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
@@ -313,7 +314,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'اختبار: $_selectedExamKey (${_generatedExam?.questionCount ?? 0} أسئلة)',
+                    'اختبار: ${QuranExamEngine.getCombinedExamTitle(_selectedExamKey)} (${_generatedExam?.questionCount ?? 0} أسئلة)',
                     style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 15),
                   ),
                   ElevatedButton.icon(
@@ -708,7 +709,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
@@ -717,13 +718,11 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text('$points نقطة', style: TextStyle(color: color, fontSize: 11)),
-                ],
+              child: Text(
+                label,
+                style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (count > 0) ...[

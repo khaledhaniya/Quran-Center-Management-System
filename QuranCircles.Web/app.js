@@ -12233,19 +12233,21 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
     let candidateBanner = "";
     if (currentExamNomination) {
         candidateBanner = `
-            <div class="alert alert-success d-flex justify-content-between align-items-center mb-3" style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #6ee7b7; border-radius: 12px; padding: 12px 18px;">
-                <div class="d-flex align-items-center gap-3">
-                    <i class="fa-solid fa-user-graduate fs-3 text-success"></i>
-                    <div>
-                        <h5 class="mb-0 fw-bold text-dark">مرشح للاختبار: <span class="text-success">${currentExamNomination.studentName || 'طالب'}</span></h5>
-                        <div class="small text-muted mt-1">
-                            ${currentExamNomination.halaqahName ? `<span class="me-3"><i class="fa-solid fa-users text-secondary me-1"></i> الحلقة: <strong>${currentExamNomination.halaqahName}</strong></span>` : ''}
-                            ${currentExamNomination.teacherName ? `<span class="me-3"><i class="fa-solid fa-chalkboard-user text-secondary me-1"></i> المعلم: <strong>${currentExamNomination.teacherName}</strong></span>` : ''}
-                            <span><i class="fa-solid fa-hashtag text-secondary me-1"></i> رقم الطلب: <strong>${currentExamNomination.nominationId || '-'}</strong></span>
+            <div class="quran-candidate-banner">
+                <div class="quran-candidate-info">
+                    <div class="quran-candidate-icon">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
+                    <div class="quran-candidate-details">
+                        <div class="quran-candidate-name">مرشح للاختبار: <span class="text-success">${currentExamNomination.studentName || 'طالب'}</span></div>
+                        <div class="quran-candidate-tags">
+                            ${currentExamNomination.halaqahName ? `<span class="quran-candidate-tag"><i class="fa-solid fa-users text-secondary"></i> الحلقة: <strong>${currentExamNomination.halaqahName}</strong></span>` : ''}
+                            ${currentExamNomination.teacherName ? `<span class="quran-candidate-tag"><i class="fa-solid fa-chalkboard-user text-secondary"></i> المحفظ: <strong>${currentExamNomination.teacherName}</strong></span>` : ''}
+                            <span class="quran-candidate-tag"><i class="fa-solid fa-hashtag text-secondary"></i> رقم الطلب: <strong>${currentExamNomination.nominationId || '-'}</strong></span>
                         </div>
                     </div>
                 </div>
-                <span class="badge bg-success px-3 py-2 fs-6">وضع الرصد المباشر</span>
+                <span class="badge bg-success px-3 py-2 fs-6"><i class="fa-solid fa-satellite-dish me-1"></i> وضع الرصد المباشر</span>
             </div>
         `;
     }
@@ -12257,8 +12259,7 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
 
     let combinedButtonsHtml = combinedList.map(c => {
         const activeClass = (currentExamCategory === "combined" && examKey === c) ? "active" : "";
-        const parts = c.split("-");
-        const label = `الأجزاء ${parts[1]} - ${parts[0]}`;
+        const label = engine.getCombinedExamLabel ? engine.getCombinedExamLabel(c) : `الأجزاء (${c})`;
         return `<button type="button" class="quran-exam-btn ${activeClass}" onclick="selectQuranExamKey('${c}')">${label}</button>`;
     }).join("");
 
@@ -12291,29 +12292,29 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
                     <div style="font-weight:700; color:#0d5c3a; margin-bottom:4px;"><i class="fa-solid fa-quote-right me-1"></i> اقرأ من قوله تعالى:</div>
                     <div style="font-size:1.18rem; padding-right:12px;">« ${q.startText} »</div>
                     <div style="font-weight:700; color:#0d5c3a; margin-top:8px; margin-bottom:4px;"><i class="fa-solid fa-quote-left me-1"></i> إلى قوله تعالى:</div>
-                    <div style="font-size:1.18rem; padding-right:12px;">« ${q.endText} »</div>
+                    <div style="font-size:1.18rem; padding-right:12px;">« ${q.endText} » <span class="badge bg-light text-dark border ms-1">[آية: ${q.verseEnd}]</span></div>
                 </div>
 
                 <div class="deduction-panel">
                     <div class="deduction-btn-group">
                         <button type="button" class="deduction-btn deduction-btn-7" onclick="adjustQuranDeduction(${q.number}, 'startVerse', 1)">
-                            <i class="fa-solid fa-circle-minus"></i> رد ببداية آية (-7)
-                            <span class="badge bg-danger text-white ms-1">${d.startVerse}</span>
+                            <span><i class="fa-solid fa-circle-minus me-1"></i> رد ببداية آية</span>
+                            <span class="deduction-btn-badge ${d.startVerse > 0 ? 'has-value' : ''}">${d.startVerse}</span>
                         </button>
                         <button type="button" class="deduction-btn deduction-btn-3" onclick="adjustQuranDeduction(${q.number}, 'word', 1)">
-                            <i class="fa-solid fa-circle-minus"></i> خطأ كلمة (-3)
-                            <span class="badge bg-warning text-dark ms-1">${d.word}</span>
+                            <span><i class="fa-solid fa-circle-minus me-1"></i> خطأ كلمة</span>
+                            <span class="deduction-btn-badge ${d.word > 0 ? 'has-value' : ''}">${d.word}</span>
                         </button>
                         <button type="button" class="deduction-btn deduction-btn-25" onclick="adjustQuranDeduction(${q.number}, 'letter', 1)">
-                            <i class="fa-solid fa-circle-minus"></i> حرف / حركة (-2.5)
-                            <span class="badge bg-secondary text-white ms-1">${d.letter}</span>
+                            <span><i class="fa-solid fa-circle-minus me-1"></i> خطأ حرف / حركة</span>
+                            <span class="deduction-btn-badge ${d.letter > 0 ? 'has-value' : ''}">${d.letter}</span>
                         </button>
                         <button type="button" class="deduction-btn deduction-btn-15" onclick="adjustQuranDeduction(${q.number}, 'tune', 1)">
-                            <i class="fa-solid fa-circle-minus"></i> تنبيه / لحن خفي (-1.5)
-                            <span class="badge bg-info text-dark ms-1">${d.tune}</span>
+                            <span><i class="fa-solid fa-circle-minus me-1"></i> تنبيه / لحن خفي</span>
+                            <span class="deduction-btn-badge ${d.tune > 0 ? 'has-value' : ''}">${d.tune}</span>
                         </button>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="deduction-action-group">
                         <span class="small fw-bold text-muted">خصم السؤال: <span class="text-danger fw-bold fs-6">-${qDeduct.toFixed(1)}</span></span>
                         <button type="button" class="deduction-reset-btn" onclick="resetQuranQuestionDeduction(${q.number})" title="تصفير أخطاء هذا السؤال">
                             <i class="fa-solid fa-rotate-left"></i> تصفير
@@ -12324,21 +12325,35 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
         `;
     });
 
-    let altQuestionsRows = "";
-    currentActiveQuranExam.altQuestions.forEach(aq => {
-        altQuestionsRows += `
-            <tr>
-                <td class="fw-bold text-center">${aq.number}</td>
-                <td class="text-center"><span class="badge bg-light text-dark border">${aq.difficulty}</span></td>
-                <td><strong>${aq.surah}</strong></td>
-                <td class="text-center">${aq.juz}</td>
-                <td class="text-center">${aq.page}</td>
-                <td><span class="font-arabic">« ${aq.startText} »</span></td>
-                <td><span class="font-arabic">« ${aq.endText} »</span></td>
-                <td class="text-center">${aq.verseStart} - ${aq.verseEnd}</td>
-            </tr>
+    let altQuestionsCardsHtml = currentActiveQuranExam.altQuestions.map(aq => {
+        let diffBadgeColor = "#0d5c3a";
+        if (aq.difficulty === "سهل") diffBadgeColor = "#16a34a";
+        else if (aq.difficulty === "متوسط") diffBadgeColor = "#d97706";
+        else if (aq.difficulty === "صعب") diffBadgeColor = "#dc2626";
+
+        return `
+            <div class="quran-alt-card">
+                <div class="quran-alt-card-header">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary">سؤال احتياطي ${aq.number}</span>
+                        <span class="badge" style="background:${diffBadgeColor}; color:#fff;">${aq.difficulty}</span>
+                    </div>
+                    <div class="small text-muted">
+                        <strong>${aq.surah}</strong> (جزء ${aq.juz} - ص ${aq.page})
+                    </div>
+                </div>
+                <div class="quran-alt-card-text">
+                    <div style="font-weight:700; color:#0d5c3a; font-size:0.9rem; margin-bottom:2px;">اقرأ من قوله تعالى:</div>
+                    <div style="font-size:1.05rem;">« ${aq.startText} »</div>
+                    <div style="font-weight:700; color:#0d5c3a; font-size:0.9rem; margin-top:4px; margin-bottom:2px;">إلى قوله تعالى:</div>
+                    <div style="font-size:1.05rem;">« ${aq.endText} » <span class="badge bg-light text-dark border ms-1">[آية: ${aq.verseEnd}]</span></div>
+                </div>
+                <button type="button" class="quran-alt-swap-btn" onclick="swapQuranQuestionWithAlt(${aq.number})">
+                    <i class="fa-solid fa-arrow-right-arrow-left"></i> تبديل هذا السؤال مع السؤال الأساسي رقم ${aq.number}
+                </button>
+            </div>
         `;
-    });
+    }).join("");
 
     body.innerHTML = `
         ${candidateBanner}
@@ -12362,11 +12377,11 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3 bg-white rounded border mb-3">
             <div>
                 <h5 class="mb-0 fw-bold" style="color:#0d5c3a;">
-                    <i class="fa-solid fa-feather me-1"></i> اختبار: <strong>${examKey}</strong>
+                    <i class="fa-solid fa-feather me-1"></i> اختبار: <strong>${currentExamCategory === 'combined' && engine.getCombinedExamLabel ? engine.getCombinedExamLabel(examKey) : `الجزء ${examKey}`}</strong>
                     <span class="badge bg-secondary fs-6 ms-2">عدد الأسئلة: ${currentActiveQuranExam.questionCount}</span>
                 </h5>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateNewQuranExamQuestions()">
                     <i class="fa-solid fa-arrows-rotate me-1"></i> توليد نموذج أسئلة جديد
                 </button>
@@ -12380,29 +12395,21 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
         </div>
 
         <!-- Alternative Questions Container (Initially Hidden) -->
-        <div id="quran-alt-questions-container" class="card p-3 mb-3 border shadow-sm" style="display:none; background:#fbfdff;">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="fw-bold text-primary mb-0"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> جدول الأسئلة الاحتياطية (البديلة في حال تعثر الطالب)</h6>
-                <button type="button" class="btn-close btn-sm" onclick="toggleQuranAltQuestions()"></button>
+        <div id="quran-alt-questions-container" class="quran-alt-container" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-arrow-right-arrow-left text-primary fs-5"></i>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0">بنك الأسئلة الاحتياطية البديلة</h6>
+                        <small class="text-muted">أسئلة جاهزة للاستبدال الفوري في حال تعثر الطالب أو رغبة المشرف</small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleQuranAltQuestions()">
+                    <i class="fa-solid fa-xmark"></i> إغلاق
+                </button>
             </div>
-            <div class="table-responsive">
-                <table class="quran-alt-table">
-                    <thead>
-                        <tr>
-                            <th>رقم</th>
-                            <th>المستوى</th>
-                            <th>السورة</th>
-                            <th>الجزء</th>
-                            <th>الصفحة</th>
-                            <th>بداية الموضع</th>
-                            <th>نهاية الموضع</th>
-                            <th>الآيات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${altQuestionsRows}
-                    </tbody>
-                </table>
+            <div class="quran-alt-grid">
+                ${altQuestionsCardsHtml}
             </div>
         </div>
 
@@ -12413,7 +12420,7 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
 
         <!-- Live Score & Adoption Footer Card -->
         <div class="quran-exam-summary-card">
-            <div class="row align-items-center">
+            <div class="row align-items-center gy-3">
                 <div class="col-md-3 text-center border-end">
                     <div class="small text-muted mb-1">الدرجة النهائية (من 100)</div>
                     <div class="score-badge-large" id="quran-final-score-display">100%</div>
@@ -12459,6 +12466,25 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
     updateQuranScoreSummary();
 }
 
+function swapQuranQuestionWithAlt(qNumber) {
+    if (!currentActiveQuranExam) return;
+    const mainIdx = currentActiveQuranExam.mainQuestions.findIndex(q => q.number === qNumber);
+    const altIdx = currentActiveQuranExam.altQuestions.findIndex(q => q.number === qNumber);
+    if (mainIdx !== -1 && altIdx !== -1) {
+        const temp = { ...currentActiveQuranExam.mainQuestions[mainIdx] };
+        currentActiveQuranExam.mainQuestions[mainIdx] = {
+            ...currentActiveQuranExam.altQuestions[altIdx],
+            number: qNumber
+        };
+        currentActiveQuranExam.altQuestions[altIdx] = {
+            ...temp,
+            number: qNumber
+        };
+        renderQuranExamModalLayout(currentActiveQuranExam.examKey, false);
+        showAlert(`تم استبدال السؤال رقم ${qNumber} بالسؤال البديل بنجاح`, "success");
+    }
+}
+
 function adjustQuranDeduction(qNum, errorType, delta) {
     if (!currentExamDeductions[qNum]) {
         currentExamDeductions[qNum] = { startVerse: 0, word: 0, letter: 0, tune: 0 };
@@ -12470,11 +12496,23 @@ function adjustQuranDeduction(qNum, errorType, delta) {
     const qDeduct = (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
     const card = document.getElementById(`quran-card-q-${qNum}`);
     if (card) {
-        const badges = card.querySelectorAll(".deduction-btn-group .badge");
-        if (badges[0]) badges[0].textContent = d.startVerse;
-        if (badges[1]) badges[1].textContent = d.word;
-        if (badges[2]) badges[2].textContent = d.letter;
-        if (badges[3]) badges[3].textContent = d.tune;
+        const badges = card.querySelectorAll(".deduction-btn-group .deduction-btn-badge");
+        if (badges[0]) {
+            badges[0].textContent = d.startVerse;
+            badges[0].className = `deduction-btn-badge ${d.startVerse > 0 ? 'has-value' : ''}`;
+        }
+        if (badges[1]) {
+            badges[1].textContent = d.word;
+            badges[1].className = `deduction-btn-badge ${d.word > 0 ? 'has-value' : ''}`;
+        }
+        if (badges[2]) {
+            badges[2].textContent = d.letter;
+            badges[2].className = `deduction-btn-badge ${d.letter > 0 ? 'has-value' : ''}`;
+        }
+        if (badges[3]) {
+            badges[3].textContent = d.tune;
+            badges[3].className = `deduction-btn-badge ${d.tune > 0 ? 'has-value' : ''}`;
+        }
 
         const deductText = card.querySelector(".text-danger.fw-bold.fs-6");
         if (deductText) deductText.textContent = `-${qDeduct.toFixed(1)}`;
@@ -12488,8 +12526,11 @@ function resetQuranQuestionDeduction(qNum) {
     currentExamDeductions[qNum] = { startVerse: 0, word: 0, letter: 0, tune: 0 };
     const card = document.getElementById(`quran-card-q-${qNum}`);
     if (card) {
-        const badges = card.querySelectorAll(".deduction-btn-group .badge");
-        badges.forEach(b => b.textContent = "0");
+        const badges = card.querySelectorAll(".deduction-btn-group .deduction-btn-badge");
+        badges.forEach(b => {
+            b.textContent = "0";
+            b.className = "deduction-btn-badge";
+        });
         const deductText = card.querySelector(".text-danger.fw-bold.fs-6");
         if (deductText) deductText.textContent = "-0.0";
     }

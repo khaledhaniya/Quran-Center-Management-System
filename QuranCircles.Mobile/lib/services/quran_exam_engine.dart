@@ -24,7 +24,7 @@ class QuranQuestionModel {
     required this.verseEnd,
   });
 
-  factory QuranQuestionModel.fromRow(int number, List<String> row) {
+  factory QuranQuestionModel.fromRow(int number, List<String> row, {String? forceDifficulty}) {
     return QuranQuestionModel(
       number: number,
       surah: row.length > 1 ? row[1] : '',
@@ -34,7 +34,7 @@ class QuranQuestionModel {
       startText: row.length > 5 ? row[5] : '',
       endText: row.length > 6 ? row[6] : '',
       verseEnd: row.length > 7 ? int.tryParse(row[7]) ?? 1 : 1,
-      difficulty: row.length > 8 ? row[8] : 'متوسط',
+      difficulty: forceDifficulty ?? (row.length > 8 ? row[8] : 'متوسط'),
     );
   }
 }
@@ -60,10 +60,41 @@ class QuranExamEngine {
 
   static List<String> getCombinedExamList() {
     return const [
-      '10-08', '10-06', '05-03', '05-01', '10-01',
-      '20-18', '20-16', '15-13', '15-11', '20-11',
-      '30-28', '30-26', '25-23', '25-21', '30-21',
+      // فئة 5 أجزاء
+      '05-01', '10-06', '15-11', '20-16', '25-21', '30-26',
+      // فئة 10 أجزاء
+      '10-01', '20-11', '30-21',
+      // فئة 3 أجزاء
+      '05-03', '10-08', '15-13', '20-18', '25-23', '30-28',
     ];
+  }
+
+  static String getCombinedExamTitle(String key) {
+    const labels = {
+      '05-01': 'الأجزاء (1 - 5)',
+      '10-06': 'الأجزاء (6 - 10)',
+      '15-11': 'الأجزاء (11 - 15)',
+      '20-16': 'الأجزاء (16 - 20)',
+      '25-21': 'الأجزاء (21 - 25)',
+      '30-26': 'الأجزاء (26 - 30)',
+      '10-01': 'الأجزاء (1 - 10)',
+      '20-11': 'الأجزاء (11 - 20)',
+      '30-21': 'الأجزاء (21 - 30)',
+      '05-03': 'الأجزاء (3 - 5)',
+      '10-08': 'الأجزاء (8 - 10)',
+      '15-13': 'الأجزاء (13 - 15)',
+      '20-18': 'الأجزاء (18 - 20)',
+      '25-23': 'الأجزاء (23 - 25)',
+      '30-28': 'الأجزاء (28 - 30)',
+    };
+    if (labels.containsKey(key)) return labels[key]!;
+    if (key.contains('-')) {
+      final parts = key.split('-');
+      final from = int.tryParse(parts.length > 1 ? parts[1] : parts[0]) ?? 1;
+      final to = int.tryParse(parts[0]) ?? 1;
+      return 'الأجزاء ($from - $to)';
+    }
+    return key;
   }
 
   static GeneratedQuranExam? generateExam(String examKey) {
@@ -112,6 +143,37 @@ class QuranExamEngine {
 
       mainList.add(QuranQuestionModel.fromRow(i + 1, rowMain));
       altList.add(QuranQuestionModel.fromRow(i + 1, rowAlt));
+    }
+
+    // لابد ان يكون هناك سؤال صعب في كل اختبار
+    final bool hasHardMain = mainList.any((q) => q.difficulty == 'صعب');
+    if (!hasHardMain && mainList.isNotEmpty) {
+      final targetIdx = mainList.length - 1;
+      final hardTierRange = (targetIdx < qstns.length && qstns[targetIdx].length > 2)
+          ? qstns[targetIdx][2]
+          : (qstns.isNotEmpty && qstns[0].length > 2 ? qstns[0][2] : null);
+      if (hardTierRange != null) {
+        final hMin = hardTierRange[0];
+        final hMax = hardTierRange[1];
+        final hNo = hMin + random.nextInt(max(1, hMax - hMin + 1));
+        final rowMain = (hNo < ayaData.length) ? ayaData[hNo] : ayaData[1];
+        mainList[targetIdx] = QuranQuestionModel.fromRow(targetIdx + 1, rowMain, forceDifficulty: 'صعب');
+      }
+    }
+
+    final bool hasHardAlt = altList.any((q) => q.difficulty == 'صعب');
+    if (!hasHardAlt && altList.isNotEmpty) {
+      final targetIdx = altList.length - 1;
+      final hardTierRange = (targetIdx < qstns.length && qstns[targetIdx].length > 2)
+          ? qstns[targetIdx][2]
+          : (qstns.isNotEmpty && qstns[0].length > 2 ? qstns[0][2] : null);
+      if (hardTierRange != null) {
+        final hMin = hardTierRange[0];
+        final hMax = hardTierRange[1];
+        final hNo = hMin + random.nextInt(max(1, hMax - hMin + 1));
+        final rowAlt = (hNo < ayaData.length) ? ayaData[hNo] : ayaData[2];
+        altList[targetIdx] = QuranQuestionModel.fromRow(targetIdx + 1, rowAlt, forceDifficulty: 'صعب');
+      }
     }
 
     return GeneratedQuranExam(

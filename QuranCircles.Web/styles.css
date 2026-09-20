@@ -7155,9 +7155,25 @@ body.dark-mode .plan-juz-btn:hover {
 }
 
 /* ==========================================================================
+   QURAN EXAM SYSTEM & QUESTION BANK - RESPONSIVE & PREMIUM STYLES (2026)
+   ========================================================================== */
 #quran-exam-modal-container {
     transition: opacity 0.25s ease, visibility 0.25s ease;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    z-index: 10500;
 }
+
 #quran-exam-modal-container.open {
     display: flex !important;
     opacity: 1 !important;
@@ -7167,11 +7183,83 @@ body.dark-mode .plan-juz-btn:hover {
 
 .quran-exam-modal-card {
     max-width: 1100px !important;
-    width: 95% !important;
-    border-radius: 16px !important;
+    width: 96% !important;
+    max-height: 94vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-radius: 18px !important;
     overflow: hidden !important;
     background: #f8fafc !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.quran-candidate-banner {
+    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+    border: 1px solid #a7f3d0;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.06);
+}
+
+.quran-candidate-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.quran-candidate-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #10b981;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+}
+
+.quran-candidate-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.quran-candidate-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #064e3b;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.quran-candidate-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #065f46;
+}
+
+.quran-candidate-tag {
+    background: #ffffff;
+    border: 1px solid #d1fae5;
+    border-radius: 6px;
+    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
 }
 
 .quran-exam-nav-tabs {
@@ -7180,49 +7268,55 @@ body.dark-mode .plan-juz-btn:hover {
     background: #e2e8f0;
     padding: 6px;
     border-radius: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
 }
 
 .quran-exam-nav-btn {
     border: none;
     background: transparent;
-    padding: 8px 18px;
+    padding: 8px 16px;
     border-radius: 8px;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     color: #475569;
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    flex: 1 1 160px;
+    text-align: center;
 }
 
 .quran-exam-nav-btn.active {
     background: #ffffff;
-    color: #0d5c3a;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    color: #065f46;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .quran-exam-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
-    gap: 8px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 6px;
+    margin-bottom: 14px;
 }
 
 .quran-exam-btn {
-    padding: 8px 4px;
+    padding: 7px 2px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     background: #ffffff;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: #1e293b;
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .quran-exam-btn:hover {
@@ -7235,29 +7329,29 @@ body.dark-mode .plan-juz-btn:hover {
     background: #0d5c3a !important;
     border-color: #0d5c3a !important;
     color: #ffffff !important;
-    box-shadow: 0 4px 10px rgba(13, 92, 58, 0.3) !important;
+    box-shadow: 0 3px 8px rgba(13, 92, 58, 0.25) !important;
 }
 
 .quran-exam-combined-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 6px;
+    margin-bottom: 14px;
 }
 
 .quran-question-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 16px;
     margin-bottom: 14px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
     transition: all 0.2s ease;
     border-right: 5px solid #0d5c3a;
 }
 
 .quran-question-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .quran-question-card .q-header {
@@ -7266,25 +7360,25 @@ body.dark-mode .plan-juz-btn:hover {
     align-items: center;
     margin-bottom: 10px;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
 }
 
 .quran-question-card .q-meta {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: #64748b;
     display: flex;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 .quran-question-text {
-    font-size: 1.05rem;
-    line-height: 1.8;
+    font-size: 1.15rem;
+    line-height: 1.9;
     color: #0f172a;
     font-family: 'Amiri', 'Traditional Arabic', serif;
-    padding: 10px 14px;
-    background: #fdfbf7;
-    border-radius: 8px;
+    padding: 12px 16px;
+    background: #fafaf9;
+    border-radius: 10px;
     border: 1px dashed #e2e8f0;
     margin-bottom: 12px;
 }
@@ -7292,27 +7386,113 @@ body.dark-mode .plan-juz-btn:hover {
 .deduction-panel {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 10px;
+    border-radius: 12px;
+    padding: 10px 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
 }
 
 .deduction-btn-group {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
+    flex: 1 1 auto;
 }
 
 .deduction-btn {
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.78rem;
+    border: 1px solid transparent;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
     font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 40px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.deduction-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+}
+
+.deduction-btn-badge {
+    background: rgba(0, 0, 0, 0.15);
+    color: inherit;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.deduction-btn-badge.has-value {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+}
+
+.deduction-btn-7 {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+.deduction-btn-7:hover {
+    background: #fee2e2;
+}
+
+.deduction-btn-3 {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #9a3412;
+}
+.deduction-btn-3:hover {
+    background: #ffedd5;
+}
+
+.deduction-btn-25 {
+    background: #fefce8;
+    border-color: #fde68a;
+    color: #854d0e;
+}
+.deduction-btn-25:hover {
+    background: #fef3c7;
+}
+
+.deduction-btn-15 {
+    background: #f0f9ff;
+    border-color: #bae6fd;
+    color: #0369a1;
+}
+.deduction-btn-15:hover {
+    background: #e0f2fe;
+}
+
+.deduction-action-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.deduction-reset-btn {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
     display: inline-flex;
@@ -7320,71 +7500,199 @@ body.dark-mode .plan-juz-btn:hover {
     gap: 4px;
 }
 
-.deduction-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.deduction-btn-7 { background: #fee2e2; color: #991b1b; }
-.deduction-btn-7:hover { background: #fecaca; }
-.deduction-btn-3 { background: #ffedd5; color: #9a3412; }
-.deduction-btn-3:hover { background: #fed7aa; }
-.deduction-btn-25 { background: #fef3c7; color: #92400e; }
-.deduction-btn-25:hover { background: #fde68a; }
-.deduction-btn-15 { background: #e0f2fe; color: #075985; }
-.deduction-btn-15:hover { background: #bae6fd; }
-
-.deduction-reset-btn {
-    background: #f1f5f9;
-    color: #64748b;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 0.75rem;
-    cursor: pointer;
-}
-
 .deduction-reset-btn:hover {
     background: #e2e8f0;
-    color: #334155;
+    color: #1e293b;
 }
 
 .quran-exam-summary-card {
     background: linear-gradient(135deg, #ffffff, #f0fdf4);
     border: 2px solid #bbf7d0;
-    border-radius: 14px;
-    padding: 16px;
-    margin-top: 16px;
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-top: 18px;
     box-shadow: 0 4px 15px rgba(13, 92, 58, 0.08);
 }
 
 .score-badge-large {
-    font-size: 2.2rem;
+    font-size: 2.3rem;
     font-weight: 900;
     line-height: 1;
     color: #0d5c3a;
 }
 
-.quran-alt-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-    margin-top: 10px;
+/* Alternative Questions Cards (Luxury Redesign) */
+.quran-alt-container {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
 }
 
-.quran-alt-table th {
-    background: #f1f5f9;
+.quran-alt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.quran-alt-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.quran-alt-card:hover {
+    border-color: #0d5c3a;
+    box-shadow: 0 4px 10px rgba(13, 92, 58, 0.08);
+}
+
+.quran-alt-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.quran-alt-card-text {
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: #1e293b;
+    background: #fdfbf7;
+    border-radius: 8px;
     padding: 8px 10px;
-    color: #334155;
+    margin-bottom: 8px;
+    border: 1px dashed #e2e8f0;
+}
+
+.quran-alt-swap-btn {
+    background: #fef3c7;
+    border: 1px solid #fde047;
+    color: #92400e;
+    font-size: 0.8rem;
     font-weight: 700;
-    border-bottom: 2px solid #cbd5e1;
-    text-align: right;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
-.quran-alt-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #e2e8f0;
-    vertical-align: middle;
+.quran-alt-swap-btn:hover {
+    background: #fde68a;
+    color: #78350f;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS OVERRIDES (max-width: 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+    #quran-exam-modal-container {
+        padding: 4px !important;
+    }
+
+    .quran-exam-modal-card {
+        width: 100% !important;
+        max-width: 100vw !important;
+        height: 100% !important;
+        max-height: 98vh !important;
+        border-radius: 12px !important;
+        margin: 0 !important;
+    }
+
+    .quran-candidate-banner {
+        padding: 10px 12px !important;
+        gap: 8px !important;
+    }
+
+    .quran-candidate-info {
+        flex: 1 1 100% !important;
+    }
+
+    .quran-candidate-name {
+        font-size: 0.95rem !important;
+    }
+
+    .quran-candidate-tags {
+        font-size: 0.75rem !important;
+    }
+
+    .quran-exam-grid {
+        grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)) !important;
+        gap: 5px !important;
+    }
+
+    .quran-exam-btn {
+        padding: 6px 2px !important;
+        font-size: 0.78rem !important;
+    }
+
+    .quran-exam-combined-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+        gap: 5px !important;
+    }
+
+    .quran-question-card {
+        padding: 12px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .quran-question-text {
+        font-size: 1rem !important;
+        line-height: 1.75 !important;
+        padding: 8px 10px !important;
+    }
+
+    /* 2x2 Grid for deduction buttons on mobile: thumb-friendly and spacious */
+    .deduction-btn-group {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+
+    .deduction-btn {
+        width: 100% !important;
+        padding: 8px 10px !important;
+        font-size: 0.76rem !important;
+        min-height: 42px !important;
+    }
+
+    .deduction-action-group {
+        width: 100% !important;
+        justify-content: space-between !important;
+        margin-top: 4px !important;
+        padding-top: 6px !important;
+        border-top: 1px dashed #e2e8f0 !important;
+    }
+
+    .quran-alt-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .quran-exam-summary-card {
+        padding: 12px !important;
+    }
+
+    .quran-exam-summary-card .border-end {
+        border-right: none !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding-bottom: 12px !important;
+        margin-bottom: 12px !important;
+    }
 }
 
 

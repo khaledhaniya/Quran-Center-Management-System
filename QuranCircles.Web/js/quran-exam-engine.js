@@ -1626,10 +1626,41 @@ var QuranExamEngine = (function() {
         },
         getCombinedExamList: function() {
             return [
-                '10-08', '10-06', '05-03', '05-01', '10-01',
-                '20-18', '20-16', '15-13', '15-11', '20-11',
-                '30-28', '30-26', '25-23', '25-21', '30-21'
+                // فئة 5 أجزاء
+                '05-01', '10-06', '15-11', '20-16', '25-21', '30-26',
+                // فئة 10 أجزاء
+                '10-01', '20-11', '30-21',
+                // فئة 3 أجزاء
+                '05-03', '10-08', '15-13', '20-18', '25-23', '30-28'
             ];
+        },
+        getCombinedExamLabel: function(key) {
+            const labels = {
+                // فئة 5 أجزاء
+                '05-01': 'الأجزاء (1 - 5)',
+                '10-06': 'الأجزاء (6 - 10)',
+                '15-11': 'الأجزاء (11 - 15)',
+                '20-16': 'الأجزاء (16 - 20)',
+                '25-21': 'الأجزاء (21 - 25)',
+                '30-26': 'الأجزاء (26 - 30)',
+                // فئة 10 أجزاء
+                '10-01': 'الأجزاء (1 - 10)',
+                '20-11': 'الأجزاء (11 - 20)',
+                '30-21': 'الأجزاء (21 - 30)',
+                // فئة 3 أجزاء
+                '05-03': 'الأجزاء (3 - 5)',
+                '10-08': 'الأجزاء (8 - 10)',
+                '15-13': 'الأجزاء (13 - 15)',
+                '20-18': 'الأجزاء (18 - 20)',
+                '25-23': 'الأجزاء (23 - 25)',
+                '30-28': 'الأجزاء (28 - 30)'
+            };
+            if (labels[key]) return labels[key];
+            if (key && key.includes('-')) {
+                const parts = key.split('-');
+                return `الأجزاء (${parseInt(parts[1])} - ${parseInt(parts[0])})`;
+            }
+            return key;
         },
         getExamConfig: function(examKey) {
             let raw = examKey ? examKey.toString().trim() : '1';
@@ -1748,6 +1779,65 @@ var QuranExamEngine = (function() {
                     endText: item2[6],
                     verseEnd: item2[7]
                 });
+            }
+
+            // لابد ان يكون هناك سؤال صعب في كل نموذج اختبار (حسب متطلبات النظام)
+            const hasHardMain = mainQuestions.some(q => q.difficulty === 'صعب');
+            if (!hasHardMain && mainQuestions.length > 0) {
+                const targetIdx = mainQuestions.length - 1;
+                const hardRange = (qstns[targetIdx] && qstns[targetIdx][2]) ? qstns[targetIdx][2] : (qstns[0] && qstns[0][2] ? qstns[0][2] : null);
+                if (hardRange) {
+                    const hMin = hardRange[0];
+                    const hMax = hardRange[1];
+                    const hNo = Math.floor(Math.random() * (hMax - hMin + 1)) + hMin;
+                    const hItem = (typeof Aya !== 'undefined' && Aya[hNo]) ? Aya[hNo] : null;
+                    if (hItem) {
+                        mainQuestions[targetIdx] = {
+                            number: targetIdx + 1,
+                            difficulty: 'صعب',
+                            surah: hItem[1],
+                            juz: hItem[2],
+                            page: hItem[3],
+                            verseStart: hItem[4],
+                            startText: hItem[5],
+                            endText: hItem[6],
+                            verseEnd: hItem[7]
+                        };
+                    } else {
+                        mainQuestions[targetIdx].difficulty = 'صعب';
+                    }
+                } else {
+                    mainQuestions[targetIdx].difficulty = 'صعب';
+                }
+            }
+
+            const hasHardAlt = altQuestions.some(q => q.difficulty === 'صعب');
+            if (!hasHardAlt && altQuestions.length > 0) {
+                const targetIdx = altQuestions.length - 1;
+                const hardRange = (qstns[targetIdx] && qstns[targetIdx][2]) ? qstns[targetIdx][2] : (qstns[0] && qstns[0][2] ? qstns[0][2] : null);
+                if (hardRange) {
+                    const hMin = hardRange[0];
+                    const hMax = hardRange[1];
+                    const hNo = Math.floor(Math.random() * (hMax - hMin + 1)) + hMin;
+                    const hItem = (typeof Aya !== 'undefined' && Aya[hNo]) ? Aya[hNo] : null;
+                    if (hItem) {
+                        altQuestions[targetIdx] = {
+                            number: targetIdx + 1,
+                            difficulty: 'صعب',
+                            surah: hItem[1],
+                            juz: hItem[2],
+                            page: hItem[3],
+                            verseStart: hItem[4],
+                            startText: hItem[5],
+                            endText: hItem[6],
+                            verseEnd: hItem[7]
+                        };
+                    } else {
+                        altQuestions[targetIdx].difficulty = 'صعب';
+                    }
+                } else {
+                    altQuestions[targetIdx].difficulty = 'صعب';
+                }
             }
 
             return {
