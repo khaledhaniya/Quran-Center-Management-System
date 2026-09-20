@@ -5026,6 +5026,307 @@ body.theme-dark {
     scrollbar-width: thin;
 }
 
+/* ==========================================================================
+   PREMIUM MODAL DESIGNS: TEACHER & STUDENT MODALS (2026 LUXURY SUITE)
+   ========================================================================== */
+
+/* Teacher Modal Styling */
+.teacher-modal-container {
+    padding: 4px 2px;
+    direction: rtl;
+    text-align: right;
+    font-family: 'Cairo', sans-serif;
+}
+.teacher-modal-hero {
+    background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%);
+    border-radius: 16px;
+    padding: 16px 20px;
+    color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 14px rgba(13, 92, 58, 0.2);
+}
+.teacher-avatar-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #fef08a;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.teacher-modal-heading {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+.teacher-modal-subheading {
+    margin: 2px 0 0 0;
+    font-size: 0.82rem;
+    color: #dcfce7;
+}
+.teacher-card-section {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    transition: border-color 0.2s ease;
+}
+.teacher-card-section:hover {
+    border-color: #cbd5e1;
+}
+.section-title-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid currentColor;
+}
+.form-label-custom {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}
+.input-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.input-icon-wrapper .input-icon {
+    position: absolute;
+    right: 14px;
+    font-size: 0.95rem;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.75;
+}
+.input-icon-wrapper .form-control-custom,
+.input-icon-wrapper select.form-control-custom {
+    padding-right: 40px !important;
+}
+.form-control-custom {
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 12px;
+    border: 1.5px solid #cbd5e1;
+    background: #f8fafc;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    color: #0f172a;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+}
+.form-control-custom:focus {
+    outline: none;
+    border-color: #0d5c3a;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(13, 92, 58, 0.12);
+}
+
+/* Interactive Role Chips */
+.teacher-roles-card {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border: 2px dashed #94a3b8 !important;
+}
+.badge-pill-notice {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 50px;
+    border: 1px solid #fde68a;
+    display: inline-flex;
+    align-items: center;
+}
+.role-instructions-text {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+.role-chips-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.role-chip-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    color: #334155;
+    user-select: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+}
+.role-chip-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    border-color: #cbd5e1;
+}
+.role-chip-btn .chip-icon {
+    font-size: 0.95rem;
+    transition: transform 0.2s ease;
+}
+.role-chip-btn:hover .chip-icon {
+    transform: scale(1.15);
+}
+.role-chip-btn .chip-check {
+    display: none;
+    font-size: 0.85rem;
+}
+.role-chip-btn.active {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
+    border-color: #16a34a !important;
+    color: #15803d !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
+    transform: translateY(-1px);
+}
+.role-chip-btn.active .chip-check {
+    display: inline-block !important;
+    color: #16a34a;
+}
+.role-chip-btn.chip-neutral.active {
+    background: #f1f5f9 !important;
+    border-color: #64748b !important;
+    color: #334155 !important;
+    box-shadow: 0 4px 10px rgba(100, 116, 139, 0.2) !important;
+}
+.role-chip-btn.chip-neutral.active .chip-check {
+    color: #64748b !important;
+}
+.role-summary-box {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1.5px solid #cbd5e1;
+    padding: 14px 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.btn-clear-roles-custom {
+    background: none;
+    border: none;
+    color: #dc2626;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+.btn-clear-roles-custom:hover {
+    background: #fee2e2;
+}
+.form-control-task {
+    font-weight: 700;
+    color: #0d5c3a !important;
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+}
+
+/* Student Modal Luxury Suite */
+.student-modal-wrapper {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Cairo', sans-serif;
+}
+.student-modal-header-hero {
+    background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%);
+    border-radius: 16px;
+    padding: 16px 22px;
+    color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 16px rgba(13, 92, 58, 0.2);
+}
+.student-tabs-nav {
+    display: flex;
+    gap: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+}
+.student-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border: none;
+    background: #f1f5f9;
+    color: #64748b;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 12px 12px 0 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.student-tab-btn:hover {
+    background: #e2e8f0;
+    color: #334155;
+}
+.student-tab-btn.active {
+    background: #0d5c3a;
+    color: #ffffff;
+    box-shadow: 0 -3px 12px rgba(13, 92, 58, 0.18);
+}
+.student-tab-pane {
+    display: none;
+    animation: studentPaneFade 0.25s ease forwards;
+}
+.student-tab-pane.active {
+    display: block;
+}
+@keyframes studentPaneFade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.student-form-section-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+.student-footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1.5px solid #e2e8f0;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
 /* Huffaz Modal Custom Design */
 .huffaz-modal-card {
     background: #ffffff;

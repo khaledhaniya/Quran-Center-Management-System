@@ -3539,139 +3539,286 @@ async function showTeacherModal(teacherId = null) {
 
     const currentTask = (t.taskRole && t.taskRole.trim()) ? t.taskRole : "غير مكلف";
 
+    const availableRoles = [
+        { key: "غير مكلف", label: "غير مكلف (بدون مهام)", icon: "fa-user-clock", colorClass: "chip-neutral", fullVal: "غير مكلف" },
+        { key: "معلم حلقة", label: "معلم حلقة قرآنية", icon: "fa-mosque", colorClass: "chip-emerald", fullVal: "معلم حلقة" },
+        { key: "مساعد حلقة", label: "مساعد حلقة", icon: "fa-handshake-angle", colorClass: "chip-teal", fullVal: "مساعد حلقة" },
+        { key: "مشرف اختبارات", label: "مشرف ومقوّم اختبارات", icon: "fa-clipboard-check", colorClass: "chip-amber", fullVal: "مشرف اختبارات" },
+        { key: "شؤون التحفيظ", label: "شؤون التحفيظ والحفاظ", icon: "fa-book-quran", colorClass: "chip-blue", fullVal: "التحفيظ + ملف منتدى الحفاظ" },
+        { key: "الجودة والرقابة", label: "مسؤول الجودة والرقابة", icon: "fa-magnifying-glass-chart", colorClass: "chip-indigo", fullVal: "الجودة" },
+        { key: "الملف المالي", label: "المسؤول المالي والمحافظ", icon: "fa-wallet", colorClass: "chip-green", fullVal: "الملف المالي" },
+        { key: "معلم دورات", label: "معلم دورات علمية", icon: "fa-award", colorClass: "chip-purple", fullVal: "معلم دورات" },
+        { key: "الفتى الواعظ", label: "مشرف الفتى الواعظ", icon: "fa-microphone", colorClass: "chip-rose", fullVal: "الفتى الواعظ + الأصوات الندية" },
+        { key: "أمير المركز", label: "أمير المركز (الإدارة العامة)", icon: "fa-crown", colorClass: "chip-gold", fullVal: "مركز البيان" }
+    ];
+
     const htmlContent = `
-        <div class="text-start" style="direction: rtl; font-size: 0.92rem;">
-            <!-- Main Details Row -->
-            <div class="row g-2 mb-2">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user text-primary me-1"></i> الاسم الكامل (الرباعي) <span class="text-danger">*</span></label>
-                    <input id="swal-tch-name" class="form-control form-control-sm" placeholder="الاسم الرباعي الكامل" value="${t.fullName || ''}">
+        <div class="teacher-modal-container">
+            <!-- Header Banner -->
+            <div class="teacher-modal-hero">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="teacher-avatar-badge">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                    </div>
+                    <div>
+                        <h5 class="teacher-modal-heading">${teacherId ? `تعديل بيانات الشيخ / ${escapeXml(t.fullName)}` : 'تسجيل وإضافة معلم جديد بالكادر'}</h5>
+                        <p class="teacher-modal-subheading">إدارة الملف الإداري والتكليفات والصلاحيات لمنظومة مركز البيان</p>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-id-card text-primary me-1"></i> رقم الهوية الوطنية (اسم المستخدم) <span class="text-danger">*</span></label>
-                    <input id="swal-tch-id" class="form-control form-control-sm font-monospace" placeholder="رقم الهوية (9 أرقام)" value="${t.identityNumber || ''}">
+                ${t.identityNumber ? `<span class="badge bg-white text-dark border px-3 py-2 rounded-pill font-monospace"><i class="fa-solid fa-id-card text-success me-1"></i> ${escapeXml(t.identityNumber)}</span>` : ''}
+            </div>
+
+            <!-- Section 1: البيانات الشخصية والتعريفية -->
+            <div class="teacher-card-section">
+                <div class="section-title-badge text-primary">
+                    <i class="fa-solid fa-id-card"></i>
+                    <span>1. البيانات الشخصية والتعريفية</span>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">الاسم الكامل (الرباعي) <span class="text-danger">*</span></label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-user input-icon text-primary"></i>
+                            <input id="swal-tch-name" class="form-control-custom" placeholder="الاسم الرباعي الكامل للشيخ" value="${escapeXml(t.fullName || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">رقم الهوية الوطنية (اسم المستخدم للدخول) <span class="text-danger">*</span></label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-id-card input-icon text-primary"></i>
+                            <input id="swal-tch-id" class="form-control-custom font-monospace" placeholder="رقم الهوية (9 أرقام)" value="${escapeXml(t.identityNumber || '')}" maxlength="9">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">المؤهل العلمي والتخصص</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-graduation-cap input-icon text-info"></i>
+                            <input id="swal-tch-qual" class="form-control-custom" placeholder="مثال: بكالوريوس شريعة إسلامية / دبلوم" value="${escapeXml(t.qualification || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">المسجد التابع له</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-mosque input-icon text-success"></i>
+                            <input id="swal-tch-mosque" class="form-control-custom" placeholder="مسجد علي بن أبي طالب" value="${escapeXml(t.mosqueName || 'علي بن أبي طالب')}">
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Contact Row -->
-            <div class="row g-2 mb-2">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-phone text-success me-1"></i> رقم الجوال (اتصال)</label>
-                    <input id="swal-tch-phone" class="form-control form-control-sm font-monospace" placeholder="059xxxxxxx" value="${t.contact || ''}">
+            <!-- Section 2: الاتصال والتواصل الاجتماعي -->
+            <div class="teacher-card-section">
+                <div class="section-title-badge text-success">
+                    <i class="fa-solid fa-phone-volume"></i>
+                    <span>2. أرقام الاتصال والتواصل والبيانات الاجتماعية</span>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-brands fa-whatsapp text-success me-1"></i> رقم الواتساب</label>
-                    <input id="swal-tch-whatsapp" class="form-control form-control-sm font-monospace" placeholder="0097259xxxxxxx" value="${t.whatsappNumber || ''}">
-                </div>
-            </div>
-
-            <!-- Qualification & Mosque -->
-            <div class="row g-2 mb-2">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-graduation-cap text-info me-1"></i> المؤهل العلمي / التخصص</label>
-                    <input id="swal-tch-qual" class="form-control form-control-sm" placeholder="مثال: بكالوريوس شريعة / دبلوم IT" value="${t.qualification || ''}">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-mosque text-success me-1"></i> المسجد التابع له</label>
-                    <input id="swal-tch-mosque" class="form-control form-control-sm" placeholder="مسجد علي بن أبي طالب" value="${t.mosqueName || 'علي بن أبي طالب'}">
-                </div>
-            </div>
-
-            <!-- Social & Family -->
-            <div class="row g-2 mb-2">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-ring text-warning me-1"></i> الحالة الاجتماعية</label>
-                    <select id="swal-tch-social" class="form-select form-select-sm">
-                        <option value="أعزب" ${t.socialStatus === 'أعزب' ? 'selected' : ''}>أعزب</option>
-                        <option value="متزوج" ${t.socialStatus === 'متزوج' ? 'selected' : ''}>متزوج</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-users text-primary me-1"></i> عدد أفراد الأسرة</label>
-                    <input id="swal-tch-family" type="number" class="form-control form-control-sm" placeholder="عدد الأفراد" value="${t.familyMembersCount || ''}">
-                </div>
-            </div>
-
-            <!-- Financial Wallet Row -->
-            <div class="row g-2 mb-2">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-wallet text-warning me-1"></i> رقم المحفظة / الحساب البنكي</label>
-                    <input id="swal-tch-wallet" class="form-control form-control-sm font-monospace" placeholder="رقم المحفظة أو الحساب" value="${t.walletNumber || ''}">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-user-check text-dark me-1"></i> اسم صاحب المحفظة</label>
-                    <input id="swal-tch-wallet-owner" class="form-control form-control-sm" placeholder="اسم صاحب الحساب/المحفظة" value="${t.walletOwner || ''}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">رقم الجوال (اتصال)</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-phone input-icon text-success"></i>
+                            <input id="swal-tch-phone" class="form-control-custom font-monospace" placeholder="059xxxxxxx" value="${escapeXml(t.contact || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">رقم الواتساب</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-brands fa-whatsapp input-icon text-success"></i>
+                            <input id="swal-tch-whatsapp" class="form-control-custom font-monospace" placeholder="0097259xxxxxxx" value="${escapeXml(t.whatsappNumber || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">الحالة الاجتماعية</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-ring input-icon text-warning"></i>
+                            <select id="swal-tch-social" class="form-control-custom">
+                                <option value="أعزب" ${t.socialStatus === 'أعزب' ? 'selected' : ''}>أعزب</option>
+                                <option value="متزوج" ${t.socialStatus === 'متزوج' ? 'selected' : ''}>متزوج</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">عدد أفراد الأسرة</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-users input-icon text-primary"></i>
+                            <input id="swal-tch-family" type="number" min="0" class="form-control-custom" placeholder="عدد الأفراد" value="${t.familyMembersCount || ''}">
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Memorized & Target -->
-            <div class="row g-2 mb-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-book-quran text-success me-1"></i> الأجزاء المحفوظة</label>
-                    <input id="swal-tch-memorized" class="form-control form-control-sm" placeholder="مثال: القرآن كاملاً / 15 جزء" value="${t.memorizedAjzaa || ''}">
+            <!-- Section 3: الحفظ والمستهدف والبيانات المالية -->
+            <div class="teacher-card-section">
+                <div class="section-title-badge text-warning">
+                    <i class="fa-solid fa-book-quran"></i>
+                    <span>3. الحفظ والهدف القرآني والبيانات المالية</span>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold mb-1"><i class="fa-solid fa-bullseye text-danger me-1"></i> العدد المستهدف للطلاب</label>
-                    <input id="swal-tch-target" class="form-control form-control-sm" placeholder="مثال: 15 / -" value="${t.studentsCountTarget || ''}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">مقدار الحفظ من القرآن</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-book-open input-icon text-success"></i>
+                            <input id="swal-tch-memorized" class="form-control-custom" placeholder="مثال: القرآن كاملاً / 20 جزء" value="${escapeXml(t.memorizedAjzaa || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">العدد المستهدف للطلاب بالحلقة</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-bullseye input-icon text-danger"></i>
+                            <input id="swal-tch-target" class="form-control-custom" placeholder="مثال: 15 / 20 طالب" value="${escapeXml(t.studentsCountTarget || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">رقم المحفظة / الحساب البنكي</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-wallet input-icon text-warning"></i>
+                            <input id="swal-tch-wallet" class="form-control-custom font-monospace" placeholder="رقم المحفظة الإلكترونية أو الحساب" value="${escapeXml(t.walletNumber || '')}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">اسم صاحب المحفظة / الحساب</label>
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-user-check input-icon text-dark"></i>
+                            <input id="swal-tch-wallet-owner" class="form-control-custom" placeholder="اسم صاحب الحساب أو المحفظة" value="${escapeXml(t.walletOwner || '')}">
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- DYNAMIC ROLE & TASK SELECTOR -->
-            <div class="p-3 border rounded-3 bg-light">
-                <label class="form-label fw-bold d-flex justify-content-between align-items-center mb-2">
-                    <span><i class="fa-solid fa-briefcase text-primary me-1"></i> الوظيفة والتكليف المخصص (الصلاحيات والصفحات)</span>
-                    <span class="badge bg-primary bg-opacity-10 text-primary">تحديد مرن وديناميكي</span>
-                </label>
-                <div class="d-flex flex-wrap gap-2 mb-2" id="role-pill-tags">
-                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="غير مكلف"><i class="fa-solid fa-user-clock me-1"></i> غير مكلف</button>
-                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="معلم حلقة"><i class="fa-solid fa-mosque me-1"></i> معلم حلقة</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="مساعد حلقة"><i class="fa-solid fa-handshake-angle me-1"></i> مساعد حلقة</button>
-                    <button type="button" class="btn btn-sm btn-outline-warning text-dark role-picker-btn" data-role="الملف المالي"><i class="fa-solid fa-wallet me-1"></i> الملف المالي</button>
-                    <button type="button" class="btn btn-sm btn-outline-info text-dark role-picker-btn" data-role="الجودة"><i class="fa-solid fa-magnifying-glass me-1"></i> الجودة والرقابة</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary role-picker-btn" data-role="التحفيظ + ملف منتدى الحفاظ"><i class="fa-solid fa-book-quran me-1"></i> شؤون التحفيظ</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary role-picker-btn" data-role="معلم دورات"><i class="fa-solid fa-award me-1"></i> معلم دورات</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger role-picker-btn" data-role="الفتى الواعظ + الأصوات الندية"><i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ</button>
-                    <button type="button" class="btn btn-sm btn-outline-success role-picker-btn" data-role="مركز البيان"><i class="fa-solid fa-crown me-1"></i> أمير المركز</button>
+            <!-- Section 4: DYNAMIC ROLE & TASK SELECTOR (الأزرار التفاعلية الذكية) -->
+            <div class="teacher-card-section teacher-roles-card">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <div class="section-title-badge text-dark mb-0">
+                        <i class="fa-solid fa-shield-halved text-success"></i>
+                        <span>4. الوظيفة والتكليف المخصص (الصلاحيات والصفحات)</span>
+                    </div>
+                    <span class="badge-pill-notice">
+                        <i class="fa-solid fa-wand-magic-sparkles me-1 text-warning"></i> تحديد تفاعلي فوري
+                    </span>
                 </div>
-                <input id="swal-tch-task" class="form-control fw-bold" placeholder="مثال: غير مكلف أو الملف المالي + معلم دورات" value="${currentTask}">
-                <div class="form-text small text-muted mt-1"><i class="fa-solid fa-circle-info text-primary me-1"></i> يمكنك الضغط على الأزرار بالأعلى لإضافة أو تبديل المهام، أو اختيار (غير مكلف) لمن ليس لديه تكليف حالياً.</div>
+
+                <p class="role-instructions-text">
+                    اضغط على أي زر لإضافته لتكليف الشيخ أو إلغائه، أو اختر <strong>(غير مكلف)</strong> لمن ليس لديه تكليف حالياً:
+                </p>
+
+                <!-- Chips Grid -->
+                <div class="role-chips-grid" id="role-chips-container">
+                    <!-- Dynamic role chip buttons rendered here -->
+                </div>
+
+                <!-- Role Summary & Manual Edit -->
+                <div class="role-summary-box">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <label class="form-label-custom fw-bold mb-0">
+                            <i class="fa-solid fa-file-signature text-primary me-1"></i> ملخص المهام الموكلة (يتم تحديثه تلقائياً):
+                        </label>
+                        <button type="button" class="btn-clear-roles-custom" id="btn-reset-to-unassigned">
+                            <i class="fa-solid fa-ban me-1"></i> تعيين كـ "غير مكلف"
+                        </button>
+                    </div>
+                    <input id="swal-tch-task" class="form-control-custom form-control-task font-monospace" placeholder="مثال: معلم حلقة + مشرف اختبارات" value="${escapeXml(currentTask)}">
+                    <div class="d-flex align-items-center gap-2 mt-2 text-muted small">
+                        <i class="fa-solid fa-circle-info text-success"></i>
+                        <span>تحدد هذه المهام الصفحات والأدوات التي تظهر للشيخ تلقائياً عند تسجيل دخوله للمنظومة.</span>
+                    </div>
+                </div>
             </div>
         </div>
     `;
 
     const result = await Swal.fire({
-        title: teacherId ? `✏️ تعديل بيانات الشيخ / ${t.fullName}` : '➕ إضافة معلم جديد للكادر',
+        title: teacherId ? `✏️ تعديل بيانات الشيخ / ${escapeXml(t.fullName)}` : '➕ إضافة معلم جديد للكادر',
         html: htmlContent,
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتثبيت التعديلات',
         cancelButtonText: 'إلغاء',
         confirmButtonColor: '#0d5c3a',
-        width: '740px',
+        width: '840px',
         focusConfirm: false,
         didOpen: () => {
             const taskInput = document.getElementById("swal-tch-task");
-            document.querySelectorAll(".role-picker-btn").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const roleVal = btn.dataset.role;
-                    let current = (taskInput.value || "").trim();
-                    if (roleVal === "غير مكلف") {
-                        taskInput.value = "غير مكلف";
-                        return;
+            const container = document.getElementById("role-chips-container");
+            const resetBtn = document.getElementById("btn-reset-to-unassigned");
+
+            function parseCurrentKeys(text) {
+                if (!text || text.trim() === "" || text.includes("غير مكلف") || text.includes("بدون تكليف")) {
+                    return ["غير مكلف"];
+                }
+                const matched = [];
+                for (let r of availableRoles) {
+                    if (r.key === "غير مكلف") continue;
+                    if (text.includes(r.key) || text.includes(r.fullVal) || (r.key === "مركز البيان" && (text.includes("البيان") || text.includes("أمير المركز")))) {
+                        matched.push(r.key);
                     }
-                    if (!current || current === "غير مكلف" || current === "بدون تكليف") {
-                        taskInput.value = roleVal;
-                    } else if (current.includes(roleVal)) {
-                        // Toggle remove
-                        let parts = current.split("+").map(p => p.trim()).filter(p => p !== roleVal && p !== "" && p !== "غير مكلف" && p !== "بدون تكليف");
-                        taskInput.value = parts.length > 0 ? parts.join(" + ") : "غير مكلف";
-                    } else {
-                        // Append
-                        let cleanCurrent = current.replace("غير مكلف", "").replace("بدون تكليف", "").trim();
-                        cleanCurrent = cleanCurrent.replace(/^\+|\+$/g, '').trim();
-                        taskInput.value = cleanCurrent ? cleanCurrent + " + " + roleVal : roleVal;
-                    }
+                }
+                return matched.length > 0 ? matched : ["غير مكلف"];
+            }
+
+            let selectedKeys = parseCurrentKeys(taskInput.value);
+
+            function renderChips() {
+                container.innerHTML = availableRoles.map(r => {
+                    const isActive = selectedKeys.includes(r.key);
+                    return `
+                        <button type="button" class="role-chip-btn ${r.colorClass} ${isActive ? 'active' : ''}" data-key="${r.key}">
+                            <i class="fa-solid ${r.icon} chip-icon"></i>
+                            <span>${r.label}</span>
+                            <i class="fa-solid fa-circle-check chip-check ms-1"></i>
+                        </button>
+                    `;
+                }).join("");
+
+                container.querySelectorAll(".role-chip-btn").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        const key = btn.dataset.key;
+                        toggleRoleKey(key);
+                    });
                 });
+            }
+
+            function toggleRoleKey(key) {
+                if (key === "غير مكلف") {
+                    selectedKeys = ["غير مكلف"];
+                } else {
+                    selectedKeys = selectedKeys.filter(k => k !== "غير مكلف");
+                    if (selectedKeys.includes(key)) {
+                        selectedKeys = selectedKeys.filter(k => k !== key);
+                    } else {
+                        selectedKeys.push(key);
+                    }
+                    if (selectedKeys.length === 0) {
+                        selectedKeys = ["غير مكلف"];
+                    }
+                }
+                renderChips();
+                syncTaskInputFromKeys();
+            }
+
+            function syncTaskInputFromKeys() {
+                if (selectedKeys.length === 0 || (selectedKeys.length === 1 && selectedKeys[0] === "غير مكلف")) {
+                    taskInput.value = "غير مكلف";
+                } else {
+                    const vals = selectedKeys
+                        .map(k => availableRoles.find(r => r.key === k)?.fullVal || k)
+                        .filter(v => v && v !== "غير مكلف");
+                    taskInput.value = vals.join(" + ");
+                }
+            }
+
+            taskInput.addEventListener("input", () => {
+                selectedKeys = parseCurrentKeys(taskInput.value);
+                renderChips();
             });
+
+            if (resetBtn) {
+                resetBtn.addEventListener("click", () => {
+                    selectedKeys = ["غير مكلف"];
+                    taskInput.value = "غير مكلف";
+                    renderChips();
+                });
+            }
+
+            renderChips();
         },
         preConfirm: () => {
             const fullName = document.getElementById("swal-tch-name").value.trim();
@@ -6577,150 +6724,355 @@ async function showStudentModal(studentId = null) {
         <!-- In-modal alerts container -->
         <div id="student-modal-alert-container"></div>
 
-        <form id="student-form">
-            <input type="hidden" id="form-student-id" value="${studentId || ''}">
-            
-            <div class="row g-3">
-                <!-- Section 1: البيانات الشخصية والتعريفية -->
-                <div class="col-12"><h5 class="text-primary border-bottom pb-2 mb-2"><i class="fa-solid fa-id-card"></i> 1. البيانات الشخصية والتعريفية الكلية (حسب الاكسل)</h5></div>
-                <div class="col-md-4">
-                    <label for="student-name" class="fw-bold">اسم الطالب الكامل (رباعي):</label>
-                    <input type="text" id="student-name" class="form-control" value="${s ? (s.fullName || '') : ''}" required>
-                </div>
-                <div class="col-md-4">
-                    <label for="student-id-num" class="fw-bold">رقم هوية الطالب:</label>
-                    <input type="text" id="student-id-num" class="form-control" value="${s ? (s.studentIdentityNumber || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-dob" class="fw-bold">تاريخ الميلاد:</label>
-                    <input type="date" id="student-dob" class="form-control" value="${s ? (s.dateOfBirth || '') : ''}" required>
-                </div>
-                <div class="col-md-4">
-                    <label for="student-circle">الصف الدراسي / الحلقة:</label>
-                    <select id="student-circle" class="form-control">
-                        <option value="">-- اختر الحلقة --</option>
-                        ${circlesOptions}
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label for="student-prev-quran">الحفظ السابق من القرآن:</label>
-                    <input type="text" id="student-prev-quran" class="form-control" placeholder="مثلاً: جزئين، خمس أجزاء" value="${s ? (s.previousQuranMemorization || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-health">الحالة الصحية للطالب:</label>
-                    <input type="text" id="student-health" class="form-control" placeholder="سليم / مصاب / مرض مزمن" value="${s ? (s.healthStatus || 'سليم') : 'سليم'}">
-                </div>
-
-                <!-- Section 2: بيانات العائلة وولي الأمر (ربط الإخوة تلقائياً) -->
-                <div class="col-12 mt-4"><h5 class="text-primary border-bottom pb-2 mb-2"><i class="fa-solid fa-users"></i> 2. بيانات العائلة وولي الأمر (البحث والربط الذكي للأب)</h5></div>
-                <div class="col-md-4">
-                    <label for="student-parent-id" class="fw-bold"><i class="fa-solid fa-id-card text-success"></i> رقم هوية ولي الأمر (للبحث والربط):</label>
-                    <input type="text" id="student-parent-id" class="form-control border-success" placeholder="أدخل رقم هوية الأب..." value="${s ? (s.parentIdentityNumber || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-parent-name" class="fw-bold"><i class="fa-solid fa-user-tag text-primary"></i> اسم ولي الأمر (الأب) الكامل:</label>
-                    <input type="text" id="student-parent-name" class="form-control" placeholder="أدخل اسم الأب الرباعي..." value="${s ? (s.parentName || s.fatherName || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-parent"><i class="fa-solid fa-person-shelter"></i> حساب ولي الأمر المسجل (تجميع الإخوة):</label>
-                    <select id="student-parent" class="form-control">
-                        <option value="">-- اختياري: اختر حساب الأب لجمع الإخوة --</option>
-                        ${parentsOptions}
-                    </select>
-                </div>
-                <div class="col-12" id="parent-search-hint-container">
-                    <small id="parent-search-hint" class="form-text text-muted"></small>
-                </div>
-                <div class="col-md-4">
-                    <label for="student-kinship">صلة القرابة:</label>
-                    <input type="text" id="student-kinship" class="form-control" placeholder="الأب / الأم" value="${s ? (s.kinship || 'الأب') : 'الأب'}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-father-status" class="fw-bold text-danger"><i class="fa-solid fa-ribbon"></i> حالة الأب (الأيتام/الشهداء):</label>
-                    <input type="text" id="student-father-status" class="form-control" placeholder="حي / شهيد / متوفى" value="${s ? (s.fatherStatus || 'حي') : 'حي'}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-mother-status" class="fw-bold text-danger"><i class="fa-solid fa-ribbon"></i> حالة الأم:</label>
-                    <input type="text" id="student-mother-status" class="form-control" placeholder="حية / شهيدة / متوفاة" value="${s ? (s.motherStatus || 'حية') : 'حية'}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-contact">رقم جوال ولي الأمر (العائلة):</label>
-                    <input type="text" id="student-contact" class="form-control" value="${s ? (s.familyContact || '') : ''}" required>
-                </div>
-                <div class="col-md-4">
-                    <label for="student-whatsapp">رقم الواتس:</label>
-                    <input type="text" id="student-whatsapp" class="form-control" value="${s ? (s.whatsappNumber || s.studentWhatsapp || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-wallet">رقم المحفظة (المالية):</label>
-                    <input type="text" id="student-wallet" class="form-control" value="${s ? (s.walletNumber || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-bank-acc">رقم الحساب البنكي:</label>
-                    <input type="text" id="student-bank-acc" class="form-control" value="${s ? (s.bankAccountNumber || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-bank-name">نوع البنك:</label>
-                    <input type="text" id="student-bank-name" class="form-control" placeholder="بنك فلسطين / البنك الإسلامي" value="${s ? (s.bankName || '') : ''}">
-                </div>
-
-                <!-- Section 3: السكن والملاحظات -->
-                <div class="col-12 mt-4"><h5 class="text-primary border-bottom pb-2 mb-2"><i class="fa-solid fa-house"></i> 3. بيانات السكن والملاحظات الكلية</h5></div>
-                <div class="col-md-4">
-                    <label for="student-curr-addr">عنوان السكن الحالي:</label>
-                    <input type="text" id="student-curr-addr" class="form-control" value="${s ? (s.currentAddress || s.address || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-curr-type">طبيعة السكن الحالي:</label>
-                    <input type="text" id="student-curr-type" class="form-control" placeholder="بيت / خيمة / مركز إيواء" value="${s ? (s.currentHousingType || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-orig-addr">عنوان السكن الأصلي:</label>
-                    <input type="text" id="student-orig-addr" class="form-control" value="${s ? (s.originalAddress || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-orig-type">طبيعة السكن الأصلي:</label>
-                    <input type="text" id="student-orig-type" class="form-control" placeholder="ملك / إيجار" value="${s ? (s.originalHousingType || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-orig-status">حالة السكن الأصلي:</label>
-                    <input type="text" id="student-orig-status" class="form-control" placeholder="تدمير كلي / تدمير جزئي / سليم" value="${s ? (s.originalHousingStatus || '') : ''}">
-                </div>
-                <div class="col-md-4">
-                    <label for="student-notes">ملاحظات عامة:</label>
-                    <textarea id="student-notes" class="form-control" rows="2">${s ? (s.notes || '') : ''}</textarea>
-                </div>
-
-                ${!studentId ? `
-                <div class="col-12 mt-4"><h5 class="text-primary border-bottom pb-2 mb-2"><i class="fa-solid fa-key"></i> 4. بيانات حساب دخول الطالب</h5></div>
-                <div class="col-md-6">
-                    <label for="student-username">اسم المستخدم للابن (أدخل رقم هوية الطالب):</label>
-                    <input type="text" id="student-username" class="form-control" placeholder="رقم هوية الطالب..." required>
-                </div>
-                <div class="col-md-6">
-                    <label for="student-password">كلمة المرور للابن:</label>
-                    <input type="password" id="student-password" class="form-control" value="123456" required>
-                </div>
-                ` : ''}
-
-                ${studentId ? `
-                <div class="col-12 mt-3">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="student-active" ${s && s.isActive ? 'checked' : ''}>
-                        <label class="form-check-label fw-bold" for="student-active">حساب الطالب نشط ومفعّل بالمنظومة</label>
+        <div class="student-modal-wrapper">
+            <!-- Header Banner -->
+            <div class="student-modal-header-hero">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="teacher-avatar-badge">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
+                    <div>
+                        <h5 class="teacher-modal-heading">${studentId ? `تعديل بيانات الطالب / ${escapeXml(s ? s.fullName : '')}` : 'تسجيل وإضافة طالب جديد بالكادر'}</h5>
+                        <p class="teacher-modal-subheading">ملف الطالب الكلي، ربط ولي الأمر، الحلقات القرآنية، وبيانات النزوح والسكن</p>
                     </div>
                 </div>
-                ` : ''}
+                ${s && s.studentIdentityNumber ? `<span class="badge bg-white text-dark border px-3 py-2 rounded-pill font-monospace"><i class="fa-solid fa-id-card text-success me-1"></i> ${escapeXml(s.studentIdentityNumber)}</span>` : ''}
             </div>
-            
-            <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary" id="btn-save-student-submit">
-                    <i class="fa-solid fa-save me-1"></i> حفظ كافة البيانات الكلية
+
+            <!-- Tabbed Navigation Bar -->
+            <div class="student-tabs-nav">
+                <button type="button" class="student-tab-btn active" data-tab="st-tab-personal">
+                    <i class="fa-solid fa-id-badge"></i> 1. البيانات الشخصية والحلقة
                 </button>
-                <button type="button" class="btn btn-light" id="btn-cancel-student">إلغاء</button>
+                <button type="button" class="student-tab-btn" data-tab="st-tab-parent">
+                    <i class="fa-solid fa-people-roof"></i> 2. ولي الأمر والعائلة
+                </button>
+                <button type="button" class="student-tab-btn" data-tab="st-tab-housing">
+                    <i class="fa-solid fa-house-chimney"></i> 3. السكن والملاحظات
+                </button>
+                <button type="button" class="student-tab-btn" data-tab="st-tab-account">
+                    <i class="fa-solid fa-shield-halved"></i> 4. حساب الدخول والتفعيل
+                </button>
             </div>
-        </form>
+
+            <form id="student-form">
+                <input type="hidden" id="form-student-id" value="${studentId || ''}">
+
+                <!-- Tab 1: البيانات الشخصية والتعريفية -->
+                <div class="student-tab-pane active" id="st-tab-personal">
+                    <div class="student-form-section-card">
+                        <div class="section-title-badge text-primary">
+                            <i class="fa-solid fa-id-badge"></i>
+                            <span>1. البيانات الشخصية والتعريفية للطالب (حسب سجلات المركز)</span>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="student-name" class="form-label-custom">اسم الطالب الكامل (رباعي) <span class="text-danger">*</span></label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-user input-icon text-primary"></i>
+                                    <input type="text" id="student-name" class="form-control-custom" placeholder="الاسم الرباعي للطالب" value="${escapeXml(s ? (s.fullName || '') : '')}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-id-num" class="form-label-custom">رقم هوية الطالب</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-id-card input-icon text-primary"></i>
+                                    <input type="text" id="student-id-num" class="form-control-custom font-monospace" placeholder="رقم هوية الطالب (9 أرقام)" value="${escapeXml(s ? (s.studentIdentityNumber || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-dob" class="form-label-custom">تاريخ الميلاد <span class="text-danger">*</span></label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-calendar-days input-icon text-success"></i>
+                                    <input type="date" id="student-dob" class="form-control-custom" value="${s ? (s.dateOfBirth || '') : ''}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-circle" class="form-label-custom">الصف الدراسي / الحلقة القرآنية</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-mosque input-icon text-success"></i>
+                                    <select id="student-circle" class="form-control-custom">
+                                        <option value="">-- بدون حلقة / اختر الحلقة --</option>
+                                        ${circlesOptions}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-prev-quran" class="form-label-custom">الحفظ السابق من القرآن</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-book-quran input-icon text-info"></i>
+                                    <input type="text" id="student-prev-quran" class="form-control-custom" placeholder="مثلاً: جزئين، خمس أجزاء" value="${escapeXml(s ? (s.previousQuranMemorization || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-health" class="form-label-custom">الحالة الصحية للطالب</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-heart-pulse input-icon text-danger"></i>
+                                    <input type="text" id="student-health" class="form-control-custom" placeholder="سليم / مصاب / مرض مزمن" value="${escapeXml(s ? (s.healthStatus || 'سليم') : 'سليم')}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm px-3 rounded-pill btn-next-tab" data-next="st-tab-parent">
+                                التالي: بيانات ولي الأمر والعائلة <i class="fa-solid fa-arrow-left ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: بيانات العائلة وولي الأمر -->
+                <div class="student-tab-pane" id="st-tab-parent">
+                    <div class="student-form-section-card">
+                        <div class="section-title-badge text-success">
+                            <i class="fa-solid fa-people-roof"></i>
+                            <span>2. بيانات العائلة وولي الأمر (البحث والربط الذكي للأب)</span>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="student-parent-id" class="form-label-custom"><i class="fa-solid fa-id-card text-success"></i> رقم هوية ولي الأمر (للبحث والربط):</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-magnifying-glass input-icon text-success"></i>
+                                    <input type="text" id="student-parent-id" class="form-control-custom border-success font-monospace" placeholder="أدخل رقم هوية الأب..." value="${escapeXml(s ? (s.parentIdentityNumber || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-parent-name" class="form-label-custom"><i class="fa-solid fa-user-tag text-primary"></i> اسم ولي الأمر (الأب) الكامل:</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-user-tie input-icon text-primary"></i>
+                                    <input type="text" id="student-parent-name" class="form-control-custom" placeholder="أدخل اسم الأب الرباعي..." value="${escapeXml(s ? (s.parentName || s.fatherName || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-parent" class="form-label-custom"><i class="fa-solid fa-person-shelter text-warning"></i> حساب ولي الأمر المسجل (تجميع الإخوة):</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-users-rectangle input-icon text-warning"></i>
+                                    <select id="student-parent" class="form-control-custom">
+                                        <option value="">-- اختياري: اختر حساب الأب لجمع الإخوة --</option>
+                                        ${parentsOptions}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-12" id="parent-search-hint-container">
+                                <small id="parent-search-hint" class="form-text text-muted"></small>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="student-kinship" class="form-label-custom">صلة القرابة</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-handshake input-icon text-secondary"></i>
+                                    <input type="text" id="student-kinship" class="form-control-custom" placeholder="الأب / الأم" value="${escapeXml(s ? (s.kinship || 'الأب') : 'الأب')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-father-status" class="form-label-custom text-danger fw-bold"><i class="fa-solid fa-ribbon me-1"></i> حالة الأب (الأيتام/الشهداء)</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-user input-icon text-danger"></i>
+                                    <input type="text" id="student-father-status" class="form-control-custom" placeholder="حي / شهيد / متوفى" value="${escapeXml(s ? (s.fatherStatus || 'حي') : 'حي')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-mother-status" class="form-label-custom text-danger fw-bold"><i class="fa-solid fa-ribbon me-1"></i> حالة الأم</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-user input-icon text-danger"></i>
+                                    <input type="text" id="student-mother-status" class="form-control-custom" placeholder="حية / شهيدة / متوفاة" value="${escapeXml(s ? (s.motherStatus || 'حية') : 'حية')}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="student-contact" class="form-label-custom">رقم جوال ولي الأمر (العائلة) <span class="text-danger">*</span></label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-phone input-icon text-success"></i>
+                                    <input type="text" id="student-contact" class="form-control-custom font-monospace" placeholder="059xxxxxxx" value="${escapeXml(s ? (s.familyContact || '') : '')}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-whatsapp" class="form-label-custom">رقم الواتساب</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-brands fa-whatsapp input-icon text-success"></i>
+                                    <input type="text" id="student-whatsapp" class="form-control-custom font-monospace" placeholder="0097259xxxxxxx" value="${escapeXml(s ? (s.whatsappNumber || s.studentWhatsapp || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-wallet" class="form-label-custom">رقم المحفظة (المالية)</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-wallet input-icon text-warning"></i>
+                                    <input type="text" id="student-wallet" class="form-control-custom font-monospace" placeholder="رقم المحفظة" value="${escapeXml(s ? (s.walletNumber || '') : '')}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="student-bank-acc" class="form-label-custom">رقم الحساب البنكي</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-building-columns input-icon text-dark"></i>
+                                    <input type="text" id="student-bank-acc" class="form-control-custom font-monospace" placeholder="رقم الحساب البنكي" value="${escapeXml(s ? (s.bankAccountNumber || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="student-bank-name" class="form-label-custom">اسم البنك</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-money-check-dollar input-icon text-primary"></i>
+                                    <input type="text" id="student-bank-name" class="form-control-custom" placeholder="بنك فلسطين / البنك الإسلامي العربي" value="${escapeXml(s ? (s.bankName || '') : '')}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm px-3 rounded-pill btn-prev-tab" data-prev="st-tab-personal">
+                                <i class="fa-solid fa-arrow-right me-1"></i> السابق
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm px-3 rounded-pill btn-next-tab" data-next="st-tab-housing">
+                                التالي: بيانات السكن والملاحظات <i class="fa-solid fa-arrow-left ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: السكن والملاحظات -->
+                <div class="student-tab-pane" id="st-tab-housing">
+                    <div class="student-form-section-card">
+                        <div class="section-title-badge text-warning">
+                            <i class="fa-solid fa-house-chimney"></i>
+                            <span>3. بيانات السكن والنزوح والملاحظات الكلية</span>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="student-curr-addr" class="form-label-custom">عنوان السكن الحالي</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-location-dot input-icon text-danger"></i>
+                                    <input type="text" id="student-curr-addr" class="form-control-custom" placeholder="المنطقة الحالية / الحي" value="${escapeXml(s ? (s.currentAddress || s.address || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="student-curr-type" class="form-label-custom">طبيعة السكن الحالي</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-tents input-icon text-warning"></i>
+                                    <input type="text" id="student-curr-type" class="form-control-custom" placeholder="بيت / خيمة / مركز إيواء" value="${escapeXml(s ? (s.currentHousingType || '') : '')}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="student-orig-addr" class="form-label-custom">عنوان السكن الأصلي</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-house input-icon text-primary"></i>
+                                    <input type="text" id="student-orig-addr" class="form-control-custom" placeholder="العنوان قبل النزوح" value="${escapeXml(s ? (s.originalAddress || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-orig-type" class="form-label-custom">طبيعة السكن الأصلي</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-key input-icon text-secondary"></i>
+                                    <input type="text" id="student-orig-type" class="form-control-custom" placeholder="ملك / إيجار" value="${escapeXml(s ? (s.originalHousingType || '') : '')}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="student-orig-status" class="form-label-custom">حالة السكن الأصلي</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-burst input-icon text-danger"></i>
+                                    <input type="text" id="student-orig-status" class="form-control-custom" placeholder="تدمير كلي / تدمير جزئي / سليم" value="${escapeXml(s ? (s.originalHousingStatus || '') : '')}">
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="student-notes" class="form-label-custom">ملاحظات عامة حول الطالب</label>
+                                <textarea id="student-notes" class="form-control-custom" rows="3" placeholder="أي ملاحظات تربوية أو صحية أو اجتماعية خاصة بالطالب...">${escapeXml(s ? (s.notes || '') : '')}</textarea>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm px-3 rounded-pill btn-prev-tab" data-prev="st-tab-parent">
+                                <i class="fa-solid fa-arrow-right me-1"></i> السابق
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm px-3 rounded-pill btn-next-tab" data-next="st-tab-account">
+                                التالي: بيانات حساب الدخول <i class="fa-solid fa-arrow-left ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: حساب الدخول والتفعيل -->
+                <div class="student-tab-pane" id="st-tab-account">
+                    <div class="student-form-section-card">
+                        <div class="section-title-badge text-info">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>4. بيانات حساب دخول الطالب للمنظومة</span>
+                        </div>
+                        
+                        ${!studentId ? `
+                        <div class="alert alert-info border-info p-3 mb-3 d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-circle-info fs-4 text-primary"></i>
+                            <span class="small">يُستخدم هذا الحساب لدخول الطالب لمتابعة حفظه وتسميعه والمشاركة في المسابقات والاختبارات.</span>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="student-username" class="form-label-custom">اسم المستخدم للابن (رقم الهوية الوطنية) <span class="text-danger">*</span></label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-id-card input-icon text-primary"></i>
+                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="رقم هوية الطالب..." required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="student-password" class="form-label-custom">كلمة المرور للابن <span class="text-danger">*</span></label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-lock input-icon text-success"></i>
+                                    <input type="password" id="student-password" class="form-control-custom font-monospace" value="123456" required>
+                                </div>
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <div class="form-check form-switch d-flex align-items-center gap-3">
+                                <input class="form-check-input" type="checkbox" id="student-active" ${s && s.isActive ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
+                                <label class="form-check-label fw-bold text-dark mb-0" for="student-active" style="cursor: pointer;">
+                                    حساب الطالب نشط ومفعّل بالمنظومة (يسمح له بالحضور والتسميع)
+                                </label>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0"><i class="fa-solid fa-circle-check text-success me-1"></i> يتم تسجيل الدخول بواسطة رقم الهوية الوطنية للطالب كاسم مستخدم.</p>
+                        `}
+                        <div class="d-flex justify-content-start mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm px-3 rounded-pill btn-prev-tab" data-prev="st-tab-housing">
+                                <i class="fa-solid fa-arrow-right me-1"></i> السابق
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="student-footer-actions">
+                    <button type="button" class="btn btn-outline-secondary px-4 py-2 rounded-pill fw-bold" id="btn-cancel-student">
+                        <i class="fa-solid fa-xmark me-1"></i> إلغاء
+                    </button>
+                    <button type="submit" class="btn btn-success px-4 py-2 rounded-pill fw-bold shadow-sm" id="btn-save-student-submit" style="background: linear-gradient(135deg, #0d5c3a, #15803d); border: none;">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتثبيت كافة بيانات الطالب
+                    </button>
+                </div>
+            </form>
+        </div>
     `;
+
+    // Tab switching event handlers
+    content.querySelectorAll(".student-tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            content.querySelectorAll(".student-tab-btn").forEach(b => b.classList.remove("active"));
+            content.querySelectorAll(".student-tab-pane").forEach(p => p.classList.remove("active"));
+            btn.classList.add("active");
+            const target = btn.dataset.tab;
+            content.querySelector(`#${target}`)?.classList.add("active");
+        });
+    });
+    content.querySelectorAll(".btn-next-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const nextTabId = btn.dataset.next;
+            const targetBtn = content.querySelector(`.student-tab-btn[data-tab='${nextTabId}']`);
+            if (targetBtn) targetBtn.click();
+        });
+    });
+    content.querySelectorAll(".btn-prev-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const prevTabId = btn.dataset.prev;
+            const targetBtn = content.querySelector(`.student-tab-btn[data-tab='${prevTabId}']`);
+            if (targetBtn) targetBtn.click();
+        });
+    });
     
     if (s && s.circleId) {
         document.getElementById("student-circle").value = s.circleId;
