@@ -8705,11 +8705,48 @@ function renderUsersTableRows(usersList) {
         const pw = getUserDisplayPassword(u);
         const idNum = u.identityNumber || u.nationalId || (u.role === 'Parent' && u.username && /^\d+$/.test(u.username) ? u.username : '-');
         
+        // Resolve role & permissions badge with full harmony with Teachers page
+        let roleHtml = "";
+        let teacherIdForRole = u.teacherId;
+
+        if (u.role === "Teacher") {
+            let tRole = (u.taskRole || "").trim();
+            if (!tRole && cachedTeachers && cachedTeachers.length > 0) {
+                let matchedT = null;
+                if (u.teacherId) {
+                    matchedT = cachedTeachers.find(t => t.id == u.teacherId);
+                }
+                if (!matchedT && u.username) {
+                    matchedT = cachedTeachers.find(t => t.identityNumber && t.identityNumber.trim() === (u.username || "").trim());
+                }
+                if (!matchedT && u.fullName) {
+                    matchedT = cachedTeachers.find(t => t.fullName && t.fullName.trim() === (u.fullName || "").trim());
+                }
+                if (matchedT) {
+                    tRole = (matchedT.taskRole || "").trim();
+                    if (!teacherIdForRole) teacherIdForRole = matchedT.id;
+                }
+            }
+            roleHtml = formatTeacherRolesHtml(tRole);
+        } else if (u.role === "Developer") {
+            roleHtml = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-code"></i> مطور النظام الرئيسي</span>`;
+        } else if (u.role === "Admin") {
+            roleHtml = `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-crown text-warning"></i> مدير المركز العام</span>`;
+        } else if (u.role === "ExamSupervisor") {
+            roleHtml = `<span class="badge bg-info bg-opacity-10 text-dark border border-info fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-clipboard-check text-info"></i> مشرف ومقوّم اختبارات</span>`;
+        } else if (u.role === "Student") {
+            roleHtml = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-graduation-cap"></i> طالب حلقة تحفيظ</span>`;
+        } else if (u.role === "Parent") {
+            roleHtml = `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-users"></i> ولي أمر طالب</span>`;
+        } else {
+            roleHtml = `<span class="badge badge-info">${escapeXml(u.role)}</span>`;
+        }
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${u.id}</td>
             <td><strong>${escapeXml(u.fullName)}</strong></td>
-            <td><span class="badge badge-info">${getRoleArabicName(u.role)}</span></td>
+            <td>${roleHtml}</td>
             <td style="white-space: nowrap;">
                 <code class="font-monospace fw-bold text-dark px-2 py-1 bg-light rounded border shadow-xs" style="font-size: 0.92rem;">
                     <i class="fa-solid fa-id-card text-success me-1"></i>${escapeXml(idNum)}
@@ -8726,9 +8763,12 @@ function renderUsersTableRows(usersList) {
                 </div>
             </td>
             <td>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
-                    <button class="btn btn-danger btn-sm btn-delete-user" data-id="${u.id}"><i class="fa-solid fa-user-slash"></i> حذف</button>
+                <div class="d-flex gap-2 align-items-center">
+                    ${teacherIdForRole ? `
+                        <button class="btn btn-outline-success btn-sm btn-manage-roles-user shadow-xs" data-tid="${teacherIdForRole}" title="تعديل وتحديد الصلاحيات والمهام الإدارية"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
+                    ` : ''}
+                    <button class="btn btn-outline-primary btn-sm btn-edit-user shadow-xs" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
+                    <button class="btn btn-danger btn-sm btn-delete-user shadow-xs" data-id="${u.id}"><i class="fa-solid fa-user-slash"></i> حذف</button>
                 </div>
             </td>
         `;
@@ -8736,6 +8776,15 @@ function renderUsersTableRows(usersList) {
     });
     
     // Bind Actions
+    tbody.querySelectorAll(".btn-manage-roles-user").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            const tid = e.target.closest("button").dataset.tid;
+            if (tid) {
+                await manageTeacherRoles(tid);
+                await loadDeveloperUsers();
+            }
+        });
+    });
     tbody.querySelectorAll(".btn-edit-user").forEach(btn => {
         btn.addEventListener("click", (e) => {
             const userId = e.target.closest("button").dataset.id;
@@ -8753,6 +8802,9 @@ function renderUsersTableRows(usersList) {
 
 async function loadDeveloperUsers() {
     try {
+        if (!cachedTeachers || cachedTeachers.length === 0) {
+            try { cachedTeachers = await apiRequest("/teachers"); } catch(e) {}
+        }
         const users = await apiRequest("/users");
         if (users && Array.isArray(users)) {
             cachedUsers = users;
@@ -8918,6 +8970,20 @@ function showEditUserModal(user) {
                     </div>
                     <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> بصفتك المطور، يمكنك معرفة كلمة مرور المستخدم وتعديلها مباشرة.</small>
                 </div>
+
+                ${(user.role === 'Teacher' || user.teacherId) ? `
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <div class="p-3 rounded-3 border bg-light shadow-xs">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <label class="fw-bold mb-0 text-dark small"><i class="fa-solid fa-shield-halved text-success me-1"></i> المهام والصلاحيات الإدارية المعتمدة للشيخ:</label>
+                            ${user.teacherId ? `<button type="button" class="btn btn-success btn-sm py-1 px-2.5 shadow-xs" id="btn-modal-teacher-roles"><i class="fa-solid fa-user-shield me-1"></i> تعديل وتحديد الصلاحيات</button>` : ''}
+                        </div>
+                        <div id="modal-teacher-roles-view">
+                            ${formatTeacherRolesHtml((user.taskRole || (cachedTeachers.find(t => t.id == user.teacherId)?.taskRole) || ''))}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
             </div>
             
             <div class="mt-4 d-flex justify-content-between">
@@ -8928,6 +8994,19 @@ function showEditUserModal(user) {
     `;
     
     document.getElementById("btn-cancel-edit-user").addEventListener("click", closeModal);
+    
+    const modalTeacherRolesBtn = document.getElementById("btn-modal-teacher-roles");
+    if (modalTeacherRolesBtn && user.teacherId) {
+        modalTeacherRolesBtn.addEventListener("click", async () => {
+            await manageTeacherRoles(user.teacherId);
+            const updatedT = (cachedTeachers || []).find(t => t.id == user.teacherId);
+            if (updatedT) {
+                user.taskRole = updatedT.taskRole;
+                const view = document.getElementById("modal-teacher-roles-view");
+                if (view) view.innerHTML = formatTeacherRolesHtml(user.taskRole);
+            }
+        });
+    }
     
     document.getElementById("edit-user-form").addEventListener("submit", async (e) => {
         e.preventDefault();

@@ -36,11 +36,43 @@ public class UsersController : ControllerBase
             .Select(s => new { s.Id, s.FullName, s.ParentId, s.ParentIdentityNumber, s.FamilyContact })
             .ToListAsync();
 
+        var allTeachers = await _db.Teachers
+            .Select(t => new { t.Id, t.FullName, t.IdentityNumber, t.TaskRole })
+            .ToListAsync();
+
         var result = users.Select(u => {
             string? idNum = null;
-            if (u.Role == UserRole.Teacher && u.Teacher != null)
+            string? taskRole = null;
+
+            if (u.Role == UserRole.Teacher)
             {
-                idNum = u.Teacher.IdentityNumber;
+                if (u.Teacher != null)
+                {
+                    idNum = u.Teacher.IdentityNumber;
+                    taskRole = u.Teacher.TaskRole;
+                }
+                else if (u.TeacherId.HasValue)
+                {
+                    var matchedT = allTeachers.FirstOrDefault(t => t.Id == u.TeacherId.Value);
+                    if (matchedT != null)
+                    {
+                        idNum = matchedT.IdentityNumber;
+                        taskRole = matchedT.TaskRole;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(taskRole))
+                {
+                    var matchedT = allTeachers.FirstOrDefault(t => 
+                        (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == u.Username.Trim()) ||
+                        (!string.IsNullOrWhiteSpace(t.FullName) && t.FullName.Trim().Equals(u.FullName.Trim(), StringComparison.OrdinalIgnoreCase))
+                    );
+                    if (matchedT != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(idNum)) idNum = matchedT.IdentityNumber;
+                        taskRole = matchedT.TaskRole;
+                    }
+                }
             }
             else if (u.Role == UserRole.Student && u.Student != null)
             {
@@ -77,6 +109,7 @@ public class UsersController : ControllerBase
                 u.Username,
                 u.FullName,
                 Role = u.Role.ToString(),
+                TaskRole = taskRole,
                 u.IsActive,
                 u.TeacherId,
                 u.StudentId,

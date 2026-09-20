@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260920_v5_confirm_and_manual_fix">
+    <link rel="stylesheet" href="styles.css?v=20260920_v7_teacher_roles_and_stylish_buttons">
 </head>
 <body>
     <!-- App Container -->
@@ -243,13 +243,15 @@
                 </div>
 
                 <div class="sidebar-footer">
-                    <button id="btn-sidebar-change-pw" class="btn btn-outline-secondary btn-sm w-100 fw-bold mb-2 d-flex align-items-center justify-content-center gap-2">
-                        <i class="fa-solid fa-key"></i> <span>تغيير كلمة المرور</span>
-                    </button>
-                    <button id="btn-sidebar-logout" class="btn btn-outline-danger btn-sm w-100 fw-bold mb-2 d-flex align-items-center justify-content-center gap-2">
-                        <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج الآمن</span>
-                    </button>
-                    <p class="mb-0">نظام الحلقات الذكي &copy; 2026</p>
+                    <div class="sidebar-footer-actions">
+                        <button id="btn-sidebar-change-pw" class="btn-sidebar-action-pw" type="button" title="تغيير كلمة المرور الرسمية">
+                            <i class="fa-solid fa-key"></i> <span>تغيير كلمة المرور</span>
+                        </button>
+                        <button id="btn-sidebar-logout" class="btn-sidebar-action-logout" type="button" title="تسجيل الخروج الآمن">
+                            <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج الآمن</span>
+                        </button>
+                    </div>
+                    <p class="mb-0 text-muted" style="font-size: 0.76rem; letter-spacing: 0.2px;">نظام الحلقات الذكي &copy; 2026</p>
                 </div>
             </aside>
 
@@ -2403,6 +2405,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
     <script src="js/quran-exam-engine.js?v=20260920_v5_confirm_and_manual_fix"></script>
-    <script src="app.js?v=20260920_v6_dynamic_passwords"></script>
+    <script src="app.js?v=20260920_v7_teacher_roles_and_stylish_buttons"></script>
 </body>
 </html>
