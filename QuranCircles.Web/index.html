@@ -58,6 +58,7 @@
                     <span class="user-name" id="profile-display-name">-</span>
                     <span class="user-role-badge" id="profile-display-role">-</span>
                 </div>
+                <button id="btn-change-password" class="btn btn-outline-secondary btn-sm" title="تغيير كلمة المرور"><i class="fa-solid fa-key"></i> <span class="logout-text d-none d-md-inline">كلمة المرور</span></button>
                 <button id="btn-logout" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-right-from-bracket"></i> <span class="logout-text">تسجيل خروج</span></button>
             </div>
         </header>
@@ -242,6 +243,9 @@
                 </div>
 
                 <div class="sidebar-footer">
+                    <button id="btn-sidebar-change-pw" class="btn btn-outline-secondary btn-sm w-100 fw-bold mb-2 d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-solid fa-key"></i> <span>تغيير كلمة المرور</span>
+                    </button>
                     <button id="btn-sidebar-logout" class="btn btn-outline-danger btn-sm w-100 fw-bold mb-2 d-flex align-items-center justify-content-center gap-2">
                         <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج الآمن</span>
                     </button>
@@ -2399,6 +2403,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
     <script src="js/quran-exam-engine.js?v=20260920_v5_confirm_and_manual_fix"></script>
-    <script src="app.js?v=20260920_v5_confirm_and_manual_fix"></script>
+    <script src="app.js?v=20260920_v6_dynamic_passwords"></script>
 </body>
 </html>

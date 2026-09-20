@@ -348,6 +348,20 @@ function setupAuth() {
         loginForm.addEventListener("submit", handleLogin);
     }
     
+    // Bind Top Bar Change Password Button
+    const changePwBtn = document.getElementById("btn-change-password");
+    if (changePwBtn && !changePwBtn.dataset.bound) {
+        changePwBtn.dataset.bound = "true";
+        changePwBtn.addEventListener("click", () => showChangeMyPasswordModal());
+    }
+
+    // Bind Mobile Sidebar Change Password Button
+    const sidebarChangePwBtn = document.getElementById("btn-sidebar-change-pw");
+    if (sidebarChangePwBtn && !sidebarChangePwBtn.dataset.bound) {
+        sidebarChangePwBtn.dataset.bound = "true";
+        sidebarChangePwBtn.addEventListener("click", () => showChangeMyPasswordModal());
+    }
+
     // Bind Top Bar Logout Button
     const logoutBtn = document.getElementById("btn-logout");
     if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -8638,7 +8652,11 @@ async function showAnnouncementFormModal() {
 function getUserDisplayPassword(u) {
     if (!u) return "123456";
     
-    // 1. Check persistent localStorage update (instant guarantee for developer modifications)
+    // 1. Check official database returned plainPassword from API (single source of truth)
+    const p = u.plainPassword || u.PlainPassword;
+    if (p && p.trim() !== "") return p.trim();
+
+    // 2. Check temporary local storage fallback if API field was absent
     if (u.id) {
         const localById = localStorage.getItem("user_pw_" + u.id);
         if (localById && localById.trim() !== "") return localById.trim();
@@ -8648,11 +8666,7 @@ function getUserDisplayPassword(u) {
         if (localByUsername && localByUsername.trim() !== "") return localByUsername.trim();
     }
 
-    // 2. Check API returned fields
-    const p = u.plainPassword || u.PlainPassword;
-    if (p && p.trim() !== "") return p.trim();
-
-    // 3. Known system credentials
+    // 3. Known initial credentials defaults
     const uName = (u.username || "").toLowerCase().trim();
     if (uName === "dev") return "dev123";
     if (uName === "admin") return "admin123";
@@ -8980,6 +8994,115 @@ async function deleteUser(userId) {
         console.error(e);
     }
 }
+
+// ----------------- User Profile: Change My Password -----------------
+window.showChangeMyPasswordModal = function() {
+    openModal("تغيير كلمة المرور الرسمية");
+    
+    const content = document.getElementById("modal-body-content");
+    const isDevOrAdmin = currentRole === "Developer" || currentRole === "Admin";
+    
+    content.innerHTML = `
+        <form id="change-my-password-form">
+            <div class="modal-form-grid" style="grid-template-columns: 1fr;">
+                <div class="mb-3 text-center">
+                    <div style="width:54px; height:54px; border-radius:50%; background:#ecfdf5; color:#0d5c3a; display:inline-flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:8px;">
+                        <i class="fa-solid fa-key text-success"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">تحديث كلمة المرور الرسمية</h5>
+                    <p class="text-muted small mb-0">سيتم حفظ كلمة المرور الجديدة في قاعدة البيانات واعتمادها رسمياً للدخول من أي جهاز.</p>
+                </div>
+
+                ${!isDevOrAdmin ? `
+                <div class="form-group mb-3">
+                    <label for="change-pw-current" class="fw-bold"><i class="fa-solid fa-lock text-secondary me-1"></i> كلمة المرور الحالية:</label>
+                    <div class="input-group">
+                        <input type="password" id="change-pw-current" class="form-control font-monospace" required placeholder="أدخل كلمة المرور الحالية...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-current'); p.type = (p.type === 'password' ? 'text' : 'password');">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                ` : `
+                <div class="form-group mb-3">
+                    <label for="change-pw-current" class="fw-bold text-muted"><i class="fa-solid fa-user-shield text-primary me-1"></i> كلمة المرور الحالية (اختياري بصفتك ${getRoleArabicName(currentRole)}):</label>
+                    <div class="input-group">
+                        <input type="password" id="change-pw-current" class="form-control font-monospace" placeholder="يمكنك تركها فارغة بصفتك مسؤولاً...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-current'); p.type = (p.type === 'password' ? 'text' : 'password');">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                `}
+
+                <div class="form-group mb-3">
+                    <label for="change-pw-new" class="fw-bold"><i class="fa-solid fa-key text-success me-1"></i> كلمة المرور الجديدة:</label>
+                    <div class="input-group">
+                        <input type="password" id="change-pw-new" class="form-control font-monospace fw-bold" required minlength="4" placeholder="أدخل كلمة المرور الجديدة...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-new'); p.type = (p.type === 'password' ? 'text' : 'password');">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <small class="form-helper-text text-muted"><i class="fa-solid fa-circle-info me-1"></i> يجب أن لا تقل كلمة المرور عن 4 خانات.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="change-pw-confirm" class="fw-bold"><i class="fa-solid fa-circle-check text-success me-1"></i> تأكيد كلمة المرور الجديدة:</label>
+                    <div class="input-group">
+                        <input type="password" id="change-pw-confirm" class="form-control font-monospace fw-bold" required minlength="4" placeholder="أعد إدخال كلمة المرور الجديدة للتأكيد...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-confirm'); p.type = (p.type === 'password' ? 'text' : 'password');">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-between gap-2">
+                <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="fa-solid fa-floppy-disk me-1"></i> اعتماد وحفظ كلمة المرور</button>
+                <button type="button" class="btn btn-light" id="btn-cancel-change-pw">إلغاء</button>
+            </div>
+        </form>
+    `;
+
+    document.getElementById("btn-cancel-change-pw").addEventListener("click", closeModal);
+
+    document.getElementById("change-my-password-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const currentVal = document.getElementById("change-pw-current")?.value || "";
+        const newVal = document.getElementById("change-pw-new")?.value || "";
+        const confirmVal = document.getElementById("change-pw-confirm")?.value || "";
+
+        if (newVal !== confirmVal) {
+            showAlert("كلمة المرور الجديدة وتأكيدها غير متطابقين!", "warning");
+            return;
+        }
+
+        try {
+            const res = await apiRequest("/auth/change-password", "POST", {
+                currentPassword: currentVal || null,
+                newPassword: newVal
+            });
+
+            showAlert("✅ تم تغيير كلمة المرور واعتمادها رسمياً في قاعدة البيانات بنجاح.", "success");
+            closeModal();
+
+            // Also update local cache if user is currently loaded in memory
+            if (currentUserId && typeof cachedUsers !== "undefined" && Array.isArray(cachedUsers) && cachedUsers.length > 0) {
+                const me = cachedUsers.find(x => x.id == currentUserId);
+                if (me) {
+                    me.plainPassword = newVal;
+                    me.PlainPassword = newVal;
+                    renderUsersTableRows(cachedUsers);
+                }
+            }
+            if (currentUserId) {
+                localStorage.setItem("user_pw_" + currentUserId, newVal);
+            }
+        } catch(err) {
+            showAlert(err.message || "فشل تغيير كلمة المرور: " + (err.error || err), "danger");
+        }
+    });
+};
 
 async function loadStudentProgress() {
     try {

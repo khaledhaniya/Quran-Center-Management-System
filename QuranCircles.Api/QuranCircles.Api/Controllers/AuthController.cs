@@ -95,27 +95,16 @@ public class AuthController : ControllerBase
             }
         }
         
+        // Dynamic fallback: verify against stored PlainPassword in database if hash was empty or needs sync
         if (!isPasswordValid && !string.IsNullOrEmpty(user.PlainPassword) && user.PlainPassword == dto.Password)
         {
             isPasswordValid = true;
             user.PasswordHash = _hasher.HashPassword(dto.Password);
-        }
-
-        if (!isPasswordValid && dto.Password == "123456")
-        {
-            isPasswordValid = true;
-            user.PasswordHash = _hasher.HashPassword("123456");
-            user.PlainPassword = "123456";
+            await _db.SaveChangesAsync();
         }
 
         if (!isPasswordValid)
             return BadRequest(new { error = "كلمة المرور غير صحيحة." });
-
-        if (user.PlainPassword != dto.Password)
-        {
-            user.PlainPassword = dto.Password;
-            await _db.SaveChangesAsync();
-        }
 
         var token = _tokenSvc.GenerateToken(user);
         
@@ -153,6 +142,57 @@ public class AuthController : ControllerBase
             qualification
         });
     }
+
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.NewPassword))
+            return BadRequest(new { error = "يرجى إدخال كلمة المرور الجديدة." });
+
+        var userId = FakeAuth.GetUserId(HttpContext);
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "جلسة الدخول غير صالحة أو منتهية. يرجى تسجيل الدخول مجدداً." });
+
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user == null || !user.IsActive)
+            return NotFound(new { error = "المستخدم غير موجود أو حسابه معطل." });
+
+        var currentRole = FakeAuth.GetRole(HttpContext);
+        bool isPrivileged = currentRole == UserRole.Developer || currentRole == UserRole.Admin;
+
+        if (!isPrivileged || !string.IsNullOrWhiteSpace(dto.CurrentPassword))
+        {
+            bool currentValid = false;
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                try { currentValid = _hasher.VerifyPassword(user.PasswordHash, dto.CurrentPassword ?? ""); }
+                catch { currentValid = false; }
+            }
+            if (!currentValid && !string.IsNullOrEmpty(user.PlainPassword))
+            {
+                currentValid = user.PlainPassword == (dto.CurrentPassword ?? "");
+            }
+
+            if (!currentValid)
+                return BadRequest(new { error = "كلمة المرور الحالية غير صحيحة." });
+        }
+
+        var newPw = dto.NewPassword.Trim();
+        if (newPw.Length < 4)
+            return BadRequest(new { error = "يجب أن لا تقل كلمة المرور الجديدة عن 4 خانات." });
+
+        user.PasswordHash = _hasher.HashPassword(newPw);
+        user.PlainPassword = newPw;
+        await _db.SaveChangesAsync();
+
+        await AuditLogger.LogAsync(_db, HttpContext, "ChangePassword", $"تغيير كلمة المرور للمستخدم: {user.Username} ({user.FullName})");
+
+        return Ok(new { 
+            message = "تم تغيير كلمة المرور واعتمادها رسمياً بنجاح.",
+            newPassword = newPw
+        });
+    }
 }
 
 public record LoginDto(string Username, string Password);
+public record ChangePasswordDto(string? CurrentPassword, string NewPassword);

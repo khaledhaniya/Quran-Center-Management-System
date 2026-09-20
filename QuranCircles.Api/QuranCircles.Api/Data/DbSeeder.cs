@@ -799,7 +799,20 @@ public static partial class DbSeeder
 
             foreach (var u in users)
             {
-                if (string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword))
+                // Fix corrupted dev/admin default passwords if they were overwritten to 123456 by the old bug
+                if (u.Username.ToLower() == "dev" && (u.PlainPassword == "123456" || string.IsNullOrEmpty(u.PlainPassword)))
+                {
+                    u.PlainPassword = "dev123";
+                    u.PasswordHash = hasher.HashPassword("dev123");
+                    changed = true;
+                }
+                else if (u.Username.ToLower() == "admin" && (u.PlainPassword == "123456" || string.IsNullOrEmpty(u.PlainPassword)))
+                {
+                    u.PlainPassword = "admin123";
+                    u.PasswordHash = hasher.HashPassword("admin123");
+                    changed = true;
+                }
+                else if (string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword))
                 {
                     u.PasswordHash = hasher.HashPassword(u.PlainPassword);
                     changed = true;
