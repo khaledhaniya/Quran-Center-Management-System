@@ -198,6 +198,21 @@ public static partial class DbSeeder
             catch (Exception ex) { Console.WriteLine($"[SqlServer Migration] Teachers.{colName}: {ex.Message}"); }
         }
 
+        // 4.5 Ensure ExamNominations.TeacherId is nullable for safe cascading
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                IF EXISTS (
+                    SELECT 1 FROM sys.columns 
+                    WHERE object_id = OBJECT_ID(N'[ExamNominations]') AND name = 'TeacherId' AND is_nullable = 0
+                )
+                BEGIN
+                    ALTER TABLE [ExamNominations] ALTER COLUMN [TeacherId] INT NULL;
+                END
+            ");
+        }
+        catch (Exception ex) { Console.WriteLine($"[SqlServer Migration] ExamNominations.TeacherId: {ex.Message}"); }
+
         // 5. FinancialTransactions table
         try
         {

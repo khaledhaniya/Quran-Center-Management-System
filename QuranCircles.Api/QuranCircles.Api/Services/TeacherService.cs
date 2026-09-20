@@ -306,21 +306,88 @@ public class TeacherService
 
         var teacherName = t.FullName;
 
-        var circles = await _db.Circles.Where(c => c.TeacherId == id).ToListAsync();
-        foreach (var c in circles)
+        try
         {
-            c.TeacherId = null;
-        }
+            // 1. فك ارتباط الحلقات التعليمية (كمعلم أساسي أو مساعد)
+            var circles = await _db.Circles.Where(c => c.TeacherId == id || c.AssistantTeacherId == id).ToListAsync();
+            foreach (var c in circles)
+            {
+                if (c.TeacherId == id) c.TeacherId = null;
+                if (c.AssistantTeacherId == id) c.AssistantTeacherId = null;
+            }
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == id);
-        if (user != null)
+            // 2. فك ارتباط الدورات والمساقات (كمدرس أو كمشرف اختبار)
+            var courses = await _db.Courses.Where(c => c.TeacherId == id || c.ExamSupervisorId == id).ToListAsync();
+            foreach (var co in courses)
+            {
+                if (co.TeacherId == id) co.TeacherId = null;
+                if (co.ExamSupervisorId == id) co.ExamSupervisorId = null;
+            }
+
+            // 3. فك ارتباط ترشيحات الاختبارات
+            var examNoms = await _db.ExamNominations.Where(en => en.TeacherId == id).ToListAsync();
+            foreach (var en in examNoms)
+            {
+                en.TeacherId = null;
+            }
+
+            // 4. فك ارتباط سجلات المواهب والأنشطة
+            var talents = await _db.TalentRecords.Where(tr => tr.SupervisorTeacherId == id).ToListAsync();
+            foreach (var tr in talents)
+            {
+                tr.SupervisorTeacherId = null;
+            }
+
+            // 5. فك ارتباط كادر الحفاظ (كمعلم أو كمشرف)
+            var huffaz = await _db.HuffazMembers.Where(h => h.TeacherId == id || h.SupervisorTeacherId == id).ToListAsync();
+            foreach (var h in huffaz)
+            {
+                if (h.TeacherId == id) h.TeacherId = null;
+                if (h.SupervisorTeacherId == id) h.SupervisorTeacherId = null;
+            }
+
+            // 6. حذف أو تنظيف حسابات المستخدمين المرتبطة بالمعلم
+            var users = await _db.Users.Where(u => u.TeacherId == id || (!string.IsNullOrWhiteSpace(t.IdentityNumber) && u.Username == t.IdentityNumber)).ToListAsync();
+            foreach (var user in users)
+            {
+                // مسح طلبات تعديل الملف المرتبطة بالمستخدم
+                var profileReqs = await _db.ProfileUpdateRequests.Where(p => p.UserId == user.Id).ToListAsync();
+                if (profileReqs.Count > 0)
+                {
+                    _db.ProfileUpdateRequests.RemoveRange(profileReqs);
+                }
+
+                // فك ارتباط السندات المالية المنشأة بواسطة المستخدم
+                var finTrans = await _db.FinancialTransactions.Where(f => f.CreatedByUserId == user.Id).ToListAsync();
+                foreach (var f in finTrans)
+                {
+                    f.CreatedByUserId = null;
+                }
+
+                // فك ارتباط الأبناء بالوالد إذا كان الحساب مسجلاً كولي أمر
+                var linkedStudents = await _db.Students.Where(s => s.ParentId == user.Id).ToListAsync();
+                foreach (var s in linkedStudents)
+                {
+                    s.ParentId = null;
+                }
+
+                _db.Users.Remove(user);
+            }
+
+            // حفظ فك الارتباط أولاً لتفريغ قيود المفاتيح الأجنبية في قاعدة البيانات
+            await _db.SaveChangesAsync();
+
+            // 7. حذف المعلم نهائياً وحفظ التغييرات
+            _db.Teachers.Remove(t);
+            await _db.SaveChangesAsync();
+
+            return (true, teacherName, null);
+        }
+        catch (Exception ex)
         {
-            _db.Users.Remove(user);
+            Console.WriteLine($"[HardDeleteTeacher Error] Failed deleting teacher #{id} ({teacherName}): {ex.Message} -> {ex.InnerException?.Message}");
+            return (false, teacherName, $"تعذر حذف المعلم لوجود ارتباطات في قاعدة البيانات: {ex.InnerException?.Message ?? ex.Message}");
         }
-
-        _db.Teachers.Remove(t);
-        await _db.SaveChangesAsync();
-        return (true, teacherName, null);
     }
 
     public async Task<(bool ok, bool newStatus, string? error)> ToggleActiveAsync(int id)

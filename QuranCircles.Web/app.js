@@ -177,7 +177,7 @@ function setAuthStorage(key, value, rememberMe) {
 }
 
 function clearAllAuthStorage() {
-    ['token', 'role', 'userId', 'teacherId', 'studentId', 'parentId', 'fullName', 'username', 'loginTime'].forEach(k => {
+    ['token', 'role', 'userId', 'teacherId', 'studentId', 'parentId', 'fullName', 'username', 'loginTime', 'taskRole', 'mosqueName', 'qualification', 'hasChildren', 'childrenCount'].forEach(k => {
         sessionStorage.removeItem(k);
         localStorage.removeItem(k);
     });
@@ -313,6 +313,17 @@ function setupAuth() {
                     })
                     .catch(() => {});
             }
+
+            // Also check if teacher has children enrolled in the center
+            apiRequest("/parent/children", "GET", null, 0, true)
+                .then(children => {
+                    if (children && Array.isArray(children) && children.length > 0) {
+                        setAuthStorage("hasChildren", "true");
+                        setAuthStorage("childrenCount", children.length.toString());
+                        updateSidebarMenu();
+                    }
+                })
+                .catch(() => {});
         }
 
         if (currentRole === "Admin" || currentRole === "Developer") {
@@ -484,6 +495,8 @@ async function handleLogin(e) {
         setAuthStorage("taskRole", data.taskRole || "", rememberMe);
         setAuthStorage("mosqueName", data.mosqueName || "", rememberMe);
         setAuthStorage("qualification", data.qualification || "", rememberMe);
+        setAuthStorage("hasChildren", data.hasChildren ? "true" : "false", rememberMe);
+        setAuthStorage("childrenCount", (data.childrenCount || 0).toString(), rememberMe);
         setAuthStorage("loginTime", Date.now().toString(), rememberMe);
         
         showAlert(`مرحباً بك يا <strong>${data.fullName}</strong>. تم تسجيل الدخول بنجاح.`, "success");
@@ -664,6 +677,18 @@ function updateSidebarMenu() {
 
         const taskPreacher = document.querySelectorAll(".teacher-task-preacher");
         taskPreacher.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية"))));
+
+        // Dual Role: Sheikh / Teacher who is also a parent of students in the center
+        const hasChildren = getAuthStorage("hasChildren") === "true" || parseInt(getAuthStorage("childrenCount") || "0") > 0;
+        const count = parseInt(getAuthStorage("childrenCount") || "0");
+        const teacherChildrenSec = document.getElementById("teacher-children-section");
+        const teacherChildrenBadge = document.getElementById("teacher-children-badge");
+        if (teacherChildrenSec) {
+            teacherChildrenSec.classList.toggle("hidden", !hasChildren);
+            if (teacherChildrenBadge) {
+                teacherChildrenBadge.textContent = count > 0 ? `${count} ${count === 1 ? 'ابن' : (count === 2 ? 'ابنان' : 'أبناء')}` : 'أبنائي';
+            }
+        }
 
         const hasAnyTask = hasCircle || 
             taskRole.includes("الملف المالي") || 
@@ -904,6 +929,13 @@ function handleRouting() {
             loadAnnouncements();
             return;
         }
+        if (hash === "#parent-progress") {
+            document.getElementById("btn-teacher-my-children")?.classList.add("active");
+            document.getElementById("btn-parent-progress")?.classList.add("active");
+            document.getElementById("parent-progress-section")?.classList.remove("hidden");
+            loadParentProgress();
+            return;
+        }
         const sec = document.getElementById("teacher-empty-state-section");
         if (sec) sec.classList.remove("hidden");
         const nameEl = document.getElementById("teacher-empty-state-name");
@@ -1022,8 +1054,9 @@ function handleRouting() {
         document.getElementById("system-settings-section")?.classList.remove("hidden");
         loadSystemSettingsForm();
     } 
-    else if (hash === "#parent-progress" && currentRole === "Parent") {
+    else if (hash === "#parent-progress" && (currentRole === "Parent" || currentRole === "Teacher" || isAdminOrDev)) {
         document.getElementById("btn-parent-progress")?.classList.add("active");
+        document.getElementById("btn-teacher-my-children")?.classList.add("active");
         document.getElementById("parent-progress-section")?.classList.remove("hidden");
         loadParentProgress();
     }
@@ -3287,23 +3320,31 @@ async function toggleTeacherActive(id) {
 }
 
 async function hardDeleteTeacher(id, name) {
-    const result = await Swal.fire({
-        title: '⚠️ تأكيد الحذف النهائي للمعلم',
-        html: `هل أنت متأكد من حذف الشيخ / <strong>${name}</strong> نهائياً من قاعدة البيانات وحذف حسابه وربط حلقاته؟`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'نعم، حذف نهائي',
-        cancelButtonText: 'تراجع',
-        confirmButtonColor: '#d33'
-    });
+    let confirmed = false;
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: '⚠️ تأكيد الحذف النهائي للمعلم',
+            html: `هل أنت متأكد من حذف الشيخ / <strong>${name}</strong> نهائياً من قاعدة البيانات وحذف حسابه وفك ارتباط كافة حلقاته ومهامه؟`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'نعم، حذف نهائي',
+            cancelButtonText: 'تراجع',
+            confirmButtonColor: '#d33'
+        });
+        confirmed = result.isConfirmed;
+    } else {
+        confirmed = confirm(`هل أنت متأكد من حذف الشيخ (${name}) نهائياً من النظام وحذف حسابه وفك ارتباط حلقاته؟`);
+    }
 
-    if (result.isConfirmed) {
+    if (confirmed) {
         try {
             const res = await apiRequest(`/teachers/${id}/permanent`, 'DELETE');
-            showAlert(res.message || "تم حذف المعلم نهائياً بنجاح.", "success");
+            showAlert(res?.message || res?.Message || "تم حذف المعلم نهائياً بنجاح.", "success");
+            cachedTeachers = (cachedTeachers || []).filter(t => t.id != id);
             await loadAdminTeachers();
+            if (typeof loadAdminCircles === "function") loadAdminCircles();
         } catch(err) {
-            showAlert(err.message || "حدث خطأ أثناء حذف المعلم", "danger");
+            showAlert(err?.message || "حدث خطأ أثناء حذف المعلم لوجود ارتباطات في النظام", "danger");
         }
     }
 }
@@ -5302,7 +5343,32 @@ async function loadParentProgress() {
             cardsGrid.appendChild(card);
         });
         
-        container.innerHTML = filterHeaderHtml;
+        let sheikhBannerHtml = '';
+        if (currentRole === "Teacher") {
+            sheikhBannerHtml = `
+                <div class="card p-3 p-md-4 mb-4 shadow-sm border-0 rounded-4" style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border-right: 5px solid #10b981 !important;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-success text-white p-2.5 d-flex align-items-center justify-content-center shadow-xs" style="width: 46px; height: 46px;">
+                                <i class="fa-solid fa-graduation-cap fs-5"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+                                    فضيلة الشيخ المحفظ / ${escapeXml(getAuthStorage("fullName") || "المعلّم")}
+                                    <span class="badge bg-success bg-opacity-15 text-success border border-success fw-semibold px-2.5 py-1" style="font-size: 0.75rem;">ولي أمر ومعلم</span>
+                                </h5>
+                                <p class="text-muted small mb-0">أنت تتصفح الآن لوحة متابعة مستوى أبنائك الكرام في المركز القرآني. صفحتك وحلقاتك القرآنية تعمل بكامل صلاحياتها المعتادة.</p>
+                            </div>
+                        </div>
+                        <a href="#teacher-attendance" class="btn btn-success rounded-pill px-4 py-2 shadow-xs d-inline-flex align-items-center gap-2 fw-bold" style="font-size: 0.88rem;">
+                            <i class="fa-solid fa-arrow-right"></i> العودة لحلقاتي القرآنية
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = sheikhBannerHtml + filterHeaderHtml;
         container.appendChild(cardsGrid);
         
         // Bind Filter Chips
@@ -7390,18 +7456,6 @@ async function hardDeleteCircle(id, name) {
     }
 }
 
-async function hardDeleteTeacher(id, name) {
-    if (!confirm(`⚠️ هل أنت متأكد من الحذف النهائي للمعلم (${name})؟\n\nسيتم حذف ملف المعلم وحسابه المستخدم وفك ارتباط كافة حلقاته نهائياً!`)) {
-        return;
-    }
-    try {
-        const res = await apiRequest(`/teachers/${id}/permanent`, "DELETE");
-        showAlert(res.message || "تم حذف المعلم وحسابه نهائياً.", "success");
-        if (typeof loadAdminTeachers === "function") loadAdminTeachers();
-    } catch(e) {
-        console.error(e);
-    }
-}
 
 function filterProfileRequestsTable(filter) {
     currentProfileRequestFilter = filter;

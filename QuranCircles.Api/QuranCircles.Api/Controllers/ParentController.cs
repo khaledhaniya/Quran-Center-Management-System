@@ -22,19 +22,27 @@ public class ParentController : ControllerBase
     }
 
     [HttpGet("children")]
-    [RequireRole(UserRole.Parent)]
+    [RequireRole(UserRole.Parent, UserRole.Teacher, UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> Children()
     {
         var userId = FakeAuth.GetUserId(HttpContext);
         if (userId is null)
             return BadRequest(new { error = "جلسة غير صالحة." });
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
-        if (user == null || user.Role != UserRole.Parent || !user.ParentId.HasValue)
-            return BadRequest(new { error = "المستخدم الحالي ليس ولي أمر أو لا يملك معرّف عائلة." });
+        var user = await _db.Users
+            .Include(u => u.Teacher)
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
 
-        var children = await _svc.GetChildrenProgressAsync(user.ParentId.Value);
-        return Ok(children);
+        if (user == null)
+            return BadRequest(new { error = "المستخدم غير موجود." });
+
+        var children = await _svc.GetChildrenProgressForUserAsync(user);
+        if ((children == null || children.Count == 0) && user.ParentId.HasValue)
+        {
+            children = await _svc.GetChildrenProgressAsync(user.ParentId.Value);
+        }
+
+        return Ok(children ?? new List<ChildProgressDto>());
     }
 
     [HttpGet("audit")]

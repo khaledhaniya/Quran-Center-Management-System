@@ -49,13 +49,13 @@ public class AppDbContext : DbContext
             .HasOne(c => c.Teacher)
             .WithMany(t => t.Circles)
             .HasForeignKey(c => c.TeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<Circle>()
             .HasOne(c => c.AssistantTeacher)
             .WithMany()
             .HasForeignKey(c => c.AssistantTeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<Student>()
             .HasOne(s => s.Circle)
@@ -86,13 +86,13 @@ public class AppDbContext : DbContext
             .HasOne(c => c.Teacher)
             .WithMany()
             .HasForeignKey(c => c.TeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<Course>()
             .HasOne(c => c.ExamSupervisor)
             .WithMany()
             .HasForeignKey(c => c.ExamSupervisorId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<CourseEnrollment>()
             .HasOne(ce => ce.Course)
@@ -122,7 +122,7 @@ public class AppDbContext : DbContext
             .HasOne(en => en.Teacher)
             .WithMany()
             .HasForeignKey(en => en.TeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<ExamNomination>()
             .HasOne(en => en.Course)
@@ -158,13 +158,13 @@ public class AppDbContext : DbContext
             .HasOne(tr => tr.SupervisorTeacher)
             .WithMany()
             .HasForeignKey(tr => tr.SupervisorTeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<HuffazMember>()
             .HasOne(hm => hm.Teacher)
             .WithMany()
             .HasForeignKey(hm => hm.TeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<HuffazMember>()
             .HasOne(hm => hm.Student)
@@ -176,6 +176,6 @@ public class AppDbContext : DbContext
             .HasOne(hm => hm.SupervisorTeacher)
             .WithMany()
             .HasForeignKey(hm => hm.SupervisorTeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

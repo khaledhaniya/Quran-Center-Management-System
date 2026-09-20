@@ -65,9 +65,24 @@ public class ReportService
             .Where(s => s.ParentId == parentId)
             .ToListAsync();
 
-        var result = new List<ChildProgressDto>();
+        return await BuildChildProgressDtosAsync(children);
+    }
 
-        foreach (var child in children)
+    public async Task<List<ChildProgressDto>> GetChildrenProgressForUserAsync(User user)
+    {
+        if (user == null) return new List<ChildProgressDto>();
+
+        var matchedStudents = await GetSmartChildrenForParentAsync(user);
+        return await BuildChildProgressDtosAsync(matchedStudents);
+    }
+
+    private async Task<List<ChildProgressDto>> BuildChildProgressDtosAsync(List<Student> children)
+    {
+        var result = new List<ChildProgressDto>();
+        var distinctChildren = children.GroupBy(c => c.Id).Select(g => g.First()).ToList();
+
+        foreach (var child in distinctChildren)
+
         {
             var sessions = await _db.Sessions
                 .Where(s => s.StudentId == child.Id)
@@ -119,19 +134,48 @@ public class ReportService
     public async Task<List<Student>> GetSmartChildrenForParentAsync(User parentUser)
     {
         int pId = parentUser.ParentId ?? parentUser.Id;
+        Teacher? teacher = parentUser.Teacher;
+        if (teacher == null && parentUser.TeacherId.HasValue)
+        {
+            teacher = await _db.Teachers.FindAsync(parentUser.TeacherId.Value);
+        }
+        else if (teacher == null && parentUser.Role == UserRole.Teacher)
+        {
+            var uName = (parentUser.Username ?? "").Trim();
+            teacher = await _db.Teachers.FirstOrDefaultAsync(t => 
+                (!string.IsNullOrEmpty(t.IdentityNumber) && t.IdentityNumber == uName) ||
+                (!string.IsNullOrEmpty(t.FullName) && t.FullName == parentUser.FullName));
+        }
 
         var directStudents = await _db.Students
             .Include(s => s.Circle)
-            .Where(s => s.ParentId == pId)
+            .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == parentUser.Id || (parentUser.TeacherId.HasValue && s.ParentId == parentUser.TeacherId.Value))))
             .ToListAsync();
 
         var directIds = directStudents.Select(s => s.Id).ToHashSet();
-        var contacts = directStudents
+        
+        var idNumbersToMatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(parentUser.Username) && parentUser.Username.All(char.IsDigit))
+        {
+            idNumbersToMatch.Add(parentUser.Username.Trim());
+        }
+        if (teacher != null && !string.IsNullOrWhiteSpace(teacher.IdentityNumber))
+        {
+            idNumbersToMatch.Add(teacher.IdentityNumber.Trim());
+        }
+
+        var contactsToMatch = directStudents
             .Where(s => !string.IsNullOrWhiteSpace(s.FamilyContact))
             .Select(s => s.FamilyContact.Trim())
-            .ToHashSet();
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var parentNameParts = (parentUser.FullName ?? "")
+        if (teacher != null)
+        {
+            if (!string.IsNullOrWhiteSpace(teacher.Contact)) contactsToMatch.Add(teacher.Contact.Trim());
+            if (!string.IsNullOrWhiteSpace(teacher.WhatsappNumber)) contactsToMatch.Add(teacher.WhatsappNumber.Trim());
+        }
+
+        var parentNameParts = (teacher?.FullName ?? parentUser.FullName ?? "")
             .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
         var allStudents = await _db.Students.Include(s => s.Circle).ToListAsync();
@@ -143,17 +187,23 @@ public class ReportService
 
             bool isMatch = false;
 
-            // 1. Phone / Family contact match
-            if (!string.IsNullOrWhiteSpace(s.FamilyContact) && contacts.Contains(s.FamilyContact.Trim()))
+            // 1. National ID match (e.g. Student's ParentIdentityNumber == Father's National ID)
+            if (!isMatch && !string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && idNumbersToMatch.Contains(s.ParentIdentityNumber.Trim()))
             {
                 isMatch = true;
             }
 
-            // 2. Father & Grandfather & Family Name match
+            // 2. Phone / Family contact match
+            if (!isMatch && !string.IsNullOrWhiteSpace(s.FamilyContact) && contactsToMatch.Contains(s.FamilyContact.Trim()))
+            {
+                isMatch = true;
+            }
+
+            // 3. Father & Grandfather & Family Name match in FullName
             if (!isMatch && parentNameParts.Length >= 2)
             {
                 var sParts = (s.FullName ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (sParts.Length >= 2)
+                if (sParts.Length >= 3)
                 {
                     int matchCount = 0;
                     foreach (var pPart in parentNameParts)
@@ -173,6 +223,7 @@ public class ReportService
             if (isMatch)
             {
                 matchedList.Add(s);
+                directIds.Add(s.Id);
             }
         }
 
