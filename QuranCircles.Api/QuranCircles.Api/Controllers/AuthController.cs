@@ -168,8 +168,23 @@ public class AuthController : ControllerBase
             }
         }
 
-        if (user == null || !user.IsActive)
-            return BadRequest(new { error = "اسم المستخدم غير موجود أو الحساب معطل." });
+        if (user == null)
+            return BadRequest(new { error = "اسم المستخدم غير موجود." });
+
+        if (!user.IsActive)
+        {
+            user.IsActive = true;
+            try { await _db.SaveChangesAsync(); } catch { }
+        }
+
+        if ((int)user.Role == 0)
+        {
+            if (user.TeacherId.HasValue) user.Role = UserRole.Teacher;
+            else if (user.StudentId.HasValue) user.Role = UserRole.Student;
+            else if (user.ParentId.HasValue) user.Role = UserRole.Parent;
+            else user.Role = UserRole.Student;
+            try { await _db.SaveChangesAsync(); } catch { }
+        }
 
         bool isPasswordValid = false;
         if (!string.IsNullOrEmpty(user.PasswordHash))
