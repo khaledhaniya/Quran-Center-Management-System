@@ -80,40 +80,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _scheduledExams = nominations.where((n) => n.status == 'Scheduled').length;
       _completedExams = nominations.where((n) => n.status == 'Completed').length;
 
-      if (role == 'Parent' || widget.currentUser.hasChildren) {
+      if (role == 'Parent' || (widget.currentUser.hasChildren && widget.currentUser.childrenCount > 0)) {
         try {
           final kids = await ApiService.getMyChildren();
-          if (kids.isNotEmpty) {
-            _myChildren = kids;
-          }
+          _myChildren = kids;
         } catch (_) {}
 
         if (_myChildren.isEmpty && role == 'Parent') {
-          _myChildren = students;
-          if (_myChildren.isEmpty) {
-            try {
-              final rawAudit = await ApiService.getParentAuditData();
-              for (var p in rawAudit) {
-                final pName = (p['parentName'] ?? '').toString().trim();
-                final pIdNum = (p['parentIdentityNumber'] ?? '').toString().trim();
-                final userPId = (widget.currentUser.parentId ?? widget.currentUser.id).toString();
+          try {
+            final rawAudit = await ApiService.getParentAuditData();
+            for (var p in rawAudit) {
+              final pName = (p['parentName'] ?? '').toString().trim();
+              final pIdNum = (p['parentIdentityNumber'] ?? '').toString().trim();
+              final userPId = (widget.currentUser.parentId ?? widget.currentUser.id).toString();
 
-                if (pName == widget.currentUser.fullName.trim() || 
-                    (pIdNum.isNotEmpty && pIdNum == widget.currentUser.username) || 
-                    (p['parentId'] != null && p['parentId'].toString() == userPId)) {
-                  final childrenArr = p['children'] as List? ?? [];
-                  _myChildren = childrenArr.map((ch) => Student(
-                    id: ch['id'] as int? ?? 0,
-                    fullName: (ch['fullName'] ?? 'طالب').toString(),
-                    circleName: ch['circleName']?.toString(),
-                    studentIdentityNumber: ch['studentIdentityNumber']?.toString(),
-                    isActive: true,
-                  )).toList();
-                  break;
-                }
+              if ((pIdNum.isNotEmpty && pIdNum == widget.currentUser.username) || 
+                  (p['parentId'] != null && p['parentId'].toString() == userPId)) {
+                final childrenArr = p['children'] as List? ?? [];
+                _myChildren = childrenArr.map((ch) => Student(
+                  id: ch['id'] as int? ?? 0,
+                  fullName: (ch['fullName'] ?? 'طالب').toString(),
+                  circleName: ch['circleName']?.toString(),
+                  studentIdentityNumber: ch['studentIdentityNumber']?.toString(),
+                  isActive: true,
+                )).toList();
+                break;
               }
-            } catch (_) {}
-          }
+            }
+          } catch (_) {}
         }
 
         if (_myChildren.isNotEmpty && _selectedChildId == null) {
@@ -450,7 +444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
 
           // ═══ PARENT & DUAL-ROLE MULTI-CHILD SELECTION & MANAGEMENT SECTION ═══
-          if ((isParent || widget.currentUser.hasChildren || _myChildren.isNotEmpty) && !_isLoading) ...[
+          if (((isParent && !_isLoading) || (_myChildren.isNotEmpty && !_isLoading))) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

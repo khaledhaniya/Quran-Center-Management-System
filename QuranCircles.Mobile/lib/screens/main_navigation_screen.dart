@@ -264,7 +264,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               },
             ),
 
-            if (widget.currentUser.hasChildren || widget.currentUser.role == 'Parent') ...[
+            if (widget.currentUser.role == 'Parent' || (widget.currentUser.hasChildren && widget.currentUser.childrenCount > 0)) ...[
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(

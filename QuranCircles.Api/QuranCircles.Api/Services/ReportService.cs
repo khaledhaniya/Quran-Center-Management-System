@@ -133,13 +133,22 @@ public class ReportService
 
     public async Task<List<Student>> GetSmartChildrenForParentAsync(User parentUser)
     {
-        int pId = parentUser.ParentId ?? parentUser.Id;
+        if (parentUser == null) return new List<Student>();
+
+        // 1. Resolve national identity number of this user/teacher
+        var idNumbersToMatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        
+        if (!string.IsNullOrWhiteSpace(parentUser.Username) && parentUser.Username.All(char.IsDigit) && parentUser.Username.Trim().Length >= 7)
+        {
+            idNumbersToMatch.Add(parentUser.Username.Trim());
+        }
+
         Teacher? teacher = parentUser.Teacher;
         if (teacher == null && parentUser.TeacherId.HasValue)
         {
             teacher = await _db.Teachers.FindAsync(parentUser.TeacherId.Value);
         }
-        else if (teacher == null && parentUser.Role == UserRole.Teacher)
+        else if (teacher == null && (parentUser.Role == UserRole.Teacher || parentUser.Role == UserRole.Admin))
         {
             var uName = (parentUser.Username ?? "").Trim();
             teacher = await _db.Teachers.FirstOrDefaultAsync(t => 
@@ -147,86 +156,54 @@ public class ReportService
                 (!string.IsNullOrEmpty(t.FullName) && t.FullName == parentUser.FullName));
         }
 
-        var directStudents = await _db.Students
-            .Include(s => s.Circle)
-            .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == parentUser.Id || (parentUser.TeacherId.HasValue && s.ParentId == parentUser.TeacherId.Value))))
-            .ToListAsync();
-
-        var directIds = directStudents.Select(s => s.Id).ToHashSet();
-        
-        var idNumbersToMatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(parentUser.Username) && parentUser.Username.All(char.IsDigit))
-        {
-            idNumbersToMatch.Add(parentUser.Username.Trim());
-        }
         if (teacher != null && !string.IsNullOrWhiteSpace(teacher.IdentityNumber))
         {
             idNumbersToMatch.Add(teacher.IdentityNumber.Trim());
         }
 
-        var contactsToMatch = directStudents
-            .Where(s => !string.IsNullOrWhiteSpace(s.FamilyContact))
-            .Select(s => s.FamilyContact.Trim())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var query = _db.Students.Include(s => s.Circle).AsQueryable();
+        List<Student> matched = new();
 
-        if (teacher != null)
+        // 2. Strict Match by National Identity Number
+        if (idNumbersToMatch.Count > 0)
         {
-            if (!string.IsNullOrWhiteSpace(teacher.Contact)) contactsToMatch.Add(teacher.Contact.Trim());
-            if (!string.IsNullOrWhiteSpace(teacher.WhatsappNumber)) contactsToMatch.Add(teacher.WhatsappNumber.Trim());
-        }
+            matched = await query
+                .Where(s => s.ParentIdentityNumber != null && idNumbersToMatch.Contains(s.ParentIdentityNumber.Trim()))
+                .ToListAsync();
 
-        var parentNameParts = (teacher?.FullName ?? parentUser.FullName ?? "")
-            .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-        var allStudents = await _db.Students.Include(s => s.Circle).ToListAsync();
-        var matchedList = new List<Student>(directStudents);
-
-        foreach (var s in allStudents)
-        {
-            if (directIds.Contains(s.Id)) continue;
-
-            bool isMatch = false;
-
-            // 1. National ID match (e.g. Student's ParentIdentityNumber == Father's National ID)
-            if (!isMatch && !string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && idNumbersToMatch.Contains(s.ParentIdentityNumber.Trim()))
+            // Also include explicit ParentId links only if they don't have a contradicting ParentIdentityNumber
+            if (parentUser.ParentId.HasValue || parentUser.Role == UserRole.Parent)
             {
-                isMatch = true;
-            }
+                int pId = parentUser.ParentId ?? parentUser.Id;
+                var directById = await query
+                    .Where(s => s.ParentId == pId || s.ParentId == parentUser.Id)
+                    .ToListAsync();
 
-            // 2. Phone / Family contact match
-            if (!isMatch && !string.IsNullOrWhiteSpace(s.FamilyContact) && contactsToMatch.Contains(s.FamilyContact.Trim()))
-            {
-                isMatch = true;
-            }
-
-            // 3. Father & Grandfather & Family Name match in FullName
-            if (!isMatch && parentNameParts.Length >= 2)
-            {
-                var sParts = (s.FullName ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (sParts.Length >= 3)
+                foreach (var d in directById)
                 {
-                    int matchCount = 0;
-                    foreach (var pPart in parentNameParts)
+                    if (string.IsNullOrWhiteSpace(d.ParentIdentityNumber) || idNumbersToMatch.Contains(d.ParentIdentityNumber.Trim()))
                     {
-                        if (sParts.Skip(1).Any(sp => sp.Equals(pPart, StringComparison.OrdinalIgnoreCase)))
+                        if (!matched.Any(m => m.Id == d.Id))
                         {
-                            matchCount++;
+                            matched.Add(d);
                         }
-                    }
-                    if (matchCount >= 2)
-                    {
-                        isMatch = true;
                     }
                 }
             }
-
-            if (isMatch)
-            {
-                matchedList.Add(s);
-                directIds.Add(s.Id);
-            }
+        }
+        else if (parentUser.Role == UserRole.Parent)
+        {
+            int pId = parentUser.ParentId ?? parentUser.Id;
+            matched = await query
+                .Where(s => s.ParentId == pId || s.ParentId == parentUser.Id)
+                .ToListAsync();
+        }
+        else
+        {
+            // Teacher without National ID or no children registered with that ID
+            matched = new List<Student>();
         }
 
-        return matchedList;
+        return matched.GroupBy(s => s.Id).Select(g => g.First()).OrderBy(s => s.Id).ToList();
     }
 }

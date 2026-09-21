@@ -196,7 +196,7 @@ public class AuthController : ControllerBase
         // Detect dual role: Teacher or User who also has children in the center
         bool hasChildren = false;
         int childrenCount = 0;
-        int? resolvedParentId = user.ParentId;
+        int? resolvedParentId = null;
 
         try
         {
@@ -205,10 +205,11 @@ public class AuthController : ControllerBase
             {
                 hasChildren = true;
                 childrenCount = children.Count;
-                if (!resolvedParentId.HasValue)
-                {
-                    resolvedParentId = user.ParentId ?? user.Id;
-                }
+                resolvedParentId = user.ParentId ?? user.Id;
+            }
+            else if (user.Role == UserRole.Parent)
+            {
+                resolvedParentId = user.ParentId ?? user.Id;
             }
         }
         catch { }

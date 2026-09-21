@@ -45,12 +45,8 @@ class _Student360ScreenState extends State<Student360Screen> {
       List<Student> list = [];
       if (widget.isParentView) {
         list = await ApiService.getMyChildren();
-      }
-      if (list.isEmpty) {
+      } else {
         list = await ApiService.getStudents();
-      }
-      if (list.isEmpty && !widget.isParentView) {
-        list = await ApiService.getMyChildren();
       }
       if (mounted) {
         Student? matched;

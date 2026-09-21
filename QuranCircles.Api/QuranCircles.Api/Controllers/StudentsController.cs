@@ -54,39 +54,7 @@ public class StudentsController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser != null && currentUser.Role == UserRole.Parent)
         {
-            int pId = currentUser.ParentId ?? currentUser.Id;
-            var pIdStr = currentUser.Username?.Trim();
-            var pNameStr = currentUser.FullName?.Trim().ToLower();
-
-            var children = await _db.Students
-                .Include(s => s.Circle)
-                .Where(s => s.ParentId == pId || 
-                            s.ParentId == currentUser.Id ||
-                            (currentUser.ParentId.HasValue && s.ParentId == currentUser.ParentId.Value) ||
-                            (!string.IsNullOrEmpty(pIdStr) && s.ParentIdentityNumber == pIdStr) ||
-                            (!string.IsNullOrEmpty(pIdStr) && s.FamilyContact == pIdStr))
-                .OrderBy(s => s.Id)
-                .ToListAsync();
-
-            if (!children.Any())
-            {
-                children = await _db.Students
-                    .Include(s => s.Circle)
-                    .Where(s => (s.ParentIdentityNumber != null && s.ParentIdentityNumber == pIdStr) ||
-                                (s.FamilyContact != null && s.FamilyContact == pIdStr) ||
-                                (!string.IsNullOrEmpty(pNameStr) && s.FullName.ToLower().Contains(pNameStr)))
-                    .OrderBy(s => s.Id)
-                    .ToListAsync();
-            }
-
-            if (!children.Any())
-            {
-                children = await _db.Students
-                    .Include(s => s.Circle)
-                    .Take(5)
-                    .ToListAsync();
-            }
-
+            var children = await _reportSvc.GetSmartChildrenForParentAsync(currentUser);
             return Ok(children.Select(s => StudentService.MapStudentToFullObject(s, currentUser?.FullName)).ToList());
         }
         else if (currentUser != null && currentUser.Role == UserRole.Student)

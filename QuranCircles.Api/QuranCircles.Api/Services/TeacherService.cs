@@ -509,8 +509,6 @@ public class TeacherService
                 .Where(s => s.ParentIdentityNumber == idNum)
                 .ToListAsync();
 
-            if (matchingStudents.Count == 0) continue;
-
             var user = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == t.Id || u.Username == idNum);
             if (user == null)
             {
@@ -528,21 +526,47 @@ public class TeacherService
                 await _db.SaveChangesAsync();
             }
 
-            user.ParentId = user.Id;
-            foreach (var st in matchingStudents)
+            if (matchingStudents.Count == 0)
             {
-                if (st.ParentId != user.Id)
+                // Teacher has NO children with matching National ID:
+                // If user has a ParentId, clear it
+                if (user.Role == UserRole.Teacher || user.Role == UserRole.Admin)
                 {
-                    st.ParentId = user.Id;
-                    linkedCount++;
+                    if (user.ParentId.HasValue)
+                    {
+                        user.ParentId = null;
+                    }
+                }
+                // Also detach any students who had their ParentId falsely pointed to this teacher's user
+                var falseKids = await _db.Students.Where(s => s.ParentId == user.Id && s.ParentIdentityNumber != idNum).ToListAsync();
+                foreach (var fk in falseKids)
+                {
+                    fk.ParentId = null;
+                }
+            }
+            else
+            {
+                // Teacher HAS strictly matching children:
+                user.ParentId = user.Id;
+                foreach (var st in matchingStudents)
+                {
+                    if (st.ParentId != user.Id)
+                    {
+                        st.ParentId = user.Id;
+                        linkedCount++;
+                    }
+                }
+
+                // Detach any students who were falsely linked to this teacher's user (e.g. from name fuzzy matching)
+                var falseKids = await _db.Students.Where(s => s.ParentId == user.Id && s.ParentIdentityNumber != idNum).ToListAsync();
+                foreach (var fk in falseKids)
+                {
+                    fk.ParentId = null;
                 }
             }
         }
 
-        if (linkedCount > 0)
-        {
-            await _db.SaveChangesAsync();
-        }
+        await _db.SaveChangesAsync();
         return linkedCount;
     }
 }
