@@ -8,6 +8,8 @@ class User {
   final int? teacherId;
   final int? parentId;
   final String? plainPassword;
+  final bool hasChildren;
+  final int childrenCount;
 
   User({
     required this.id,
@@ -19,6 +21,8 @@ class User {
     this.teacherId,
     this.parentId,
     this.plainPassword,
+    this.hasChildren = false,
+    this.childrenCount = 0,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -74,6 +78,16 @@ class User {
         ? p.toString().trim()
         : (json['username'] == 'dev' ? 'dev123' : (json['username'] == 'admin' ? 'admin123' : (json['username'] == 'wael' ? 'wael123' : '123456')));
 
+    final rawHasChildren = json['hasChildren'];
+    final rawChildrenCount = json['childrenCount'];
+    final int parsedChildrenCount = rawChildrenCount is int
+        ? rawChildrenCount
+        : (int.tryParse(rawChildrenCount?.toString() ?? '0') ?? 0);
+    final bool parsedHasChildren = rawHasChildren == true ||
+        (rawHasChildren != null && rawHasChildren.toString().toLowerCase() == 'true') ||
+        parsedChildrenCount > 0 ||
+        roleStr == 'Parent';
+
     return User(
       id: parsedId,
       username: json['username'] ?? '',
@@ -84,6 +98,8 @@ class User {
       teacherId: tId,
       parentId: pId,
       plainPassword: defaultPw,
+      hasChildren: parsedHasChildren,
+      childrenCount: parsedChildrenCount,
     );
   }
 }

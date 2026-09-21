@@ -5,8 +5,9 @@ import '../theme/app_theme.dart';
 
 class Student360Screen extends StatefulWidget {
   final int? initialStudentId;
+  final bool isParentView;
 
-  const Student360Screen({super.key, this.initialStudentId});
+  const Student360Screen({super.key, this.initialStudentId, this.isParentView = false});
 
   @override
   State<Student360Screen> createState() => _Student360ScreenState();
@@ -41,7 +42,16 @@ class _Student360ScreenState extends State<Student360Screen> {
 
   void _loadStudents() async {
     try {
-      final list = await ApiService.getStudents();
+      List<Student> list = [];
+      if (widget.isParentView) {
+        list = await ApiService.getMyChildren();
+      }
+      if (list.isEmpty) {
+        list = await ApiService.getStudents();
+      }
+      if (list.isEmpty && !widget.isParentView) {
+        list = await ApiService.getMyChildren();
+      }
       if (mounted) {
         Student? matched;
         if (widget.initialStudentId != null) {

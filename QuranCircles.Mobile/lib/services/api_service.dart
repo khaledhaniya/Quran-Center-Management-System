@@ -728,6 +728,37 @@ class ApiService {
     return response.statusCode == 200;
   }
 
+  // --- Parent & Dual-Role Children Data ---
+  static Future<List<dynamic>> getMyChildrenProgressDetails() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/parent/children'), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<List<Student>> getMyChildren() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/parent/children'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return data.map((item) {
+          final rawId = item['childId'] ?? item['id'];
+          final int childId = rawId is int ? rawId : (int.tryParse(rawId?.toString() ?? '0') ?? 0);
+          return Student(
+            id: childId,
+            fullName: item['fullName']?.toString() ?? 'ابن',
+            circleName: item['circleName']?.toString(),
+            isActive: true,
+          );
+        }).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // --- Parent Audit Data ---
   static Future<List<dynamic>> getParentAuditData() async {
     final response = await http.get(Uri.parse('$baseUrl/parent/audit'), headers: _headers());

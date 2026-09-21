@@ -160,48 +160,87 @@ public class StudentService
         int? resolvedParentId = dto.ParentId;
         User? newlyCreatedParent = null;
 
-        // Auto-search or create parent account if parentId is not explicitly set
+        // Auto-search or link parent account (checks Teachers and existing Users by National ID)
         if (!resolvedParentId.HasValue && !string.IsNullOrWhiteSpace(dto.ParentIdentityNumber))
         {
             var pIdNum = dto.ParentIdentityNumber.Trim();
             var fatherName = !string.IsNullOrWhiteSpace(dto.ParentName) ? dto.ParentName.Trim() : ExtractFatherName(dto.FullName);
 
-            var existingParent = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Parent && (u.Username == pIdNum || u.ParentId.ToString() == pIdNum));
-            if (existingParent != null)
+            // 1. Check if a Teacher exists with this IdentityNumber
+            var matchedTeacher = await _db.Teachers.FirstOrDefaultAsync(t => t.IdentityNumber == pIdNum);
+            if (matchedTeacher != null)
             {
-                if (!string.IsNullOrWhiteSpace(dto.ParentName))
+                var teacherUser = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == matchedTeacher.Id || u.Username == pIdNum);
+                if (teacherUser != null)
                 {
-                    existingParent.FullName = dto.ParentName.Trim();
+                    teacherUser.ParentId = teacherUser.Id;
+                    resolvedParentId = teacherUser.Id;
                     await _db.SaveChangesAsync();
-                }
-                resolvedParentId = existingParent.ParentId ?? existingParent.Id;
-            }
-            else
-            {
-                // Check if any existing student has this parent identity number with a ParentId
-                var existingStudentWithParent = await _db.Students.FirstOrDefaultAsync(s => s.ParentIdentityNumber == pIdNum && s.ParentId != null);
-                if (existingStudentWithParent != null)
-                {
-                    resolvedParentId = existingStudentWithParent.ParentId;
                 }
                 else
                 {
-                    newlyCreatedParent = new User
+                    teacherUser = new User
                     {
                         Username = pIdNum,
                         PasswordHash = _hasher.HashPassword("123456"),
                         PlainPassword = "123456",
-                        FullName = fatherName,
-                        Role = UserRole.Parent,
+                        FullName = matchedTeacher.FullName,
+                        Role = UserRole.Teacher,
+                        TeacherId = matchedTeacher.Id,
                         IsActive = true
                     };
-                    _db.Users.Add(newlyCreatedParent);
+                    _db.Users.Add(teacherUser);
                     await _db.SaveChangesAsync();
-
-                    newlyCreatedParent.ParentId = newlyCreatedParent.Id;
+                    teacherUser.ParentId = teacherUser.Id;
                     await _db.SaveChangesAsync();
+                    resolvedParentId = teacherUser.Id;
+                }
+            }
+            else
+            {
+                // 2. Check if a User already exists with this Username (any role: Parent, Admin, etc.)
+                var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Username == pIdNum || (u.ParentId.HasValue && u.ParentId.ToString() == pIdNum));
+                if (existingUser != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(dto.ParentName) && existingUser.Role == UserRole.Parent)
+                    {
+                        existingUser.FullName = dto.ParentName.Trim();
+                    }
+                    if (!existingUser.ParentId.HasValue)
+                    {
+                        existingUser.ParentId = existingUser.Id;
+                    }
+                    resolvedParentId = existingUser.ParentId ?? existingUser.Id;
+                    await _db.SaveChangesAsync();
+                }
+                else
+                {
+                    // 3. Check if any existing student has this parent identity number with a ParentId
+                    var existingStudentWithParent = await _db.Students.FirstOrDefaultAsync(s => s.ParentIdentityNumber == pIdNum && s.ParentId != null);
+                    if (existingStudentWithParent != null)
+                    {
+                        resolvedParentId = existingStudentWithParent.ParentId;
+                    }
+                    else
+                    {
+                        // 4. Create new Parent user
+                        newlyCreatedParent = new User
+                        {
+                            Username = pIdNum,
+                            PasswordHash = _hasher.HashPassword("123456"),
+                            PlainPassword = "123456",
+                            FullName = fatherName,
+                            Role = UserRole.Parent,
+                            IsActive = true
+                        };
+                        _db.Users.Add(newlyCreatedParent);
+                        await _db.SaveChangesAsync();
 
-                    resolvedParentId = newlyCreatedParent.Id;
+                        newlyCreatedParent.ParentId = newlyCreatedParent.Id;
+                        await _db.SaveChangesAsync();
+
+                        resolvedParentId = newlyCreatedParent.Id;
+                    }
                 }
             }
         }
@@ -294,31 +333,82 @@ public class StudentService
             var pIdNum = dto.ParentIdentityNumber.Trim();
             var fatherName = !string.IsNullOrWhiteSpace(dto.ParentName) ? dto.ParentName.Trim() : ExtractFatherName(s.FullName);
 
-            var existingParent = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Parent && (u.Username == pIdNum || u.ParentId.ToString() == pIdNum));
-            if (existingParent != null)
+            // 1. Check if a Teacher exists with this IdentityNumber
+            var matchedTeacher = await _db.Teachers.FirstOrDefaultAsync(t => t.IdentityNumber == pIdNum);
+            if (matchedTeacher != null)
             {
-                if (!string.IsNullOrWhiteSpace(dto.ParentName))
+                var teacherUser = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == matchedTeacher.Id || u.Username == pIdNum);
+                if (teacherUser != null)
                 {
-                    existingParent.FullName = dto.ParentName.Trim();
+                    teacherUser.ParentId = teacherUser.Id;
+                    resolvedParentId = teacherUser.Id;
+                    await _db.SaveChangesAsync();
                 }
-                resolvedParentId = existingParent.ParentId ?? existingParent.Id;
+                else
+                {
+                    teacherUser = new User
+                    {
+                        Username = pIdNum,
+                        PasswordHash = _hasher.HashPassword("123456"),
+                        PlainPassword = "123456",
+                        FullName = matchedTeacher.FullName,
+                        Role = UserRole.Teacher,
+                        TeacherId = matchedTeacher.Id,
+                        IsActive = true
+                    };
+                    _db.Users.Add(teacherUser);
+                    await _db.SaveChangesAsync();
+                    teacherUser.ParentId = teacherUser.Id;
+                    await _db.SaveChangesAsync();
+                    resolvedParentId = teacherUser.Id;
+                }
             }
             else
             {
-                var newParent = new User
+                // 2. Check if a User already exists with this Username (any role: Parent, Admin, etc.)
+                var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Username == pIdNum || (u.ParentId.HasValue && u.ParentId.ToString() == pIdNum));
+                if (existingUser != null)
                 {
-                    Username = pIdNum,
-                    PasswordHash = _hasher.HashPassword("123456"),
-                    PlainPassword = "123456",
-                    FullName = fatherName,
-                    Role = UserRole.Parent,
-                    IsActive = true
-                };
-                _db.Users.Add(newParent);
-                await _db.SaveChangesAsync();
+                    if (!string.IsNullOrWhiteSpace(dto.ParentName) && existingUser.Role == UserRole.Parent)
+                    {
+                        existingUser.FullName = dto.ParentName.Trim();
+                    }
+                    if (!existingUser.ParentId.HasValue)
+                    {
+                        existingUser.ParentId = existingUser.Id;
+                    }
+                    resolvedParentId = existingUser.ParentId ?? existingUser.Id;
+                    await _db.SaveChangesAsync();
+                }
+                else
+                {
+                    // 3. Check if any other student has this ParentIdentityNumber with a ParentId
+                    var otherStudentWithParent = await _db.Students.FirstOrDefaultAsync(st => st.Id != s.Id && st.ParentIdentityNumber == pIdNum && st.ParentId != null);
+                    if (otherStudentWithParent != null)
+                    {
+                        resolvedParentId = otherStudentWithParent.ParentId;
+                    }
+                    else
+                    {
+                        // 4. Create new Parent user
+                        var newParent = new User
+                        {
+                            Username = pIdNum,
+                            PasswordHash = _hasher.HashPassword("123456"),
+                            PlainPassword = "123456",
+                            FullName = fatherName,
+                            Role = UserRole.Parent,
+                            IsActive = true
+                        };
+                        _db.Users.Add(newParent);
+                        await _db.SaveChangesAsync();
 
-                newParent.ParentId = newParent.Id;
-                resolvedParentId = newParent.Id;
+                        newParent.ParentId = newParent.Id;
+                        await _db.SaveChangesAsync();
+
+                        resolvedParentId = newParent.Id;
+                    }
+                }
             }
         }
         else if (!string.IsNullOrWhiteSpace(dto.ParentName) && s.ParentId.HasValue)

@@ -264,6 +264,50 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               },
             ),
 
+            if (widget.currentUser.hasChildren || widget.currentUser.role == 'Parent') ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primary.withValues(alpha: 0.12), AppTheme.accent.withValues(alpha: 0.08)],
+                    begin: Alignment.centerRight,
+                    end: Alignment.centerLeft,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.family_restroom, color: AppTheme.primary, size: 28),
+                  title: Text(
+                    'متابعة مستوى أبنائي',
+                    style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    'سجل الحضور والتسميع والتقييم الشامل 360°',
+                    style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700),
+                  ),
+                  trailing: widget.currentUser.childrenCount > 0
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${widget.currentUser.childrenCount} ${widget.currentUser.childrenCount == 1 ? "ابن" : "أبناء"}',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      : null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => const Student360Screen(isParentView: true)));
+                  },
+                ),
+              ),
+              const Divider(),
+            ],
+
             if (isAdmin) ...[
               ListTile(
                 leading: const Icon(Icons.filter_alt, color: AppTheme.primary),

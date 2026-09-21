@@ -14,13 +14,15 @@ public class AuthController : ControllerBase
     private readonly PasswordHasher _hasher;
     private readonly TokenService _tokenSvc;
     private readonly ReportService _reportSvc;
+    private readonly TeacherService _teacherSvc;
 
-    public AuthController(AppDbContext db, PasswordHasher hasher, TokenService tokenSvc, ReportService reportSvc)
+    public AuthController(AppDbContext db, PasswordHasher hasher, TokenService tokenSvc, ReportService reportSvc, TeacherService teacherSvc)
     {
         _db = db;
         _hasher = hasher;
         _tokenSvc = tokenSvc;
         _reportSvc = reportSvc;
+        _teacherSvc = teacherSvc;
     }
 
     [HttpPost("login")]
@@ -28,6 +30,12 @@ public class AuthController : ControllerBase
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
             return BadRequest(new { error = "الرجاء إدخال اسم المستخدم وكلمة المرور." });
+
+        try
+        {
+            await _teacherSvc.SyncTeacherParentRelationshipsAsync();
+        }
+        catch { }
 
         var uLower = (dto.Username ?? "").Trim().ToLower();
         var user = await _db.Users

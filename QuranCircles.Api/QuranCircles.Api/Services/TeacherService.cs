@@ -168,16 +168,14 @@ public class TeacherService
         var err = Validate(dto.FullName, dto.Contact, dto.DateOfBirth);
         if (err is not null) return (null, err);
 
-        var username = string.IsNullOrWhiteSpace(dto.Username) 
-            ? "tch_" + Random.Shared.Next(10000, 99999) 
-            : dto.Username.Trim();
+        var idNumber = !string.IsNullOrWhiteSpace(dto.IdentityNumber) ? dto.IdentityNumber.Trim() : null;
+        var preferredUsername = !string.IsNullOrWhiteSpace(idNumber) 
+            ? idNumber 
+            : (!string.IsNullOrWhiteSpace(dto.Username) ? dto.Username.Trim() : "tch_" + Random.Shared.Next(10000, 99999));
 
         var password = string.IsNullOrWhiteSpace(dto.Password) 
             ? "123456" 
             : dto.Password.Trim();
-
-        var userExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower());
-        if (userExists) username = "tch_" + Random.Shared.Next(100000, 999999);
 
         var t = new Teacher
         {
@@ -187,7 +185,7 @@ public class TeacherService
             Contact = dto.Contact?.Trim() ?? "",
             RegistrationDate = DateOnly.FromDateTime(DateTime.Today),
             IsActive = true,
-            IdentityNumber = dto.IdentityNumber?.Trim(),
+            IdentityNumber = idNumber,
             WhatsappNumber = dto.WhatsappNumber?.Trim(),
             SocialStatus = dto.SocialStatus?.Trim(),
             FamilyMembersCount = dto.FamilyMembersCount,
@@ -202,18 +200,67 @@ public class TeacherService
         _db.Teachers.Add(t);
         await _db.SaveChangesAsync();
 
-        var user = new User
+        // 1. Check if a User already exists for this person (e.g. registered as a Parent earlier via their Identity Number)
+        User? user = null;
+        if (!string.IsNullOrEmpty(idNumber))
         {
-            Username = username,
-            PasswordHash = _hasher.HashPassword(password),
-            PlainPassword = password,
-            Role = UserRole.Teacher,
-            FullName = t.FullName,
-            TeacherId = t.Id,
-            IsActive = true
-        };
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+            user = await _db.Users.FirstOrDefaultAsync(u => u.Username == idNumber || (u.TeacherId.HasValue && u.TeacherId == t.Id));
+        }
+        if (user == null && !string.IsNullOrWhiteSpace(dto.Username))
+        {
+            user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == dto.Username.Trim().ToLower());
+        }
+
+        if (user != null)
+        {
+            user.TeacherId = t.Id;
+            user.FullName = t.FullName;
+            if (user.Role == UserRole.Parent)
+            {
+                user.Role = UserRole.Teacher;
+            }
+            if (!string.IsNullOrEmpty(idNumber))
+            {
+                user.Username = idNumber;
+            }
+            user.IsActive = true;
+            await _db.SaveChangesAsync();
+        }
+        else
+        {
+            var finalUsername = preferredUsername;
+            var userExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == finalUsername.ToLower());
+            if (userExists) finalUsername = "tch_" + Random.Shared.Next(100000, 999999);
+
+            user = new User
+            {
+                Username = finalUsername,
+                PasswordHash = _hasher.HashPassword(password),
+                PlainPassword = password,
+                Role = UserRole.Teacher,
+                FullName = t.FullName,
+                TeacherId = t.Id,
+                IsActive = true
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        // 2. BI-DIRECTIONAL PARENT-CHILD LINK:
+        // If this teacher's National Identity matches any students' ParentIdentityNumber, link them immediately!
+        if (!string.IsNullOrEmpty(idNumber) && user != null)
+        {
+            var matchingStudents = await _db.Students.Where(s => s.ParentIdentityNumber == idNumber).ToListAsync();
+            if (matchingStudents.Count > 0)
+            {
+                user.ParentId = user.Id;
+                foreach (var st in matchingStudents)
+                {
+                    st.ParentId = user.Id;
+                }
+                await _db.SaveChangesAsync();
+            }
+        }
 
         return (Map(t), null);
     }
@@ -265,7 +312,7 @@ public class TeacherService
             {
                 u.Role = UserRole.Admin;
             }
-            else
+            else if (u.Role != UserRole.Admin && u.Role != UserRole.Developer)
             {
                 u.Role = UserRole.Teacher;
             }
@@ -279,6 +326,24 @@ public class TeacherService
             {
                 if (c.TeacherId == id) c.TeacherId = null;
                 if (c.AssistantTeacherId == id) c.AssistantTeacherId = null;
+            }
+        }
+
+        // RE-LINK STUDENTS to Teacher if IdentityNumber exists
+        if (!string.IsNullOrWhiteSpace(t.IdentityNumber))
+        {
+            var userRecord = u ?? await _db.Users.FirstOrDefaultAsync(x => x.TeacherId == t.Id || x.Username == t.IdentityNumber);
+            if (userRecord != null)
+            {
+                var matchingChildren = await _db.Students.Where(s => s.ParentIdentityNumber == t.IdentityNumber).ToListAsync();
+                if (matchingChildren.Count > 0)
+                {
+                    userRecord.ParentId = userRecord.Id;
+                    foreach (var mc in matchingChildren)
+                    {
+                        mc.ParentId = userRecord.Id;
+                    }
+                }
             }
         }
 
@@ -429,4 +494,55 @@ public class TeacherService
         t.MemorizedAjzaa,
         t.StudentsCountTarget
     );
+
+    public async Task<int> SyncTeacherParentRelationshipsAsync()
+    {
+        var teachersWithId = await _db.Teachers
+            .Where(t => !string.IsNullOrEmpty(t.IdentityNumber))
+            .ToListAsync();
+
+        int linkedCount = 0;
+        foreach (var t in teachersWithId)
+        {
+            var idNum = t.IdentityNumber!.Trim();
+            var matchingStudents = await _db.Students
+                .Where(s => s.ParentIdentityNumber == idNum)
+                .ToListAsync();
+
+            if (matchingStudents.Count == 0) continue;
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == t.Id || u.Username == idNum);
+            if (user == null)
+            {
+                user = new User
+                {
+                    Username = idNum,
+                    FullName = t.FullName,
+                    Role = UserRole.Teacher,
+                    TeacherId = t.Id,
+                    PlainPassword = "123456",
+                    PasswordHash = _hasher.HashPassword("123456"),
+                    IsActive = true
+                };
+                _db.Users.Add(user);
+                await _db.SaveChangesAsync();
+            }
+
+            user.ParentId = user.Id;
+            foreach (var st in matchingStudents)
+            {
+                if (st.ParentId != user.Id)
+                {
+                    st.ParentId = user.Id;
+                    linkedCount++;
+                }
+            }
+        }
+
+        if (linkedCount > 0)
+        {
+            await _db.SaveChangesAsync();
+        }
+        return linkedCount;
+    }
 }
