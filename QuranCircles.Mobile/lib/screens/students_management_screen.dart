@@ -278,16 +278,15 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
 
                 final payload = <String, dynamic>{
                   'fullName': nameController.text.trim(),
-                  'studentIdentityNumber': identityController.text.trim(),
-                  'parentIdentityNumber': parentIdentityController.text.trim(),
-                  'dateOfBirth': dobController.text.trim(),
-                  'address': addressController.text.trim(),
-                  'currentAddress': currentAddressController.text.trim(),
+                  'studentIdentityNumber': identityController.text.trim().isNotEmpty ? identityController.text.trim() : null,
+                  'parentIdentityNumber': parentIdentityController.text.trim().isNotEmpty ? parentIdentityController.text.trim() : null,
+                  'address': addressController.text.trim().isNotEmpty ? addressController.text.trim() : null,
+                  'currentAddress': currentAddressController.text.trim().isNotEmpty ? currentAddressController.text.trim() : null,
                   'familyContact': contactController.text.trim(),
-                  'studentMobile': studentMobileController.text.trim(),
-                  'studentWhatsapp': studentWhatsappController.text.trim(),
-                  'healthStatus': healthStatusController.text.trim(),
-                  'kinship': kinshipController.text.trim(),
+                  'studentMobile': studentMobileController.text.trim().isNotEmpty ? studentMobileController.text.trim() : null,
+                  'studentWhatsapp': studentWhatsappController.text.trim().isNotEmpty ? studentWhatsappController.text.trim() : null,
+                  'healthStatus': healthStatusController.text.trim().isNotEmpty ? healthStatusController.text.trim() : null,
+                  'kinship': kinshipController.text.trim().isNotEmpty ? kinshipController.text.trim() : null,
                   'fatherStatus': fatherStatus,
                   'motherStatus': motherStatus,
                   'circleId': selectedCircleId,
@@ -296,6 +295,9 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                       ? usernameController.text.trim()
                       : (identityController.text.trim().isNotEmpty ? identityController.text.trim() : null),
                 };
+                if (dobController.text.trim().isNotEmpty) {
+                  payload['dateOfBirth'] = dobController.text.trim();
+                }
                 if (passwordController.text.trim().isNotEmpty) {
                   payload['password'] = passwordController.text.trim();
                 }
@@ -310,6 +312,11 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('تم إضافة الطالب بنجاح'), backgroundColor: Colors.green),
                     );
+                  } else {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تعذر إضافة الطالب، يرجى التحقق من صحة البيانات'), backgroundColor: Colors.red),
+                    );
                   }
                 } else {
                   final ok = await ApiService.updateStudent(student.id, payload);
@@ -320,6 +327,11 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('تم تحديث كافة بيانات الطالب بنجاح'), backgroundColor: Colors.green),
+                    );
+                  } else {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تعذر حفظ بيانات الطالب، يرجى التحقق من صحة البيانات'), backgroundColor: Colors.red),
                     );
                   }
                 }

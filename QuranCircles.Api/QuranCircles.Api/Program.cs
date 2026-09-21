@@ -204,8 +204,12 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers()
     .AddJsonOptions(opt =>
+    {
         opt.JsonSerializerOptions.Converters.Add(
-            new System.Text.Json.Serialization.JsonStringEnumConverter()));
+            new System.Text.Json.Serialization.JsonStringEnumConverter());
+        opt.JsonSerializerOptions.Converters.Add(new NullableDateOnlyJsonConverter());
+        opt.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
+    });
 
 builder.Services.AddResponseCompression(options =>
 {
@@ -386,3 +390,47 @@ app.MapGet("/healthz", async (AppDbContext db) =>
 app.MapControllers();
 
 app.Run();
+
+public class NullableDateOnlyJsonConverter : System.Text.Json.Serialization.JsonConverter<DateOnly?>
+{
+    public override DateOnly? Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+    {
+        if (reader.TokenType == System.Text.Json.JsonTokenType.Null) return null;
+        if (reader.TokenType == System.Text.Json.JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrWhiteSpace(str)) return null;
+            if (DateOnly.TryParse(str, out var d)) return d;
+            if (DateTime.TryParse(str, out var dt)) return DateOnly.FromDateTime(dt);
+        }
+        return null;
+    }
+
+    public override void Write(System.Text.Json.Utf8JsonWriter writer, DateOnly? value, System.Text.Json.JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd"));
+        else
+            writer.WriteNullValue();
+    }
+}
+
+public class DateOnlyJsonConverter : System.Text.Json.Serialization.JsonConverter<DateOnly>
+{
+    public override DateOnly Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+    {
+        if (reader.TokenType == System.Text.Json.JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrWhiteSpace(str)) return default;
+            if (DateOnly.TryParse(str, out var d)) return d;
+            if (DateTime.TryParse(str, out var dt)) return DateOnly.FromDateTime(dt);
+        }
+        return default;
+    }
+
+    public override void Write(System.Text.Json.Utf8JsonWriter writer, DateOnly value, System.Text.Json.JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString("yyyy-MM-dd"));
+    }
+}

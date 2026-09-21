@@ -350,28 +350,34 @@ public class StudentService
         if (dto.FamilyContact != null) s.FamilyContact = dto.FamilyContact.Trim();
         if (dto.DateOfBirth.HasValue) s.DateOfBirth = dto.DateOfBirth.Value;
         
-        if (dto.CircleId.HasValue) s.CircleId = dto.CircleId.Value;
+        // Always assign or unassign Circle
+        s.CircleId = dto.CircleId;
         if (dto.IsActive.HasValue) s.IsActive = dto.IsActive.Value;
 
-        if (dto.StudentIdentityNumber != null) s.StudentIdentityNumber = dto.StudentIdentityNumber.Trim();
-        if (dto.PreviousQuranMemorization != null) s.PreviousQuranMemorization = dto.PreviousQuranMemorization.Trim();
-        if (dto.StudentMobile != null) s.StudentMobile = dto.StudentMobile.Trim();
-        if (dto.StudentWhatsapp != null) s.StudentWhatsapp = dto.StudentWhatsapp.Trim();
-        if (dto.HealthStatus != null) s.HealthStatus = dto.HealthStatus.Trim();
-        if (dto.FatherStatus != null) s.FatherStatus = dto.FatherStatus.Trim();
-        if (dto.MotherStatus != null) s.MotherStatus = dto.MotherStatus.Trim();
-        if (dto.Kinship != null) s.Kinship = dto.Kinship.Trim();
-        if (dto.ParentIdentityNumber != null) s.ParentIdentityNumber = dto.ParentIdentityNumber.Trim();
-        if (dto.WhatsappNumber != null) s.WhatsappNumber = dto.WhatsappNumber.Trim();
-        if (dto.WalletNumber != null) s.WalletNumber = dto.WalletNumber.Trim();
-        if (dto.BankAccountNumber != null) s.BankAccountNumber = dto.BankAccountNumber.Trim();
-        if (dto.BankName != null) s.BankName = dto.BankName.Trim();
-        if (dto.OriginalAddress != null) s.OriginalAddress = dto.OriginalAddress.Trim();
-        if (dto.OriginalHousingType != null) s.OriginalHousingType = dto.OriginalHousingType.Trim();
-        if (dto.OriginalHousingStatus != null) s.OriginalHousingStatus = dto.OriginalHousingStatus.Trim();
-        if (dto.CurrentAddress != null) s.CurrentAddress = dto.CurrentAddress.Trim();
-        if (dto.CurrentHousingType != null) s.CurrentHousingType = dto.CurrentHousingType.Trim();
-        if (dto.Notes != null) s.Notes = dto.Notes.Trim();
+        if (dto.StudentIdentityNumber != null) s.StudentIdentityNumber = string.IsNullOrWhiteSpace(dto.StudentIdentityNumber) ? null : dto.StudentIdentityNumber.Trim();
+        if (dto.PreviousQuranMemorization != null) s.PreviousQuranMemorization = string.IsNullOrWhiteSpace(dto.PreviousQuranMemorization) ? null : dto.PreviousQuranMemorization.Trim();
+        if (dto.StudentMobile != null) s.StudentMobile = string.IsNullOrWhiteSpace(dto.StudentMobile) ? null : dto.StudentMobile.Trim();
+        if (dto.StudentWhatsapp != null) s.StudentWhatsapp = string.IsNullOrWhiteSpace(dto.StudentWhatsapp) ? null : dto.StudentWhatsapp.Trim();
+        if (dto.HealthStatus != null) s.HealthStatus = string.IsNullOrWhiteSpace(dto.HealthStatus) ? null : dto.HealthStatus.Trim();
+        if (dto.FatherStatus != null) s.FatherStatus = string.IsNullOrWhiteSpace(dto.FatherStatus) ? null : dto.FatherStatus.Trim();
+        if (dto.MotherStatus != null) s.MotherStatus = string.IsNullOrWhiteSpace(dto.MotherStatus) ? null : dto.MotherStatus.Trim();
+        if (dto.Kinship != null) s.Kinship = string.IsNullOrWhiteSpace(dto.Kinship) ? null : dto.Kinship.Trim();
+        if (dto.ParentIdentityNumber != null) s.ParentIdentityNumber = string.IsNullOrWhiteSpace(dto.ParentIdentityNumber) ? null : dto.ParentIdentityNumber.Trim();
+        if (dto.WhatsappNumber != null) s.WhatsappNumber = string.IsNullOrWhiteSpace(dto.WhatsappNumber) ? null : dto.WhatsappNumber.Trim();
+        if (dto.WalletNumber != null) s.WalletNumber = string.IsNullOrWhiteSpace(dto.WalletNumber) ? null : dto.WalletNumber.Trim();
+        if (dto.BankAccountNumber != null) s.BankAccountNumber = string.IsNullOrWhiteSpace(dto.BankAccountNumber) ? null : dto.BankAccountNumber.Trim();
+        if (dto.BankName != null) s.BankName = string.IsNullOrWhiteSpace(dto.BankName) ? null : dto.BankName.Trim();
+        if (dto.OriginalAddress != null) s.OriginalAddress = string.IsNullOrWhiteSpace(dto.OriginalAddress) ? null : dto.OriginalAddress.Trim();
+        if (dto.OriginalHousingType != null) s.OriginalHousingType = string.IsNullOrWhiteSpace(dto.OriginalHousingType) ? null : dto.OriginalHousingType.Trim();
+        if (dto.OriginalHousingStatus != null) s.OriginalHousingStatus = string.IsNullOrWhiteSpace(dto.OriginalHousingStatus) ? null : dto.OriginalHousingStatus.Trim();
+        if (dto.CurrentAddress != null) s.CurrentAddress = string.IsNullOrWhiteSpace(dto.CurrentAddress) ? null : dto.CurrentAddress.Trim();
+        if (dto.CurrentHousingType != null) s.CurrentHousingType = string.IsNullOrWhiteSpace(dto.CurrentHousingType) ? null : dto.CurrentHousingType.Trim();
+        
+        // Notes: properly update or clear
+        if (dto.Notes != null)
+        {
+            s.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim();
+        }
 
         if (dto.TargetAjzaaCount.HasValue && dto.TargetAjzaaCount.Value > 0) s.TargetAjzaaCount = dto.TargetAjzaaCount.Value;
         if (dto.PlanType != null) s.PlanType = dto.PlanType.Trim();
@@ -482,9 +488,16 @@ public class StudentService
         {
             studentUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == s.StudentIdentityNumber.ToLower().Trim());
         }
+        if (studentUser == null && customUsername != null)
+        {
+            studentUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == customUsername.ToLower());
+        }
 
         if (studentUser != null)
         {
+            studentUser.StudentId = s.Id;
+            studentUser.Role = UserRole.Student;
+
             if (customUsername != null && customUsername.ToLower() != studentUser.Username.ToLower())
             {
                 var taken = await _db.Users.AnyAsync(u => u.Id != studentUser.Id && u.Username.ToLower() == customUsername.ToLower());
@@ -519,8 +532,15 @@ public class StudentService
             _db.Users.Add(newStUser);
         }
 
-        await _db.SaveChangesAsync();
-        return (true, null);
+        try
+        {
+            await _db.SaveChangesAsync();
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, $"حدث خطأ في قاعدة البيانات أثناء حفظ بيانات الطالب: {ex.Message}");
+        }
     }
 
     public async Task<bool> DeleteAsync(int id)

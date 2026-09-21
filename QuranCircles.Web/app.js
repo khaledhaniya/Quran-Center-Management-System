@@ -6755,7 +6755,7 @@ async function showStudentModal(studentId = null) {
                 </button>
             </div>
 
-            <form id="student-form">
+            <form id="student-form" novalidate>
                 <input type="hidden" id="form-student-id" value="${studentId || ''}">
 
                 <!-- Tab 1: البيانات الشخصية والتعريفية -->
@@ -6770,7 +6770,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-name" class="form-label-custom">اسم الطالب الكامل (رباعي) <span class="text-danger">*</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-user input-icon text-primary"></i>
-                                    <input type="text" id="student-name" class="form-control-custom" placeholder="الاسم الرباعي للطالب" value="${escapeXml(s ? (s.fullName || '') : '')}" required>
+                                    <input type="text" id="student-name" class="form-control-custom" placeholder="الاسم الرباعي للطالب" value="${escapeXml(s ? (s.fullName || '') : '')}">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -6781,10 +6781,10 @@ async function showStudentModal(studentId = null) {
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label for="student-dob" class="form-label-custom">تاريخ الميلاد <span class="text-danger">*</span></label>
+                                <label for="student-dob" class="form-label-custom">تاريخ الميلاد</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-calendar-days input-icon text-success"></i>
-                                    <input type="date" id="student-dob" class="form-control-custom" value="${s ? (s.dateOfBirth || '') : ''}" required>
+                                    <input type="date" id="student-dob" class="form-control-custom" value="${s ? (s.dateOfBirth || '') : ''}">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -6883,7 +6883,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-contact" class="form-label-custom">رقم جوال ولي الأمر (العائلة) <span class="text-danger">*</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-phone input-icon text-success"></i>
-                                    <input type="text" id="student-contact" class="form-control-custom font-monospace" placeholder="059xxxxxxx" value="${escapeXml(s ? (s.familyContact || '') : '')}" required>
+                                    <input type="text" id="student-contact" class="form-control-custom font-monospace" placeholder="059xxxxxxx" value="${escapeXml(s ? (s.familyContact || '') : '')}">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -7005,7 +7005,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-username" class="form-label-custom">اسم المستخدم للطالب (Username) <span class="text-danger">*</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-id-card input-icon text-primary"></i>
-                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="أدخل اسم المستخدم أو رقم الهوية..." value="${escapeXml(s ? (s.username || s.studentIdentityNumber || '') : '')}" required>
+                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="أدخل اسم المستخدم أو رقم الهوية..." value="${escapeXml(s ? (s.username || s.studentIdentityNumber || ('st_' + studentId)) : '')}">
                                 </div>
                                 <small class="form-text text-muted"><i class="fa-solid fa-user-pen me-1 text-primary"></i> تستطيع كتابة وتعديل اسم المستخدم بنفسك يدوياً كما تشاء.</small>
                             </div>
@@ -7013,7 +7013,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-password" class="form-label-custom">كلمة المرور للطالب ${studentId ? '(اختياري)' : '<span class="text-danger">*</span>'}</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-lock input-icon text-success"></i>
-                                    <input type="password" id="student-password" class="form-control-custom font-monospace" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'أدخل كلمة مرور...'}" value="${!studentId ? '123456' : ''}" ${!studentId ? 'required' : ''}>
+                                    <input type="password" id="student-password" class="form-control-custom font-monospace" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'أدخل كلمة مرور...'}" value="${!studentId ? '123456' : ''}">
                                 </div>
                                 ${studentId ? `<small class="form-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> اترك كلمة المرور فارغة إذا كنت لا ترغب بتغييرها.</small>` : ''}
                             </div>
@@ -7177,44 +7177,74 @@ async function showStudentModal(studentId = null) {
         if (alertBox) alertBox.innerHTML = "";
 
         const submitBtn = document.getElementById("btn-save-student-submit");
+
+        const id = document.getElementById("form-student-id").value;
+        const name = (document.getElementById("student-name")?.value || "").trim();
+        const parentNameVal = document.getElementById("student-parent-name")?.value;
+        const stIdNum = (document.getElementById("student-id-num")?.value || "").trim();
+        const dob = document.getElementById("student-dob")?.value || "";
+        const circleIdVal = document.getElementById("student-circle")?.value || "";
+        const prevQuran = (document.getElementById("student-prev-quran")?.value || "").trim();
+        const health = (document.getElementById("student-health")?.value || "").trim();
+        
+        const parentIdVal = document.getElementById("student-parent")?.value || "";
+        const kinship = (document.getElementById("student-kinship")?.value || "").trim();
+        const pIdNum = (document.getElementById("student-parent-id")?.value || "").trim();
+        const fatherStat = (document.getElementById("student-father-status")?.value || "").trim();
+        const motherStat = (document.getElementById("student-mother-status")?.value || "").trim();
+        const contact = (document.getElementById("student-contact")?.value || "").trim();
+        const whatsapp = (document.getElementById("student-whatsapp")?.value || "").trim();
+        const wallet = (document.getElementById("student-wallet")?.value || "").trim();
+        const bankAcc = (document.getElementById("student-bank-acc")?.value || "").trim();
+        const bankName = (document.getElementById("student-bank-name")?.value || "").trim();
+
+        const currAddr = (document.getElementById("student-curr-addr")?.value || "").trim();
+        const currType = (document.getElementById("student-curr-type")?.value || "").trim();
+        const origAddr = (document.getElementById("student-orig-addr")?.value || "").trim();
+        const origType = (document.getElementById("student-orig-type")?.value || "").trim();
+        const origStatus = (document.getElementById("student-orig-status")?.value || "").trim();
+        const notes = (document.getElementById("student-notes")?.value || "").trim();
+
+        // Validation with automatic tab-switching
+        if (!name) {
+            content.querySelector(`.student-tab-btn[data-tab='st-tab-personal']`)?.click();
+            document.getElementById("student-name")?.focus();
+            if (alertBox) {
+                alertBox.innerHTML = `
+                    <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
+                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> 
+                        <strong>حقل مطلوب:</strong> يرجى إدخال اسم الطالب الكامل (رباعي).
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        if (!contact) {
+            content.querySelector(`.student-tab-btn[data-tab='st-tab-parent']`)?.click();
+            document.getElementById("student-contact")?.focus();
+            if (alertBox) {
+                alertBox.innerHTML = `
+                    <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
+                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> 
+                        <strong>حقل مطلوب:</strong> يرجى إدخال رقم جوال للتواصل مع العائلة.
+                    </div>
+                `;
+            }
+            return;
+        }
+
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري حفظ البيانات...';
         }
-
-        const id = document.getElementById("form-student-id").value;
-        const name = document.getElementById("student-name").value;
-        const parentNameVal = document.getElementById("student-parent-name")?.value;
-        const stIdNum = document.getElementById("student-id-num").value;
-        const dob = document.getElementById("student-dob").value;
-        const circleIdVal = document.getElementById("student-circle").value;
-        const prevQuran = document.getElementById("student-prev-quran").value;
-        const health = document.getElementById("student-health").value;
-        
-        const parentIdVal = document.getElementById("student-parent").value;
-        const kinship = document.getElementById("student-kinship").value;
-        const pIdNum = document.getElementById("student-parent-id").value;
-        const fatherStat = document.getElementById("student-father-status").value;
-        const motherStat = document.getElementById("student-mother-status").value;
-        const contact = document.getElementById("student-contact").value;
-        const whatsapp = document.getElementById("student-whatsapp").value;
-        const wallet = document.getElementById("student-wallet").value;
-        const bankAcc = document.getElementById("student-bank-acc").value;
-        const bankName = document.getElementById("student-bank-name").value;
-
-        const currAddr = document.getElementById("student-curr-addr").value;
-        const currType = document.getElementById("student-curr-type").value;
-        const origAddr = document.getElementById("student-orig-addr").value;
-        const origType = document.getElementById("student-orig-type").value;
-        const origStatus = document.getElementById("student-orig-status").value;
-        const notes = document.getElementById("student-notes").value;
         
         const dto = {
             fullName: name,
-            parentName: parentNameVal || null,
+            parentName: parentNameVal ? parentNameVal.trim() : null,
             address: currAddr || origAddr || 'غزة',
             familyContact: contact,
-            dateOfBirth: dob,
+            dateOfBirth: dob ? dob : null,
             circleId: circleIdVal ? parseInt(circleIdVal) : null,
             parentId: parentIdVal ? parseInt(parentIdVal) : null,
             studentIdentityNumber: stIdNum || null,
@@ -7233,15 +7263,17 @@ async function showStudentModal(studentId = null) {
             originalHousingStatus: origStatus || null,
             currentAddress: currAddr || null,
             currentHousingType: currType || null,
-            notes: notes || null
+            notes: notes !== undefined ? notes : ""
         };
         
         const usernameInput = document.getElementById("student-username");
         const passwordInput = document.getElementById("student-password");
         const activeSwitch = document.getElementById("student-active");
 
-        if (usernameInput && usernameInput.value.trim()) {
-            dto.username = usernameInput.value.trim();
+        const customUserVal = usernameInput ? usernameInput.value.trim() : "";
+        const finalUserVal = customUserVal || stIdNum || (id ? ('st_' + id) : null);
+        if (finalUserVal) {
+            dto.username = finalUserVal;
         }
         if (passwordInput && passwordInput.value.trim()) {
             dto.password = passwordInput.value.trim();
@@ -7255,6 +7287,19 @@ async function showStudentModal(studentId = null) {
                 // Update Existing Student
                 await apiRequest(`/students/${id}`, "PUT", dto, 1, true);
                 
+                // Update cached student in memory immediately
+                if (Array.isArray(cachedStudents)) {
+                    const idx = cachedStudents.findIndex(x => x.id == id);
+                    if (idx !== -1) {
+                        cachedStudents[idx] = { 
+                            ...cachedStudents[idx], 
+                            ...dto,
+                            notes: dto.notes,
+                            circleName: circleIdVal ? (cachedCircles.find(c => c.id == circleIdVal)?.name || cachedStudents[idx].circleName) : "غير مسند حلقة"
+                        };
+                    }
+                }
+
                 // Refresh cached data immediately
                 try { cachedStudents = await apiRequest("/students", "GET", null, 0, true); } catch(err) {}
                 if (typeof loadAdminStudents === "function") loadAdminStudents();
