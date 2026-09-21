@@ -8552,8 +8552,27 @@ async function showAnnouncementFormModal() {
         try { cachedTeachers = await apiRequest("/teachers"); } catch(e) {}
     }
 
+    const hasChildren = getAuthStorage("hasChildren") === "true" || parseInt(getAuthStorage("childrenCount") || "0") > 0;
+    const isUserTeacher = getAuthStorage("isTeacher") === "true" || !!getAuthStorage("teacherId") || currentRole === "Teacher";
+    const isDualRoleTeacherParent = hasChildren && isUserTeacher;
+
     let targetOptions = "";
-    if (currentRole === "Teacher") {
+    if (isDualRoleTeacherParent) {
+        targetOptions = `
+            <optgroup label="✨ مراسلة بصفتك ولي أمر (أبناؤك بالمركز):">
+                <option value="ParentQuranTeacher">معلم حلقة القرآن لابنك (المحفظ)</option>
+                <option value="ParentCourseTeacher">معلم دورة تدريبية لابنك</option>
+                <option value="ParentAllTeachers">جميع معلمي أبنائي (حلقات ودورات)</option>
+            </optgroup>
+            <optgroup label="📋 نشر وإرسال بصفتك معلماً:">
+                <option value="Circle">كل طلاب حلقتي</option>
+                <option value="Student">طالب معين في حلقتي</option>
+                <option value="Parent">ولي أمر معين في حلقتي</option>
+                <option value="Teacher">معلم آخر معين</option>
+            </optgroup>
+            <option value="Admin">إدارة المركز</option>
+        `;
+    } else if (currentRole === "Teacher") {
         targetOptions = `
             <option value="Circle">كل طلاب حلقتي</option>
             <option value="Student">طالب معين في حلقتي</option>
@@ -8563,7 +8582,9 @@ async function showAnnouncementFormModal() {
         `;
     } else if (currentRole === "Parent") {
         targetOptions = `
-            <option value="Teacher">معلم حلقة ابنك (المحفظ)</option>
+            <option value="ParentQuranTeacher">معلم حلقة القرآن لابنك (المحفظ)</option>
+            <option value="ParentCourseTeacher">معلم دورة تدريبية لابنك</option>
+            <option value="ParentAllTeachers">جميع معلمي أبنائي (حلقات ودورات)</option>
             <option value="Admin">إدارة المركز</option>
         `;
     } else if (currentRole === "Student") {
@@ -8586,31 +8607,31 @@ async function showAnnouncementFormModal() {
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="announcement-form">
-            <div class="form-group">
-                <label for="announcement-form-title">عنوان التعميم:</label>
-                <input type="text" id="announcement-form-title" class="form-control" placeholder="أدخل عنواناً جذاباً وموجزاً..." required>
+            <div class="form-group mb-3">
+                <label for="announcement-form-title" class="fw-bold text-dark"><i class="fa-solid fa-heading text-primary me-1"></i> عنوان التعميم / الرسالة:</label>
+                <input type="text" id="announcement-form-title" class="form-control border-primary shadow-xs" placeholder="أدخل عنواناً جذاباً وموجزاً..." required>
             </div>
 
-            <div class="form-group">
-                <label for="announcement-form-content">محتوى التعميم / الرسالة:</label>
-                <textarea id="announcement-form-content" class="form-control" rows="4" placeholder="اكتب تفاصيل الإعلان أو الرسالة الخاصة هنا..." required></textarea>
+            <div class="form-group mb-3">
+                <label for="announcement-form-content" class="fw-bold text-dark"><i class="fa-solid fa-message text-primary me-1"></i> محتوى التعميم / الرسالة:</label>
+                <textarea id="announcement-form-content" class="form-control border-primary shadow-xs" rows="4" placeholder="اكتب تفاصيل الإعلان أو الرسالة الخاصة هنا..." required></textarea>
             </div>
 
-            <div class="form-group">
-                <label for="announcement-form-target-type">فئة المستلمين:</label>
+            <div class="form-group mb-3">
+                <label for="announcement-form-target-type" class="fw-bold text-dark"><i class="fa-solid fa-users text-primary me-1"></i> فئة المستلمين:</label>
                 <select id="announcement-form-target-type" class="form-control" required>
                     ${targetOptions}
                 </select>
             </div>
 
             <!-- Container for target selections (dynamic) -->
-            <div id="announcement-form-target-selections" class="form-group hidden">
+            <div id="announcement-form-target-selections" class="form-group hidden mb-3">
                 <!-- Dropdowns populated dynamically -->
             </div>
 
-            <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> إرسال التعميم</button>
-                <button type="button" class="btn btn-light" id="btn-cancel-announcement-form">إلغاء</button>
+            <div class="mt-4 pt-2 border-top d-flex justify-content-between align-items-center">
+                <button type="submit" class="btn btn-primary px-4 py-2" style="font-weight: 700;"><i class="fa-solid fa-paper-plane me-1"></i> إرسال التعميم</button>
+                <button type="button" class="btn btn-light px-4 py-2 border" id="btn-cancel-announcement-form">إلغاء</button>
             </div>
         </form>
     `;
@@ -8636,6 +8657,100 @@ async function showAnnouncementFormModal() {
         }
 
         selectionsContainer.classList.remove("hidden");
+
+        // 1. Parent Teacher Filtering (Quran Teacher / Course Teacher / All Parent's Teachers)
+        if (type === "ParentQuranTeacher" || type === "ParentCourseTeacher" || type === "ParentAllTeachers" || (type === "Teacher" && currentRole === "Parent")) {
+            selectionsContainer.innerHTML = `
+                <div class="text-center p-3 text-muted">
+                    <i class="fa-solid fa-spinner fa-spin me-2 text-success"></i> جاري جلب معلمين أبنائك في الحلقات والدورات...
+                </div>
+            `;
+
+            let parentTeachers = [];
+            try {
+                parentTeachers = await apiRequest("/parent/teachers");
+            } catch (err) {
+                console.error("Error loading parent teachers:", err);
+                parentTeachers = [];
+            }
+
+            let filteredTeachers = parentTeachers || [];
+            let roleDescriptionTitle = "معلمو أبنائك في الحلقات والدورات";
+            if (type === "ParentQuranTeacher" || type === "Teacher") {
+                filteredTeachers = (parentTeachers || []).filter(t => t.isQuranTeacher);
+                roleDescriptionTitle = "محفظ حلقة القرآن لابنك";
+            } else if (type === "ParentCourseTeacher") {
+                filteredTeachers = (parentTeachers || []).filter(t => t.isCourseTeacher);
+                roleDescriptionTitle = "معلم الدورة التدريبية لابنك";
+            }
+
+            if (!filteredTeachers || filteredTeachers.length === 0) {
+                selectionsContainer.innerHTML = `
+                    <div class="card p-3 my-2 border-warning bg-light text-center rounded-3 shadow-xs">
+                        <i class="fa-solid fa-circle-info text-warning fs-3 mb-2"></i>
+                        <h6 class="fw-bold text-dark mb-1">لم يتم العثور على ${roleDescriptionTitle} حالياً</h6>
+                        <p class="small text-muted mb-2">أبناؤك غير مسندين لحلقة أو دورة بعد، أو لم يتم تعيين معلم لها.</p>
+                        <button type="button" class="btn btn-sm btn-outline-primary mx-auto" onclick="document.getElementById('announcement-form-target-type').value='Admin'; document.getElementById('announcement-form-target-type').dispatchEvent(new Event('change'));">
+                            <i class="fa-solid fa-paper-plane me-1"></i> مراسلة إدارة المركز بدلاً من ذلك
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const sizeCount = Math.max(2, Math.min(filteredTeachers.length, 5));
+            selectionsContainer.innerHTML = `
+                <div class="form-group mb-2">
+                    <label class="form-label fw-bold text-dark">
+                        <i class="fa-solid fa-magnifying-glass text-primary me-1"></i> ابحث باسم المعلم أو اسم الابن:
+                    </label>
+                    <input type="text" id="announcement-target-search" class="form-control border-primary shadow-xs" placeholder="🔍 اكتب اسم المعلم أو الابن أو الحلقة..." autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="announcement-form-target-id" class="form-label fw-bold text-dark">
+                        اختر المعلم المستهدف (<span id="target-search-count">${filteredTeachers.length}</span>):
+                    </label>
+                    <select id="announcement-form-target-id" class="form-select border-success" size="${sizeCount}" required>
+                        ${filteredTeachers.map(t => {
+                            const icon = t.isQuranTeacher ? '🕌' : '📘';
+                            const phoneStr = t.phone ? ` [هاتف: ${t.phone}]` : '';
+                            return `<option value="${t.id}" style="padding: 8px 12px; font-weight: 500;" ${filteredTeachers.length === 1 ? 'selected' : ''}>
+                                ${icon} أ. ${escapeXml(t.fullName)} (${escapeXml(t.summaryText || t.categoryLabel)})${phoneStr}
+                            </option>`;
+                        }).join('')}
+                    </select>
+                    <small class="text-muted mt-1 d-block"><i class="fa-solid fa-circle-check text-success me-1"></i> يظهر هنا حصراً معلمو أبنائك في حلقات التحفيظ والدورات التعليمية.</small>
+                </div>
+            `;
+
+            const searchInput = document.getElementById("announcement-target-search");
+            const selectEl = document.getElementById("announcement-form-target-id");
+            const countEl = document.getElementById("target-search-count");
+
+            searchInput.addEventListener("input", () => {
+                const q = searchInput.value.trim().toLowerCase();
+                const matched = filteredTeachers.filter(t => 
+                    t.fullName.toLowerCase().includes(q) || 
+                    (t.phone && t.phone.includes(q)) ||
+                    (t.summaryText && t.summaryText.toLowerCase().includes(q)) ||
+                    (t.childrenNames && t.childrenNames.some(ch => ch.toLowerCase().includes(q)))
+                );
+                countEl.textContent = matched.length;
+                if (matched.length === 0) {
+                    selectEl.innerHTML = `<option disabled class="text-muted p-2">لا يوجد معلم مطابق لبحثك</option>`;
+                } else {
+                    selectEl.innerHTML = matched.map(t => {
+                        const icon = t.isQuranTeacher ? '🕌' : '📘';
+                        const phoneStr = t.phone ? ` [هاتف: ${t.phone}]` : '';
+                        return `<option value="${t.id}" style="padding: 8px 12px; font-weight: 500;">
+                            ${icon} أ. ${escapeXml(t.fullName)} (${escapeXml(t.summaryText || t.categoryLabel)})${phoneStr}
+                        </option>`;
+                    }).join('');
+                    if (matched.length === 1) selectEl.selectedIndex = 0;
+                }
+            });
+            return;
+        }
 
         if (type === "Circle") {
             let filterCircles = cachedCircles.filter(c => c.isActive);
@@ -9035,10 +9150,15 @@ async function showAnnouncementFormModal() {
             }
         }
 
+        let actualTargetType = targetType;
+        if (targetType === "ParentQuranTeacher" || targetType === "ParentCourseTeacher" || targetType === "ParentAllTeachers") {
+            actualTargetType = "Teacher";
+        }
+
         const dto = {
             title: title,
             content: contentVal,
-            targetType: targetType,
+            targetType: actualTargetType,
             targetId: targetId
         };
 

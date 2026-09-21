@@ -162,7 +162,9 @@ public record TeacherDto(
     string? WalletNumber = null,
     string? WalletOwner = null,
     string? MemorizedAjzaa = null,
-    string? StudentsCountTarget = null
+    string? StudentsCountTarget = null,
+    bool HasChildren = false,
+    int ChildrenCount = 0
 );
 
 // ====================== Circle ======================

@@ -2147,12 +2147,14 @@ button, input, select, textarea {
 
 .modal-card {
     background-color: #ffffff;
-    border-radius: var(--radius-md);
+    border-radius: 18px;
     width: 90%;
-    max-width: 650px;
-    max-height: 85vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-lg);
+    max-width: 660px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
     border-top: 5px solid var(--accent-color);
 }
 .modal-lg .modal-card {
@@ -2161,17 +2163,22 @@ button, input, select, textarea {
 }
 
 .modal-header {
-    padding: 16px 24px;
+    padding: 18px 24px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
+    flex-shrink: 0;
 }
 
 .modal-header h3 {
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 800;
     color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .modal-close-btn {
@@ -2181,14 +2188,92 @@ button, input, select, textarea {
     color: var(--text-muted);
     cursor: pointer;
     transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
 }
 
 .modal-close-btn:hover {
     color: var(--danger-color);
+    background-color: rgba(220, 53, 69, 0.08);
 }
 
 .modal-body {
-    padding: 24px;
+    padding: 22px 26px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Custom Modal Scrollbar */
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-body::-webkit-scrollbar-track {
+    background: #f1f5f3;
+}
+.modal-body::-webkit-scrollbar-thumb {
+    background: #c3d9ce;
+    border-radius: 10px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
+
+/* Clean Modern Select Elements - Prevents Double Arrows */
+select.form-control,
+select.form-select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%230d5c3a' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: left 14px center !important;
+    background-size: 14px 10px !important;
+    padding-left: 38px !important;
+    padding-right: 14px !important;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1.5px solid var(--border-color);
+    transition: var(--transition-fast);
+}
+
+select.form-control:focus,
+select.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(13, 92, 58, 0.12);
+    outline: none;
+}
+
+select[size],
+select.form-select[size],
+select.form-control[size] {
+    background-image: none !important;
+    padding: 8px !important;
+    height: auto !important;
+    border-radius: 12px;
+}
+
+select[size] option {
+    border-radius: 8px;
+    padding: 10px 14px !important;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+select[size] option:hover {
+    background-color: #f0fdf4 !important;
+    color: #15803d !important;
+}
+
+select[size] option:checked {
+    background: linear-gradient(135deg, #0d5c3a 0%, #15803d 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
 }
 
 /* Alerts system */

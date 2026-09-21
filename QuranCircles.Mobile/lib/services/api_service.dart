@@ -759,6 +759,17 @@ class ApiService {
     return [];
   }
 
+  static Future<List<Map<String, dynamic>>> getMyChildrenTeachers() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/parent/teachers'), headers: _headers());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // --- Parent Audit Data ---
   static Future<List<dynamic>> getParentAuditData() async {
     final response = await http.get(Uri.parse('$baseUrl/parent/audit'), headers: _headers());

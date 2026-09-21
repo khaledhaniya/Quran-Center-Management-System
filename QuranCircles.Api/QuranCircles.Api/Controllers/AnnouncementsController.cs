@@ -43,7 +43,8 @@ public class AnnouncementsController : ControllerBase
         if (user == null) return Unauthorized(new { error = "المستخدم غير موجود." });
 
         // Scoping & Validation
-        if (user.Role == UserRole.Teacher)
+        bool isUserTeacher = user.Role == UserRole.Teacher || user.TeacherId.HasValue;
+        if (user.Role == UserRole.Teacher || (isUserTeacher && dto.TargetType != AnnouncementTarget.Admin && (user.Role != UserRole.Parent || dto.TargetType != AnnouncementTarget.Teacher)))
         {
             int tId = user.TeacherId ?? 0;
             Teacher? teacherObj = null;
@@ -107,9 +108,13 @@ public class AnnouncementsController : ControllerBase
                     return BadRequest(new { error = "المعلم المحدد غير موجود." });
                 }
             }
+            else if (isUserTeacher)
+            {
+                // Allowed: Dual-role parent who is also teacher
+            }
             else
             {
-                return BadRequest(new { error = "يمكن لولي الأمر مراسلة معلم حلقة ابنه أو إدارة المركز." });
+                return BadRequest(new { error = "يمكن لولي الأمر مراسلة معلم حلقة ابنه أو معلم الدورة أو إدارة المركز." });
             }
         }
         else if (user.Role == UserRole.Student)

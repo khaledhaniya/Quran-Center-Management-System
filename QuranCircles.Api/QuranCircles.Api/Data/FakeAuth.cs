@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Entities;
 using QuranCircles.Api.Services;
 using System;
@@ -94,6 +95,43 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
 
         bool isAllowed = _allowed.Contains(role.Value) || 
                           (role.Value == UserRole.Developer && _allowed.Contains(UserRole.Admin));
+
+        // Dynamic Role Resolution: Check dual role permissions (Teacher who is also Parent, Parent who is also Teacher)
+        if (!isAllowed)
+        {
+            var userId = FakeAuth.GetUserId(context.HttpContext);
+            if (userId.HasValue)
+            {
+                var db = context.HttpContext.RequestServices.GetService<AppDbContext>();
+                if (db != null)
+                {
+                    var user = db.Users.Include(u => u.Teacher).FirstOrDefault(u => u.Id == userId.Value);
+                    if (user != null)
+                    {
+                        if (user.Role == UserRole.Admin || user.Role == UserRole.Developer)
+                        {
+                            isAllowed = true;
+                        }
+                        else if (_allowed.Contains(UserRole.Parent) && (user.Role == UserRole.Parent || user.ParentId.HasValue || user.TeacherId.HasValue))
+                        {
+                            isAllowed = true;
+                        }
+                        else if (_allowed.Contains(UserRole.Teacher) && (user.TeacherId.HasValue || user.Role == UserRole.Teacher))
+                        {
+                            isAllowed = true;
+                        }
+                        else if (_allowed.Contains(UserRole.Teacher))
+                        {
+                            var uName = (user.Username ?? "").Trim();
+                            var isTch = db.Teachers.Any(t => (!string.IsNullOrEmpty(t.IdentityNumber) && t.IdentityNumber == uName) ||
+                                                             (!string.IsNullOrEmpty(t.Contact) && t.Contact == uName) ||
+                                                             (!string.IsNullOrEmpty(t.FullName) && t.FullName == user.FullName));
+                            if (isTch) isAllowed = true;
+                        }
+                    }
+                }
+            }
+        }
 
         if (!isAllowed)
         {

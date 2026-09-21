@@ -48,11 +48,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     int? selectedTargetId;
     int? selectedCircleFilter;
 
-    final isTeacher = widget.currentUser.role == 'Teacher';
-    final isParent = widget.currentUser.role == 'Parent';
+    final isTeacher = widget.currentUser.role == 'Teacher' || widget.currentUser.teacherId != null;
+    final isParent = widget.currentUser.role == 'Parent' || widget.currentUser.hasChildren || widget.currentUser.childrenCount > 0;
     final isStudent = widget.currentUser.role == 'Student';
+    final isDualRole = isTeacher && isParent;
 
-    if (isTeacher) {
+    if (isTeacher && !isParent) {
       targetType = 2; // Default to Circle for Teacher
     } else if (isParent || isStudent) {
       targetType = 3; // Default to Teacher for Parent and Student
@@ -63,6 +64,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     List<Teacher> teachers = [];
     List<Student> students = [];
     List<Map<String, dynamic>> parentsList = [];
+    List<Map<String, dynamic>> parentTeachers = [];
 
     try {
       circles = await ApiService.getCircles();
@@ -75,8 +77,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         final circleIds = circles.map((c) => c.id).toSet();
         students = students.where((s) => s.circleId != null && circleIds.contains(s.circleId)).toList();
       }
-      final rawAudit = await ApiService.getParentAuditData();
-      parentsList = List<Map<String, dynamic>>.from(rawAudit);
+      if (isTeacher || widget.currentUser.role == 'Admin' || widget.currentUser.role == 'Developer') {
+        final rawAudit = await ApiService.getParentAuditData();
+        parentsList = List<Map<String, dynamic>>.from(rawAudit);
+      }
+      if (isParent) {
+        parentTeachers = await ApiService.getMyChildrenTeachers();
+      }
     } catch (_) {}
 
     if (!mounted) return;
@@ -113,13 +120,27 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         if (widget.currentUser.role == 'Student') ...const [
                           DropdownMenuItem(value: 3, child: Text('معلم الحلقة (محفظي)')),
                           DropdownMenuItem(value: 2, child: Text('طلاب حلقتي')),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
+                        ] else if (isDualRole) ...const [
+                          DropdownMenuItem(value: 3, child: Text('✨ معلم حلقة القرآن لابنك (المحفظ)')),
+                          DropdownMenuItem(value: 8, child: Text('✨ معلم دورة ابنك التدريبية')),
+                          DropdownMenuItem(value: 9, child: Text('✨ جميع معلمي أبنائي (حلقات ودورات)')),
+                          DropdownMenuItem(value: 2, child: Text('📋 كل طلاب حلقتي')),
+                          DropdownMenuItem(value: 4, child: Text('📋 طالب معين في حلقتي')),
+                          DropdownMenuItem(value: 7, child: Text('📋 ولي أمر معين في حلقتي')),
+                          DropdownMenuItem(value: 10, child: Text('📋 معلم آخر')),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ] else if (widget.currentUser.role == 'Parent') ...const [
-                          DropdownMenuItem(value: 3, child: Text('معلم حلقة ابنك (المحفظ)')),
+                          DropdownMenuItem(value: 3, child: Text('معلم حلقة القرآن لابنك (المحفظ)')),
+                          DropdownMenuItem(value: 8, child: Text('معلم دورة ابنك التدريبية')),
+                          DropdownMenuItem(value: 9, child: Text('جميع معلمي أبنائي (حلقات ودورات)')),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ] else if (isTeacher) ...const [
                           DropdownMenuItem(value: 2, child: Text('كل طلاب حلقتي')),
                           DropdownMenuItem(value: 4, child: Text('طالب معين في حلقتي')),
                           DropdownMenuItem(value: 7, child: Text('ولي أمر معين في حلقتي')),
                           DropdownMenuItem(value: 3, child: Text('معلم آخر')),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ] else ...const [
                           DropdownMenuItem(value: 1, child: Text('الجميع (عام)')),
                           DropdownMenuItem(value: 5, child: Text('جميع المعلمين')),
@@ -127,6 +148,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           DropdownMenuItem(value: 3, child: Text('معلم معين')),
                           DropdownMenuItem(value: 4, child: Text('طالب معين')),
                           DropdownMenuItem(value: 7, child: Text('أولياء الأمور')),
+                          DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ],
                       ],
                       onChanged: (val) {
@@ -141,7 +163,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    if (targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7) ...[
+                    if (targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10) ...[
                       if (targetType == 4) ...[
                         DropdownButtonFormField<int?>(
                           value: selectedCircleFilter,
@@ -185,8 +207,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                               ? '🔍 اكتب اسم الطالب أو رقم الهوية...' 
                               : targetType == 7 
                                   ? '🔍 اكتب اسم ولي الأمر أو هوية ولي الأمر...' 
-                                  : targetType == 3 
-                                      ? '🔍 اكتب اسم المعلم...' 
+                                  : (targetType == 3 || targetType == 8 || targetType == 9)
+                                      ? '🔍 اكتب اسم المعلم أو اسم الابن...' 
                                       : '🔍 اكتب اسم الحلقة...',
                           prefixIcon: const Icon(Icons.search, color: AppTheme.primary),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -212,7 +234,75 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           onChanged: (val) => setModalState(() => selectedTargetId = val),
                         );
                       }),
-                    ] else if (targetType == 3) ...[
+                    ] else if ((targetType == 3 || targetType == 8 || targetType == 9) && isParent && (widget.currentUser.role == 'Parent' || targetType == 8 || targetType == 9 || (targetType == 3 && isDualRole))) ...[
+                      // Filter parent's children's teachers
+                      Builder(builder: (c) {
+                        List<Map<String, dynamic>> filtered = parentTeachers;
+                        if (targetType == 3) {
+                          filtered = parentTeachers.where((t) => t['isQuranTeacher'] == true).toList();
+                        } else if (targetType == 8) {
+                          filtered = parentTeachers.where((t) => t['isCourseTeacher'] == true).toList();
+                        }
+
+                        if (query.isNotEmpty) {
+                          filtered = filtered.where((t) {
+                            final name = (t['fullName'] ?? '').toString().toLowerCase();
+                            final sum = (t['summaryText'] ?? '').toString().toLowerCase();
+                            return name.contains(query) || sum.contains(query);
+                          }).toList();
+                        }
+
+                        if (filtered.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(top: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, color: Colors.amber),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'لم يتم العثور على معلمين مسندين لأبنائك حالياً. يمكنك مراسلة إدارة المركز مباشرة.',
+                                    style: AppTheme.cairoStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return DropdownButtonFormField<int>(
+                          value: filtered.any((item) => (item['id'] as int? ?? 0) == selectedTargetId) ? selectedTargetId : null,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'اختر المعلم المستهدف (${filtered.length}) *',
+                            helperText: 'يظهر هنا حصراً معلمو أبنائك في الحلقات والدورات',
+                          ),
+                          items: filtered
+                              .map((item) {
+                                final id = item['id'] as int? ?? 0;
+                                final name = item['fullName']?.toString() ?? 'معلم';
+                                final sum = item['summaryText']?.toString() ?? item['categoryLabel']?.toString() ?? '';
+                                final icon = item['isQuranTeacher'] == true ? '🕌' : '📘';
+                                return DropdownMenuItem<int>(
+                                  value: id,
+                                  child: Text(
+                                    '$icon $name ($sum)',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTheme.cairoStyle(fontSize: 12),
+                                  ),
+                                );
+                              })
+                              .toList(),
+                          onChanged: (val) => setModalState(() => selectedTargetId = val),
+                        );
+                      }),
+                    ] else if (targetType == 3 || targetType == 10) ...[
                       Builder(builder: (c) {
                         final filtered = teachers.where((item) => item.fullName.toLowerCase().contains(query)).toList();
                         return DropdownButtonFormField<int>(
@@ -310,17 +400,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               onPressed: () async {
                 if (titleController.text.trim().isEmpty || contentController.text.trim().isEmpty) return;
 
-                if ((targetType == 2 || targetType == 3 || targetType == 4) && selectedTargetId == null) {
+                if ((targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10) && selectedTargetId == null) {
                   ScaffoldMessenger.of(dialogCtx).showSnackBar(
                     const SnackBar(content: Text('يرجى اختيار الجهة المستهدفة من القائمة'), backgroundColor: Colors.orange),
                   );
                   return;
                 }
 
+                int actualTargetType = targetType;
+                if (targetType == 8 || targetType == 9 || targetType == 10) {
+                  actualTargetType = 3; // AnnouncementTarget.Teacher
+                }
+
                 final ok = await ApiService.createAnnouncement(
                   title: titleController.text.trim(),
                   content: contentController.text.trim(),
-                  targetType: targetType,
+                  targetType: actualTargetType,
                   targetId: selectedTargetId,
                 );
 

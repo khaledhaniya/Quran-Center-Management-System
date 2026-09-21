@@ -153,22 +153,19 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "كلمة المرور غير صحيحة." });
 
         // Auto-heal teacher linking and permissions
-        if (user.Role == UserRole.Teacher || user.TeacherId.HasValue)
+        if (!user.TeacherId.HasValue || user.Teacher == null)
         {
-            if (!user.TeacherId.HasValue || user.Teacher == null)
-            {
-                var t = await _db.Teachers.FirstOrDefaultAsync(x =>
-                    (!string.IsNullOrEmpty(x.IdentityNumber) && x.IdentityNumber.Trim() == user.Username.Trim()) ||
-                    (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().Equals(user.FullName.Trim(), StringComparison.OrdinalIgnoreCase)) ||
-                    (user.TeacherId.HasValue && x.Id == user.TeacherId.Value));
+            var t = await _db.Teachers.FirstOrDefaultAsync(x =>
+                (!string.IsNullOrEmpty(x.IdentityNumber) && x.IdentityNumber.Trim() == user.Username.Trim()) ||
+                (!string.IsNullOrEmpty(x.Contact) && x.Contact.Trim() == user.Username.Trim()) ||
+                (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().Equals(user.FullName.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+                (user.TeacherId.HasValue && x.Id == user.TeacherId.Value));
 
-                if (t != null)
-                {
-                    user.TeacherId = t.Id;
-                    user.Teacher = t;
-                    user.Role = UserRole.Teacher;
-                    await _db.SaveChangesAsync();
-                }
+            if (t != null)
+            {
+                user.TeacherId = t.Id;
+                user.Teacher = t;
+                await _db.SaveChangesAsync();
             }
         }
 
@@ -214,10 +211,34 @@ public class AuthController : ControllerBase
         }
         catch { }
 
+        bool isTeacher = user.Role == UserRole.Teacher || (user.TeacherId.HasValue && user.TeacherId.Value > 0);
+        bool isParent = user.Role == UserRole.Parent || hasChildren || (user.ParentId.HasValue && user.ParentId.Value > 0);
+        bool isDualRole = isTeacher && isParent;
+
+        var availableRoles = new List<string>();
+        if (user.Role == UserRole.Admin || user.Role == UserRole.Developer)
+        {
+            availableRoles.Add(user.Role.ToString());
+            if (isTeacher) availableRoles.Add("Teacher");
+            if (isParent) availableRoles.Add("Parent");
+        }
+        else
+        {
+            if (isTeacher) availableRoles.Add("Teacher");
+            if (isParent) availableRoles.Add("Parent");
+            if (user.Role == UserRole.Student) availableRoles.Add("Student");
+            if (user.Role == UserRole.ExamSupervisor) availableRoles.Add("ExamSupervisor");
+        }
+        if (availableRoles.Count == 0) availableRoles.Add(user.Role.ToString());
+
         return Ok(new
         {
             token,
             role = user.Role.ToString(),
+            isTeacher,
+            isParent,
+            isDualRole,
+            availableRoles = availableRoles.Distinct().ToList(),
             userId = user.Id,
             teacherId,
             studentId,

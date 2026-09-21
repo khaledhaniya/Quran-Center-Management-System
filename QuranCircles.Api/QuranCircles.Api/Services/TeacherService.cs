@@ -21,7 +21,19 @@ public class TeacherService
         var q = _db.Teachers.Where(t => !string.IsNullOrEmpty(t.IdentityNumber)).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             q = q.Where(t => t.FullName.Contains(search) || (t.IdentityNumber != null && t.IdentityNumber.Contains(search)) || (t.Contact != null && t.Contact.Contains(search)));
-        return await q.Select(t => Map(t)).ToListAsync();
+        
+        var teachers = await q.ToListAsync();
+
+        var parentCounts = await _db.Students
+            .Where(s => !string.IsNullOrEmpty(s.ParentIdentityNumber))
+            .GroupBy(s => s.ParentIdentityNumber!.Trim())
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Id, g => g.Count);
+
+        return teachers.Select(t => {
+            var count = (!string.IsNullOrEmpty(t.IdentityNumber) && parentCounts.TryGetValue(t.IdentityNumber.Trim(), out var c)) ? c : 0;
+            return Map(t, count > 0, count);
+        }).ToList();
     }
 
     public async Task<(int imported, int updated, string? error)> ImportExcelTeachersAsync()
@@ -474,7 +486,7 @@ public class TeacherService
         return null;
     }
 
-    private static TeacherDto Map(Teacher t) => new(
+    private static TeacherDto Map(Teacher t, bool hasChildren = false, int childrenCount = 0) => new(
         t.Id,
         t.FullName,
         t.Address,
@@ -492,7 +504,9 @@ public class TeacherService
         t.WalletNumber,
         t.WalletOwner,
         t.MemorizedAjzaa,
-        t.StudentsCountTarget
+        t.StudentsCountTarget,
+        hasChildren,
+        childrenCount
     );
 
     public async Task<int> SyncTeacherParentRelationshipsAsync()
