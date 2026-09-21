@@ -130,6 +130,7 @@ class Student {
   final String? originalAddress;
   final String? currentAddress;
   final String? notes;
+  final String? username;
 
   Student({
     required this.id,
@@ -157,6 +158,7 @@ class Student {
     this.originalAddress,
     this.currentAddress,
     this.notes,
+    this.username,
   });
 
   factory Student.fromJson(Map<String, dynamic> json) {
@@ -186,6 +188,7 @@ class Student {
       originalAddress: json['originalAddress'],
       currentAddress: json['currentAddress'],
       notes: json['notes'],
+      username: json['username'] ?? json['Username'] ?? json['studentIdentityNumber'],
     );
   }
 }

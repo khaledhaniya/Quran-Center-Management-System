@@ -69,7 +69,9 @@ public record UpdateStudentDto(
     DateOnly? PlanStartDate = null,
     DateOnly? PlanTargetDate = null,
     double? DailyPacePages = null,
-    string? CompletedAjzaa = null
+    string? CompletedAjzaa = null,
+    string? Username = null,
+    string? Password = null
 );
 
 public record StudentDto(
@@ -101,7 +103,8 @@ public record StudentDto(
     string? OriginalHousingStatus = null,
     string? CurrentAddress = null,
     string? CurrentHousingType = null,
-    string? Notes = null
+    string? Notes = null,
+    string? Username = null
 );
 
 // ====================== Teacher ======================

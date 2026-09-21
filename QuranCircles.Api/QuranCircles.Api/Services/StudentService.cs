@@ -31,11 +31,19 @@ public class StudentService
         }
 
         var students = await query.OrderBy(s => s.FullName).ToListAsync();
+        var studentIds = students.Select(s => s.Id).ToList();
+        var studentUsers = await _db.Users.Where(u => u.StudentId.HasValue && studentIds.Contains(u.StudentId.Value)).ToListAsync();
+        var studentUserMap = studentUsers.ToDictionary(u => u.StudentId!.Value, u => u.Username);
+
         var parentIds = students.Where(s => s.ParentId.HasValue).Select(s => s.ParentId!.Value).Distinct().ToList();
         var parentUsers = await _db.Users.Where(u => u.Role == UserRole.Parent && (parentIds.Contains(u.Id) || (u.ParentId.HasValue && parentIds.Contains(u.ParentId.Value)))).ToListAsync();
         var parentMap = parentUsers.ToDictionary(u => u.ParentId ?? u.Id, u => u.FullName);
 
-        return students.Select(s => MapStudentToFullObject(s, s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null)).ToList();
+        return students.Select(s => MapStudentToFullObject(
+            s, 
+            s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null,
+            studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber
+        )).ToList();
     }
 
     public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search, bool onlyCircle = false)
@@ -63,17 +71,26 @@ public class StudentService
         }
 
         var students = await query.OrderBy(s => s.Id).ToListAsync();
+        var studentIds = students.Select(s => s.Id).ToList();
+        var studentUsers = await _db.Users.Where(u => u.StudentId.HasValue && studentIds.Contains(u.StudentId.Value)).ToListAsync();
+        var studentUserMap = studentUsers.ToDictionary(u => u.StudentId!.Value, u => u.Username);
+
         var parentIds = students.Where(s => s.ParentId.HasValue).Select(s => s.ParentId!.Value).Distinct().ToList();
         var parentUsers = await _db.Users.Where(u => u.Role == UserRole.Parent && (parentIds.Contains(u.Id) || (u.ParentId.HasValue && parentIds.Contains(u.ParentId.Value)))).ToListAsync();
         var parentMap = parentUsers.ToDictionary(u => u.ParentId ?? u.Id, u => u.FullName);
 
-        return students.Select(s => MapStudentToFullObject(s, s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null)).ToList();
+        return students.Select(s => MapStudentToFullObject(
+            s, 
+            s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null,
+            studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber
+        )).ToList();
     }
 
-    public static object MapStudentToFullObject(Student s, string? parentName = null) => new
+    public static object MapStudentToFullObject(Student s, string? parentName = null, string? username = null) => new
     {
         s.Id,
         s.FullName,
+        Username = username ?? s.StudentIdentityNumber,
         s.Address,
         s.FamilyContact,
         DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
@@ -128,7 +145,10 @@ public class StudentService
             if (pUser != null) parentName = pUser.FullName;
         }
 
-        return MapStudentToFullObject(s, parentName);
+        var stUser = await _db.Users.FirstOrDefaultAsync(u => u.StudentId == s.Id);
+        string? username = stUser?.Username ?? s.StudentIdentityNumber;
+
+        return MapStudentToFullObject(s, parentName, username);
     }
 
     private static string ExtractFatherName(string fullName)
@@ -278,6 +298,39 @@ public class StudentService
         _db.Students.Add(s);
         await _db.SaveChangesAsync();
 
+        // Create or link Student User account
+        string stUsername = !string.IsNullOrWhiteSpace(dto.Username) ? dto.Username.Trim() : (dto.StudentIdentityNumber?.Trim() ?? "");
+        if (!string.IsNullOrWhiteSpace(stUsername))
+        {
+            var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == stUsername.ToLower());
+            if (existingUser != null)
+            {
+                existingUser.StudentId = s.Id;
+                existingUser.FullName = s.FullName;
+                if (!string.IsNullOrWhiteSpace(dto.Password))
+                {
+                    existingUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
+                    existingUser.PlainPassword = dto.Password.Trim();
+                }
+            }
+            else
+            {
+                string stPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : "123456";
+                var stUser = new User
+                {
+                    Username = stUsername,
+                    PasswordHash = _hasher.HashPassword(stPw),
+                    PlainPassword = stPw,
+                    FullName = s.FullName,
+                    Role = UserRole.Student,
+                    StudentId = s.Id,
+                    IsActive = true
+                };
+                _db.Users.Add(stUser);
+            }
+            await _db.SaveChangesAsync();
+        }
+
         return (s, newlyCreatedParent, null);
     }
 
@@ -422,11 +475,48 @@ public class StudentService
 
         s.ParentId = resolvedParentId;
 
-        // Also update linked Student User full name if exists
+        // Update or create linked Student User
+        string? customUsername = !string.IsNullOrWhiteSpace(dto.Username) ? dto.Username.Trim() : null;
         var studentUser = await _db.Users.FirstOrDefaultAsync(u => u.StudentId == s.Id);
+        if (studentUser == null && !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))
+        {
+            studentUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == s.StudentIdentityNumber.ToLower().Trim());
+        }
+
         if (studentUser != null)
         {
+            if (customUsername != null && customUsername.ToLower() != studentUser.Username.ToLower())
+            {
+                var taken = await _db.Users.AnyAsync(u => u.Id != studentUser.Id && u.Username.ToLower() == customUsername.ToLower());
+                if (taken) return (false, "اسم المستخدم محجوز بالفعل لمستخدم أو طالب آخر.");
+                studentUser.Username = customUsername;
+            }
             studentUser.FullName = s.FullName;
+            if (dto.IsActive.HasValue) studentUser.IsActive = dto.IsActive.Value;
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                studentUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
+                studentUser.PlainPassword = dto.Password.Trim();
+            }
+        }
+        else if (customUsername != null || !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))
+        {
+            string finalUName = customUsername ?? s.StudentIdentityNumber!.Trim();
+            var taken = await _db.Users.AnyAsync(u => u.Username.ToLower() == finalUName.ToLower());
+            if (taken) return (false, "اسم المستخدم محجوز بالفعل لمستخدم أو طالب آخر.");
+
+            string finalPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : "123456";
+            var newStUser = new User
+            {
+                Username = finalUName,
+                PasswordHash = _hasher.HashPassword(finalPw),
+                PlainPassword = finalPw,
+                FullName = s.FullName,
+                Role = UserRole.Student,
+                StudentId = s.Id,
+                IsActive = dto.IsActive ?? true
+            };
+            _db.Users.Add(newStUser);
         }
 
         await _db.SaveChangesAsync();

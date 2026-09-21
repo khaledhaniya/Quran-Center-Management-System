@@ -186,6 +186,11 @@ public class UsersController : ControllerBase
             user.Role = roleVal;
         }
 
+        if (dto.IsActive.HasValue)
+        {
+            user.IsActive = dto.IsActive.Value;
+        }
+
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
             user.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
@@ -194,14 +199,34 @@ public class UsersController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        await AuditLogger.LogAsync(_db, HttpContext, "UpdateUser", $"تعديل حساب المستخدم: {user.Username} ({user.FullName}) - الصفة: {user.Role}");
+        await AuditLogger.LogAsync(_db, HttpContext, "UpdateUser", $"تعديل حساب المستخدم: {user.Username} ({user.FullName}) - الصفة: {user.Role} - الحالة: {(user.IsActive ? "نشط" : "معطل")}");
 
         return Ok(new { 
             message = "تم تحديث الحساب وكلمة المرور بنجاح.",
             user.Id,
             user.Username,
             user.FullName,
+            user.IsActive,
             user.PlainPassword
+        });
+    }
+
+    [HttpPatch("{id:int}/toggle-status")]
+    [RequireRole(UserRole.Developer, UserRole.Admin)]
+    public async Task<IActionResult> ToggleStatus(int id)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user == null) return NotFound(new { error = "المستخدم غير موجود." });
+
+        user.IsActive = !user.IsActive;
+        await _db.SaveChangesAsync();
+
+        await AuditLogger.LogAsync(_db, HttpContext, "ToggleUserStatus", $"تغيير حالة الحساب للمستخدم: {user.Username} إلى {(user.IsActive ? "نشط" : "معطل")}");
+
+        return Ok(new { 
+            id = user.Id, 
+            isActive = user.IsActive, 
+            message = user.IsActive ? "تم تفعيل وتنشيط الحساب بنجاح." : "تم تعطيل الحساب بنجاح." 
         });
     }
 
@@ -284,5 +309,6 @@ public record UpdateUserDto(
     string FullName,
     string Role,
     string? Password = null,
-    int? TeacherId = null
+    int? TeacherId = null,
+    bool? IsActive = null
 );

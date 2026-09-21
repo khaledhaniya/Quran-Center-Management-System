@@ -172,10 +172,7 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "اسم المستخدم غير موجود." });
 
         if (!user.IsActive)
-        {
-            user.IsActive = true;
-            try { await _db.SaveChangesAsync(); } catch { }
-        }
+            return BadRequest(new { error = "اسم المستخدم غير موجود أو الحساب معطل من قبل الإدارة." });
 
         if ((int)user.Role == 0)
         {

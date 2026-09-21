@@ -73,6 +73,8 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
     final healthStatusController = TextEditingController(text: student?.healthStatus ?? '');
     final kinshipController = TextEditingController(text: student?.kinship ?? 'أب');
     final notesController = TextEditingController(text: student?.notes ?? '');
+    final usernameController = TextEditingController(text: student?.username ?? student?.studentIdentityNumber ?? '');
+    final passwordController = TextEditingController(text: student == null ? '123456' : '');
     String fatherStatus = student?.fatherStatus ?? 'سليم';
     String motherStatus = student?.motherStatus ?? 'سليم';
     int? selectedCircleId = student?.circleId;
@@ -81,7 +83,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setModalState) => AlertDialog(
-          title: Text(student == null ? 'إضافة طالب جديد' : 'تعديل بيانات الطالب الفنية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+          title: Text(student == null ? 'إضافة طالب جديد وحساب دخول' : 'تعديل بيانات الطالب وحسابه', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -231,6 +233,37 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'ملاحظات كفالة الأيتام والوضع العام'),
                 ),
+                const SizedBox(height: 16),
+                const Divider(height: 20, thickness: 1.2),
+                Row(
+                  children: [
+                    const Icon(Icons.shield_outlined, color: Colors.teal, size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      'بيانات حساب دخول الطالب للمنظومة',
+                      style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم المستخدم للطالب (Username) *',
+                    hintText: 'أدخل اسم المستخدم أو رقم الهوية...',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: student == null ? 'كلمة المرور للطالب *' : 'كلمة المرور (اتركها فارغة لعدم التغيير)',
+                    hintText: student == null ? '123456' : 'كلمة مرور جديدة...',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                  ),
+                ),
               ],
             ),
           ),
@@ -243,7 +276,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
               onPressed: () async {
                 if (nameController.text.trim().isEmpty) return;
 
-                final payload = {
+                final payload = <String, dynamic>{
                   'fullName': nameController.text.trim(),
                   'studentIdentityNumber': identityController.text.trim(),
                   'parentIdentityNumber': parentIdentityController.text.trim(),
@@ -259,7 +292,13 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                   'motherStatus': motherStatus,
                   'circleId': selectedCircleId,
                   'notes': notesController.text.trim(),
+                  'username': usernameController.text.trim().isNotEmpty
+                      ? usernameController.text.trim()
+                      : (identityController.text.trim().isNotEmpty ? identityController.text.trim() : null),
                 };
+                if (passwordController.text.trim().isNotEmpty) {
+                  payload['password'] = passwordController.text.trim();
+                }
 
                 if (student == null) {
                   final ok = await ApiService.createStudent(payload);

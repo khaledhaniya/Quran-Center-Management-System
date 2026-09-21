@@ -6996,38 +6996,38 @@ async function showStudentModal(studentId = null) {
                             <span>4. بيانات حساب دخول الطالب للمنظومة</span>
                         </div>
                         
-                        ${!studentId ? `
                         <div class="alert alert-info border-info p-3 mb-3 d-flex align-items-center gap-2">
                             <i class="fa-solid fa-circle-info fs-4 text-primary"></i>
-                            <span class="small">يُستخدم هذا الحساب لدخول الطالب لمتابعة حفظه وتسميعه والمشاركة في المسابقات والاختبارات.</span>
+                            <span class="small">يُستخدم هذا الحساب لدخول الطالب للمنظومة لمتابعة حفظه وتسميعه. يمكنك تحديد وتعديل اسم المستخدم بنفسك يدوياً في أي وقت.</span>
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="student-username" class="form-label-custom">اسم المستخدم للابن (رقم الهوية الوطنية) <span class="text-danger">*</span></label>
+                                <label for="student-username" class="form-label-custom">اسم المستخدم للطالب (Username) <span class="text-danger">*</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-id-card input-icon text-primary"></i>
-                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="رقم هوية الطالب..." required>
+                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="أدخل اسم المستخدم أو رقم الهوية..." value="${escapeXml(s ? (s.username || s.studentIdentityNumber || '') : '')}" required>
                                 </div>
+                                <small class="form-text text-muted"><i class="fa-solid fa-user-pen me-1 text-primary"></i> تستطيع كتابة وتعديل اسم المستخدم بنفسك يدوياً كما تشاء.</small>
                             </div>
                             <div class="col-md-6">
-                                <label for="student-password" class="form-label-custom">كلمة المرور للابن <span class="text-danger">*</span></label>
+                                <label for="student-password" class="form-label-custom">كلمة المرور للطالب ${studentId ? '(اختياري)' : '<span class="text-danger">*</span>'}</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-lock input-icon text-success"></i>
-                                    <input type="password" id="student-password" class="form-control-custom font-monospace" value="123456" required>
+                                    <input type="password" id="student-password" class="form-control-custom font-monospace" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'أدخل كلمة مرور...'}" value="${!studentId ? '123456' : ''}" ${!studentId ? 'required' : ''}>
+                                </div>
+                                ${studentId ? `<small class="form-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> اترك كلمة المرور فارغة إذا كنت لا ترغب بتغييرها.</small>` : ''}
+                            </div>
+                            <div class="col-12 mt-3">
+                                <div class="p-3 bg-light rounded-3 border">
+                                    <div class="form-check form-switch d-flex align-items-center gap-3">
+                                        <input class="form-check-input" type="checkbox" id="student-active" ${(!s || s.isActive) ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
+                                        <label class="form-check-label fw-bold text-dark mb-0" for="student-active" style="cursor: pointer;">
+                                            حساب الطالب نشط ومفعّل بالمنظومة (يسمح له بالحضور والتسميع والدخول)
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        ` : `
-                        <div class="p-3 bg-light rounded-3 border mb-3">
-                            <div class="form-check form-switch d-flex align-items-center gap-3">
-                                <input class="form-check-input" type="checkbox" id="student-active" ${s && s.isActive ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
-                                <label class="form-check-label fw-bold text-dark mb-0" for="student-active" style="cursor: pointer;">
-                                    حساب الطالب نشط ومفعّل بالمنظومة (يسمح له بالحضور والتسميع)
-                                </label>
-                            </div>
-                        </div>
-                        <p class="text-muted small mb-0"><i class="fa-solid fa-circle-check text-success me-1"></i> يتم تسجيل الدخول بواسطة رقم الهوية الوطنية للطالب كاسم مستخدم.</p>
-                        `}
                         <div class="d-flex justify-content-start mt-3">
                             <button type="button" class="btn btn-outline-secondary btn-sm px-3 rounded-pill btn-prev-tab" data-prev="st-tab-housing">
                                 <i class="fa-solid fa-arrow-right me-1"></i> السابق
@@ -7236,11 +7236,18 @@ async function showStudentModal(studentId = null) {
             notes: notes || null
         };
         
-        if (id) {
-            dto.isActive = document.getElementById("student-active").checked;
-        } else {
-            dto.username = document.getElementById("student-username").value;
-            dto.password = document.getElementById("student-password").value;
+        const usernameInput = document.getElementById("student-username");
+        const passwordInput = document.getElementById("student-password");
+        const activeSwitch = document.getElementById("student-active");
+
+        if (usernameInput && usernameInput.value.trim()) {
+            dto.username = usernameInput.value.trim();
+        }
+        if (passwordInput && passwordInput.value.trim()) {
+            dto.password = passwordInput.value.trim();
+        }
+        if (activeSwitch) {
+            dto.isActive = activeSwitch.checked;
         }
         
         try {
@@ -9289,7 +9296,10 @@ function renderUsersTableRows(usersList) {
                 </div>
             </td>
             <td>
-                <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <button class="btn btn-sm ${u.isActive !== false ? 'btn-outline-success' : 'btn-outline-danger'} btn-toggle-user-status shadow-xs" data-id="${u.id}" title="${u.isActive !== false ? 'الحساب نشط (اضغط لتعطيله)' : 'الحساب معطل (اضغط لتفعيله)'}">
+                        <i class="fa-solid ${u.isActive !== false ? 'fa-circle-check text-success' : 'fa-ban text-danger'} me-1"></i>${u.isActive !== false ? 'نشط' : 'معطل'}
+                    </button>
                     ${teacherIdForRole ? `
                         <button class="btn btn-outline-success btn-sm btn-manage-roles-user shadow-xs" data-tid="${teacherIdForRole}" title="تعديل وتحديد الصلاحيات والمهام الإدارية"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
                     ` : ''}
@@ -9302,6 +9312,20 @@ function renderUsersTableRows(usersList) {
     });
     
     // Bind Actions
+    tbody.querySelectorAll(".btn-toggle-user-status").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            const userId = e.target.closest("button").dataset.id;
+            try {
+                const res = await apiRequest(`/users/${userId}/toggle-status`, "PATCH");
+                const u = cachedUsers.find(x => x.id == userId);
+                if (u && res) u.isActive = res.isActive;
+                showAlert(res?.message || "تم تغيير حالة الحساب بنجاح.", "success");
+                renderUsersTableRows(cachedUsers);
+            } catch(err) {
+                console.error(err);
+            }
+        });
+    });
     tbody.querySelectorAll(".btn-manage-roles-user").forEach(btn => {
         btn.addEventListener("click", async (e) => {
             const tid = e.target.closest("button").dataset.tid;
@@ -9497,6 +9521,17 @@ function showEditUserModal(user) {
                     <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> بصفتك المطور، يمكنك معرفة كلمة مرور المستخدم وتعديلها مباشرة.</small>
                 </div>
 
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <div class="form-check form-switch d-flex align-items-center gap-3">
+                            <input class="form-check-input" type="checkbox" id="edit-user-active" ${user.isActive !== false ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
+                            <label class="form-check-label fw-bold text-dark mb-0" for="edit-user-active" style="cursor: pointer;">
+                                حالة الحساب: نشط ومفعّل بالمنظومة (يسمح له بالدخول والعمل)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 ${(user.role === 'Teacher' || user.teacherId) ? `
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <div class="p-3 rounded-3 border bg-light shadow-xs">
@@ -9542,13 +9577,15 @@ function showEditUserModal(user) {
         const role = document.getElementById("edit-user-role").value;
         const password = document.getElementById("edit-user-password").value;
         const teacherVal = document.getElementById("edit-user-teacher").value;
+        const activeVal = document.getElementById("edit-user-active") ? document.getElementById("edit-user-active").checked : true;
         
         const dto = {
             username: username,
             fullName: fullName,
             role: role,
             password: password ? password.trim() : null,
-            teacherId: teacherVal ? parseInt(teacherVal) : null
+            teacherId: teacherVal ? parseInt(teacherVal) : null,
+            isActive: activeVal
         };
         
         try {
@@ -9569,6 +9606,7 @@ function showEditUserModal(user) {
                 targetUser.fullName = fullName;
                 targetUser.username = username;
                 targetUser.role = role;
+                targetUser.isActive = activeVal;
                 if (password && password.trim() !== "") {
                     targetUser.plainPassword = password.trim();
                     targetUser.PlainPassword = password.trim();
