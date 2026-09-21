@@ -77,6 +77,49 @@ public class AuthController : ControllerBase
             }
         }
 
+        // Fallback: If not found by Username, try finding by Student IdentityNumber or FullName
+        if (user == null)
+        {
+            try
+            {
+                var matchedStudent = await _db.Students.FirstOrDefaultAsync(s =>
+                    (!string.IsNullOrEmpty(s.StudentIdentityNumber) && s.StudentIdentityNumber.Trim().ToLower() == uLower) ||
+                    (!string.IsNullOrEmpty(s.FullName) && s.FullName.Trim().ToLower() == uLower));
+
+                if (matchedStudent != null)
+                {
+                    user = await _db.Users
+                        .Include(u => u.Teacher)
+                        .Include(u => u.Student)
+                        .FirstOrDefaultAsync(u => u.StudentId == matchedStudent.Id || (u.Username != null && u.Username.Trim().ToLower() == uLower));
+                }
+            }
+            catch { }
+        }
+
+        // Fallback: If not found by Username, try finding by Parent IdentityNumber or Contact
+        if (user == null)
+        {
+            try
+            {
+                var matchedChild = await _db.Students.FirstOrDefaultAsync(s =>
+                    (!string.IsNullOrEmpty(s.ParentIdentityNumber) && s.ParentIdentityNumber.Trim().ToLower() == uLower) ||
+                    (!string.IsNullOrEmpty(s.FamilyContact) && s.FamilyContact.Trim().ToLower() == uLower));
+
+                if (matchedChild != null)
+                {
+                    var pId = matchedChild.ParentId;
+                    var pIdNum = matchedChild.ParentIdentityNumber?.Trim().ToLower();
+                    user = await _db.Users
+                        .Include(u => u.Teacher)
+                        .Include(u => u.Student)
+                        .FirstOrDefaultAsync(u => (pId.HasValue && (u.Id == pId.Value || u.ParentId == pId.Value)) ||
+                                                  (!string.IsNullOrEmpty(pIdNum) && u.Username.ToLower() == pIdNum));
+                }
+            }
+            catch { }
+        }
+
         if (user == null)
         {
             if (uLower == "admin" && dto.Password == "admin123")
@@ -152,20 +195,34 @@ public class AuthController : ControllerBase
         if (!isPasswordValid)
             return BadRequest(new { error = "كلمة المرور غير صحيحة." });
 
-        // Auto-heal teacher linking and permissions
-        if (!user.TeacherId.HasValue || user.Teacher == null)
+        // Auto-heal teacher linking and permissions (ONLY FOR TEACHERS)
+        if (user.Role == UserRole.Teacher || user.TeacherId.HasValue)
         {
-            var t = await _db.Teachers.FirstOrDefaultAsync(x =>
-                (!string.IsNullOrEmpty(x.IdentityNumber) && x.IdentityNumber.Trim() == user.Username.Trim()) ||
-                (!string.IsNullOrEmpty(x.Contact) && x.Contact.Trim() == user.Username.Trim()) ||
-                (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().Equals(user.FullName.Trim(), StringComparison.OrdinalIgnoreCase)) ||
-                (user.TeacherId.HasValue && x.Id == user.TeacherId.Value));
-
-            if (t != null)
+            try
             {
-                user.TeacherId = t.Id;
-                user.Teacher = t;
-                await _db.SaveChangesAsync();
+                if (!user.TeacherId.HasValue || user.Teacher == null)
+                {
+                    var uNameTrim = (user.Username ?? "").Trim();
+                    var uFullNameTrim = (user.FullName ?? "").Trim().ToLower();
+
+                    var t = await _db.Teachers.FirstOrDefaultAsync(x =>
+                        (!string.IsNullOrEmpty(x.IdentityNumber) && x.IdentityNumber.Trim() == uNameTrim) ||
+                        (!string.IsNullOrEmpty(x.Contact) && x.Contact.Trim() == uNameTrim) ||
+                        (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().ToLower() == uFullNameTrim) ||
+                        (user.TeacherId.HasValue && x.Id == user.TeacherId.Value));
+
+                    if (t != null)
+                    {
+                        user.TeacherId = t.Id;
+                        user.Teacher = t;
+                        user.Role = UserRole.Teacher;
+                        await _db.SaveChangesAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Auth] Teacher link notice: {ex.Message}");
             }
         }
 
@@ -181,13 +238,17 @@ public class AuthController : ControllerBase
         string? qualification = null;
         if (teacherId.HasValue && teacherId.Value > 0)
         {
-            var t = user.Teacher ?? await _db.Teachers.FindAsync(teacherId.Value);
-            if (t != null)
+            try
             {
-                taskRole = t.TaskRole;
-                mosqueName = t.MosqueName;
-                qualification = t.Qualification;
+                var t = user.Teacher ?? await _db.Teachers.FindAsync(teacherId.Value);
+                if (t != null)
+                {
+                    taskRole = t.TaskRole;
+                    mosqueName = t.MosqueName;
+                    qualification = t.Qualification;
+                }
             }
+            catch { }
         }
 
         // Detect dual role: Teacher or User who also has children in the center
@@ -195,21 +256,24 @@ public class AuthController : ControllerBase
         int childrenCount = 0;
         int? resolvedParentId = null;
 
-        try
+        if (user.Role != UserRole.Student)
         {
-            var children = await _reportSvc.GetSmartChildrenForParentAsync(user);
-            if (children != null && children.Count > 0)
+            try
             {
-                hasChildren = true;
-                childrenCount = children.Count;
-                resolvedParentId = user.ParentId ?? user.Id;
+                var children = await _reportSvc.GetSmartChildrenForParentAsync(user);
+                if (children != null && children.Count > 0)
+                {
+                    hasChildren = true;
+                    childrenCount = children.Count;
+                    resolvedParentId = user.ParentId ?? user.Id;
+                }
+                else if (user.Role == UserRole.Parent)
+                {
+                    resolvedParentId = user.ParentId ?? user.Id;
+                }
             }
-            else if (user.Role == UserRole.Parent)
-            {
-                resolvedParentId = user.ParentId ?? user.Id;
-            }
+            catch { }
         }
-        catch { }
 
         bool isTeacher = user.Role == UserRole.Teacher || (user.TeacherId.HasValue && user.TeacherId.Value > 0);
         bool isParent = user.Role == UserRole.Parent || hasChildren || (user.ParentId.HasValue && user.ParentId.Value > 0);
@@ -224,10 +288,9 @@ public class AuthController : ControllerBase
         }
         else
         {
-            if (isTeacher) availableRoles.Add("Teacher");
-            if (isParent) availableRoles.Add("Parent");
-            if (user.Role == UserRole.Student) availableRoles.Add("Student");
-            if (user.Role == UserRole.ExamSupervisor) availableRoles.Add("ExamSupervisor");
+            availableRoles.Add(user.Role.ToString());
+            if (isTeacher && user.Role != UserRole.Teacher) availableRoles.Add("Teacher");
+            if (isParent && user.Role != UserRole.Parent) availableRoles.Add("Parent");
         }
         if (availableRoles.Count == 0) availableRoles.Add(user.Role.ToString());
 
