@@ -326,10 +326,18 @@ function setupAuth() {
                 .catch(() => {});
         }
 
+        const bellContainer = document.getElementById("notification-bell-container");
         if (currentRole === "Admin" || currentRole === "Developer") {
+            if (bellContainer) bellContainer.style.display = "flex";
             updateNotificationBadgeAndBanner();
             if (!window.notifIntervalId) {
                 window.notifIntervalId = setInterval(updateNotificationBadgeAndBanner, 15000);
+            }
+        } else {
+            if (bellContainer) bellContainer.style.display = "none";
+            if (window.notifIntervalId) {
+                clearInterval(window.notifIntervalId);
+                window.notifIntervalId = null;
             }
         }
     } else {
@@ -631,6 +639,12 @@ function getRoleArabicName(role) {
 }
 
 function updateSidebarMenu() {
+    // Strictly gate notification bell to Admin and Developer only
+    const bellContainer = document.getElementById("notification-bell-container");
+    if (bellContainer) {
+        bellContainer.style.display = (currentRole === "Admin" || currentRole === "Developer") ? "flex" : "none";
+    }
+
     // Hide all navigation groups safely
     ['.admin-links', '.developer-links', '.teacher-links', '.parent-links', '.student-links', '.shared-links'].forEach(cls => {
         const el = document.querySelector(cls);

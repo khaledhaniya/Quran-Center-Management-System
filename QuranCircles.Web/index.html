@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260922_v9_responsive_student_modal_and_alert_layout">
+    <link rel="stylesheet" href="styles.css?v=20260922_v10_fixed_header_clean_profile">
 </head>
 <body>
     <!-- App Container -->
@@ -45,9 +45,9 @@
                 </div>
             </div>
             
-            <!-- User Profile, Notifications & Logout -->
+            <!-- User Profile & Notifications -->
             <div class="user-profile-section" id="user-profile-area">
-                <!-- Notification Bell for Admin & Developer -->
+                <!-- Notification Bell for Admin & Developer Only -->
                 <div id="notification-bell-container" style="display: none; position: relative;">
                     <button id="btn-notifications-bell" class="btn btn-outline-warning text-warning position-relative rounded-circle shadow-sm" title="الإشعارات وطلبات التعديل">
                         <i class="fa-solid fa-bell fs-5"></i>
@@ -58,8 +58,6 @@
                     <span class="user-name" id="profile-display-name">-</span>
                     <span class="user-role-badge" id="profile-display-role">-</span>
                 </div>
-                <button id="btn-change-password" class="btn btn-outline-secondary btn-sm" title="تغيير كلمة المرور"><i class="fa-solid fa-key"></i> <span class="logout-text d-none d-md-inline">كلمة المرور</span></button>
-                <button id="btn-logout" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-right-from-bracket"></i> <span class="logout-text">تسجيل خروج</span></button>
             </div>
         </header>
 

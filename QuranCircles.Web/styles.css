@@ -409,64 +409,50 @@ button, input, select, textarea {
     }
 
     .user-profile-section {
-        gap: 6px !important;
+        gap: 8px !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
         height: 100% !important;
-        flex-shrink: 0 !important;
+        flex-shrink: 1 !important;
+        min-width: 0 !important;
         display: flex !important;
     }
     .user-info {
         display: flex !important;
         flex-direction: column !important;
         justify-content: center !important;
-        margin-left: 2px !important;
-        margin-right: 2px !important;
-        max-width: 75px !important;
+        align-items: flex-end !important;
+        margin: 0 !important;
+        max-width: 210px !important;
         flex-shrink: 1 !important;
+        min-width: 0 !important;
         overflow: hidden !important;
     }
     .user-name {
-        font-size: 0.72rem !important;
+        font-size: 0.88rem !important;
         font-weight: 800 !important;
-        max-width: 75px !important;
+        max-width: 210px !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
         color: #ffffff !important;
         display: block !important;
+        line-height: 1.25 !important;
     }
     .user-role-badge {
-        font-size: 0.60rem !important;
-        padding: 1px 4px !important;
+        font-size: 0.70rem !important;
+        padding: 2px 7px !important;
         margin-top: 1px !important;
-        max-width: 75px !important;
+        max-width: 210px !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
         display: inline-block !important;
     }
-
-    /* Hide text on narrow screens so logout icon fits 100% inside left margin */
-    .logout-text {
-        display: none !important;
-    }
-    #btn-logout {
+    #btn-notifications-bell {
         width: 36px !important;
         height: 36px !important;
         min-width: 36px !important;
-        min-height: 36px !important;
-        padding: 0 !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border-radius: 50% !important;
-        margin-left: 2px !important;
-        font-size: 1rem !important;
-        flex-shrink: 0 !important;
-        background: rgba(220, 53, 69, 0.2) !important;
-        border: 1.5px solid #ff4d4d !important;
-        color: #ffffff !important;
     }
 }
 
@@ -485,17 +471,32 @@ button, input, select, textarea {
         max-width: none !important;
     }
     .user-name {
-        font-size: 0.70rem !important;
-        max-width: 65px !important;
+        font-size: 0.84rem !important;
+        max-width: 160px !important;
+    }
+    .user-role-badge {
+        font-size: 0.68rem !important;
+        max-width: 160px !important;
     }
     .user-info {
-        max-width: 65px !important;
+        max-width: 160px !important;
     }
 }
 
 @media (max-width: 380px) {
     .header-calendar-widget {
         display: none !important; /* On ultra-narrow screens under 380px, prioritize Center Name and User Profile */
+    }
+    .user-name {
+        font-size: 0.80rem !important;
+        max-width: 135px !important;
+    }
+    .user-role-badge {
+        font-size: 0.65rem !important;
+        max-width: 135px !important;
+    }
+    .user-info {
+        max-width: 135px !important;
     }
 }
 
@@ -3114,40 +3115,78 @@ select[size] option:checked {
 }
 
 /* User Info Profile Styling */
+.user-profile-section {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 100%;
+}
+
 .user-info {
     text-align: right;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin-left: 10px;
-    margin-right: 6px;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 0;
 }
 
 .user-name {
     font-weight: 800;
     color: #ffffff;
     display: block;
-    line-height: 1.15;
-    font-size: 0.88rem;
+    line-height: 1.25;
+    font-size: 0.98rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 170px;
+    max-width: 280px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .user-role-badge {
-    font-size: 0.72rem;
-    color: #cda250;
+    font-size: 0.76rem;
+    color: #fef08a;
     font-weight: 700;
     display: inline-block;
     white-space: nowrap;
-    margin-top: 2px;
-    background: rgba(205, 162, 80, 0.15);
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid rgba(205, 162, 80, 0.35);
+    background: rgba(254, 240, 138, 0.16);
+    padding: 2px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(254, 240, 138, 0.4);
     width: fit-content;
     align-self: flex-end;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+#btn-notifications-bell {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fef08a !important;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+#btn-notifications-bell:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+#notif-badge-count {
+    font-size: 0.68rem;
+    padding: 3px 6px;
+    border: 2px solid var(--primary-color, #0d5c3a);
+    font-weight: 800;
 }
 
 /* Child Quick Stats Grid for Parent Dashboard */
