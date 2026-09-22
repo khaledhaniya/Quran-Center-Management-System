@@ -6719,6 +6719,15 @@ async function showStudentModal(studentId = null) {
         } catch(e) {}
     }
 
+    // Resolve active student username from user accounts if available
+    let resolvedStudentUsername = s ? (s.username || s.studentIdentityNumber || '') : '';
+    if (studentId && Array.isArray(cachedUsers)) {
+        const u = cachedUsers.find(x => x.studentId == studentId || (s && x.username && x.username.toLowerCase() === (s.studentIdentityNumber || '').toLowerCase()));
+        if (u && u.username) {
+            resolvedStudentUsername = u.username;
+        }
+    }
+
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <!-- In-modal alerts container -->
@@ -7005,7 +7014,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-username" class="form-label-custom">اسم المستخدم للطالب (Username) <span class="text-danger">*</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-id-card input-icon text-primary"></i>
-                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="أدخل اسم المستخدم أو رقم الهوية..." value="${escapeXml(s ? (s.username || s.studentIdentityNumber || ('st_' + studentId)) : '')}">
+                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="أدخل اسم المستخدم أو رقم الهوية..." value="${escapeXml(resolvedStudentUsername || (s ? (s.username || s.studentIdentityNumber) : '') || ('st_' + (studentId || '')))}">
                                 </div>
                                 <small class="form-text text-muted"><i class="fa-solid fa-user-pen me-1 text-primary"></i> تستطيع كتابة وتعديل اسم المستخدم بنفسك يدوياً كما تشاء.</small>
                             </div>
@@ -7302,6 +7311,7 @@ async function showStudentModal(studentId = null) {
 
                 // Refresh cached data immediately
                 try { cachedStudents = await apiRequest("/students", "GET", null, 0, true); } catch(err) {}
+                try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(err) { cachedUsers = []; }
                 if (typeof loadAdminStudents === "function") loadAdminStudents();
                 if (typeof loadAdminCircles === "function") loadAdminCircles();
                 
@@ -9755,11 +9765,17 @@ function showEditUserModal(user) {
             role: role,
             password: password ? password.trim() : null,
             teacherId: teacherVal ? parseInt(teacherVal) : null,
+            studentId: user.studentId ? parseInt(user.studentId) : null,
+            parentId: user.parentId ? parseInt(user.parentId) : null,
             isActive: activeVal
         };
         
         try {
             const res = await apiRequest(`/users/${user.id}`, "PUT", dto);
+            
+            // Invalidate student and teacher caches so opened forms or screens fetch live synchronized data
+            cachedStudents = [];
+            cachedTeachers = [];
             
             // Persist the edited password in localStorage as immediate guaranteed truth!
             if (password && password.trim() !== "") {

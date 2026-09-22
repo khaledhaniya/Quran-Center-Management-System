@@ -137,12 +137,46 @@ public class UsersController : ControllerBase
         if (!Enum.TryParse<UserRole>(dto.Role, out var roleVal))
             return BadRequest(new { error = "نوع الحساب غير صالح." });
 
+        int? teacherId = dto.TeacherId;
+        int? studentId = dto.StudentId;
+        int? parentId = dto.ParentId;
+
+        // Auto-heal Student linking if creating a Student user
+        if (roleVal == UserRole.Student && !studentId.HasValue)
+        {
+            var matchedS = await _db.Students.FirstOrDefaultAsync(s =>
+                (!string.IsNullOrWhiteSpace(s.StudentIdentityNumber) && s.StudentIdentityNumber.Trim() == dto.Username.Trim()) ||
+                s.FullName.Trim().ToLower() == dto.FullName.Trim().ToLower());
+            if (matchedS != null)
+            {
+                studentId = matchedS.Id;
+                matchedS.FullName = dto.FullName.Trim();
+                if (string.IsNullOrWhiteSpace(matchedS.StudentIdentityNumber))
+                    matchedS.StudentIdentityNumber = dto.Username.Trim();
+            }
+        }
+        else if (roleVal == UserRole.Teacher && !teacherId.HasValue)
+        {
+            var matchedT = await _db.Teachers.FirstOrDefaultAsync(t =>
+                (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == dto.Username.Trim()) ||
+                t.FullName.Trim().ToLower() == dto.FullName.Trim().ToLower());
+            if (matchedT != null)
+            {
+                teacherId = matchedT.Id;
+                matchedT.FullName = dto.FullName.Trim();
+                if (string.IsNullOrWhiteSpace(matchedT.IdentityNumber))
+                    matchedT.IdentityNumber = dto.Username.Trim();
+            }
+        }
+
         var user = new User
         {
             Username = dto.Username.Trim(),
             FullName = dto.FullName.Trim(),
             Role = roleVal,
-            TeacherId = dto.TeacherId,
+            TeacherId = teacherId,
+            StudentId = studentId,
+            ParentId = parentId,
             IsActive = true,
             PasswordHash = _hasher.HashPassword(dto.Password.Trim()),
             PlainPassword = dto.Password.Trim()
@@ -159,6 +193,8 @@ public class UsersController : ControllerBase
             user.FullName,
             Role = user.Role.ToString(),
             user.TeacherId,
+            user.StudentId,
+            user.ParentId,
             user.IsActive,
             user.PlainPassword
         });
@@ -177,9 +213,14 @@ public class UsersController : ControllerBase
         var taken = await _db.Users.AnyAsync(u => u.Id != id && u.Username.ToLower() == dto.Username.ToLower().Trim());
         if (taken) return BadRequest(new { error = "اسم المستخدم محجوز بالفعل." });
 
+        string oldUsername = user.Username;
+        string oldFullName = user.FullName;
+
         user.Username = dto.Username.Trim();
         user.FullName = dto.FullName.Trim();
-        user.TeacherId = dto.TeacherId;
+        if (dto.TeacherId.HasValue) user.TeacherId = dto.TeacherId.Value > 0 ? dto.TeacherId.Value : null;
+        if (dto.StudentId.HasValue) user.StudentId = dto.StudentId.Value > 0 ? dto.StudentId.Value : null;
+        if (dto.ParentId.HasValue) user.ParentId = dto.ParentId.Value > 0 ? dto.ParentId.Value : null;
         
         if (Enum.TryParse<UserRole>(dto.Role, out var roleVal))
         {
@@ -197,15 +238,88 @@ public class UsersController : ControllerBase
             user.PlainPassword = dto.Password.Trim();
         }
 
+        // --- Synchronize with Student Record ---
+        Student? student = null;
+        if (user.StudentId.HasValue)
+        {
+            student = await _db.Students.FindAsync(user.StudentId.Value);
+        }
+        if (student == null && (user.Role == UserRole.Student || roleVal == UserRole.Student))
+        {
+            student = await _db.Students.FirstOrDefaultAsync(s =>
+                (!string.IsNullOrWhiteSpace(s.StudentIdentityNumber) && (s.StudentIdentityNumber.Trim() == oldUsername || s.StudentIdentityNumber.Trim() == user.Username)) ||
+                s.FullName.Trim().ToLower() == oldFullName.ToLower() ||
+                s.FullName.Trim().ToLower() == user.FullName.ToLower());
+            if (student != null)
+            {
+                user.StudentId = student.Id;
+            }
+        }
+        if (student != null)
+        {
+            student.FullName = user.FullName;
+            if (dto.IsActive.HasValue) student.IsActive = dto.IsActive.Value;
+            // Keep StudentIdentityNumber in sync if it was the same as old username, or empty
+            if (string.IsNullOrWhiteSpace(student.StudentIdentityNumber) || student.StudentIdentityNumber.Trim() == oldUsername)
+            {
+                student.StudentIdentityNumber = user.Username;
+            }
+        }
+
+        // --- Synchronize with Teacher Record ---
+        Teacher? teacher = null;
+        if (user.TeacherId.HasValue)
+        {
+            teacher = await _db.Teachers.FindAsync(user.TeacherId.Value);
+        }
+        if (teacher == null && (user.Role == UserRole.Teacher || roleVal == UserRole.Teacher))
+        {
+            teacher = await _db.Teachers.FirstOrDefaultAsync(t =>
+                (!string.IsNullOrWhiteSpace(t.IdentityNumber) && (t.IdentityNumber.Trim() == oldUsername || t.IdentityNumber.Trim() == user.Username)) ||
+                t.FullName.Trim().ToLower() == oldFullName.ToLower() ||
+                t.FullName.Trim().ToLower() == user.FullName.ToLower());
+            if (teacher != null)
+            {
+                user.TeacherId = teacher.Id;
+            }
+        }
+        if (teacher != null)
+        {
+            teacher.FullName = user.FullName;
+            if (dto.IsActive.HasValue) teacher.IsActive = dto.IsActive.Value;
+            if (string.IsNullOrWhiteSpace(teacher.IdentityNumber) || teacher.IdentityNumber.Trim() == oldUsername)
+            {
+                teacher.IdentityNumber = user.Username;
+            }
+        }
+
+        // --- Synchronize with Parent Record ---
+        if (user.Role == UserRole.Parent || user.ParentId.HasValue)
+        {
+            var pId = user.ParentId ?? user.Id;
+            var linkedChildren = await _db.Students.Where(s => s.ParentId == pId).ToListAsync();
+            foreach (var ch in linkedChildren)
+            {
+                if (string.IsNullOrWhiteSpace(ch.ParentIdentityNumber) || ch.ParentIdentityNumber.Trim() == oldUsername)
+                {
+                    ch.ParentIdentityNumber = user.Username;
+                }
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateUser", $"تعديل حساب المستخدم: {user.Username} ({user.FullName}) - الصفة: {user.Role} - الحالة: {(user.IsActive ? "نشط" : "معطل")}");
 
         return Ok(new { 
-            message = "تم تحديث الحساب وكلمة المرور بنجاح.",
+            message = "تم تحديث الحساب وكلمة المرور ومزامنة البيانات بنجاح.",
             user.Id,
             user.Username,
             user.FullName,
+            user.Role,
+            user.TeacherId,
+            user.StudentId,
+            user.ParentId,
             user.IsActive,
             user.PlainPassword
         });
@@ -301,7 +415,9 @@ public record CreateUserDto(
     string FullName,
     string Role,
     string Password,
-    int? TeacherId = null
+    int? TeacherId = null,
+    int? StudentId = null,
+    int? ParentId = null
 );
 
 public record UpdateUserDto(
@@ -310,5 +426,7 @@ public record UpdateUserDto(
     string Role,
     string? Password = null,
     int? TeacherId = null,
+    int? StudentId = null,
+    int? ParentId = null,
     bool? IsActive = null
 );

@@ -238,6 +238,52 @@ public class AuthController : ControllerBase
             }
         }
 
+        // Auto-heal student linking and synchronization (FOR STUDENTS)
+        if (user.Role == UserRole.Student || user.StudentId.HasValue)
+        {
+            try
+            {
+                if (!user.StudentId.HasValue || user.Student == null)
+                {
+                    var uNameTrim = (user.Username ?? "").Trim().ToLower();
+                    var uFullNameTrim = (user.FullName ?? "").Trim().ToLower();
+
+                    var st = await _db.Students.FirstOrDefaultAsync(x =>
+                        (user.StudentId.HasValue && x.Id == user.StudentId.Value) ||
+                        (!string.IsNullOrEmpty(x.StudentIdentityNumber) && x.StudentIdentityNumber.Trim().ToLower() == uNameTrim) ||
+                        (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().ToLower() == uFullNameTrim));
+
+                    if (st != null)
+                    {
+                        user.StudentId = st.Id;
+                        user.Student = st;
+                        user.Role = UserRole.Student;
+                        if (st.FullName != user.FullName && !string.IsNullOrWhiteSpace(user.FullName))
+                        {
+                            st.FullName = user.FullName;
+                        }
+                        if (string.IsNullOrWhiteSpace(st.StudentIdentityNumber))
+                        {
+                            st.StudentIdentityNumber = user.Username;
+                        }
+                        await _db.SaveChangesAsync();
+                    }
+                }
+                else
+                {
+                    if (user.Student.FullName != user.FullName && !string.IsNullOrWhiteSpace(user.FullName))
+                    {
+                        user.Student.FullName = user.FullName;
+                        await _db.SaveChangesAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Auth] Student link notice: {ex.Message}");
+            }
+        }
+
         var token = _tokenSvc.GenerateToken(user);
         
         // Find reference ID based on role
