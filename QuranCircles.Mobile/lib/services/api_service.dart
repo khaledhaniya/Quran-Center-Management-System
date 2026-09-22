@@ -6,7 +6,7 @@ import 'notification_service.dart';
 import 'offline_sync_manager.dart';
 
 class ApiService {
-  static String baseUrl = 'http://localhost:5070/api';
+  static String baseUrl = 'https://albayan-ali-center.tryasp.net/api';
   static User? currentUser;
   static String? authToken;
 
@@ -30,17 +30,6 @@ class ApiService {
     _cachedTeachers = null;
     _cachedCircles = null;
     _cacheTime = null;
-  }
-
-  static void setBaseUrl(String url) {
-    if (url.endsWith('/')) {
-      url = url.substring(0, url.length - 1);
-    }
-    if (!url.endsWith('/api')) {
-      baseUrl = '$url/api';
-    } else {
-      baseUrl = url;
-    }
   }
 
   static Map<String, String> _headers({String? code2FA}) {
