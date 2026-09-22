@@ -206,23 +206,10 @@ public class StudentService
             }
         }
 
-        if (stUser != null)
+        if (stUser != null && !stUser.StudentId.HasValue)
         {
-            bool modified = false;
-            if (s.FullName != stUser.FullName && !string.IsNullOrWhiteSpace(stUser.FullName))
-            {
-                s.FullName = stUser.FullName;
-                modified = true;
-            }
-            if (string.IsNullOrWhiteSpace(s.StudentIdentityNumber) || s.StudentIdentityNumber != stUser.Username)
-            {
-                s.StudentIdentityNumber = stUser.Username;
-                modified = true;
-            }
-            if (modified)
-            {
-                try { await _db.SaveChangesAsync(); } catch { }
-            }
+            stUser.StudentId = s.Id;
+            try { await _db.SaveChangesAsync(); } catch { }
         }
 
         string? username = stUser?.Username ?? s.StudentIdentityNumber;
@@ -593,11 +580,6 @@ public class StudentService
             {
                 studentUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
                 studentUser.PlainPassword = dto.Password.Trim();
-            }
-
-            if (string.IsNullOrWhiteSpace(s.StudentIdentityNumber) || customUsername != null)
-            {
-                s.StudentIdentityNumber = studentUser.Username;
             }
         }
         else if (customUsername != null || !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))

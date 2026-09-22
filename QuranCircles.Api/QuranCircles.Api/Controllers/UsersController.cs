@@ -259,8 +259,8 @@ public class UsersController : ControllerBase
         {
             student.FullName = user.FullName;
             if (dto.IsActive.HasValue) student.IsActive = dto.IsActive.Value;
-            // Keep StudentIdentityNumber in sync if it was the same as old username, or empty
-            if (string.IsNullOrWhiteSpace(student.StudentIdentityNumber) || student.StudentIdentityNumber.Trim() == oldUsername)
+            // Only set StudentIdentityNumber if completely empty
+            if (string.IsNullOrWhiteSpace(student.StudentIdentityNumber))
             {
                 student.StudentIdentityNumber = user.Username;
             }

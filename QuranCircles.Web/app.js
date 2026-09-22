@@ -654,7 +654,7 @@ function updateSidebarMenu() {
         if (teacherEl) teacherEl.classList.remove("hidden");
 
         const taskRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = taskRole === "بدون تكليف" || taskRole === "غير مكلف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "-" || taskRole === "";
+        const isNoTask = !taskRole || taskRole === "بدون تكليف" || taskRole === "غير مكلف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "لا يوجد" || taskRole === "لا يوجد تكليف" || taskRole === "-" || taskRole === "";
         const hasCircle = !isNoTask && (taskRole.includes("حلقة") || taskRole.includes("مساعد"));
         
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
@@ -672,8 +672,12 @@ function updateSidebarMenu() {
         const taskMemorization = document.querySelectorAll(".teacher-task-memorization");
         taskMemorization.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("التحفيظ") || taskRole.includes("منتدى الحفاظ"))));
 
+        // Courses and Exams: visible for all teachers who are active/assigned (!isNoTask)
         const taskCourses = document.querySelectorAll(".teacher-task-courses");
-        taskCourses.forEach(el => el.classList.toggle("hidden", !taskRole.includes("الدورات")));
+        taskCourses.forEach(el => el.classList.toggle("hidden", isNoTask));
+
+        const taskExams = document.querySelectorAll(".teacher-task-exams");
+        taskExams.forEach(el => el.classList.toggle("hidden", isNoTask));
 
         const taskPreacher = document.querySelectorAll(".teacher-task-preacher");
         taskPreacher.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية"))));
@@ -690,16 +694,7 @@ function updateSidebarMenu() {
             }
         }
 
-        const hasAnyTask = hasCircle || 
-            taskRole.includes("الملف المالي") || 
-            taskRole.includes("الجودة") || 
-            taskRole.includes("التحفيظ") || 
-            taskRole.includes("الدورات") || 
-            taskRole.includes("الفتى الواعظ") || 
-            taskRole.includes("الأصوات الندية") || 
-            taskRole.includes("اختبار");
-        
-        // Handle shared links: keep announcements visible as requested, hide other tools for teachers without tasks
+        // Handle shared links: keep announcements visible; competitions, courses, exams visible whenever not isNoTask
         if (sharedEl) {
             sharedEl.classList.remove("hidden");
             const btnAnn = document.getElementById("btn-announcements");
@@ -707,13 +702,12 @@ function updateSidebarMenu() {
             const btnCourses = document.getElementById("btn-courses");
             const btnExams = document.getElementById("btn-exams");
 
-            if (isNoTask || !hasAnyTask) {
-                if (btnAnn) btnAnn.classList.remove("hidden");
+            if (btnAnn) btnAnn.classList.remove("hidden");
+            if (isNoTask) {
                 if (btnComp) btnComp.classList.add("hidden");
                 if (btnCourses) btnCourses.classList.add("hidden");
                 if (btnExams) btnExams.classList.add("hidden");
             } else {
-                if (btnAnn) btnAnn.classList.remove("hidden");
                 if (btnComp) btnComp.classList.remove("hidden");
                 if (btnCourses) btnCourses.classList.remove("hidden");
                 if (btnExams) btnExams.classList.remove("hidden");
@@ -721,7 +715,7 @@ function updateSidebarMenu() {
         }
 
         let noTaskNotice = document.getElementById("teacher-no-task-notice");
-        if (!hasAnyTask || isNoTask) {
+        if (isNoTask) {
             if (!noTaskNotice && teacherEl) {
                 noTaskNotice = document.createElement("div");
                 noTaskNotice.id = "teacher-no-task-notice";
