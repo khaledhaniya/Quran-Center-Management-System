@@ -1259,46 +1259,107 @@
 
                 <!-- SECTION: Developer Users -->
                 <section id="developer-users-section" class="content-section hidden">
-                    <div class="dashboard-header-card shadow-sm mb-4">
+                    <!-- Hero Header -->
+                    <div class="dev-hero-header">
                         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                             <div class="header-titles">
-                                <span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-3 py-2 rounded-pill mb-2 d-inline-flex align-items-center gap-2">
+                                <span class="badge bg-warning bg-opacity-20 text-warning border border-warning rounded-pill px-3 py-1 mb-2 d-inline-flex align-items-center gap-2">
                                     <i class="fa-solid fa-user-shield"></i> صلاحيات مطور النظام المتقدمة
                                 </span>
-                                <h2 class="dashboard-main-title mb-1 d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-users-gear text-primary"></i> إدارة حسابات النظام وكلمات المرور والصلاحيات
+                                <h2 class="mb-1 text-white fw-bold d-flex align-items-center gap-2" style="font-size: 1.5rem;">
+                                    <i class="fa-solid fa-users-gear text-warning"></i> إدارة حسابات النظام وكلمات المرور والصلاحيات
                                 </h2>
-                                <p class="text-muted small mb-0">لوحة تحكم خاصة بالمطور للاطلاع على كلمات المرور، تعديل وتوليد الحسابات، وإدارة الصلاحيات الشاملة لكافة الفئات.</p>
+                                <p class="text-white-50 small mb-0">لوحة تحكم خاصة بالمطور للاطلاع على كلمات المرور، تعديل وتوليد الحسابات، وإدارة الصلاحيات الشاملة لكافة الفئات.</p>
                             </div>
                             <div class="action-buttons-group flex-shrink-0">
-                                <button class="btn btn-primary shadow-sm px-3 py-2 rounded-3 fw-bold" onclick="showCreateUserModal()">
-                                    <i class="fa-solid fa-plus me-1"></i> إنشاء مستخدم جديد
+                                <button class="btn btn-warning text-dark shadow-sm px-3 py-2 rounded-3 fw-bold d-inline-flex align-items-center gap-2" onclick="showCreateUserModal()">
+                                    <i class="fa-solid fa-plus"></i> إنشاء مستخدم جديد
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Search bar -->
-                    <div class="requests-toolbar-card shadow-sm">
-                        <div class="requests-search-box w-100">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="users-search-input" class="requests-search-input" placeholder="ابحث باسم الحساب، رقم الهوية، أو اسم المستخدم (Username)..." oninput="filterUsersTable(this.value)">
+                    <!-- Stats Cards -->
+                    <div class="dev-stats-grid">
+                        <div class="dev-stat-card">
+                            <div class="dev-stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <div class="dev-stat-val" id="dev-stat-total">0</div>
+                                <div class="dev-stat-label">إجمالي الحسابات</div>
+                            </div>
+                        </div>
+                        <div class="dev-stat-card">
+                            <div class="dev-stat-icon bg-success bg-opacity-10 text-success">
+                                <i class="fa-solid fa-chalkboard-user"></i>
+                            </div>
+                            <div>
+                                <div class="dev-stat-val" id="dev-stat-staff">0</div>
+                                <div class="dev-stat-label">المعلمون والمشرفون</div>
+                            </div>
+                        </div>
+                        <div class="dev-stat-card">
+                            <div class="dev-stat-icon bg-info bg-opacity-10 text-info">
+                                <i class="fa-solid fa-user-graduate"></i>
+                            </div>
+                            <div>
+                                <div class="dev-stat-val" id="dev-stat-students">0</div>
+                                <div class="dev-stat-label">الطلاب وأولياء الأمور</div>
+                            </div>
+                        </div>
+                        <div class="dev-stat-card">
+                            <div class="dev-stat-icon bg-success bg-opacity-10 text-success">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div>
+                                <div class="dev-stat-val" id="dev-stat-active">0</div>
+                                <div class="dev-stat-label">الحسابات النشطة</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card shadow-sm">
+                    <!-- Toolbar / Filters -->
+                    <div class="dev-toolbar">
+                        <div class="dev-search-input-wrap">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="users-search-input" class="dev-search-input" placeholder="ابحث بالاسم، اسم المستخدم، رقم الهوية أو رقم الحساب..." oninput="applyUsersFilters()">
+                        </div>
+                        <div class="dev-filters-group">
+                            <select id="users-role-filter" class="dev-select-filter" onchange="applyUsersFilters()">
+                                <option value="all">كل الأدوار والصلاحيات</option>
+                                <option value="Teacher">المعلمون والمشرفون</option>
+                                <option value="ExamSupervisor">مشرفو الاختبارات</option>
+                                <option value="Student">الطلاب</option>
+                                <option value="Parent">أولياء الأمور</option>
+                                <option value="Admin">مديرو المركز</option>
+                                <option value="Developer">مطور النظام</option>
+                            </select>
+                            <select id="users-status-filter" class="dev-select-filter" onchange="applyUsersFilters()">
+                                <option value="all">كل الحالات</option>
+                                <option value="active">نشط فقط</option>
+                                <option value="inactive">معطل فقط</option>
+                            </select>
+                            <button class="btn btn-outline-secondary btn-sm rounded-3 px-3 py-2" title="تحديث القائمة" onclick="loadDeveloperUsers()">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Desktop / Large Screen Table Card -->
+                    <div class="card shadow-sm dev-table-card">
                         <div class="table-responsive">
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>رقم الحساب</th>
+                                        <th style="width: 70px;">رقم</th>
                                         <th>الاسم الكامل</th>
                                         <th>الدور والصلاحيات</th>
-                                        <th><i class="fa-solid fa-id-card text-success me-1"></i> رقم الهوية</th>
-                                        <th>اسم المستخدم (Username)</th>
-                                        <th>رقم المرجع (Ref Id)</th>
+                                        <th>رقم الهوية</th>
+                                        <th>اسم المستخدم</th>
+                                        <th>المرجع</th>
                                         <th>كلمة المرور</th>
-                                        <th>الإجراءات</th>
+                                        <th style="width: 230px; text-align: center;">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody id="users-table-body">
@@ -1306,6 +1367,11 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    <!-- Mobile & Tablet Responsive Cards Grid -->
+                    <div id="users-cards-grid" class="dev-cards-grid">
+                        <!-- Populated dynamically by JS -->
                     </div>
                 </section>
 

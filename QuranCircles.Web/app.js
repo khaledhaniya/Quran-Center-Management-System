@@ -9264,21 +9264,44 @@ window.copyPasswordToClipboard = function(pw, name) {
     }
 };
 
+function updateUsersStatsCounters(list) {
+    if (!list) list = cachedUsers || [];
+    const totalEl = document.getElementById("dev-stat-total");
+    const staffEl = document.getElementById("dev-stat-staff");
+    const studentsEl = document.getElementById("dev-stat-students");
+    const activeEl = document.getElementById("dev-stat-active");
+
+    const total = list.length;
+    const staff = list.filter(u => u.role === "Teacher" || u.role === "ExamSupervisor" || u.role === "Admin" || u.role === "Developer").length;
+    const students = list.filter(u => u.role === "Student" || u.role === "Parent").length;
+    const active = list.filter(u => u.isActive !== false).length;
+
+    if (totalEl) totalEl.textContent = total;
+    if (staffEl) staffEl.textContent = staff;
+    if (studentsEl) studentsEl.textContent = students;
+    if (activeEl) activeEl.textContent = active;
+}
+
 function renderUsersTableRows(usersList) {
     const tbody = document.getElementById("users-table-body");
-    if (!tbody) return;
-    tbody.innerHTML = "";
+    const cardsGrid = document.getElementById("users-cards-grid");
+    
+    updateUsersStatsCounters(cachedUsers);
+    
+    if (tbody) tbody.innerHTML = "";
+    if (cardsGrid) cardsGrid.innerHTML = "";
     
     if (!usersList || usersList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4">لا توجد حسابات مستخدمين حالياً.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4"><i class="fa-solid fa-users-slash me-2"></i> لا توجد حسابات مطابقة لمعايير البحث.</td></tr>`;
+        if (cardsGrid) cardsGrid.innerHTML = `<div class="p-4 text-center text-muted w-100"><i class="fa-solid fa-users-slash me-2"></i> لا توجد حسابات مطابقة لمعايير البحث.</div>`;
         return;
     }
     
     usersList.forEach(u => {
         let refIdStr = "-";
-        if (u.teacherId) refIdStr = `معلّم (رقم ${u.teacherId})`;
-        else if (u.studentId) refIdStr = `طالب (رقم ${u.studentId})`;
-        else if (u.parentId) refIdStr = `ولي أمر (رقم ${u.parentId})`;
+        if (u.teacherId) refIdStr = `معلّم (#${u.teacherId})`;
+        else if (u.studentId) refIdStr = `طالب (#${u.studentId})`;
+        else if (u.parentId) refIdStr = `ولي أمر (#${u.parentId})`;
         
         const pw = getUserDisplayPassword(u);
         const idNum = u.identityNumber || u.nationalId || (u.role === 'Parent' && u.username && /^\d+$/.test(u.username) ? u.username : '-');
@@ -9307,92 +9330,163 @@ function renderUsersTableRows(usersList) {
             }
             roleHtml = formatTeacherRolesHtml(tRole);
         } else if (u.role === "Developer") {
-            roleHtml = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-code"></i> مطور النظام الرئيسي</span>`;
+            roleHtml = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger fw-bold d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs"><i class="fa-solid fa-code"></i> مطور النظام</span>`;
         } else if (u.role === "Admin") {
-            roleHtml = `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-crown text-warning"></i> مدير المركز العام</span>`;
+            roleHtml = `<span class="badge bg-warning bg-opacity-10 text-dark border border-warning fw-bold d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs"><i class="fa-solid fa-crown text-warning"></i> مدير المركز</span>`;
         } else if (u.role === "ExamSupervisor") {
-            roleHtml = `<span class="badge bg-info bg-opacity-10 text-dark border border-info fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-clipboard-check text-info"></i> مشرف ومقوّم اختبارات</span>`;
+            roleHtml = `<span class="badge bg-info bg-opacity-10 text-dark border border-info fw-bold d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs"><i class="fa-solid fa-clipboard-check text-info"></i> مشرف اختبارات</span>`;
         } else if (u.role === "Student") {
-            roleHtml = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-graduation-cap"></i> طالب حلقة تحفيظ</span>`;
+            roleHtml = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary fw-bold d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs"><i class="fa-solid fa-graduation-cap"></i> طالب</span>`;
         } else if (u.role === "Parent") {
-            roleHtml = `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary fw-bold d-inline-flex align-items-center gap-1 px-2.5 py-1.5 shadow-xs"><i class="fa-solid fa-users"></i> ولي أمر طالب</span>`;
+            roleHtml = `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary fw-bold d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs"><i class="fa-solid fa-users"></i> ولي أمر</span>`;
         } else {
             roleHtml = `<span class="badge badge-info">${escapeXml(u.role)}</span>`;
         }
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${u.id}</td>
-            <td><strong>${escapeXml(u.fullName)}</strong></td>
-            <td>${roleHtml}</td>
-            <td style="white-space: nowrap;">
-                <code class="font-monospace fw-bold text-dark px-2 py-1 bg-light rounded border shadow-xs" style="font-size: 0.92rem;">
-                    <i class="fa-solid fa-id-card text-success me-1"></i>${escapeXml(idNum)}
-                </code>
-            </td>
-            <td><code>${escapeXml(u.username)}</code></td>
-            <td><span class="small text-muted">${refIdStr}</span></td>
-            <td style="white-space: nowrap;">
-                <div class="d-inline-flex align-items-center gap-2 bg-light px-2.5 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
-                    <code class="fw-bold text-dark font-monospace user-pw-value" id="pw-user-${u.id}" style="font-size: 0.92rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
-                    <button class="btn btn-sm btn-outline-secondary py-0 px-2 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
-                        <i class="fa-solid fa-copy"></i>
-                    </button>
+        const initial = (u.fullName || u.username || "U").trim().charAt(0);
+
+        // 1. Render Table Row (Strictly single-line actions to prevent height stretching)
+        if (tbody) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td style="font-weight: 600; color: #64748b;">#${u.id}</td>
+                <td>
+                    <div class="d-inline-flex align-items-center gap-2">
+                        <span class="avatar-sm rounded-circle bg-light border text-dark fw-bold d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                            ${escapeXml(initial)}
+                        </span>
+                        <strong class="text-dark" style="white-space: nowrap;">${escapeXml(u.fullName)}</strong>
+                    </div>
+                </td>
+                <td>${roleHtml}</td>
+                <td style="white-space: nowrap;">
+                    <code class="font-monospace fw-bold text-dark px-2 py-1 bg-light rounded border shadow-xs" style="font-size: 0.88rem;">
+                        <i class="fa-solid fa-id-card text-success me-1"></i>${escapeXml(idNum)}
+                    </code>
+                </td>
+                <td style="white-space: nowrap;"><code class="font-monospace text-primary">${escapeXml(u.username)}</code></td>
+                <td style="white-space: nowrap;"><span class="small text-muted">${refIdStr}</span></td>
+                <td style="white-space: nowrap;">
+                    <div class="d-inline-flex align-items-center gap-1.5 bg-light px-2 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
+                        <code class="fw-bold text-dark font-monospace user-pw-value" id="pw-user-${u.id}" style="font-size: 0.88rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-1.5 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
+                            <i class="fa-solid fa-copy" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+                <td style="white-space: nowrap; text-align: center;">
+                    <div class="dev-actions-wrapper">
+                        <button class="btn btn-dev-action ${u.isActive !== false ? 'btn-dev-status-active' : 'btn-dev-status-inactive'} btn-toggle-user-status" data-id="${u.id}" title="${u.isActive !== false ? 'الحساب نشط (اضغط لتعطيله)' : 'الحساب معطل (اضغط لتفعيله)'}">
+                            <i class="fa-solid ${u.isActive !== false ? 'fa-circle-check' : 'fa-ban'}"></i>
+                            <span>${u.isActive !== false ? 'نشط' : 'معطل'}</span>
+                        </button>
+                        ${teacherIdForRole ? `
+                            <button class="btn btn-dev-action btn-outline-success btn-manage-roles-user" data-tid="${teacherIdForRole}" title="تعديل الصلاحيات والمهام"><i class="fa-solid fa-user-shield"></i></button>
+                        ` : ''}
+                        <button class="btn btn-dev-action btn-outline-primary btn-edit-user" data-id="${u.id}" title="تعديل بيانات الحساب"><i class="fa-solid fa-user-pen"></i></button>
+                        <button class="btn btn-dev-action btn-outline-danger btn-delete-user" data-id="${u.id}" title="حذف الحساب"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        // 2. Render Responsive Card for iPad / Mobile / Small Phones
+        if (cardsGrid) {
+            const card = document.createElement("div");
+            card.className = "dev-user-card";
+            card.innerHTML = `
+                <div class="dev-card-header">
+                    <div class="dev-card-user-info">
+                        <div class="dev-card-avatar">${escapeXml(initial)}</div>
+                        <div class="dev-card-name-wrap">
+                            <div class="dev-card-name" title="${escapeXml(u.fullName)}">${escapeXml(u.fullName)}</div>
+                            <div class="dev-card-username">@${escapeXml(u.username)}</div>
+                        </div>
+                    </div>
+                    <span class="badge ${u.isActive !== false ? 'bg-success bg-opacity-10 text-success border border-success' : 'bg-danger bg-opacity-10 text-danger border border-danger'} rounded-pill px-2.5 py-1">
+                        <i class="fa-solid ${u.isActive !== false ? 'fa-circle-check' : 'fa-ban'} me-1"></i>${u.isActive !== false ? 'نشط' : 'معطل'}
+                    </span>
                 </div>
-            </td>
-            <td>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <button class="btn btn-sm ${u.isActive !== false ? 'btn-outline-success' : 'btn-outline-danger'} btn-toggle-user-status shadow-xs" data-id="${u.id}" title="${u.isActive !== false ? 'الحساب نشط (اضغط لتعطيله)' : 'الحساب معطل (اضغط لتفعيله)'}">
-                        <i class="fa-solid ${u.isActive !== false ? 'fa-circle-check text-success' : 'fa-ban text-danger'} me-1"></i>${u.isActive !== false ? 'نشط' : 'معطل'}
+                <div class="dev-card-body">
+                    <div class="dev-card-info-row">
+                        <span class="text-muted small"><i class="fa-solid fa-shield-halved me-1"></i> الدور:</span>
+                        <div>${roleHtml}</div>
+                    </div>
+                    <div class="dev-card-info-row">
+                        <span class="text-muted small"><i class="fa-solid fa-id-card text-success me-1"></i> رقم الهوية:</span>
+                        <code class="fw-bold text-dark font-monospace">${escapeXml(idNum)}</code>
+                    </div>
+                    <div class="dev-card-info-row">
+                        <span class="text-muted small"><i class="fa-solid fa-key text-warning me-1"></i> كلمة المرور:</span>
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <code class="fw-bold font-monospace text-dark">${escapeXml(pw)}</code>
+                            <button class="btn btn-sm btn-light border py-0 px-2 rounded shadow-xs" title="نسخ" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
+                                <i class="fa-solid fa-copy text-muted"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dev-card-info-row">
+                        <span class="text-muted small"><i class="fa-solid fa-hashtag me-1"></i> المعرّف / المرجع:</span>
+                        <span class="small text-muted font-monospace">#${u.id} (${refIdStr})</span>
+                    </div>
+                </div>
+                <div class="dev-card-actions">
+                    <button class="btn btn-sm ${u.isActive !== false ? 'btn-outline-secondary' : 'btn-success'} btn-toggle-user-status" data-id="${u.id}">
+                        <i class="fa-solid ${u.isActive !== false ? 'fa-ban' : 'fa-circle-check'} me-1"></i> ${u.isActive !== false ? 'تعطيل الحساب' : 'تفعيل الحساب'}
                     </button>
                     ${teacherIdForRole ? `
-                        <button class="btn btn-outline-success btn-sm btn-manage-roles-user shadow-xs" data-tid="${teacherIdForRole}" title="تعديل وتحديد الصلاحيات والمهام الإدارية"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
+                        <button class="btn btn-outline-success btn-sm btn-manage-roles-user" data-tid="${teacherIdForRole}" title="الصلاحيات"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
                     ` : ''}
-                    <button class="btn btn-outline-primary btn-sm btn-edit-user shadow-xs" data-id="${u.id}"><i class="fa-solid fa-user-pen"></i> تعديل</button>
-                    <button class="btn btn-danger btn-sm btn-delete-user shadow-xs" data-id="${u.id}"><i class="fa-solid fa-user-slash"></i> حذف</button>
+                    <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen me-1"></i> تعديل</button>
+                    <button class="btn btn-outline-danger btn-sm btn-delete-user" data-id="${u.id}"><i class="fa-solid fa-trash-can me-1"></i> حذف</button>
                 </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
+            `;
+            cardsGrid.appendChild(card);
+        }
     });
     
-    // Bind Actions
-    tbody.querySelectorAll(".btn-toggle-user-status").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            const userId = e.target.closest("button").dataset.id;
-            try {
-                const res = await apiRequest(`/users/${userId}/toggle-status`, "PATCH");
-                const u = cachedUsers.find(x => x.id == userId);
-                if (u && res) u.isActive = res.isActive;
-                showAlert(res?.message || "تم تغيير حالة الحساب بنجاح.", "success");
-                renderUsersTableRows(cachedUsers);
-            } catch(err) {
-                console.error(err);
-            }
+    // Bind Actions for both table and cards
+    const container = document.getElementById("developer-users-section");
+    if (container) {
+        container.querySelectorAll(".btn-toggle-user-status").forEach(btn => {
+            btn.onclick = async (e) => {
+                const targetBtn = e.target.closest("button");
+                const userId = targetBtn.dataset.id;
+                try {
+                    const res = await apiRequest(`/users/${userId}/toggle-status`, "PATCH");
+                    const u = cachedUsers.find(x => x.id == userId);
+                    if (u && res) u.isActive = res.isActive;
+                    showAlert(res?.message || "تم تغيير حالة الحساب بنجاح.", "success");
+                    applyUsersFilters();
+                } catch(err) {
+                    console.error(err);
+                }
+            };
         });
-    });
-    tbody.querySelectorAll(".btn-manage-roles-user").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            const tid = e.target.closest("button").dataset.tid;
-            if (tid) {
-                await manageTeacherRoles(tid);
-                await loadDeveloperUsers();
-            }
+        container.querySelectorAll(".btn-manage-roles-user").forEach(btn => {
+            btn.onclick = async (e) => {
+                const tid = e.target.closest("button").dataset.tid;
+                if (tid) {
+                    await manageTeacherRoles(tid);
+                    await loadDeveloperUsers();
+                }
+            };
         });
-    });
-    tbody.querySelectorAll(".btn-edit-user").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const userId = e.target.closest("button").dataset.id;
-            const user = cachedUsers.find(x => x.id == userId);
-            if (user) showEditUserModal(user);
+        container.querySelectorAll(".btn-edit-user").forEach(btn => {
+            btn.onclick = (e) => {
+                const userId = e.target.closest("button").dataset.id;
+                const user = cachedUsers.find(x => x.id == userId);
+                if (user) showEditUserModal(user);
+            };
         });
-    });
-    tbody.querySelectorAll(".btn-delete-user").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const userId = e.target.closest("button").dataset.id;
-            deleteUser(userId);
+        container.querySelectorAll(".btn-delete-user").forEach(btn => {
+            btn.onclick = (e) => {
+                const userId = e.target.closest("button").dataset.id;
+                deleteUser(userId);
+            };
         });
-    });
+    }
 }
 
 async function loadDeveloperUsers() {
@@ -9405,34 +9499,65 @@ async function loadDeveloperUsers() {
             cachedUsers = users;
         }
         
-        const searchInput = document.getElementById("users-search-input");
-        if (searchInput) searchInput.value = "";
-        
-        renderUsersTableRows(cachedUsers);
+        applyUsersFilters();
     } catch(e) {
         console.error(e);
         if (cachedUsers && cachedUsers.length > 0) {
-            renderUsersTableRows(cachedUsers);
+            applyUsersFilters();
         }
     }
 }
 
-function filterUsersTable(query) {
-    const term = (query || "").trim().toLowerCase();
-    
-    if (!term) {
-        renderUsersTableRows(cachedUsers);
+function applyUsersFilters() {
+    const searchInput = document.getElementById("users-search-input");
+    const roleSelect = document.getElementById("users-role-filter");
+    const statusSelect = document.getElementById("users-status-filter");
+
+    const query = searchInput ? (searchInput.value || "").trim().toLowerCase() : "";
+    const selectedRole = roleSelect ? roleSelect.value : "all";
+    const selectedStatus = statusSelect ? statusSelect.value : "all";
+
+    if (!cachedUsers) {
+        renderUsersTableRows([]);
         return;
     }
-    
-    const filtered = cachedUsers.filter(u => 
-        (u.fullName && u.fullName.toLowerCase().includes(term)) || 
-        (u.username && u.username.toLowerCase().includes(term)) ||
-        (u.identityNumber && u.identityNumber.toLowerCase().includes(term)) ||
-        (u.id && u.id.toString().includes(term))
-    );
-    
+
+    let filtered = cachedUsers.filter(u => {
+        // Search term matching
+        if (query) {
+            const matchesQuery = 
+                (u.fullName && u.fullName.toLowerCase().includes(query)) ||
+                (u.username && u.username.toLowerCase().includes(query)) ||
+                (u.identityNumber && u.identityNumber.toLowerCase().includes(query)) ||
+                (u.nationalId && u.nationalId.toLowerCase().includes(query)) ||
+                (u.id && u.id.toString().includes(query));
+            if (!matchesQuery) return false;
+        }
+
+        // Role matching
+        if (selectedRole !== "all") {
+            if (u.role !== selectedRole) return false;
+        }
+
+        // Status matching
+        if (selectedStatus === "active") {
+            if (u.isActive === false) return false;
+        } else if (selectedStatus === "inactive") {
+            if (u.isActive !== false) return false;
+        }
+
+        return true;
+    });
+
     renderUsersTableRows(filtered);
+}
+
+function filterUsersTable(query) {
+    const searchInput = document.getElementById("users-search-input");
+    if (searchInput && searchInput.value !== query) {
+        searchInput.value = query;
+    }
+    applyUsersFilters();
 }
 
 function showCreateUserModal() {

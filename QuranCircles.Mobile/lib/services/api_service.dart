@@ -942,6 +942,18 @@ class ApiService {
     }
   }
 
+  static Future<bool> toggleUserStatus(int id) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/users/$id/toggle-status'),
+        headers: _headers(),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<List<AuditLog>> getAuditLogs() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/audit'), headers: _headers());
