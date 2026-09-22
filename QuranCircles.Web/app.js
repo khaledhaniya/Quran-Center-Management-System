@@ -672,13 +672,6 @@ function updateSidebarMenu() {
         const taskMemorization = document.querySelectorAll(".teacher-task-memorization");
         taskMemorization.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("التحفيظ") || taskRole.includes("منتدى الحفاظ"))));
 
-        // Courses and Exams: visible for all teachers who are active/assigned (!isNoTask)
-        const taskCourses = document.querySelectorAll(".teacher-task-courses");
-        taskCourses.forEach(el => el.classList.toggle("hidden", isNoTask));
-
-        const taskExams = document.querySelectorAll(".teacher-task-exams");
-        taskExams.forEach(el => el.classList.toggle("hidden", isNoTask));
-
         const taskPreacher = document.querySelectorAll(".teacher-task-preacher");
         taskPreacher.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية"))));
 
@@ -1075,7 +1068,6 @@ function handleRouting() {
     }
     else if (hash === "#courses") {
         document.getElementById("btn-courses")?.classList.add("active");
-        document.getElementById("btn-teacher-courses-nav")?.classList.add("active");
         document.getElementById("courses-section")?.classList.remove("hidden");
         loadCourses();
     }

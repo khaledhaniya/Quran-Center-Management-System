@@ -180,7 +180,7 @@ button, input, select, textarea {
 /* Layout Body Grid */
 .layout-body {
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 310px 1fr;
     flex: 1;
 }
 
@@ -222,8 +222,9 @@ button, input, select, textarea {
     .sidebar {
         position: fixed !important;
         top: 0 !important;
-        right: -320px !important;
-        width: 285px !important;
+        right: -380px !important;
+        width: 320px !important;
+        max-width: 88vw !important;
         height: 100vh !important;
         max-height: 100vh !important;
         z-index: 9999 !important;
@@ -234,6 +235,8 @@ button, input, select, textarea {
         flex-direction: column !important;
         justify-content: flex-start !important;
         overflow-y: auto !important; /* ENABLE SCROLLING FOR ALL DRAWER OPTIONS */
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
         -webkit-overflow-scrolling: touch !important;
         padding: 15px 12px 60px 12px !important;
         box-shadow: -6px 0 25px rgba(0, 0, 0, 0.25) !important;
@@ -535,38 +538,70 @@ button, input, select, textarea {
     justify-content: space-between;
     padding: 20px 10px;
     box-shadow: var(--shadow-sm);
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .nav-menu {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .nav-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    font-size: 0.95rem;
+    gap: 9px;
+    padding: 9px 12px;
+    font-size: 0.88rem;
     font-weight: 600;
     color: var(--text-dark);
     border-radius: var(--radius-md);
     transition: var(--transition-fast);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    line-height: 1.35;
+    text-decoration: none;
 }
 
 .nav-item i {
-    font-size: 1.1rem;
-    width: 24px;
+    font-size: 1.02rem;
+    width: 20px;
+    min-width: 20px;
+    flex-shrink: 0;
     text-align: center;
     color: var(--text-muted);
     transition: var(--transition-fast);
+}
+
+.nav-item span:not(.badge) {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap !important;
+}
+
+.nav-item .badge {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    white-space: nowrap !important;
 }
 
 .nav-item:hover {
@@ -579,13 +614,77 @@ button, input, select, textarea {
 }
 
 .nav-item.active {
-    background-color: var(--primary-color);
-    color: var(--text-light);
+    background-color: var(--primary-color) !important;
+    color: var(--text-light) !important;
     box-shadow: 0 4px 10px rgba(13, 92, 58, 0.2);
 }
 
 .nav-item.active i {
-    color: var(--accent-color);
+    color: var(--accent-color) !important;
+}
+
+.nav-item.active span {
+    color: #ffffff !important;
+}
+
+/* Sheikh / Teacher's Children Link Styling */
+.teacher-my-children-link {
+    background: rgba(245, 158, 11, 0.09) !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    border-radius: 10px !important;
+    color: #92400e !important;
+}
+
+.teacher-my-children-link i {
+    color: #d97706 !important;
+}
+
+.teacher-my-children-link:hover {
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: #78350f !important;
+}
+
+.teacher-my-children-link.active {
+    background: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(13, 92, 58, 0.25) !important;
+}
+
+.teacher-my-children-link.active i {
+    color: #fbbf24 !important;
+}
+
+.teacher-my-children-link.active span {
+    color: #ffffff !important;
+}
+
+.teacher-my-children-link .badge {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    white-space: nowrap !important;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background-color: #f59e0b !important;
+    color: #1c1917 !important;
+    font-weight: 700;
+    line-height: 1.2;
+    transition: all 0.2s ease;
+}
+
+.teacher-my-children-link.active .badge {
+    background-color: #fbbf24 !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Logical auto margin helpers */
+.ms-auto {
+    margin-inline-start: auto !important;
+}
+.me-auto {
+    margin-inline-end: auto !important;
 }
 
 .sidebar-footer {

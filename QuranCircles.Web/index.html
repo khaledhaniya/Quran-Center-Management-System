@@ -21,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js for Interactive Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260920_v7_teacher_roles_and_stylish_buttons">
+    <link rel="stylesheet" href="styles.css?v=20260922_v8_sidebar_contrast_and_overflow_fix">
 </head>
 <body>
     <!-- App Container -->
@@ -156,14 +156,6 @@
                             <i class="fa-solid fa-book-quran text-primary"></i>
                             <span>شؤون التحفيظ ومنتدى الحفاظ</span>
                         </a>
-                        <a href="#courses" class="nav-item teacher-task-courses hidden" id="btn-teacher-courses-nav">
-                            <i class="fa-solid fa-graduation-cap text-success"></i>
-                            <span>إدارة الدورات العلمية والمساقات</span>
-                        </a>
-                        <a href="#exams" class="nav-item teacher-task-exams hidden" id="btn-teacher-exams-nav">
-                            <i class="fa-solid fa-file-signature text-warning"></i>
-                            <span>إدارة الاختبارات والترشيحات</span>
-                        </a>
                         <a href="#preacher-youth" class="nav-item teacher-task-preacher hidden" id="btn-teacher-preacher">
                             <i class="fa-solid fa-microphone-lines text-danger"></i>
                             <span>الفتى الواعظ والأصوات الندية</span>
@@ -185,7 +177,7 @@
                             </a>
                             <a href="#teacher-comprehensive-report" class="nav-item" id="btn-teacher-comprehensive-report">
                                 <i class="fa-solid fa-table-list text-primary"></i>
-                                <span>كشف متابعة وتسميع الطلاب الشامل</span>
+                                <span>كشف متابعة وتسميع الطلاب</span>
                             </a>
                             <a href="#teacher-lottery" class="nav-item" id="btn-teacher-lottery">
                                 <i class="fa-solid fa-dice"></i>
@@ -195,8 +187,8 @@
 
                         <!-- Dual Role: Sheikh / Teacher's Children Link -->
                         <div id="teacher-children-section" class="hidden mt-2 pt-2 border-top border-secondary border-opacity-10">
-                            <a href="#parent-progress" class="nav-item" id="btn-teacher-my-children" style="background: rgba(245, 158, 11, 0.08); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25);">
-                                <i class="fa-solid fa-people-roof text-warning"></i>
+                            <a href="#parent-progress" class="nav-item teacher-my-children-link" id="btn-teacher-my-children">
+                                <i class="fa-solid fa-people-roof"></i>
                                 <span class="fw-bold">متابعة مستوى أبنائي</span>
                                 <span class="badge bg-warning text-dark ms-auto fw-bold shadow-xs" id="teacher-children-badge">الأبناء</span>
                             </a>
