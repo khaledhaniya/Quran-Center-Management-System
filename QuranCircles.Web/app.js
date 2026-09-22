@@ -6722,16 +6722,16 @@ async function showStudentModal(studentId = null) {
         <div class="student-modal-wrapper">
             <!-- Header Banner -->
             <div class="student-modal-header-hero">
-                <div class="d-flex align-items-center gap-3">
+                <div class="student-hero-content-group">
                     <div class="teacher-avatar-badge">
                         <i class="fa-solid fa-user-graduate"></i>
                     </div>
-                    <div>
-                        <h5 class="teacher-modal-heading">${studentId ? `تعديل بيانات الطالب / ${escapeXml(s ? s.fullName : '')}` : 'تسجيل وإضافة طالب جديد بالكادر'}</h5>
+                    <div class="student-hero-text">
+                        <h5 class="teacher-modal-heading">${studentId ? `تعديل بيانات الطالب: <span class="student-highlight-name">${escapeXml(s ? s.fullName : '')}</span>` : 'تسجيل وإضافة طالب جديد بالكادر'}</h5>
                         <p class="teacher-modal-subheading">ملف الطالب الكلي، ربط ولي الأمر، الحلقات القرآنية، وبيانات النزوح والسكن</p>
                     </div>
                 </div>
-                ${s && s.studentIdentityNumber ? `<span class="badge bg-white text-dark border px-3 py-2 rounded-pill font-monospace"><i class="fa-solid fa-id-card text-success me-1"></i> ${escapeXml(s.studentIdentityNumber)}</span>` : ''}
+                ${s && s.studentIdentityNumber ? `<div class="student-hero-badge-wrap"><span class="badge bg-white text-dark border px-3 py-2 rounded-pill font-monospace shadow-xs"><i class="fa-solid fa-id-card text-success me-1"></i> ${escapeXml(s.studentIdentityNumber)}</span></div>` : ''}
             </div>
 
             <!-- Tabbed Navigation Bar -->
@@ -6991,9 +6991,9 @@ async function showStudentModal(studentId = null) {
                             <span>4. بيانات حساب دخول الطالب للمنظومة</span>
                         </div>
                         
-                        <div class="alert alert-info border-info p-3 mb-3 d-flex align-items-center gap-2">
-                            <i class="fa-solid fa-circle-info fs-4 text-primary"></i>
-                            <span class="small">يُستخدم هذا الحساب لدخول الطالب للمنظومة لمتابعة حفظه وتسميعه. يمكنك تحديد وتعديل اسم المستخدم بنفسك يدوياً في أي وقت.</span>
+                        <div class="alert alert-info border-info p-3 mb-3 d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-circle-info fs-4 text-primary flex-shrink-0"></i>
+                            <div class="small fw-semibold" style="line-height: 1.6;">يُستخدم هذا الحساب لدخول الطالب للمنظومة لمتابعة حفظه وتسميعه. يمكنك تحديد وتعديل اسم المستخدم بنفسك يدوياً في أي وقت.</div>
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -7418,8 +7418,11 @@ async function showStudentModal(studentId = null) {
             if (alertBox) {
                 alertBox.innerHTML = `
                     <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
-                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> 
-                        <strong>تعذر الحفظ:</strong> ${escapeXml(err.message || 'حدث خطأ أثناء حفظ بيانات الطالب. يرجى التحقق من الحقول المطلوبة.')}
+                        <i class="fa-solid fa-circle-exclamation fs-5 flex-shrink-0"></i> 
+                        <div class="d-inline-flex align-items-center gap-2 flex-wrap">
+                            <strong class="text-nowrap">تعذر الحفظ:</strong>
+                            <span>${escapeXml(err.message || 'حدث خطأ أثناء حفظ بيانات الطالب. يرجى التحقق من الحقول المطلوبة.')}</span>
+                        </div>
                     </div>
                 `;
                 const modalBody = document.getElementById("modal-body-content");
