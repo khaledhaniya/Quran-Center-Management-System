@@ -758,6 +758,7 @@ public class StudentService
             sess.FromVerse,
             sess.ToVerse,
             Assessment = sess.Assessment.ToString(),
+            AssessmentText = SessionService.AssessmentText(sess.Assessment),
             sess.Notes,
             sess.ViaLottery,
             SessionDate = sess.SessionDate.ToString("yyyy-MM-dd")
@@ -954,6 +955,10 @@ public class StudentService
             PresentDaysCount = presentCount,
             PresentDays = presentCount,
             PresentCount = presentCount,
+            TotalSessions = sessions.Count,
+            totalSessions = sessions.Count,
+            AbsenceCount = absentCount,
+            absenceCount = absentCount,
             AbsentDaysCount = absentCount,
             AbsentDays = absentCount,
             AbsentCount = absentCount,

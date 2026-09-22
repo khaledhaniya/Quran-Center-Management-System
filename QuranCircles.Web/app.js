@@ -5176,14 +5176,39 @@ async function showStudentRecitations(studentId, studentName, circleName) {
 }
 
 function getAssessmentBadgeClass(level) {
-    switch(level) {
+    switch(String(level)) {
+        case "1":
         case "Excellent": return "badge-success";
+        case "2":
         case "VeryGood": return "badge-success";
+        case "3":
         case "Good": return "badge-warning";
+        case "4":
         case "Medium": return "badge-warning";
+        case "5":
         case "Rejected": return "badge-danger";
+        case "6":
         case "DidNotRecite": return "badge-secondary";
         default: return "badge-info";
+    }
+}
+
+function getAssessmentArabicText(level) {
+    if (!level) return '-';
+    switch(String(level)) {
+        case "1":
+        case "Excellent": return "ممتاز";
+        case "2":
+        case "VeryGood": return "جيد جداً";
+        case "3":
+        case "Good": return "جيد";
+        case "4":
+        case "Medium": return "متوسط";
+        case "5":
+        case "Rejected": return "مرفوض";
+        case "6":
+        case "DidNotRecite": return "لم يُسمّع";
+        default: return String(level);
     }
 }
 
@@ -9939,29 +9964,39 @@ window.showChangeMyPasswordModal = function() {
 async function loadStudentProgress() {
     try {
         const data = await apiRequest("/students/my-progress");
+        if (!data) return;
         
-        document.getElementById("student-self-name").textContent = `الطالب: ${data.studentName}`;
-        document.getElementById("student-self-circle").textContent = `الحلقة: ${data.circleName}`;
+        const studentName = data.studentName || data.fullName || (data.studentInfo ? data.studentInfo.fullName : '-') || '-';
+        const circleName = data.circleName || (data.studentInfo ? data.studentInfo.circleName : '-') || 'غير مسند';
         
-        document.getElementById("student-self-total-sessions").innerHTML = `<i class="fa-solid fa-book"></i> الجلسات: ${data.totalSessions}`;
-        document.getElementById("student-self-absence").innerHTML = `<i class="fa-solid fa-circle-xmark"></i> الغياب: ${data.absenceCount}`;
-        document.getElementById("student-self-late").innerHTML = `<i class="fa-solid fa-clock"></i> التأخير: ${data.lateCount}`;
+        document.getElementById("student-self-name").textContent = `الطالب: ${studentName}`;
+        document.getElementById("student-self-circle").textContent = `الحلقة: ${circleName}`;
+        
+        const totalSessions = data.totalSessions ?? data.TotalSessions ?? (data.sessions ? data.sessions.length : 0);
+        const absenceCount = data.absenceCount ?? data.AbsenceCount ?? data.absentCount ?? data.AbsentCount ?? data.absentDaysCount ?? 0;
+        const lateCount = data.lateCount ?? data.LateCount ?? data.lateDaysCount ?? 0;
+        
+        document.getElementById("student-self-total-sessions").innerHTML = `<i class="fa-solid fa-book"></i> الجلسات: ${totalSessions}`;
+        document.getElementById("student-self-absence").innerHTML = `<i class="fa-solid fa-circle-xmark"></i> الغياب: ${absenceCount}`;
+        document.getElementById("student-self-late").innerHTML = `<i class="fa-solid fa-clock"></i> التأخير: ${lateCount}`;
         
         const tbody = document.getElementById("student-self-sessions-table");
         tbody.innerHTML = "";
         
         if (!data.sessions || data.sessions.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">لا يوجد جلسات تسميع مسجلة لك بعد.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">لا توجد جلسات تسميع مسجلة لك بعد.</td></tr>`;
             return;
         }
         
         data.sessions.forEach(s => {
             const tr = document.createElement("tr");
+            const assessText = s.assessmentText || s.AssessmentText || getAssessmentArabicText(s.assessment || s.Assessment);
+            const badgeClass = getAssessmentBadgeClass(s.assessment || s.Assessment);
             tr.innerHTML = `
-                <td>${s.sessionDate}</td>
-                <td><strong>سورة ${s.surahName}</strong> (الآيات: ${s.fromVerse} - ${s.toVerse})</td>
-                <td><span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText}</span></td>
-                <td><span class="text-muted small">${s.notes || '-'}</span></td>
+                <td>${s.sessionDate || s.SessionDate || '-'}</td>
+                <td><strong>سورة ${s.surahName || s.SurahName || '-'}</strong> (الآيات: ${s.fromVerse || s.FromVerse || 1} - ${s.toVerse || s.ToVerse || '-'})</td>
+                <td><span class="badge ${badgeClass}">${assessText}</span></td>
+                <td><span class="text-muted small">${s.notes || s.Notes || '-'}</span></td>
             `;
             tbody.appendChild(tr);
         });
