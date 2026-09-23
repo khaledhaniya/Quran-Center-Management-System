@@ -232,7 +232,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> with Single
       padding: const EdgeInsets.all(16),
       children: [
         _buildSectionHeader('1. هوية المركز وبيانات الاتصال', Icons.apartment),
-        _buildTextField(_centerNameCtrl, 'اسم مركز التحفيظ الرسمي', Icons.quran),
+        _buildTextField(_centerNameCtrl, 'اسم مركز التحفيظ الرسمي', Icons.menu_book),
         _buildTextField(_mosqueNameCtrl, 'اسم المسجد التابع له', Icons.mosque),
         _buildTextField(_centerAddressCtrl, 'عنوان ومقر المركز', Icons.location_on),
         _buildTextField(_supportPhoneCtrl, 'رقم هاتف الدعم والتواصل', Icons.phone, keyboardType: TextInputType.phone),

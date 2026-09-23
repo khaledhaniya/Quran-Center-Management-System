@@ -303,6 +303,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : (_isWithdrawn ? 'انسحاب الطالب من الاختبار' : 'تم الاختبار عبر نظام الاختبارات القرآنية المعتمد'),
+        code2FA: pinController.text.trim(),
       );
 
       if (!mounted) return;

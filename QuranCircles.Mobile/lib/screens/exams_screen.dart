@@ -512,7 +512,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     if (!dialogCtx.mounted) return;
                     Navigator.pop(dialogCtx);
 
-                    if (res.isNotEmpty) {
+                    if (res) {
                       _loadNominations();
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -743,6 +743,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             final isPending = item.status == 'Pending';
                             final isScheduled = item.status == 'Scheduled';
 
+                            final canScheduleThis = isSupervisor || item.canSchedule;
+                            final canEvaluateThis = isSupervisor || item.canEvaluate;
+
                             final isQuran = item.nominationType == 'Quran';
 
                             return Card(
@@ -856,8 +859,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                     ],
 
                                     // ═══ Action Buttons: Supervisor / Admin / Developer / Course Supervisor ═══
-                                    final canScheduleThis = isSupervisor || item.canSchedule;
-                                    final canEvaluateThis = isSupervisor || item.canEvaluate;
                                     if ((canScheduleThis && isPending) || (canEvaluateThis && isScheduled)) ...[
                                       const SizedBox(height: 10),
                                       Row(

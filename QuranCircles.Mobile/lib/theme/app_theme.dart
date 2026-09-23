@@ -10,6 +10,7 @@ class AppTheme {
   static const Color cardBg = Colors.white;
   static const Color surfaceCard = Colors.white;
   static const Color textDark = Color(0xFF1E292B);
+  static const Color textPrimary = textDark;
   static const Color textMuted = Color(0xFF64748B);
   static const Color border = Color(0xFFE2E8F0);
 

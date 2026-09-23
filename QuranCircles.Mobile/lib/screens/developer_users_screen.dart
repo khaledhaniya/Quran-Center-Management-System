@@ -327,12 +327,12 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
               ),
               onPressed: () async {
                 if (userCtrl.text.trim().isEmpty || passCtrl.text.trim().isEmpty) return;
-                final success = await ApiService.createUser({
-                  'fullName': nameCtrl.text.trim(),
-                  'username': userCtrl.text.trim(),
-                  'role': selectedRole,
-                  'password': passCtrl.text.trim(),
-                });
+                final success = await ApiService.createUser(
+                  fullName: nameCtrl.text.trim(),
+                  username: userCtrl.text.trim(),
+                  role: selectedRole,
+                  password: passCtrl.text.trim(),
+                );
                 if (mounted) {
                   Navigator.pop(ctx);
                   if (success) {

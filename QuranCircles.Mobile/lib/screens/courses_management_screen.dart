@@ -623,69 +623,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
     );
   }
 
-  void _showCourseEnrollmentsModal(Course course) async {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('طلاب دورة: ${course.name}', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: FutureBuilder<List<Map<String, dynamic>>>(
-          future: ApiService.getCourseEnrollments(course.id),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
-            }
-            final list = snapshot.data ?? [];
-            if (list.isEmpty) {
-              return Text('لا يوجد طلاب مسجلين في هذه الدورة حالياً.', style: AppTheme.cairoStyle(color: Colors.grey));
-            }
-            return SizedBox(
-              width: double.maxFinite,
-              height: 300,
-              child: ListView.builder(
-                itemCount: list.length,
-                itemBuilder: (context, index) {
-                  final item = list[index];
-                  final name = item['studentName'] ?? 'طالب';
-                  final grade = item['grade'];
-                  final status = item['status'] ?? 'Enrolled';
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      dense: true,
-                      title: Text(name, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('الحلقة: ${item['halaqahName'] ?? "بدون حلقة"}', style: AppTheme.cairoStyle(fontSize: 11)),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: status == 'Passed'
-                              ? Colors.green.withOpacity(0.15)
-                              : (status == 'Failed' ? Colors.red.withOpacity(0.15) : Colors.blue.withOpacity(0.15)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          grade != null ? 'العلامة: $grade%' : (status == 'Passed' ? 'ناجح' : 'قيد الدراسة'),
-                          style: AppTheme.cairoStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: status == 'Passed' ? Colors.green : (status == 'Failed' ? Colors.red : Colors.blue),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-        ],
-      ),
-    );
-  }
-
   void _deleteCourse(Course c) async {
     final confirm = await showDialog<bool>(
       context: context,
