@@ -20,6 +20,7 @@
 *.db-journal
 
 # IDE & OS
+*.apk
 .vscode/
 .idea/
 *.DS_Store
