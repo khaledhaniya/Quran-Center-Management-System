@@ -501,8 +501,201 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
     );
   }
 
+  Widget _buildDevHeroHeader() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D3B26), Color(0xFF134E32), Color(0xFF1E6B45)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D3B26).withOpacity(0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.accent.withOpacity(0.6)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.security, size: 13, color: AppTheme.accent),
+                    const SizedBox(width: 5),
+                    Text(
+                      'صلاحيات مطور النظام المتقدمة',
+                      style: AppTheme.cairoStyle(
+                        color: AppTheme.accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
+                tooltip: 'تحديث الحسابات',
+                onPressed: _loadUsers,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.manage_accounts, color: AppTheme.accent, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'إدارة حسابات النظام وكلمات المرور والصلاحيات',
+                  style: AppTheme.cairoStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'لوحة تحكم خاصة بالمطور للاطلاع على كلمات المرور، تعديل وتوليد الحسابات، وإدارة الصلاحيات الشاملة لكافة الفئات.',
+            style: AppTheme.cairoStyle(
+              color: Colors.white.withOpacity(0.85),
+              fontSize: 11.5,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showCreateUserDialog,
+              icon: const Icon(Icons.person_add_alt_1, size: 18, color: Color(0xFF0D3B26)),
+              label: Text(
+                'إنشاء مستخدم جديد',
+                style: AppTheme.cairoStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: const Color(0xFF0D3B26),
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: const Color(0xFF0D3B26),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                elevation: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDevStatsGrid(int total, int staff, int students, int active) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildDevStatCard('إجمالي الحسابات', '$total', Icons.people_alt, AppTheme.primary)),
+              const SizedBox(width: 10),
+              Expanded(child: _buildDevStatCard('المعلمون والمشرفون', '$staff', Icons.co_present, Colors.green.shade700)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _buildDevStatCard('الطلاب وأولياء الأمور', '$students', Icons.school, Colors.blue.shade700)),
+              const SizedBox(width: 10),
+              Expanded(child: _buildDevStatCard('الحسابات النشطة', '$active', Icons.check_circle, Colors.teal.shade700)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDevStatCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: AppTheme.cairoStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: AppTheme.cairoStyle(
+                    fontSize: 10.5,
+                    color: Colors.grey.shade600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final totalAccounts = _users.length;
+    final staffCount = _users.where((u) => u.role == 'Teacher' || u.role == 'ExamSupervisor' || u.role == 'Admin').length;
+    final studentsCount = _users.where((u) => u.role == 'Student' || u.role == 'Parent').length;
     final activeCount = _users.where((u) => u.isActive).length;
     final inactiveCount = _users.where((u) => !u.isActive).length;
 
@@ -534,105 +727,131 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
         controller: _tabController,
         children: [
           // Tab 1: Enhanced Responsive System Users Management
-          Column(
-            children: [
-              // Search & Filter Section
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Search Bar
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (_) => _applyFilters(),
-                      decoration: InputDecoration(
-                        hintText: 'ابحث بالاسم، المعرّف، اسم المستخدم، أو الدور...',
-                        prefixIcon: const Icon(Icons.search, color: AppTheme.primary),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 20),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _applyFilters();
-                                },
-                              )
-                            : null,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primary, width: 1.5)),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+          RefreshIndicator(
+            onRefresh: () async => _loadUsers(),
+            child: CustomScrollView(
+              slivers: [
+                // 1. Hero Header
+                SliverToBoxAdapter(child: _buildDevHeroHeader()),
 
-                    // Role Filter Chips (Horizontally Scrollable)
-                    SizedBox(
-                      height: 38,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _buildRoleFilterChip('الكل (${_users.length})', 'ALL'),
-                          _buildRoleFilterChip('المعلمون', 'Teacher'),
-                          _buildRoleFilterChip('مشرفو الاختبارات', 'ExamSupervisor'),
-                          _buildRoleFilterChip('الطلاب', 'Student'),
-                          _buildRoleFilterChip('أولياء الأمور', 'Parent'),
-                          _buildRoleFilterChip('الإدارة', 'Admin'),
-                          _buildRoleFilterChip('المطور', 'Developer'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Status Filter Chips & Stats
-                    SizedBox(
-                      height: 36,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _buildStatusFilterChip('كل الحالات', 'ALL', Icons.all_inclusive),
-                          _buildStatusFilterChip('نشط ($activeCount)', 'ACTIVE', Icons.check_circle_outline),
-                          _buildStatusFilterChip('معطل ($inactiveCount)', 'INACTIVE', Icons.block),
-                        ],
-                      ),
-                    ),
-                  ],
+                // 2. 4 Dev Stats Grid
+                SliverToBoxAdapter(
+                  child: _buildDevStatsGrid(totalAccounts, staffCount, studentsCount, activeCount),
                 ),
-              ),
-              const Divider(height: 1, thickness: 1),
 
-              // Users List (Responsive Cards)
-              Expanded(
-                child: _isLoadingUsers
-                    ? const Center(child: CircularProgressIndicator())
-                    : _filteredUsers.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.person_search_outlined, size: 64, color: Colors.grey.shade400),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'لا توجد حسابات مطابقة للبحث أو الفلتر',
-                                  style: AppTheme.cairoStyle(color: Colors.grey.shade600, fontSize: 14),
-                                ),
-                              ],
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+                // 3. Search & Filter Section
+                SliverToBoxAdapter(
+                  child: Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Search Bar
+                        TextField(
+                          controller: _searchController,
+                          onChanged: (_) => _applyFilters(),
+                          decoration: InputDecoration(
+                            hintText: 'ابحث بالاسم، المعرّف، اسم المستخدم، أو الدور...',
+                            prefixIcon: const Icon(Icons.search, color: AppTheme.primary),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 20),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _applyFilters();
+                                    },
+                                  )
+                                : null,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primary, width: 1.5)),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Role Filter Chips (Horizontally Scrollable)
+                        SizedBox(
+                          height: 38,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _buildRoleFilterChip('الكل (${_users.length})', 'ALL'),
+                              _buildRoleFilterChip('المعلمون', 'Teacher'),
+                              _buildRoleFilterChip('مشرفو الاختبارات', 'ExamSupervisor'),
+                              _buildRoleFilterChip('الطلاب', 'Student'),
+                              _buildRoleFilterChip('أولياء الأمور', 'Parent'),
+                              _buildRoleFilterChip('الإدارة', 'Admin'),
+                              _buildRoleFilterChip('المطور', 'Developer'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Status Filter Chips & Stats
+                        SizedBox(
+                          height: 36,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _buildStatusFilterChip('كل الحالات', 'ALL', Icons.all_inclusive),
+                              _buildStatusFilterChip('نشط ($activeCount)', 'ACTIVE', Icons.check_circle_outline),
+                              _buildStatusFilterChip('معطل ($inactiveCount)', 'INACTIVE', Icons.block),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: Divider(height: 1, thickness: 1)),
+
+                // 4. Users List or Loading / Empty States
+                if (_isLoadingUsers)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(50),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  )
+                else if (_filteredUsers.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(50),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_search_outlined, size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              'لا توجد حسابات مطابقة للبحث أو الفلتر',
+                              style: AppTheme.cairoStyle(color: Colors.grey.shade600, fontSize: 14),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(14, 10, 14, 80),
-                            itemCount: _filteredUsers.length,
-                            itemBuilder: (ctx, index) {
-                              final u = _filteredUsers[index];
-                              final pw = u.plainPassword ?? '123456';
-                              final roleColor = _getRoleColor(u.role);
-                              final roleTitle = _getRoleDisplayName(u.role);
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 80),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, index) {
+                          final u = _filteredUsers[index];
+                          final pw = u.plainPassword ?? '123456';
+                          final roleColor = _getRoleColor(u.role);
+                          final roleTitle = _getRoleDisplayName(u.role);
 
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(16),
@@ -846,10 +1065,13 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                 ),
                               );
                             },
+                            childCount: _filteredUsers.length,
                           ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ],
-          ),
 
           // Tab 2: Security Audit Logs
           _isLoadingLogs
