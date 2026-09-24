@@ -201,6 +201,19 @@ class Teacher {
   final String? dateOfBirth;
   final String? registrationDate;
   final bool isActive;
+  final String? identityNumber;
+  final String? whatsappNumber;
+  final String? socialStatus;
+  final int? familyMembersCount;
+  final String? mosqueName;
+  final String? qualification;
+  final String? taskRole;
+  final String? walletNumber;
+  final String? walletOwner;
+  final String? memorizedAjzaa;
+  final String? studentsCountTarget;
+  final bool hasChildren;
+  final int childrenCount;
 
   Teacher({
     required this.id,
@@ -210,6 +223,19 @@ class Teacher {
     this.dateOfBirth,
     this.registrationDate,
     required this.isActive,
+    this.identityNumber,
+    this.whatsappNumber,
+    this.socialStatus,
+    this.familyMembersCount,
+    this.mosqueName,
+    this.qualification,
+    this.taskRole,
+    this.walletNumber,
+    this.walletOwner,
+    this.memorizedAjzaa,
+    this.studentsCountTarget,
+    this.hasChildren = false,
+    this.childrenCount = 0,
   });
 
   factory Teacher.fromJson(Map<String, dynamic> json) {
@@ -221,6 +247,19 @@ class Teacher {
       dateOfBirth: json['dateOfBirth'],
       registrationDate: json['registrationDate'],
       isActive: json['isActive'] ?? true,
+      identityNumber: json['identityNumber'] ?? json['IdentityNumber'],
+      whatsappNumber: json['whatsappNumber'] ?? json['WhatsappNumber'],
+      socialStatus: json['socialStatus'] ?? json['SocialStatus'],
+      familyMembersCount: json['familyMembersCount'] is int ? json['familyMembersCount'] : int.tryParse(json['familyMembersCount']?.toString() ?? ''),
+      mosqueName: json['mosqueName'] ?? json['MosqueName'],
+      qualification: json['qualification'] ?? json['Qualification'],
+      taskRole: json['taskRole'] ?? json['TaskRole'],
+      walletNumber: json['walletNumber'] ?? json['WalletNumber'],
+      walletOwner: json['walletOwner'] ?? json['WalletOwner'],
+      memorizedAjzaa: json['memorizedAjzaa'] ?? json['MemorizedAjzaa'],
+      studentsCountTarget: json['studentsCountTarget']?.toString(),
+      hasChildren: json['hasChildren'] ?? false,
+      childrenCount: json['childrenCount'] is int ? json['childrenCount'] : (int.tryParse(json['childrenCount']?.toString() ?? '0') ?? 0),
     );
   }
 }
