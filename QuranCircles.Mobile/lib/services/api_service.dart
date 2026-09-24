@@ -327,7 +327,9 @@ class ApiService {
     required String name,
     String? timing,
     int? teacherId,
+    int? assistantTeacherId,
   }) async {
+    invalidateCache();
     final response = await http.post(
       Uri.parse('$baseUrl/circles'),
       headers: _headers(),
@@ -335,6 +337,7 @@ class ApiService {
         'name': name,
         'timing': timing ?? 'Fajr',
         'teacherId': teacherId,
+        'assistantTeacherId': assistantTeacherId,
       }),
     );
     return response.statusCode == 201 || response.statusCode == 200;
@@ -344,7 +347,10 @@ class ApiService {
     required String name,
     String? timing,
     int? teacherId,
+    int? assistantTeacherId,
+    bool isActive = true,
   }) async {
+    invalidateCache();
     final response = await http.put(
       Uri.parse('$baseUrl/circles/$id'),
       headers: _headers(),
@@ -352,6 +358,8 @@ class ApiService {
         'name': name,
         'timing': timing,
         'teacherId': teacherId,
+        'assistantTeacherId': assistantTeacherId,
+        'isActive': isActive,
       }),
     );
     return response.statusCode == 200 || response.statusCode == 204;
