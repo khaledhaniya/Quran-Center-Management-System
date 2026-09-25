@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/contact_helper.dart';
 import 'student_360_screen.dart';
 
 class StudentsManagementScreen extends StatefulWidget {
@@ -103,24 +103,12 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
     );
   }
 
-  void _launchWhatsApp(String phone) async {
-    String clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
-    if (clean.startsWith('05')) {
-      clean = '972${clean.substring(1)}';
-    } else if (clean.startsWith('5')) {
-      clean = '972$clean';
-    }
-    final uri = Uri.parse('https://wa.me/$clean');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  void _launchWhatsApp(String phone) {
+    ContactHelper.launchWhatsApp(context, phone);
   }
 
-  void _launchPhone(String phone) async {
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+  void _launchPhone(String phone) {
+    ContactHelper.launchDialer(context, phone);
   }
 
   void _showChangeCircleModal(Student s) {

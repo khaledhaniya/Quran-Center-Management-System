@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/contact_helper.dart';
 
 class TeachersManagementScreen extends StatefulWidget {
   const TeachersManagementScreen({super.key});
@@ -361,14 +362,7 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
     final targetStudentsCtrl = TextEditingController(text: teacher?.studentsCountTarget ?? '');
     final passwordCtrl = TextEditingController(text: '123456');
 
-    String selectedRole = (teacher?.taskRole != null && teacher!.taskRole!.trim().isNotEmpty)
-        ? teacher.taskRole!
-        : 'معلم حلقة';
-    String selectedSocialStatus = teacher?.socialStatus ?? 'أعزب';
-    String selectedMosque = teacher?.mosqueName ?? 'علي بن أبي طالب';
-
-    final rolesList = [
-      'غير مكلف',
+    final availableRoles = [
       'معلم حلقة',
       'مساعد حلقة',
       'مشرف اختبارات',
@@ -380,9 +374,19 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
       'أمير المركز',
     ];
 
-    if (!rolesList.contains(selectedRole)) {
-      rolesList.insert(0, selectedRole);
+    Set<String> selectedRolesSet = {};
+    if (teacher?.taskRole != null && teacher!.taskRole!.trim().isNotEmpty && teacher.taskRole != 'غير مكلف') {
+      selectedRolesSet = teacher.taskRole!
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty && s != 'غير مكلف')
+          .toSet();
+    } else if (teacher == null) {
+      selectedRolesSet.add('معلم حلقة');
     }
+
+    String selectedSocialStatus = teacher?.socialStatus ?? 'أعزب';
+    String selectedMosque = teacher?.mosqueName ?? 'علي بن أبي طالب';
 
     showDialog(
       context: context,
@@ -518,19 +522,74 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                         const SizedBox(height: 18),
 
                         // Section 2: التكليف والصلاحيات والمؤهلات
-                        _buildSectionHeader('المهمة والتكليف والمؤهل العلمي', Icons.stars_outlined),
-                        const SizedBox(height: 10),
-                        DropdownButtonFormField<String>(
-                          value: selectedRole,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'المهمة والتكليف الإداري *',
-                            prefixIcon: Icon(Icons.assignment_ind_outlined),
+                        _buildSectionHeader('المهام والصلاحيات الإدارية (اختيار متعدد)', Icons.stars_outlined),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
                           ),
-                          items: rolesList.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                          onChanged: (val) {
-                            if (val != null) setDialogState(() => selectedRole = val);
-                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'اختر مهام وصلاحيات المعلم (يمكن تحديد أكثر من تكليف):',
+                                style: AppTheme.cairoStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  ...availableRoles.map((r) {
+                                    final isSel = selectedRolesSet.contains(r);
+                                    final col = _getRoleColor(r);
+                                    return FilterChip(
+                                      avatar: Icon(_getRoleIcon(r), size: 14, color: isSel ? Colors.white : col),
+                                      label: Text(r),
+                                      selected: isSel,
+                                      selectedColor: col,
+                                      backgroundColor: Colors.white,
+                                      checkmarkColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                        side: BorderSide(color: isSel ? col : Colors.grey.shade300),
+                                      ),
+                                      labelStyle: AppTheme.cairoStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                        color: isSel ? Colors.white : Colors.black87,
+                                      ),
+                                      onSelected: (val) {
+                                        setDialogState(() {
+                                          if (val) {
+                                            selectedRolesSet.add(r);
+                                          } else {
+                                            selectedRolesSet.remove(r);
+                                          }
+                                        });
+                                      },
+                                    );
+                                  }),
+                                  ActionChip(
+                                    avatar: const Icon(Icons.clear_all, size: 14, color: Colors.blueGrey),
+                                    label: Text(
+                                      'غير مكلف (تجريد)',
+                                      style: AppTheme.cairoStyle(fontSize: 11, color: Colors.blueGrey.shade800),
+                                    ),
+                                    backgroundColor: Colors.blueGrey.shade50,
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        selectedRolesSet.clear();
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -663,6 +722,8 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                   return;
                 }
 
+                final taskRoleToSave = selectedRolesSet.isEmpty ? 'غير مكلف' : selectedRolesSet.join(', ');
+
                 if (teacher == null) {
                   final ok = await ApiService.createTeacher(
                     fullName: fullName,
@@ -670,7 +731,7 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                     address: addressCtrl.text.trim(),
                     identityNumber: idCtrl.text.trim(),
                     whatsappNumber: whatsappCtrl.text.trim(),
-                    taskRole: selectedRole,
+                    taskRole: taskRoleToSave,
                     qualification: qualificationCtrl.text.trim(),
                     memorizedAjzaa: ajzaaCtrl.text.trim(),
                     socialStatus: selectedSocialStatus,
@@ -699,7 +760,7 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                     address: addressCtrl.text.trim(),
                     identityNumber: idCtrl.text.trim(),
                     whatsappNumber: whatsappCtrl.text.trim(),
-                    taskRole: selectedRole,
+                    taskRole: taskRoleToSave,
                     qualification: qualificationCtrl.text.trim(),
                     memorizedAjzaa: ajzaaCtrl.text.trim(),
                     socialStatus: selectedSocialStatus,
@@ -954,9 +1015,11 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (ctx, index) {
                       final t = _filteredTeachers[index];
-                      final roleColor = _getRoleColor(t.taskRole);
-                      final roleIcon = _getRoleIcon(t.taskRole);
-                      final taskTitle = (t.taskRole != null && t.taskRole!.trim().isNotEmpty) ? t.taskRole! : 'غير مكلف';
+                      final assignedRoles = (t.taskRole != null && t.taskRole!.trim().isNotEmpty)
+                          ? t.taskRole!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+                          : ['غير مكلف'];
+                      final primaryRole = assignedRoles.first;
+                      final roleColor = _getRoleColor(primaryRole);
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -1046,35 +1109,39 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
 
                               const SizedBox(height: 10),
 
-                              // Badges Ribbon: Task Role + Qualification + Memorized Ajzaa
+                              // Badges Ribbon: Multiple Task Roles + Qualification + Memorized Ajzaa
                               Wrap(
                                 spacing: 6,
                                 runSpacing: 6,
                                 children: [
-                                  // Task Role Badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: roleColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: roleColor.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(roleIcon, size: 13, color: roleColor),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          taskTitle,
-                                          style: AppTheme.cairoStyle(
-                                            fontSize: 11,
-                                            color: roleColor,
-                                            fontWeight: FontWeight.bold,
+                                  // All Assigned Task Roles
+                                  ...assignedRoles.map((r) {
+                                    final col = _getRoleColor(r);
+                                    final ic = _getRoleIcon(r);
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: col.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: col.withValues(alpha: 0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(ic, size: 13, color: col),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            r,
+                                            style: AppTheme.cairoStyle(
+                                              fontSize: 11,
+                                              color: col,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
 
                                   // Qualification Badge
                                   if (t.qualification != null && t.qualification!.trim().isNotEmpty)
@@ -1157,57 +1224,98 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                                     ),
                                     const Divider(height: 12, thickness: 0.5),
 
-                                    // Row 2: Phone & WhatsApp
+                                    // Row 2: Phone & WhatsApp with Direct Actions
                                     Row(
                                       children: [
-                                        // Phone
+                                        // Phone (Clickable to Dial)
                                         Expanded(
-                                          child: Row(
-                                            children: [
-                                              const Icon(Icons.phone_outlined, size: 14, color: Colors.blue),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  (t.contact != null && t.contact!.trim().isNotEmpty)
-                                                      ? t.contact!
-                                                      : '-',
-                                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(8),
+                                            onTap: (t.contact != null && t.contact!.trim().isNotEmpty)
+                                                ? () => ContactHelper.launchDialer(context, t.contact!)
+                                                : null,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.withValues(alpha: 0.06),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                                               ),
-                                              if (t.contact != null && t.contact!.trim().isNotEmpty)
-                                                InkWell(
-                                                  onTap: () => _copyToClipboard(t.contact!, 'رقم الجوال'),
-                                                  child: const Icon(Icons.copy, size: 13, color: Colors.grey),
-                                                ),
-                                            ],
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.phone_in_talk, size: 14, color: Colors.blue),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      (t.contact != null && t.contact!.trim().isNotEmpty)
+                                                          ? t.contact!
+                                                          : '-',
+                                                      style: const TextStyle(
+                                                        fontFamily: 'monospace',
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.blue,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (t.contact != null && t.contact!.trim().isNotEmpty)
+                                                    InkWell(
+                                                      onTap: () => _copyToClipboard(t.contact!, 'رقم الجوال'),
+                                                      child: const Icon(Icons.copy, size: 12, color: Colors.grey),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
 
-                                        // WhatsApp
+                                        // WhatsApp (Clickable to Chat)
                                         Expanded(
-                                          child: Row(
-                                            children: [
-                                              const Icon(Icons.chat_outlined, size: 14, color: Colors.green),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  (t.whatsappNumber != null && t.whatsappNumber!.trim().isNotEmpty)
-                                                      ? t.whatsappNumber!
-                                                      : (t.contact ?? '-'),
-                                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(8),
+                                            onTap: () {
+                                              final wa = (t.whatsappNumber != null && t.whatsappNumber!.trim().isNotEmpty)
+                                                  ? t.whatsappNumber!
+                                                  : (t.contact ?? '');
+                                              ContactHelper.launchWhatsApp(context, wa);
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.withValues(alpha: 0.08),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
                                               ),
-                                              if (t.whatsappNumber != null && t.whatsappNumber!.trim().isNotEmpty)
-                                                InkWell(
-                                                  onTap: () => _copyToClipboard(t.whatsappNumber!, 'رقم الواتساب'),
-                                                  child: const Icon(Icons.copy, size: 13, color: Colors.grey),
-                                                ),
-                                            ],
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.chat, size: 14, color: Colors.green),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      (t.whatsappNumber != null && t.whatsappNumber!.trim().isNotEmpty)
+                                                          ? t.whatsappNumber!
+                                                          : (t.contact ?? '-'),
+                                                      style: const TextStyle(
+                                                        fontFamily: 'monospace',
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.green,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (t.whatsappNumber != null && t.whatsappNumber!.trim().isNotEmpty)
+                                                    InkWell(
+                                                      onTap: () => _copyToClipboard(t.whatsappNumber!, 'رقم الواتساب'),
+                                                      child: const Icon(Icons.copy, size: 12, color: Colors.grey),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],

@@ -525,4 +525,332 @@ public class ExamsController : ControllerBase
 
         return Ok(new { Message = "تم رصد علامة الاختبار وإرسال التنبيهات بنجاح.", Grade = dto.Grade });
     }
+
+    [HttpGet("certificate/{id:int}/printable")]
+    public async Task<IActionResult> GetPrintableCertificate(int id, [FromQuery] string? download)
+    {
+        var nomination = await _db.ExamNominations
+            .Include(n => n.Student)
+                .ThenInclude(s => s!.Circle)
+                    .ThenInclude(c => c!.Teacher)
+            .Include(n => n.Course)
+                .ThenInclude(c => c!.Teacher)
+            .Include(n => n.Result)
+            .FirstOrDefaultAsync(n => n.Id == id);
+
+        if (nomination == null || nomination.Result == null || nomination.Result.Grade < 60)
+        {
+            return NotFound("<h1>عذراً، الشهادة غير موجودة أو لم يستوفِ الطالب شروط الاجتياز.</h1>");
+        }
+
+        var isQuran = nomination.NominationType == "Quran";
+        var studentName = nomination.Student?.FullName ?? "طالب المركز";
+        var idNumber = nomination.Student?.StudentIdentityNumber ?? "غير مسجل";
+        var code = isQuran ? $"QURAN-10{nomination.Id}" : $"CERT-CRS-{2000 + nomination.Id}";
+        var grade = nomination.Result.Grade;
+        var gradeText = grade >= 95 ? "ممتاز مرتفع" : (grade >= 90 ? "ممتاز" : (grade >= 80 ? "جيد جداً" : "جيد"));
+        var examDate = nomination.Result.ExamDate.ToString("yyyy-MM-dd");
+
+        string examSubject;
+        if (isQuran)
+        {
+            if (nomination.JuzStart.HasValue && nomination.JuzEnd.HasValue)
+            {
+                examSubject = nomination.JuzStart.Value == 1 && nomination.JuzEnd.Value == 30
+                    ? "القرآن الكريم كاملاً (30 جزءاً)"
+                    : $"الأجزاء من الجزء ({nomination.JuzStart.Value}) إلى الجزء ({nomination.JuzEnd.Value})";
+            }
+            else
+            {
+                examSubject = "أجزاء من القرآن الكريم";
+            }
+        }
+        else
+        {
+            examSubject = $"دورة ({nomination.Course?.Name ?? "العلوم الشرعية والتجويد"})";
+        }
+
+        var teacherName = isQuran
+            ? (nomination.Student?.Circle?.Teacher?.FullName ?? "شيخ ومعلم الحلقة")
+            : (nomination.Course?.Teacher?.FullName ?? "معلم ومحاضر الدورة");
+
+        var autoDownloadScript = download == "pdf" ? @"
+            setTimeout(function() {
+                downloadPdf();
+            }, 600);
+        " : "";
+
+        var html = $@"<!DOCTYPE html>
+<html dir=""rtl"" lang=""ar"">
+<head>
+    <meta charset=""utf-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>شهادة اجتياز معتمدة - {studentName}</title>
+    <link rel=""""preconnect"""" href=""""https://fonts.googleapis.com"""">
+    <link rel=""""preconnect"""" href=""""https://fonts.gstatic.com"""" crossorigin>
+    <link href=""""https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Amiri:wght@700&display=swap"""" rel=""""stylesheet"""">
+    <script src=""""https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js""""></script>
+    <style>
+        @page {{
+            size: A4 landscape;
+            margin: 0;
+        }}
+        * {{
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }}
+        body {{
+            margin: 0;
+            padding: 20px 0;
+            background: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+        }}
+        .action-bar {{
+            width: 297mm;
+            max-width: 95vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e293b;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }}
+        .action-btn {{
+            background: #0d5c3a;
+            color: #fff;
+            border: none;
+            padding: 8px 18px;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: 'Cairo', sans-serif;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .action-btn:hover {{
+            background: #117a4d;
+        }}
+        .action-btn.secondary {{
+            background: #334155;
+        }}
+        .action-btn.secondary:hover {{
+            background: #475569;
+        }}
+        #cert-container {{
+            width: 297mm;
+            height: 210mm;
+            background: #ffffff;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            position: relative;
+            padding: 12mm;
+            overflow: hidden;
+            box-sizing: border-box;
+        }}
+        .cert-outer {{
+            border: 4px solid #c5a059;
+            outline: 2px solid rgba(13, 92, 58, 0.4);
+            outline-offset: -7px;
+            height: 100%;
+            padding: 6mm;
+            box-sizing: border-box;
+            background: #fdfdfb;
+            position: relative;
+        }}
+        .cert-inner {{
+            border: 1.5px solid rgba(197, 160, 89, 0.6);
+            height: 100%;
+            padding: 6mm 10mm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: radial-gradient(circle at center, #ffffff 40%, #fbfaf6 100%);
+            position: relative;
+        }}
+        .cert-title {{
+            font-family: 'Amiri', serif;
+            font-size: 28px;
+            color: #0d3b2e;
+            text-align: center;
+            margin: 0;
+            font-weight: bold;
+        }}
+        .cert-body {{
+            text-align: center;
+            font-size: 15px;
+            color: #334155;
+            line-height: 1.8;
+            margin: 10px 0;
+        }}
+        .student-highlight {{
+            font-size: 24px;
+            font-weight: 900;
+            color: #0d3b2e;
+            padding: 4px 20px;
+            border-bottom: 2px dashed #c5a059;
+            display: inline-block;
+            margin: 4px 0;
+        }}
+        .grade-badge {{
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }}
+        .cert-footer {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-top: 10px;
+            border-top: 1.5px solid rgba(197, 160, 89, 0.4);
+        }}
+        .sign-col {{
+            text-align: center;
+            width: 180px;
+        }}
+        .sign-role {{
+            font-size: 12px;
+            color: #64748b;
+            font-weight: bold;
+        }}
+        .sign-name {{
+            font-size: 14px;
+            color: #0d3b2e;
+            font-weight: 900;
+            margin-top: 4px;
+        }}
+        .stamp-box {{
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fde68a 0%, #d97706 100%);
+            border: 3px double #ffffff;
+            box-shadow: 0 4px 10px rgba(217, 119, 6, 0.4);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #0d3b2e;
+            font-weight: 900;
+        }}
+        @media print {{
+            body {{
+                background: none !important;
+                padding: 0 !important;
+            }}
+            .action-bar {{
+                display: none !important;
+            }}
+            #cert-container {{
+                box-shadow: none !important;
+                margin: 0 !important;
+                width: 297mm !important;
+                height: 210mm !important;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class=""""action-bar"""">
+        <div style=""""display:flex; align-items:center; gap:10px;"""">
+            <span style=""""font-weight:bold; font-size:15px;"""">📜 شهادة اجتياز رقمية معتمدة</span>
+            <span style=""""background:rgba(255,255,255,0.15); padding:2px 10px; border-radius:6px; font-size:12px; font-family:monospace;"""">{code}</span>
+        </div>
+        <div style=""""display:flex; gap:10px;"""">
+            <button class=""""action-btn"""" onclick=""""downloadPdf()"""">
+                <span>تحميل وحفظ كملف PDF 📥</span>
+            </button>
+            <button class=""""action-btn secondary"""" onclick=""""window.print()"""">
+                <span>طباعة مباشرة 🖨️</span>
+            </button>
+        </div>
+    </div>
+
+    <div id=""""cert-container"""">
+        <div class=""""cert-outer"""">
+            <div class=""""cert-inner"""">
+                <div style=""""display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid rgba(197, 160, 89, 0.3); padding-bottom: 8px;"""">
+                    <div style=""""text-align:right; font-size:11px; font-weight:bold; color:#0d3b2e;"""">
+                        مركز البيان لتعليم القرآن الكريم<br>
+                        إدارة الشؤون التعليمية والاختبارات
+                    </div>
+                    <div style=""""font-size:22px; font-weight:900; color:#0d3b2e; letter-spacing:1px;"""">
+                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                    </div>
+                    <div style=""""text-align:left; font-size:11px; color:#64748b; font-family:monospace;"""">
+                        الرقم: {code}<br>
+                        التاريخ: {examDate}
+                    </div>
+                </div>
+
+                <div style=""""text-align:center; margin: 10px 0;"""">
+                    <h1 class=""""cert-title"""">شَهَادَةُ اجْتِيَازٍ وَتَقْدِير</h1>
+                    <div style=""""width:100px; height:2px; background:#c5a059; margin:6px auto;""""></div>
+                </div>
+
+                <div class=""""cert-body"""">
+                    يَشْهَدُ مَرْكَزُ البَيَانِ لِتَعْلِيمِ القُرْآنِ الكَرِيمِ بِأَنَّ الطَّالِبَ المُجِدّ:<br>
+                    <div class=""""student-highlight"""">{studentName}</div><br>
+                    <span style=""""font-size:12.5px; color:#64748b;"""">رقم الهوية الوطنية: ({idNumber})</span><br>
+                    قَدِ اجْتَازَ بِفَضْلِ اللَّهِ وَتَوْفِيقِهِ اخْتِبَارَ: <strong>{examSubject}</strong><br>
+                    بِتَقْدِيرٍ عَامّ: <span class=""""grade-badge"""">{gradeText} ({grade}%)</span><br>
+                    سَائِلِينَ المَوْلَى عَزَّ وَجَلَّ لَهُ دَوَامَ التَّوْفِيقِ وَالسَّدَادِ فِي خِدْمَةِ كِتَابِ اللَّهِ تَعَالَى.
+                </div>
+
+                <div class=""""cert-footer"""">
+                    <div class=""""sign-col"""">
+                        <div class=""""sign-role"""">المُعَلِّمُ المُشْرِف</div>
+                        <div class=""""sign-name"""">{teacherName}</div>
+                        <div style=""""width:120px; height:1px; background:#c5a059; margin:4px auto;""""></div>
+                    </div>
+
+                    <div class=""""stamp-box"""">
+                        <span style=""""font-size:18px;"""">★</span>
+                        <span style=""""font-size:11px;"""">مُعْتَمَد</span>
+                    </div>
+
+                    <div class=""""sign-col"""">
+                        <div class=""""sign-role"""">أَمِيرُ المَرْكَز</div>
+                        <div class=""""sign-name"""">الشيخ علي حسن النبيه</div>
+                        <div style=""""width:120px; height:1px; background:#c5a059; margin:4px auto;""""></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function downloadPdf() {{
+            const element = document.getElementById('cert-container');
+            const opt = {{
+                margin:       0,
+                filename:     'شهادة_{studentName.Replace(" ", "_")}.pdf',
+                image:        {{ type: 'jpeg', quality: 0.98 }},
+                html2canvas:  {{ scale: 2, useCORS: true, logging: false }},
+                jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }}
+            }};
+            html2pdf().set(opt).from(element).save();
+        }}
+        {autoDownloadScript}
+    </script>
+</body>
+</html>";
+
+        return Content(html, "text/html", System.Text.Encoding.UTF8);
+    }
 }

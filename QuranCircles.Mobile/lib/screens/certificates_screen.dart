@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -267,20 +268,24 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppTheme.primary,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    elevation: 2,
                                   ),
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('تم تصدير وحفظ شهادة الطالب (${item.studentName}) بنجاح 🏆'),
-                                        backgroundColor: AppTheme.primary,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
+                                  onPressed: () async {
+                                    final certUrl = Uri.parse('${ApiService.baseUrl}/exams/certificate/${item.id}/printable?download=pdf');
+                                    try {
+                                      await launchUrl(certUrl, mode: LaunchMode.externalApplication);
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('تعذر فتح رابط الشهادة: $e')),
+                                        );
+                                      }
+                                    }
                                   },
-                                  icon: const Icon(Icons.share, size: 14),
-                                  label: Text('مشاركة الشهادة', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  icon: const Icon(Icons.picture_as_pdf, size: 16),
+                                  label: Text('تحميل الشهادة (PDF) 📥', style: AppTheme.cairoStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),

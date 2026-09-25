@@ -279,6 +279,7 @@ public class ParentController : ControllerBase
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
         student.ParentId = null;
+        student.ParentIdentityNumber = null;
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "تم فك ربط الطالب من ولي الأمر بنجاح." });
@@ -297,6 +298,10 @@ public class ParentController : ControllerBase
         if (parentUser == null) return BadRequest(new { error = "حساب ولي الأمر الجديد غير موجود." });
 
         student.ParentId = parentUser.ParentId ?? parentUser.Id;
+        if (!string.IsNullOrWhiteSpace(parentUser.Username))
+        {
+            student.ParentIdentityNumber = parentUser.Username;
+        }
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "تمت إعادة إسناد الطالب لولي الأمر الجديد بنجاح." });

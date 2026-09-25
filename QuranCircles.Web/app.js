@@ -11221,34 +11221,89 @@ function printCertificate(elementOrHtml, studentName) {
                 .cert-stamp-text { font-size: 0.75rem; font-weight: 900; color: #0d3b2e; }
                 .cert-stamp-center { font-size: 0.70rem; font-weight: 800; color: #1e293b; }
 
-                @media print {
-                    body {
-                        background: none !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
+                    .cert-action-bar {
+                        width: 297mm;
+                        max-width: 95vw;
+                        margin: 12px auto 16px auto;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: #1e293b;
+                        color: #ffffff;
+                        padding: 10px 18px;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                     }
-                    .premium-certificate {
-                        box-shadow: none !important;
-                        margin: 0 !important;
-                        width: 297mm !important;
-                        height: 210mm !important;
+                    .cert-btn {
+                        font-family: 'Cairo', sans-serif;
+                        font-size: 13px;
+                        font-weight: bold;
+                        border: none;
+                        border-radius: 6px;
+                        padding: 6px 14px;
+                        cursor: pointer;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
                     }
-                }
-            </style>
-        </head>
-        <body>
-            ${certHtml}
-            <script>
-                window.onload = function() {
-                    setTimeout(function() {
-                        window.print();
-                    }, 400);
-                };
-            </script>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
+                    .cert-btn-green { background: #0d5c3a; color: #ffffff; }
+                    .cert-btn-dark { background: #475569; color: #ffffff; }
+                    @media print {
+                        body {
+                            background: none !important;
+                            padding: 0 !important;
+                            margin: 0 !important;
+                        }
+                        .cert-action-bar {
+                            display: none !important;
+                        }
+                        .premium-certificate {
+                            box-shadow: none !important;
+                            margin: 0 !important;
+                            width: 297mm !important;
+                            height: 210mm !important;
+                        }
+                    }
+                </style>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            </head>
+            <body>
+                <div class="cert-action-bar">
+                    <span style="font-weight:bold; font-size:14px;">شهادة اجتياز معتمدة - ${escapeXml(studentName)}</span>
+                    <div style="display:flex; gap:8px;">
+                        <button class="cert-btn cert-btn-green" onclick="downloadPdfNow()">
+                            <i class="fa-solid fa-file-pdf"></i> حفظ وتحميل بصيغة PDF 📥
+                        </button>
+                        <button class="cert-btn cert-btn-dark" onclick="window.print()">
+                            <i class="fa-solid fa-print"></i> طباعة 🖨️
+                        </button>
+                    </div>
+                </div>
+                <div id="cert-root-wrapper">
+                    ${certHtml}
+                </div>
+                <script>
+                    function downloadPdfNow() {
+                        const element = document.querySelector('.premium-certificate') || document.getElementById('cert-root-wrapper');
+                        const opt = {
+                            margin:       0,
+                            filename:     'شهادة_${escapeXml(studentName).replace(/\s+/g, '_')}.pdf',
+                            image:        { type: 'jpeg', quality: 0.98 },
+                            html2canvas:  { scale: 2, useCORS: true, logging: false },
+                            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                        };
+                        html2pdf().set(opt).from(element).save();
+                    }
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                        }, 500);
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
 }
 
 // -------------------------------------------------------------

@@ -183,14 +183,15 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedRole,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الدور والصلاحيات', prefixIcon: Icon(Icons.shield_outlined)),
                   items: const [
-                    DropdownMenuItem(value: 'ExamSupervisor', child: Text('مشرف اختبارات (ExamSupervisor)')),
-                    DropdownMenuItem(value: 'Developer', child: Text('مطور النظام (Developer)')),
-                    DropdownMenuItem(value: 'Admin', child: Text('مدير المركز (Admin)')),
-                    DropdownMenuItem(value: 'Teacher', child: Text('معلّم الحلقة (Teacher)')),
-                    DropdownMenuItem(value: 'Student', child: Text('طالب حلقة (Student)')),
-                    DropdownMenuItem(value: 'Parent', child: Text('ولي أمر (Parent)')),
+                    DropdownMenuItem(value: 'ExamSupervisor', child: Text('مشرف اختبارات (ExamSupervisor)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Developer', child: Text('مطور النظام (Developer)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Admin', child: Text('مدير المركز (Admin)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Teacher', child: Text('معلّم الحلقة (Teacher)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Student', child: Text('طالب حلقة (Student)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Parent', child: Text('ولي أمر (Parent)', maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedRole = val);
@@ -291,14 +292,15 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedRole,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الدور والصلاحيات', prefixIcon: Icon(Icons.shield_outlined)),
                   items: const [
-                    DropdownMenuItem(value: 'ExamSupervisor', child: Text('مشرف اختبارات (ExamSupervisor)')),
-                    DropdownMenuItem(value: 'Developer', child: Text('مطور النظام (Developer)')),
-                    DropdownMenuItem(value: 'Admin', child: Text('مدير المركز (Admin)')),
-                    DropdownMenuItem(value: 'Teacher', child: Text('معلّم الحلقة (Teacher)')),
-                    DropdownMenuItem(value: 'Student', child: Text('طالب حلقة (Student)')),
-                    DropdownMenuItem(value: 'Parent', child: Text('ولي أمر (Parent)')),
+                    DropdownMenuItem(value: 'ExamSupervisor', child: Text('مشرف اختبارات (ExamSupervisor)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Developer', child: Text('مطور النظام (Developer)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Admin', child: Text('مدير المركز (Admin)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Teacher', child: Text('معلّم الحلقة (Teacher)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Student', child: Text('طالب حلقة (Student)', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Parent', child: Text('ولي أمر (Parent)', maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedRole = val);

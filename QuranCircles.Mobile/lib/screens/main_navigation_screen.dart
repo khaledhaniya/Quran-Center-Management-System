@@ -23,6 +23,8 @@ import 'teachers_management_screen.dart';
 import 'system_settings_screen.dart';
 import 'financial_management_screen.dart';
 import 'quality_management_screen.dart';
+import 'memorization_forum_screen.dart';
+import 'preacher_youth_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -347,8 +349,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.auto_stories, color: Color(0xFFD97706)),
+                title: Text('شؤون التحفيظ ومنتدى الحفاظ', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+                subtitle: Text('متابعة الخاتمين، روايات القراءة وخطط التثبيت', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const MemorizationForumScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.record_voice_over, color: Color(0xFF0D9488)),
+                title: Text('برنامج الفتى الواعظ والأصوات الندية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade800)),
+                subtitle: Text('رعاية المواهب، خطب الجمعة، التلاوات والأذان', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const PreacherYouthScreen()));
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.family_restroom, color: AppTheme.primary),
-                title: Text('سجل الرقابة الأولياء وأبنائهم', style: AppTheme.cairoStyle()),
+                title: Text('تدقيق وحوكمة أبناء أولياء الأمور', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('فك وإعادة الربط، كفالة الأيتام والرقابة', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => const ParentAuditScreen()));

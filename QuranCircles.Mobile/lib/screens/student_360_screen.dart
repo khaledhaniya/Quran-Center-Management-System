@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -469,14 +470,17 @@ class _Student360ScreenState extends State<Student360Screen> {
         ),
         actions: [
           ElevatedButton.icon(
-            icon: const Icon(Icons.share, size: 16),
-            label: const Text('مشاركة / تصدير الشهادة'),
+            icon: const Icon(Icons.picture_as_pdf, size: 16),
+            label: const Text('تحميل الشهادة (PDF) 📥'),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D5C3A), foregroundColor: Colors.white),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('تم تصدير الشهادة المعتمدة بنجاح 🏆'), backgroundColor: Colors.green),
-              );
+            onPressed: () async {
+              final examId = item['id'] ?? item['Id'] ?? 0;
+              if (examId > 0) {
+                final certUrl = Uri.parse('${ApiService.baseUrl}/exams/certificate/$examId/printable?download=pdf');
+                try {
+                  await launchUrl(certUrl, mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
             },
           ),
           TextButton(

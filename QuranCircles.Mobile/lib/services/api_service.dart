@@ -826,6 +826,24 @@ class ApiService {
     return [];
   }
 
+  static Future<bool> unlinkChildFromParent(int studentId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/parent/unlink-child'),
+      headers: _headers(),
+      body: jsonEncode({'studentId': studentId}),
+    );
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> reassignChildToParent(int studentId, int newParentId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/parent/reassign-child'),
+      headers: _headers(),
+      body: jsonEncode({'studentId': studentId, 'newParentId': newParentId}),
+    );
+    return response.statusCode == 200;
+  }
+
   // --- Permanent Hard Delete ---
   static Future<bool> hardDeleteStudent(int id) async {
     final response = await http.delete(Uri.parse('$baseUrl/students/$id/permanent'), headers: _headers());
@@ -1150,13 +1168,12 @@ class ApiService {
   }
 
   // --- Huffaz Forum (منتدى الحفاظ وشؤون التحفيظ) ---
-  static Future<Map<String, dynamic>> getHuffaz({String? memberType, bool? isKhatim}) async {
+  static Future<Map<String, dynamic>> getHuffaz({String? filter}) async {
     try {
       String url = '$baseUrl/huffaz';
-      List<String> queryParams = [];
-      if (memberType != null && memberType.isNotEmpty) queryParams.add('memberType=${Uri.encodeComponent(memberType)}');
-      if (isKhatim != null) queryParams.add('isKhatim=$isKhatim');
-      if (queryParams.isNotEmpty) url += '?${queryParams.join('&')}';
+      if (filter != null && filter.isNotEmpty && filter != 'all') {
+        url += '?filter=${Uri.encodeComponent(filter)}';
+      }
 
       final response = await http.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {

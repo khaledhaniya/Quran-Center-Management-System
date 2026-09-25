@@ -40,6 +40,7 @@ public class SettingsController : ControllerBase
     }
 
     [HttpPut]
+    [HttpPost]
     [RequireRole(UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> UpdateSettings([FromBody] UpdateSettingsDto dto)
     {
