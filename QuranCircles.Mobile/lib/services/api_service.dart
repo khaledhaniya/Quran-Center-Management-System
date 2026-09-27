@@ -23,11 +23,13 @@ class ApiService {
   static List<Student>? _cachedStudents;
   static List<Teacher>? _cachedTeachers;
   static List<Circle>? _cachedCircles;
+  static DateTime? _cacheTime;
 
   static void invalidateCache() {
     _cachedStudents = null;
     _cachedTeachers = null;
     _cachedCircles = null;
+    _cacheTime = null;
   }
 
   static Map<String, String> _headers({String? code2FA}) {
