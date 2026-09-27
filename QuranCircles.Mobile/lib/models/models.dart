@@ -11,6 +11,8 @@ class User {
   final bool hasChildren;
   final int childrenCount;
 
+  final String? taskRole;
+
   User({
     required this.id,
     required this.username,
@@ -23,7 +25,40 @@ class User {
     this.plainPassword,
     this.hasChildren = false,
     this.childrenCount = 0,
+    this.taskRole,
   });
+
+  bool get isHalaqahTeacher {
+    if (role != 'Teacher') return false;
+    final tr = (taskRole ?? '').trim();
+    if (tr.isEmpty) return true;
+    return tr.contains('معلم') || tr.contains('محفظ') || tr.contains('مساعد') || tr.contains('حلقة');
+  }
+
+  bool get isQualitySupervisor {
+    final tr = (taskRole ?? '').trim();
+    return tr.contains('الجودة') || tr.contains('رقابة');
+  }
+
+  bool get isMemorizationSupervisor {
+    final tr = (taskRole ?? '').trim();
+    return tr.contains('التحفيظ') || tr.contains('الحفاظ');
+  }
+
+  bool get isPreacherSupervisor {
+    final tr = (taskRole ?? '').trim();
+    return tr.contains('الفتى الواعظ') || tr.contains('الأصوات');
+  }
+
+  bool get isFinancialSupervisor {
+    final tr = (taskRole ?? '').trim();
+    return tr.contains('المالي') || tr.contains('الصندوق') || tr.contains('المحافظ');
+  }
+
+  bool get isCourseTeacher {
+    final tr = (taskRole ?? '').trim();
+    return tr.contains('دورات') || tr.contains('الدورات');
+  }
 
   factory User.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'] ?? json['userId'];
@@ -100,6 +135,7 @@ class User {
       plainPassword: defaultPw,
       hasChildren: parsedHasChildren,
       childrenCount: parsedChildrenCount,
+      taskRole: json['taskRole']?.toString(),
     );
   }
 }
@@ -160,6 +196,8 @@ class Student {
     this.notes,
     this.username,
   });
+
+  String? get completedAjzaa => previousQuranMemorization;
 
   factory Student.fromJson(Map<String, dynamic> json) {
     return Student(

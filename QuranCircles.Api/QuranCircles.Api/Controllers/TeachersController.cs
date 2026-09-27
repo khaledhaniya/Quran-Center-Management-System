@@ -274,4 +274,260 @@ public class TeachersController : ControllerBase
             Students = report
         });
     }
+
+    [HttpGet("{id:int}/comprehensive-report/printable")]
+    public async Task<IActionResult> PrintableComprehensiveReport(int id, [FromQuery] string? fromDate = null, [FromQuery] string? toDate = null, [FromQuery] string? download = null)
+    {
+        var teacher = await _db.Teachers.FindAsync(id);
+        if (teacher == null) return NotFound("المعلم غير موجود");
+
+        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+
+        DateOnly? parsedFrom = DateOnly.TryParse(fromDate, out var pf) ? pf : null;
+        DateOnly? parsedTo = DateOnly.TryParse(toDate, out var pt) ? pt : null;
+
+        var circles = await _db.Circles
+            .Where(c => c.TeacherId == teacher.Id || (c.AssistantTeacherId.HasValue && c.AssistantTeacherId.Value == teacher.Id))
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        var students = await _db.Students
+            .Include(s => s.Circle)
+            .AsNoTracking()
+            .Where(s => s.CircleId.HasValue && circles.Contains(s.CircleId.Value))
+            .OrderBy(s => s.FullName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+
+        var sessQuery = _db.Sessions.AsNoTracking().Where(s => studentIds.Contains(s.StudentId));
+        if (parsedFrom.HasValue) sessQuery = sessQuery.Where(rs => rs.SessionDate >= parsedFrom.Value);
+        if (parsedTo.HasValue) sessQuery = sessQuery.Where(rs => rs.SessionDate <= parsedTo.Value);
+        var allSessions = await sessQuery.ToListAsync();
+        var sessionsByStudent = allSessions.ToLookup(s => s.StudentId);
+
+        var attQuery = _db.Attendances.AsNoTracking().Where(a => studentIds.Contains(a.StudentId));
+        if (parsedFrom.HasValue) attQuery = attQuery.Where(a => a.SessionDate >= parsedFrom.Value);
+        if (parsedTo.HasValue) attQuery = attQuery.Where(a => a.SessionDate <= parsedTo.Value);
+        var allAttendances = await attQuery.ToListAsync();
+        var attendancesByStudent = allAttendances.ToLookup(a => a.StudentId);
+
+        var distinctDates = allSessions.Select(s => s.SessionDate)
+            .Union(allAttendances.Select(a => a.SessionDate))
+            .OrderByDescending(d => d)
+            .Take(15)
+            .ToList();
+
+        var periodText = parsedFrom.HasValue && parsedTo.HasValue 
+            ? $"الفترة من {parsedFrom:yyyy-MM-dd} إلى {parsedTo:yyyy-MM-dd}" 
+            : (parsedFrom.HasValue ? $"من تاريخ {parsedFrom:yyyy-MM-dd}" : "كامل الفترة المسجلة");
+
+        var autoDownloadScript = download == "pdf" ? "<script>window.addEventListener('DOMContentLoaded', () => { setTimeout(downloadPdf, 600); });</script>" : "";
+
+        var rowsHtml = new System.Text.StringBuilder();
+        int counter = 1;
+        foreach (var s in students)
+        {
+            var atts = attendancesByStudent[s.Id].ToList();
+            var sess = sessionsByStudent[s.Id].ToList();
+            var attRate = atts.Count > 0 ? (int)Math.Round((double)atts.Count(a => a.Status == AttendanceStatus.Present) / atts.Count * 100) : 100;
+            var totalVerses = sess.Where(rs => rs.Assessment != AssessmentLevel.DidNotRecite).Sum(rs => Math.Max(0, rs.ToVerse - rs.FromVerse + 1));
+            var lastSess = sess.OrderByDescending(rs => rs.SessionDate).FirstOrDefault();
+            var lastReciteText = lastSess != null ? $"{lastSess.SurahName} ({lastSess.FromVerse}-{lastSess.ToVerse})" : "لا يوجد";
+
+            rowsHtml.Append($@"
+                <tr>
+                    <td style=""text-align:center; font-weight:bold;"">{counter++}</td>
+                    <td style=""font-weight:bold; color:#0d3b26;"">{s.FullName}</td>
+                    <td style=""text-align:center;"">{s.StudentIdentityNumber ?? "-"}</td>
+                    <td style=""text-align:center;"">{s.Circle?.Name ?? "-"}</td>
+                    <td style=""text-align:center; font-weight:bold;"">{attRate}%</td>
+                    <td style=""text-align:center;"">{sess.Count}</td>
+                    <td style=""text-align:center; font-weight:bold; color:#059669;"">{totalVerses}</td>
+                    <td style=""text-align:center;"">{lastReciteText}</td>
+                    <td style=""text-align:center; font-size:11px;"">{(lastSess != null ? lastSess.SessionDate.ToString("yyyy-MM-dd") : "-")}</td>
+                </tr>");
+        }
+
+        var html = $@"<!DOCTYPE html>
+<html lang=""ar"" dir=""rtl"">
+<head>
+    <meta charset=""UTF-8"">
+    <title>كشف متابعة طلاب حلقة الشيخ {teacher.FullName}</title>
+    <link rel=""preconnect"" href=""https://fonts.googleapis.com"">
+    <link href=""https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap"" rel=""stylesheet"">
+    <script src=""https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js""></script>
+    <style>
+        body {{
+            font-family: 'Cairo', sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #1f2937;
+            direction: rtl;
+        }}
+        .action-bar {{
+            max-width: 1000px;
+            margin: 0 auto 20px auto;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }}
+        .btn {{
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Cairo', sans-serif;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }}
+        .btn-pdf {{ background: #0d3b26; color: #fff; }}
+        .btn-excel {{ background: #059669; color: #fff; }}
+        .btn-print {{ background: #4b5563; color: #fff; }}
+        .report-page {{
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 32px;
+            border-radius: 14px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+        }}
+        .header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0d3b26;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }}
+        .center-title {{ font-size: 20px; font-weight: 800; color: #0d3b26; }}
+        .report-title {{ font-size: 16px; font-weight: 700; color: #c5a059; margin-top: 4px; }}
+        .kpi-row {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }}
+        .kpi-card {{
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }}
+        .kpi-val {{ font-size: 20px; font-weight: 800; color: #0d3b26; }}
+        .kpi-lbl {{ font-size: 12px; color: #64748b; font-weight: 600; margin-top: 2px; }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 12px;
+        }}
+        th, td {{
+            border: 1px solid #cbd5e1;
+            padding: 8px 10px;
+        }}
+        th {{
+            background: #0d3b26;
+            color: #ffffff;
+            font-weight: 700;
+            text-align: center;
+        }}
+        tr:nth-child(even) {{ background: #f8fafc; }}
+        @media print {{
+            .action-bar {{ display: none !important; }}
+            body {{ background: #fff; padding: 0; }}
+            .report-page {{ box-shadow: none; padding: 10px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class=""action-bar"">
+        <button class=""btn btn-pdf"" onclick=""downloadPdf()"">📥 تحميل الكشف (PDF)</button>
+        <button class=""btn btn-excel"" onclick=""exportExcel()"">📊 تصدير كملف إكسل (XLS)</button>
+        <button class=""btn btn-print"" onclick=""window.print()"">🖨️ طباعة فورية</button>
+    </div>
+
+    <div class=""report-page"" id=""report-container"">
+        <div class=""header"">
+            <div>
+                <div class=""center-title"">{settings.CenterName}</div>
+                <div class=""report-title"">كشف متابعة وتسميع طلاب الحلقة الشامل</div>
+                <div style=""font-size: 12px; color: #64748b; margin-top: 4px;"">{periodText} | مسجد: {settings.MosqueName}</div>
+            </div>
+            <div style=""text-align: left;"">
+                <div style=""font-weight: bold; font-size: 14px; color: #0d3b26;"">المعلم: {teacher.FullName}</div>
+                <div style=""font-size: 12px; color: #64748b;"">تاريخ الاستخراج: {DateTime.Now:yyyy-MM-dd}</div>
+            </div>
+        </div>
+
+        <div class=""kpi-row"">
+            <div class=""kpi-card""><div class=""kpi-val"">{students.Count}</div><div class=""kpi-lbl"">إجمالي طلاب الحلقة</div></div>
+            <div class=""kpi-card""><div class=""kpi-val"">{allSessions.Count}</div><div class=""kpi-lbl"">جلسات التسميع</div></div>
+            <div class=""kpi-card""><div class=""kpi-val"">{allSessions.Where(rs => rs.Assessment != AssessmentLevel.DidNotRecite).Sum(rs => Math.Max(0, rs.ToVerse - rs.FromVerse + 1))}</div><div class=""kpi-lbl"">إجمالي الآيات المسمعة</div></div>
+            <div class=""kpi-card""><div class=""kpi-val"">{allAttendances.Count(a => a.Status == AttendanceStatus.Present)}</div><div class=""kpi-lbl"">أيام الحضور الفعلي</div></div>
+        </div>
+
+        <table id=""roster-table"">
+            <thead>
+                <tr>
+                    <th style=""width: 35px;"">#</th>
+                    <th>اسم الطالب الكامل</th>
+                    <th>رقم الهوية</th>
+                    <th>الحلقة</th>
+                    <th>نسبة الحضور</th>
+                    <th>الجلسات</th>
+                    <th>الآيات المسمعة</th>
+                    <th>آخر سورة مسمعة</th>
+                    <th>تاريخ آخر تسميع</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rowsHtml}
+            </tbody>
+        </table>
+
+        <div style=""margin-top: 30px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 12px;"">
+            <div>توقيع المشيخة / المعلم: ...............................</div>
+            <div>اعتماد أمير المركز: الشيخ علي حسن النبيه</div>
+        </div>
+    </div>
+
+    <script>
+        function downloadPdf() {{
+            const element = document.getElementById('report-container');
+            const opt = {{
+                margin:       8,
+                filename:     'كشف_حلقة_{teacher.FullName.Replace(" ", "_")}.pdf',
+                image:        {{ type: 'jpeg', quality: 0.98 }},
+                html2canvas:  {{ scale: 2, useCORS: true, logging: false }},
+                jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }}
+            }};
+            html2pdf().set(opt).from(element).save();
+        }}
+
+        function exportExcel() {{
+            const table = document.getElementById('roster-table');
+            const html = table.outerHTML;
+            const url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'كشف_حلقة_{teacher.FullName.Replace(" ", "_")}.xls';
+            a.click();
+        }}
+    </script>
+    {autoDownloadScript}
+</body>
+</html>";
+
+        return Content(html, "text/html", System.Text.Encoding.UTF8);
+    }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -19,6 +21,12 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   List<Circle> _allCircles = [];
   bool _isLoading = true;
 
+  // Digital Portfolio & Certificates State
+  List<Map<String, dynamic>> _portfolioItems = [];
+  bool _isLoadingPortfolio = false;
+  String _portfolioCategory = 'all'; // 'all', 'courses', 'quran'
+  String _portfolioSearchQuery = '';
+
   bool get _isAdminOrDev =>
       ApiService.currentUser?.role == 'Admin' || ApiService.currentUser?.role == 'Developer';
 
@@ -26,6 +34,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _loadPortfolioData();
   }
 
   void _loadData() async {
@@ -50,6 +59,71 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadPortfolioData() async {
+    setState(() => _isLoadingPortfolio = true);
+    try {
+      final nominations = await ApiService.getNominations();
+      final myCourses = await ApiService.getMyCourses();
+
+      final List<Map<String, dynamic>> items = [];
+
+      for (var n in nominations) {
+        if (n.status == 'Completed' && n.result != null && n.result!.grade >= 60) {
+          final isQuran = n.nominationType == 'Quran';
+          final title = isQuran
+              ? (n.juzStart == n.juzEnd ? 'حفظ الجزء ${n.juzStart}' : 'حفظ الأجزاء (${n.juzStart} - ${n.juzEnd})')
+              : (n.courseName?.isNotEmpty == true ? n.courseName! : 'دورة تخصصية');
+          final code = isQuran ? 'CERT-Q-100${n.id}' : 'CERT-CRS-200${n.id}';
+          final examDateStr = n.result!.examDate ?? n.examDate;
+          final dateVal = (examDateStr != null && examDateStr.length >= 10) ? examDateStr.substring(0, 10) : (examDateStr ?? '2026-09-20');
+          items.add({
+            'id': n.id,
+            'isQuran': isQuran,
+            'studentName': n.studentName,
+            'title': title,
+            'grade': n.result!.grade,
+            'date': dateVal,
+            'teacherName': n.teacherName.isNotEmpty ? n.teacherName : (isQuran ? 'محفظ ومربي الحلقة' : 'معلم ومحاضر الدورة'),
+            'code': code,
+            'pdfUrl': '${ApiService.baseUrl}/exams/certificate/${n.id}/printable?download=pdf',
+          });
+        }
+      }
+
+      for (var c in myCourses) {
+        final code = c['certificateCode']?.toString() ?? 'CERT-CRS-${c['id']}';
+        final studentName = c['studentName']?.toString() ?? '';
+        if (studentName.isNotEmpty && (c['status'] == 'Passed' || c['status'] == 'Certified')) {
+          final exists = items.any((it) => it['code'] == code || (it['studentName'] == studentName && it['title'] == c['courseName']));
+          if (!exists) {
+            items.add({
+              'id': c['id'],
+              'isQuran': false,
+              'studentName': studentName,
+              'title': c['courseName']?.toString() ?? 'دورة علمية',
+              'grade': (c['grade'] as num?)?.toDouble() ?? 90.0,
+              'date': c['certificateDate']?.toString().substring(0, 10) ?? c['enrollmentDate']?.toString().substring(0, 10) ?? '2026-09-20',
+              'teacherName': c['teacherName']?.toString() ?? 'معلم ومحاضر الدورة',
+              'code': code,
+              'pdfUrl': '${ApiService.baseUrl}/certificates/course/${c['id']}/printable?download=pdf',
+            });
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _portfolioItems = items;
+          _isLoadingPortfolio = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingPortfolio = false);
       }
     }
   }
@@ -667,32 +741,57 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   Widget build(BuildContext context) {
     final currentUser = ApiService.currentUser ?? User(id: 0, username: 'guest', fullName: 'زائر', role: 'Student', isActive: true);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('المساقات والدورات الأكاديمية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('المساقات وملف الإنجاز الرقمي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+          bottom: TabBar(
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelStyle: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            unselectedLabelStyle: AppTheme.cairoStyle(fontSize: 12),
+            tabs: const [
+              Tab(icon: Icon(Icons.school), text: 'مسارات الدورات'),
+              Tab(icon: Icon(Icons.workspace_premium), text: 'ملف الإنجاز والشهادات'),
+            ],
+          ),
+        ),
+        floatingActionButton: _isAdminOrDev
+            ? FloatingActionButton.extended(
+                backgroundColor: AppTheme.primary,
+                onPressed: () => _showAddEditCourseModal(),
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: Text('إضافة دورة أكاديمية', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              )
+            : null,
+        body: TabBarView(
+          children: [
+            _buildCoursesList(currentUser),
+            _buildPortfolioTab(),
+          ],
+        ),
       ),
-      floatingActionButton: _isAdminOrDev
-          ? FloatingActionButton.extended(
-              backgroundColor: AppTheme.primary,
-              onPressed: () => _showAddEditCourseModal(),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: Text('إضافة دورة أكاديمية', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            )
-          : null,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _courses.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.school_outlined, size: 64, color: Colors.grey),
-                      const SizedBox(height: 12),
-                      Text('لا توجد دورات مسجلة حالياً', style: AppTheme.cairoStyle(fontSize: 16, color: Colors.grey)),
-                    ],
-                  ),
-                )
-              : ListView.builder(
+    );
+  }
+
+  Widget _buildCoursesList(User currentUser) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_courses.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.school_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text('لا توجد دورات مسجلة حالياً', style: AppTheme.cairoStyle(fontSize: 16, color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
                   padding: const EdgeInsets.only(left: 14, right: 14, top: 14, bottom: 90),
                   itemCount: _courses.length,
                   itemBuilder: (ctx, index) {
@@ -939,7 +1038,286 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                       ),
                     );
                   },
+                );
+  }
+
+  Widget _buildPortfolioTab() {
+    if (_isLoadingPortfolio) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final query = _portfolioSearchQuery.trim().toLowerCase();
+    final filtered = _portfolioItems.where((item) {
+      if (_portfolioCategory == 'courses' && item['isQuran'] == true) return false;
+      if (_portfolioCategory == 'quran' && item['isQuran'] == false) return false;
+      if (query.isNotEmpty) {
+        final name = (item['studentName'] ?? '').toString().toLowerCase();
+        final title = (item['title'] ?? '').toString().toLowerCase();
+        final code = (item['code'] ?? '').toString().toLowerCase();
+        if (!name.contains(query) && !title.contains(query) && !code.contains(query)) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    return RefreshIndicator(
+      onRefresh: _loadPortfolioData,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: AppTheme.primary.withOpacity(0.05),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_user, color: AppTheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'السجل الرقمي المعتمد للمركز',
+                      style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_portfolioItems.length} شهادة معتمدة',
+                        style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'ابحث باسم الطالب، الدورة، أو رمز الاعتماد...',
+                    hintStyle: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey),
+                    prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.primary),
+                    suffixIcon: _portfolioSearchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () => setState(() => _portfolioSearchQuery = ''),
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  ),
+                  onChanged: (val) => setState(() => _portfolioSearchQuery = val),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildPortfolioFilterChip('all', 'الكل (${_portfolioItems.length})'),
+                      const SizedBox(width: 6),
+                      _buildPortfolioFilterChip('courses', 'الدورات التخصصية (${_portfolioItems.where((i) => !i['isQuran']).length})'),
+                      const SizedBox(width: 6),
+                      _buildPortfolioFilterChip('quran', 'القرآن الكريم (${_portfolioItems.where((i) => i['isQuran']).length})'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.workspace_premium_outlined, size: 64, color: AppTheme.accent),
+                          const SizedBox(height: 12),
+                          Text(
+                            'لا توجد شهادات رقمية مسجلة حالياً',
+                            style: AppTheme.cairoStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'فور اجتياز الطلاب للمساقات أو امتحانات الأجزاء بنجاح، ستظهر شهاداتهم هنا.',
+                            style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, index) {
+                      final item = filtered[index];
+                      final isQuran = item['isQuran'] == true;
+                      final grade = (item['grade'] as num?)?.toDouble() ?? 0.0;
+                      final gradeText = grade >= 95 ? 'ممتاز مرتفع' : (grade >= 90 ? 'ممتاز' : (grade >= 80 ? 'جيد جداً' : 'ناجح'));
+                      final code = item['code']?.toString() ?? '';
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: AppTheme.accent.withOpacity(0.5), width: 1.2),
+                        ),
+                        elevation: 2,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: const LinearGradient(
+                              colors: [Colors.white, Color(0xFFFFFDF5)],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isQuran ? AppTheme.primary : Colors.teal.shade700,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(isQuran ? Icons.menu_book : Icons.school, size: 14, color: Colors.white),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isQuran ? 'شهادة إتقان قرآن' : 'شهادة مساق معتمد',
+                                          style: AppTheme.cairoStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.amber.shade400),
+                                    ),
+                                    child: Text(
+                                      code,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+
+                              Text(
+                                item['studentName']?.toString() ?? '',
+                                style: AppTheme.cairoStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.primaryDark),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                item['title']?.toString() ?? '',
+                                style: AppTheme.cairoStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                              ),
+                              const SizedBox(height: 8),
+
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.green.shade300),
+                                    ),
+                                    child: Text(
+                                      'التقدير: $gradeText ($grade%)',
+                                      style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    'التاريخ: ${item['date'] ?? ""}',
+                                    style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'المعلم / المشرف: ${item['teacherName'] ?? ""}',
+                                style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700),
+                              ),
+
+                              const Divider(height: 18),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.copy, size: 14, color: AppTheme.accent),
+                                    label: Text('نسخ الرمز', style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textDark)),
+                                    onPressed: () {
+                                      Clipboard.setData(ClipboardData(text: code));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('تم نسخ الرمز: $code'), duration: const Duration(seconds: 1)),
+                                      );
+                                    },
+                                  ),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.picture_as_pdf, size: 15),
+                                    label: Text('تحميل PDF 📥', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () async {
+                                      final url = Uri.parse(item['pdfUrl']?.toString() ?? '');
+                                      try {
+                                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('تعذر فتح الشهادة: $e')),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortfolioFilterChip(String cat, String label) {
+    final isSelected = _portfolioCategory == cat;
+    return ChoiceChip(
+      label: Text(label, style: AppTheme.cairoStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : Colors.black87)),
+      selected: isSelected,
+      selectedColor: AppTheme.primary,
+      backgroundColor: Colors.white,
+      onSelected: (val) {
+        if (val) setState(() => _portfolioCategory = cat);
+      },
     );
   }
 }

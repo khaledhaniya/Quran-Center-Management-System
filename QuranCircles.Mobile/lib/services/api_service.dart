@@ -23,13 +23,11 @@ class ApiService {
   static List<Student>? _cachedStudents;
   static List<Teacher>? _cachedTeachers;
   static List<Circle>? _cachedCircles;
-  static DateTime? _cacheTime;
 
   static void invalidateCache() {
     _cachedStudents = null;
     _cachedTeachers = null;
     _cachedCircles = null;
-    _cacheTime = null;
   }
 
   static Map<String, String> _headers({String? code2FA}) {
@@ -447,6 +445,19 @@ class ApiService {
     }
   }
 
+
+  static Future<List<Map<String, dynamic>>> getMyCourses() async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/courses/my-courses'),
+      headers: _headers(),
+    );
+    if (resp.statusCode == 200) {
+      final List data = jsonDecode(resp.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   // --- Attendance & Sessions ---
   static Future<List<CourseAttendanceRecord>> getCourseAttendance(int courseId, String date) async {
     final enrollmentsResp = await http.get(
@@ -548,6 +559,41 @@ class ApiService {
       }),
     );
     return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  static Future<bool> enrollStudentInCircle(int circleId, int studentId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/circles/$circleId/students'),
+      headers: _headers(),
+      body: jsonEncode({'studentId': studentId}),
+    );
+    if (response.statusCode == 200) return true;
+    final body = jsonDecode(response.body);
+    throw Exception(body['error'] ?? body['message'] ?? 'فشل تنسيب الطالب للحلقة');
+  }
+
+  static Future<Map<String, dynamic>> drawLottery(int circleId, String date) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/sessions/lottery/$circleId?date=$date'),
+      headers: _headers(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final body = jsonDecode(response.body);
+    throw Exception(body['error'] ?? body['message'] ?? 'فشل سحب القرعة');
+  }
+
+  static Future<List<Map<String, dynamic>>> getStudentSessions(int studentId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/sessions/student/$studentId'),
+      headers: _headers(),
+    );
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
   }
 
   static Future<Map<String, dynamic>> getQualityOverview() async {

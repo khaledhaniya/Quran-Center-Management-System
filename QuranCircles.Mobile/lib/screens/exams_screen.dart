@@ -75,196 +75,294 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
     String nominationType = 'Quran';
     String juzSelectionMode = 'Single'; // 'Single' or 'Range'
-    Student? selectedStudent = (nominationType == 'Quran' ? quranStudents : allStudents).isNotEmpty 
-        ? (nominationType == 'Quran' ? quranStudents : allStudents).first 
-        : null;
+    Student? selectedQuranStudent = quranStudents.isNotEmpty ? quranStudents.first : null;
     Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
+    List<Map<String, dynamic>> courseStudents = [];
+    int? selectedCourseStudentId;
+    bool isLoadingCourseStudents = false;
     int singleJuz = 1;
     int juzStart = 1;
     int juzEnd = 1;
+
+    Future<void> fetchCourseStudents(int courseId, void Function(void Function()) setModalState) async {
+      setModalState(() => isLoadingCourseStudents = true);
+      try {
+        final enrollments = await ApiService.getCourseEnrollments(courseId);
+        setModalState(() {
+          courseStudents = enrollments;
+          selectedCourseStudentId = enrollments.isNotEmpty ? (enrollments.first['studentId'] as int?) : null;
+          isLoadingCourseStudents = false;
+        });
+      } catch (_) {
+        setModalState(() => isLoadingCourseStudents = false);
+      }
+    }
+
+    if (courses.isNotEmpty) {
+      fetchCourseStudents(courses.first.id, (fn) => fn());
+    }
 
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final activeStudentsList = nominationType == 'Quran' ? quranStudents : allStudents;
-          if (selectedStudent == null || !activeStudentsList.contains(selectedStudent)) {
-            selectedStudent = activeStudentsList.isNotEmpty ? activeStudentsList.first : null;
-          }
-
           return AlertDialog(
-            title: Text('تقديم طلب ترشيح للاختبار', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Icon(
+                  nominationType == 'Quran' ? Icons.menu_book : Icons.school,
+                  color: AppTheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text('تقديم طلب ترشيح للاختبار', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
                     value: nominationType,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'نوع الاختبار *'),
+                    decoration: const InputDecoration(labelText: 'مسار الاختبار *'),
                     items: const [
-                      DropdownMenuItem(value: 'Quran', child: Text('حفظ قرآن كريم (أجزاء)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      DropdownMenuItem(value: 'Quran', child: Text('حفظ واختبار قرآن كريم (أجزاء)', overflow: TextOverflow.ellipsis, maxLines: 1)),
                       DropdownMenuItem(value: 'Course', child: Text('اختبار مساق / دورة شرعية', overflow: TextOverflow.ellipsis, maxLines: 1)),
                     ],
                     onChanged: (val) {
                       if (val != null) {
                         setModalState(() {
                           nominationType = val;
-                          final newList = nominationType == 'Quran' ? quranStudents : allStudents;
-                          selectedStudent = newList.isNotEmpty ? newList.first : null;
                         });
+                        if (val == 'Course' && selectedCourse != null && courseStudents.isEmpty && !isLoadingCourseStudents) {
+                          fetchCourseStudents(selectedCourse!.id, setModalState);
+                        }
                       }
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
-                  if (activeStudentsList.isNotEmpty)
-                    DropdownButtonFormField<Student>(
-                      value: selectedStudent,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'اختر الطالب *'),
-                      items: activeStudentsList.map((s) => DropdownMenuItem(value: s, child: Text(s.fullName, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
-                      onChanged: (val) => setModalState(() => selectedStudent = val),
-                    )
-                  else
-                    Text(
-                      nominationType == 'Quran' 
-                          ? 'لا يوجد طلاب ينتمون لحلقتك القرآنية حالياً' 
-                          : 'لا يوجد طلاب مسندون لك حالياً', 
-                      style: AppTheme.cairoStyle(color: Colors.red),
-                    ),
-                  const SizedBox(height: 12),
-
-                if (nominationType == 'Course' && courses.isNotEmpty) ...[
-                  DropdownButtonFormField<Course>(
-                    value: selectedCourse,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'اختر المساق/الدورة *'),
-                    items: courses.map((c) => DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
-                    onChanged: (val) => setModalState(() => selectedCourse = val),
-                  ),
-                ] else if (nominationType == 'Quran') ...[
-                  DropdownButtonFormField<String>(
-                    value: juzSelectionMode,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'طريقة تحديد الأجزاء *'),
-                    items: const [
-                      DropdownMenuItem(value: 'Single', child: Text('جزء واحد فقط', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                      DropdownMenuItem(value: 'Range', child: Text('نطاق أجزاء (من - إلى)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setModalState(() => juzSelectionMode = val);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  if (juzSelectionMode == 'Single')
-                    DropdownButtonFormField<int>(
-                      value: singleJuz,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'اختر الجزء *'),
-                      items: List.generate(30, (i) => i + 1)
-                          .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() {
-                            singleJuz = val;
-                            juzStart = val;
-                            juzEnd = val;
-                          });
-                        }
-                      },
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: juzStart,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'من الجزء'),
-                            items: List.generate(30, (i) => i + 1)
-                                .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setModalState(() {
-                                  juzStart = val;
-                                  if (juzEnd < juzStart) juzEnd = juzStart;
-                                });
-                              }
-                            },
-                          ),
+                  if (nominationType == 'Quran') ...[
+                    if (quranStudents.isNotEmpty)
+                      DropdownButtonFormField<Student>(
+                        value: selectedQuranStudent,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'اختر طالب الحلقة القرآنية *',
+                          prefixIcon: Icon(Icons.person, color: AppTheme.primary),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: juzEnd,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'إلى الجزء'),
-                            items: List.generate(30, (i) => i + 1)
-                                .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) setModalState(() => juzEnd = val);
-                            },
+                        items: quranStudents.map((s) => DropdownMenuItem(value: s, child: Text(s.fullName, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+                        onChanged: (val) => setModalState(() => selectedQuranStudent = val),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.shade200)),
+                        child: Text(
+                          isTeacher ? 'لا يوجد طلاب مسجلين في حلقتك القرآنية حالياً لترشيحهم.' : 'لا يوجد طلاب قرآن في المنظومة.',
+                          style: AppTheme.cairoStyle(color: Colors.red.shade800, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    const SizedBox(height: 14),
+
+                    DropdownButtonFormField<String>(
+                      value: juzSelectionMode,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'طريقة تحديد الأجزاء *'),
+                      items: const [
+                        DropdownMenuItem(value: 'Single', child: Text('جزء واحد فقط', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                        DropdownMenuItem(value: 'Range', child: Text('نطاق أجزاء (من - إلى)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => juzSelectionMode = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (juzSelectionMode == 'Single')
+                      DropdownButtonFormField<int>(
+                        value: singleJuz,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'اختر الجزء المطلوب اختباره *'),
+                        items: List.generate(30, (i) => i + 1)
+                            .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() {
+                              singleJuz = val;
+                              juzStart = val;
+                              juzEnd = val;
+                            });
+                          }
+                        },
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: juzStart,
+                              isExpanded: true,
+                              decoration: const InputDecoration(labelText: 'من الجزء'),
+                              items: List.generate(30, (i) => i + 1)
+                                  .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() {
+                                    juzStart = val;
+                                    if (juzEnd < juzStart) juzEnd = juzStart;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: juzEnd,
+                              isExpanded: true,
+                              decoration: const InputDecoration(labelText: 'إلى الجزء'),
+                              items: List.generate(30, (i) => i + 1)
+                                  .map((j) => DropdownMenuItem(value: j, child: Text('الجزء $j', overflow: TextOverflow.ellipsis, maxLines: 1)))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) setModalState(() => juzEnd = val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                  ] else ...[
+                    // Course nomination mode
+                    if (courses.isNotEmpty) ...[
+                      DropdownButtonFormField<Course>(
+                        value: selectedCourse,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'اختر المساق / الدورة *',
+                          prefixIcon: Icon(Icons.school, color: AppTheme.primary),
+                        ),
+                        items: courses.map((c) => DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedCourse = val);
+                            fetchCourseStudents(val.id, setModalState);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      if (isLoadingCourseStudents)
+                        const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (courseStudents.isNotEmpty) ...[
+                        DropdownButtonFormField<int>(
+                          value: selectedCourseStudentId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'اختر الطالب المسجل في الدورة *',
+                            prefixIcon: Icon(Icons.person_pin, color: AppTheme.primary),
+                          ),
+                          items: courseStudents.map((cs) {
+                            final sId = cs['studentId'] as int? ?? 0;
+                            final sName = cs['studentName']?.toString() ?? 'طالب';
+                            final halaqah = cs['halaqahName']?.toString() ?? '';
+                            final label = halaqah.isNotEmpty ? '$sName ($halaqah)' : sName;
+                            return DropdownMenuItem<int>(
+                              value: sId,
+                              child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
+                            );
+                          }).toList(),
+                          onChanged: (val) => setModalState(() => selectedCourseStudentId = val),
+                        ),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.shade200)),
+                          child: Text(
+                            'لا يوجد طلاب مسجلين في هذا المساق حالياً. يرجى تسجيل الطلاب في المساق أولاً قبل ترشيحهم.',
+                            style: AppTheme.cairoStyle(color: Colors.orange.shade900, fontSize: 12),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ],
-                    ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.shade200)),
+                        child: Text(
+                          'لا توجد مساقات مسندة لك حالياً.',
+                          style: AppTheme.cairoStyle(color: Colors.red.shade800, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (selectedStudent == null) return;
-                if (nominationType == 'Course' && selectedCourse == null) return;
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                onPressed: () async {
+                  int? finalStudentId;
+                  if (nominationType == 'Quran') {
+                    if (selectedQuranStudent == null) return;
+                    finalStudentId = selectedQuranStudent!.id;
+                  } else {
+                    if (selectedCourse == null || selectedCourseStudentId == null) return;
+                    finalStudentId = selectedCourseStudentId;
+                  }
 
-                final finalJuzStart = nominationType == 'Quran' ? (juzSelectionMode == 'Single' ? singleJuz : juzStart) : 1;
-                final finalJuzEnd = nominationType == 'Quran' ? (juzSelectionMode == 'Single' ? singleJuz : juzEnd) : 1;
+                  final finalJuzStart = nominationType == 'Quran' ? (juzSelectionMode == 'Single' ? singleJuz : juzStart) : 1;
+                  final finalJuzEnd = nominationType == 'Quran' ? (juzSelectionMode == 'Single' ? singleJuz : juzEnd) : 1;
 
-                try {
-                  final ok = await ApiService.nominateExam(
-                    studentId: selectedStudent!.id,
-                    nominationType: nominationType,
-                    courseId: nominationType == 'Course' ? selectedCourse?.id : null,
-                    juzStart: finalJuzStart,
-                    juzEnd: finalJuzEnd,
-                  );
+                  try {
+                    final ok = await ApiService.nominateExam(
+                      studentId: finalStudentId!,
+                      nominationType: nominationType,
+                      courseId: nominationType == 'Course' ? selectedCourse?.id : null,
+                      juzStart: finalJuzStart,
+                      juzEnd: finalJuzEnd,
+                    );
 
-                  if (!dialogCtx.mounted) return;
-                  Navigator.pop(dialogCtx);
-                  if (ok) {
-                    _loadNominations();
+                    if (!dialogCtx.mounted) return;
+                    Navigator.pop(dialogCtx);
+                    if (ok) {
+                      _loadNominations();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم تقديم طلب الترشيح للاختبار بنجاح!'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    if (!dialogCtx.mounted) return;
+                    Navigator.pop(dialogCtx);
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('تم تقديم طلب الترشيح للاختبار بنجاح!'), backgroundColor: Colors.green),
+                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
                     );
                   }
-                } catch (e) {
-                  if (!dialogCtx.mounted) return;
-                  Navigator.pop(dialogCtx);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('تقديم الترشيح'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
+                },
+                child: Text('تقديم الترشيح', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   void _showScheduleDialog(ExamNomination nomination) {
     DateTime selectedDateTime = DateTime.now().add(const Duration(days: 1));

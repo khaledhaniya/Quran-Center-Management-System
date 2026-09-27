@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/contact_helper.dart';
+import '../utils/teacher_role_helper.dart';
 
 class TeachersManagementScreen extends StatefulWidget {
   const TeachersManagementScreen({super.key});
@@ -362,22 +363,12 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
     final targetStudentsCtrl = TextEditingController(text: teacher?.studentsCountTarget ?? '');
     final passwordCtrl = TextEditingController(text: '123456');
 
-    final availableRoles = [
-      'معلم حلقة',
-      'مساعد حلقة',
-      'مشرف اختبارات',
-      'شؤون التحفيظ',
-      'الجودة والرقابة',
-      'الملف المالي',
-      'معلم دورات',
-      'الفتى الواعظ',
-      'أمير المركز',
-    ];
+    final availableRoles = TeacherRoleHelper.availableInputRoles;
 
     Set<String> selectedRolesSet = {};
     if (teacher?.taskRole != null && teacher!.taskRole!.trim().isNotEmpty && teacher.taskRole != 'غير مكلف') {
       selectedRolesSet = teacher.taskRole!
-          .split(',')
+          .split(RegExp(r'[,+]'))
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty && s != 'غير مكلف')
           .toSet();
@@ -1015,11 +1006,9 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (ctx, index) {
                       final t = _filteredTeachers[index];
-                      final assignedRoles = (t.taskRole != null && t.taskRole!.trim().isNotEmpty)
-                          ? t.taskRole!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-                          : ['غير مكلف'];
+                      final assignedRoles = TeacherRoleHelper.getTeacherRolesList(t.taskRole);
                       final primaryRole = assignedRoles.first;
-                      final roleColor = _getRoleColor(primaryRole);
+                      final roleColor = primaryRole.color;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -1114,27 +1103,25 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                                 spacing: 6,
                                 runSpacing: 6,
                                 children: [
-                                  // All Assigned Task Roles
-                                  ...assignedRoles.map((r) {
-                                    final col = _getRoleColor(r);
-                                    final ic = _getRoleIcon(r);
+                                  // All Assigned Task Roles (Clean & Deduplicated)
+                                  ...assignedRoles.map((roleItem) {
                                     return Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: col.withValues(alpha: 0.1),
+                                        color: roleItem.color.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: col.withValues(alpha: 0.3)),
+                                        border: Border.all(color: roleItem.color.withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(ic, size: 13, color: col),
+                                          Icon(roleItem.icon, size: 13, color: roleItem.color),
                                           const SizedBox(width: 4),
                                           Text(
-                                            r,
+                                            roleItem.title,
                                             style: AppTheme.cairoStyle(
                                               fontSize: 11,
-                                              color: col,
+                                              color: roleItem.color,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
