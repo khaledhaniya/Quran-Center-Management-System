@@ -569,9 +569,66 @@ class ApiService {
       headers: _headers(),
       body: jsonEncode({'studentId': studentId}),
     );
-    if (response.statusCode == 200) return true;
+    if (response.statusCode == 200 || response.statusCode == 204) return true;
     final body = jsonDecode(response.body);
     throw Exception(body['error'] ?? body['message'] ?? 'فشل تنسيب الطالب للحلقة');
+  }
+
+  static Future<bool> unenrollStudentFromCircle(int circleId, int studentId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/circles/$circleId/students/$studentId'),
+      headers: _headers(),
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) return true;
+    final body = jsonDecode(response.body);
+    throw Exception(body['error'] ?? body['message'] ?? 'فشل إلغاء تنسيب الطالب من الحلقة');
+  }
+
+  static Future<List<Map<String, dynamic>>> getStudentsForEnrollment({String? search}) async {
+    String url = '$baseUrl/students/all-for-enrollment';
+    if (search != null && search.trim().isNotEmpty) {
+      url += '?search=${Uri.encodeComponent(search.trim())}';
+    }
+    final response = await http.get(Uri.parse(url), headers: _headers());
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  static Future<bool> updateRecitationSession({
+    required int id,
+    required String sessionDate,
+    required String surahName,
+    required int fromVerse,
+    required int toVerse,
+    required int assessment,
+    String? notes,
+    int recitationType = 1,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/sessions/$id'),
+      headers: _headers(),
+      body: jsonEncode({
+        'sessionDate': sessionDate,
+        'surahName': surahName,
+        'fromVerse': fromVerse,
+        'toVerse': toVerse,
+        'assessment': assessment,
+        'notes': notes,
+        'recitationType': recitationType,
+      }),
+    );
+    return response.statusCode == 200 || response.statusCode == 204;
+  }
+
+  static Future<bool> deleteRecitationSession(int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/sessions/$id'),
+      headers: _headers(),
+    );
+    return response.statusCode == 200 || response.statusCode == 204;
   }
 
   static Future<Map<String, dynamic>> drawLottery(int circleId, String date) async {
@@ -1003,6 +1060,25 @@ class ApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return {};
+  }
+
+  static String getTeacherReportDownloadUrl(int teacherId, String format, {String? fromDate, String? toDate}) {
+    String url = '$baseUrl/teachers/$teacherId/report/$format';
+    final q = <String>[];
+    if (fromDate != null && fromDate.isNotEmpty) q.add('fromDate=${Uri.encodeComponent(fromDate)}');
+    if (toDate != null && toDate.isNotEmpty) q.add('toDate=${Uri.encodeComponent(toDate)}');
+    if (q.isNotEmpty) url += '?${q.join('&')}';
+    return url;
+  }
+
+  static Future<Circle?> getCircle(int id) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/circles/$id'), headers: _headers());
+      if (response.statusCode == 200) {
+        return Circle.fromJson(jsonDecode(response.body));
+      }
+    } catch (_) {}
+    return null;
   }
 
   // --- Executive Dashboard Summary Report ---

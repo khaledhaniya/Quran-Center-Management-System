@@ -25,6 +25,11 @@ import 'financial_management_screen.dart';
 import 'quality_management_screen.dart';
 import 'memorization_forum_screen.dart';
 import 'preacher_youth_screen.dart';
+import 'teacher_attendance_screen.dart';
+import 'teacher_sessions_screen.dart';
+import 'teacher_circle_students_screen.dart';
+import 'teacher_comprehensive_report_screen.dart';
+import 'teacher_lottery_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -102,8 +107,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       }
     } else if (isTeacher) {
       if (widget.currentUser.isHalaqahTeacher) {
-        screens.add(CircleAttendanceScreen(currentUser: widget.currentUser));
-        items.add(const BottomNavigationBarItem(icon: Icon(Icons.playlist_add_check), label: 'سجل الحلقة'));
+        screens.add(TeacherAttendanceScreen(currentUser: widget.currentUser));
+        items.add(const BottomNavigationBarItem(icon: Icon(Icons.playlist_add_check), label: 'حضور الحلقة'));
+
+        screens.add(TeacherSessionsScreen(currentUser: widget.currentUser));
+        items.add(const BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: 'سجل التسميع'));
+
+        screens.add(TeacherComprehensiveReportScreen(currentUser: widget.currentUser));
+        items.add(const BottomNavigationBarItem(icon: Icon(Icons.table_chart), label: 'كشف المتابعة'));
       }
 
       if (widget.currentUser.isCourseTeacher) {
@@ -111,36 +122,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.school), label: 'تحضير المساق'));
       }
 
-      if (widget.currentUser.isQualitySupervisor && !widget.currentUser.isHalaqahTeacher) {
-        screens.add(const QualityManagementScreen());
-        items.add(const BottomNavigationBarItem(icon: Icon(Icons.verified_user), label: 'الجودة'));
-      }
-
-      if (widget.currentUser.isMemorizationSupervisor && !widget.currentUser.isHalaqahTeacher) {
-        screens.add(const MemorizationForumScreen());
-        items.add(const BottomNavigationBarItem(icon: Icon(Icons.auto_stories), label: 'شؤون التحفيظ'));
-      }
-
-      if (widget.currentUser.isPreacherSupervisor && !widget.currentUser.isHalaqahTeacher) {
-        screens.add(const PreacherYouthScreen());
-        items.add(const BottomNavigationBarItem(icon: Icon(Icons.record_voice_over), label: 'الفتى الواعظ'));
-      }
-
-      if (widget.currentUser.isFinancialSupervisor && !widget.currentUser.isHalaqahTeacher) {
-        screens.add(const FinancialManagementScreen());
-        items.add(const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'المالية'));
-      }
-
-      if (screens.length == 1) {
-        screens.add(CircleAttendanceScreen(currentUser: widget.currentUser));
-        items.add(const BottomNavigationBarItem(icon: Icon(Icons.playlist_add_check), label: 'سجل الحلقة'));
-      }
+      screens.add(const CoursesManagementScreen());
+      items.add(const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الدورات'));
 
       screens.add(ExamsScreen(currentUser: widget.currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الترشيحات'));
-
-      screens.add(AnnouncementsScreen(currentUser: widget.currentUser));
-      items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
     } else if (isSupervisor) {
       screens.add(ExamsScreen(currentUser: widget.currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الاختبارات'));
@@ -457,23 +443,56 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
             if (isTeacher) ...[
               if (widget.currentUser.isHalaqahTeacher) ...[
-                ListTile(
-                  leading: const Icon(Icons.person_add_alt_1, color: AppTheme.primary),
-                  title: Text('تنسيب وإدارة طلاب حلقاتي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('تنسيب طلاب جدد واستعراض بيانات طلاب الحلقة', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => const StudentsManagementScreen()));
-                  },
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Text('أدوات الحلقة القرآنية', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
                 ListTile(
                   leading: const Icon(Icons.playlist_add_check, color: AppTheme.primary),
-                  title: Text('سجل الحضور والتسميع والقرعة الشامل', style: AppTheme.cairoStyle()),
+                  title: Text('تسجيل الحضور اليومي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('رصد حضور وغياب طلاب الحلقة مع التاريخ', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => CircleAttendanceScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherAttendanceScreen(currentUser: widget.currentUser)));
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Icons.book_outlined, color: AppTheme.primary),
+                  title: Text('سجل تسميع الحفظ', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('توثيق الحفظ الجديد والمراجعة وتثبيت الآيات', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherSessionsScreen(currentUser: widget.currentUser)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.person_add_alt_1, color: AppTheme.primary),
+                  title: Text('تنسيب وإدارة طلاب حلقاتي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('استعراض طلاب الحلقة، وتنسيب الطلاب الجدد', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherCircleStudentsScreen(currentUser: widget.currentUser)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.table_chart, color: AppTheme.primary),
+                  title: Text('كشف متابعة وتسميع الطلاب الشامل', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('المصفوفة اليومية على الشاشة وتصدير PDF / Excel', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherComprehensiveReportScreen(currentUser: widget.currentUser)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.casino, color: AppTheme.primary),
+                  title: Text('قرعة التسميع العشوائية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('اختيار الطالب التالي للتسميع واستبعاد الغائبين', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherLotteryScreen(currentUser: widget.currentUser)));
+                  },
+                ),
+                const Divider(),
               ],
               if (widget.currentUser.isCourseTeacher) ...[
                 ListTile(
@@ -484,23 +503,38 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => CourseAttendanceScreen(currentUser: widget.currentUser)));
                   },
                 ),
-                ListTile(
-                  leading: const Icon(Icons.auto_stories, color: AppTheme.primary),
-                  title: Text('المساقات وملف الإنجاز الأكاديمي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CoursesManagementScreen()));
-                  },
-                ),
               ],
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Text('البرامج والمسارات المشتركة', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.menu_book, color: AppTheme.primary),
+                title: Text('الدورات والمسارات التدريبية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('استعراض المسارات وسجل إنجازات الطلاب', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CoursesManagementScreen()));
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.assignment, color: AppTheme.primary),
-                title: Text('ترشيح الطلاب للاختبارات', style: AppTheme.cairoStyle()),
+                title: Text('إدارة الاختبارات والترشيحات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('ترشيح الطلاب لاختبارات القرآن والأجزاء والتجويد', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.campaign, color: AppTheme.primary),
+                title: Text('مركز الإشعارات والتنبيهات', style: AppTheme.cairoStyle()),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => AnnouncementsScreen(currentUser: widget.currentUser)));
+                },
+              ),
+              const Divider(),
               if (widget.currentUser.isFinancialSupervisor)
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)),
