@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -29,7 +28,7 @@ class _TeacherComprehensiveReportScreenState extends State<TeacherComprehensiveR
 
   // Report Data
   List<Map<String, dynamic>> _studentsData = [];
-  Map<String, String> _dayNotes = {}; // date -> note/holiday
+  final Map<String, String> _dayNotes = {}; // date -> note/holiday
 
   @override
   void initState() {

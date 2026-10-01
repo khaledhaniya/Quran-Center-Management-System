@@ -39,7 +39,7 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
       List<Circle> myCircles = activeCircles;
       if (widget.currentUser.role == 'Teacher') {
         myCircles = activeCircles.where((c) {
-          final tName = c.teacherName.trim();
+          final tName = c.teacherName?.trim() ?? '';
           final uName = widget.currentUser.fullName.trim();
           return tName.isNotEmpty && (tName == uName || tName.contains(uName) || uName.contains(tName));
         }).toList();
@@ -88,8 +88,8 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
     setState(() => _isLoading = true);
 
     try {
-      final circleDetails = await ApiService.getCircle(_selectedCircle!.id);
-      final list = circleDetails?.students ?? [];
+      final allStudents = await ApiService.getStudents();
+      final list = allStudents.where((s) => s.circleId == _selectedCircle!.id).toList();
       if (mounted) {
         setState(() {
           _students = list;
@@ -406,7 +406,9 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                         itemBuilder: (ctx, idx) {
                           final s = _students[idx];
 
-                          String displayPhone = s.familyContact.isNotEmpty ? s.familyContact : (s.studentMobile.isNotEmpty ? s.studentMobile : '-');
+                          String displayPhone = (s.familyContact != null && s.familyContact!.isNotEmpty)
+                              ? s.familyContact!
+                              : ((s.studentMobile != null && s.studentMobile!.isNotEmpty) ? s.studentMobile! : '-');
                           if (_hideParentPhone && displayPhone != '-') {
                             displayPhone = displayPhone.length > 5 ? '${displayPhone.substring(0, 4)}****${displayPhone.substring(displayPhone.length - 2)}' : '****';
                           }
@@ -433,15 +435,15 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(s.fullName, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                            if (s.parentName.isNotEmpty)
-                                              Text('ولي الأمر: ${s.parentName}', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                            if (s.familyContact != null && s.familyContact!.isNotEmpty)
+                                              Text('رقم العائلة: ${s.familyContact}', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                                           ],
                                         ),
                                       ),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade200)),
-                                        child: Text(s.previousQuranMemorization.isNotEmpty ? s.previousQuranMemorization : 'مبتدئ', style: AppTheme.cairoStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                                        child: Text((s.previousQuranMemorization != null && s.previousQuranMemorization!.isNotEmpty) ? s.previousQuranMemorization! : 'مبتدئ', style: AppTheme.cairoStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
                                       ),
                                     ],
                                   ),
@@ -457,7 +459,7 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                                         children: [
                                           const Icon(Icons.badge_outlined, size: 14, color: Colors.grey),
                                           const SizedBox(width: 4),
-                                          Text('الهوية: ${s.studentIdentityNumber.isNotEmpty ? s.studentIdentityNumber : s.id}', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                          Text('الهوية: ${(s.studentIdentityNumber != null && s.studentIdentityNumber!.isNotEmpty) ? s.studentIdentityNumber! : s.id.toString()}', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700)),
                                         ],
                                       ),
                                       Row(
@@ -468,13 +470,13 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                                           Text(displayPhone, style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700)),
                                         ],
                                       ),
-                                      if (s.address.isNotEmpty)
+                                      if (s.address != null && s.address!.isNotEmpty)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
                                             const SizedBox(width: 4),
-                                            Text(s.address, style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                            Text(s.address!, style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700)),
                                           ],
                                         ),
                                     ],
@@ -490,7 +492,7 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
-                                        icon: const Icon(Icons.id_card, size: 14),
+                                        icon: const Icon(Icons.badge, size: 14),
                                         label: Text('بطاقة الطالب', style: AppTheme.cairoStyle(fontSize: 11)),
                                         onPressed: () {
                                           Navigator.push(context, MaterialPageRoute(builder: (ctx) => const Student360Screen()));

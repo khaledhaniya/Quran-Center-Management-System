@@ -45,7 +45,7 @@ class _TeacherLotteryScreenState extends State<TeacherLotteryScreen> with Single
       List<Circle> myCircles = activeCircles;
       if (widget.currentUser.role == 'Teacher') {
         myCircles = activeCircles.where((c) {
-          final tName = c.teacherName.trim();
+          final tName = c.teacherName?.trim() ?? '';
           final uName = widget.currentUser.fullName.trim();
           return tName.isNotEmpty && (tName == uName || tName.contains(uName) || uName.contains(tName));
         }).toList();

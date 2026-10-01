@@ -37,7 +37,7 @@ class _TeacherSessionsScreenState extends State<TeacherSessionsScreen> {
       List<Circle> myCircles = activeCircles;
       if (widget.currentUser.role == 'Teacher') {
         myCircles = activeCircles.where((c) {
-          final tName = c.teacherName.trim();
+          final tName = c.teacherName?.trim() ?? '';
           final uName = widget.currentUser.fullName.trim();
           return tName.isNotEmpty && (tName == uName || tName.contains(uName) || uName.contains(tName));
         }).toList();
@@ -72,8 +72,8 @@ class _TeacherSessionsScreenState extends State<TeacherSessionsScreen> {
     });
 
     try {
-      final circleDetails = await ApiService.getCircle(_selectedCircle!.id);
-      final students = circleDetails?.students ?? [];
+      final allStudents = await ApiService.getStudents();
+      final students = allStudents.where((s) => s.circleId == _selectedCircle!.id).toList();
       if (mounted) {
         setState(() {
           _circleStudents = students;

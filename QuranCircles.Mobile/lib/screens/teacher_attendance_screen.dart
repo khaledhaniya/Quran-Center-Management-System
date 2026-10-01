@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import 'student_360_screen.dart';
 
 class TeacherAttendanceScreen extends StatefulWidget {
   final User currentUser;
@@ -40,7 +38,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       List<Circle> myCircles = activeCircles;
       if (widget.currentUser.role == 'Teacher') {
         myCircles = activeCircles.where((c) {
-          final tName = c.teacherName.trim();
+          final tName = c.teacherName?.trim() ?? '';
           final uName = widget.currentUser.fullName.trim();
           return tName.isNotEmpty && (tName == uName || tName.contains(uName) || uName.contains(tName));
         }).toList();
@@ -83,20 +81,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      final circleDetails = await ApiService.getCircle(_selectedCircle!.id);
-      final students = circleDetails?.students ?? [];
+      final allStudents = await ApiService.getStudents();
+      final students = allStudents.where((s) => s.circleId == _selectedCircle!.id).toList();
 
-      // Fetch existing attendance records for this date
-      final existingRecords = await ApiService.getAttendance(_selectedCircle!.id, dateStr);
       final Map<int, String> statusMap = {};
-
       for (var s in students) {
-        final rec = existingRecords.firstWhere(
-          (r) => r.studentId == s.id,
-          orElse: () => AttendanceRecord(id: 0, studentId: s.id, studentName: s.fullName, circleId: _selectedCircle!.id, date: dateStr, status: 'Present'),
-        );
-        statusMap[s.id] = rec.status.isNotEmpty ? rec.status : 'Present';
+        statusMap[s.id] = _attendanceStatus[s.id] ?? 'Present';
       }
 
       if (mounted) {
@@ -120,15 +110,23 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final records = _circleStudents.map((s) {
+        int statusInt = 1;
+        final st = _attendanceStatus[s.id] ?? 'Present';
+        if (st == 'Absent') {
+          statusInt = 2;
+        } else if (st == 'Excused') {
+          statusInt = 3;
+        } else if (st == 'Late') {
+          statusInt = 4;
+        }
+
         return {
           'studentId': s.id,
-          'circleId': _selectedCircle!.id,
-          'sessionDate': dateStr,
-          'status': _attendanceStatus[s.id] ?? 'Present',
+          'status': statusInt,
         };
       }).toList();
 
-      final success = await ApiService.saveAttendanceBatch(records);
+      final success = await ApiService.saveCircleAttendance(_selectedCircle!.id, dateStr, records);
       if (mounted) {
         setState(() => _isSaving = false);
         if (success) {
