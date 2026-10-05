@@ -23,6 +23,8 @@ class AppTheme {
     FontWeight fontWeight = FontWeight.normal,
     Color color = textDark,
     double? height,
+    double? letterSpacing,
+    List<Shadow>? shadows,
   }) {
     return TextStyle(
       fontFamily: 'Cairo',
@@ -30,6 +32,8 @@ class AppTheme {
       fontWeight: fontWeight,
       color: color,
       height: height,
+      letterSpacing: letterSpacing,
+      shadows: shadows,
     );
   }
 

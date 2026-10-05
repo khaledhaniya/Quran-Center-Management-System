@@ -628,6 +628,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
               fontSize: 11.5,
               height: 1.4,
             ),
+          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
