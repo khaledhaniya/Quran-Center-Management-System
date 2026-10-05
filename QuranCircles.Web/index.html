@@ -26,6 +26,33 @@
     <link rel="stylesheet" href="styles.css?v=20260922_v10_fixed_header_clean_profile">
 </head>
 <body>
+    <!-- Islamic Initial Loading Screen Curtain (Prevents stale login flash on refresh/slow network) -->
+    <div id="app-initial-loader" class="app-initial-loader">
+        <div class="loader-content-box animate-zoom">
+            <div class="loader-logo-ring">
+                <img src="assets/logo.png" alt="شعار المركز" class="loader-logo-img">
+            </div>
+            <h2 class="loader-center-title dynamic-center-name">مركز حلقات تحفيظ القرآن الكريم</h2>
+            <h5 class="loader-mosque-subtitle"><i class="fa-solid fa-mosque me-1 text-success"></i> <span class="dynamic-mosque-name">مسجد علي بن أبي طالب</span></h5>
+            
+            <div class="loader-ayah-box">
+                <div class="loader-ayah-decoration"><i class="fa-solid fa-book-quran"></i></div>
+                <p class="loader-ayah-text">﴿ يَرْفَعِ اللَّهُ الَّذِينَ آمَنُوا مِنكُمْ وَالَّذِينَ أُوتُوا الْعِلْمَ دَرَجَاتٍ ﴾</p>
+                <span class="loader-ayah-ref">سورة المجادلة</span>
+            </div>
+
+            <div class="loader-hadith-box">
+                <p class="loader-hadith-text">«خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ»</p>
+            </div>
+
+            <div class="loader-spinner-area">
+                <div class="spinner-border text-success" role="status" style="width: 2.2rem; height: 2.2rem;"></div>
+                <p class="loader-status-msg" id="loader-status-msg">جارٍ فحص الاتصال وتحميل بيانات المركز... يُرجى الانتظار</p>
+                <small class="loader-hint-msg text-muted">يعمل الموقع في الخلفية حتى مع ضعف شبكة الإنترنت أو الـ 4G</small>
+            </div>
+        </div>
+    </div>
+
     <!-- App Container -->
     <div class="app-container">
         
@@ -309,92 +336,359 @@
                         </div>
                     </div>
 
-                    <!-- Center Snapshot Ribbon -->
-                    <div class="center-snapshot-grid mb-4">
-                        <div class="snapshot-card snapshot-attendance">
-                            <div class="snapshot-icon"><i class="fa-solid fa-user-check"></i></div>
-                            <div class="snapshot-content flex-grow-1">
-                                <span class="snapshot-label">نسبة الانضباط والحضور العامة</span>
-                                <h3 class="snapshot-value" id="snap-attendance-rate">98.5%</h3>
-                                <div class="progress mt-2" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
-                                    <div id="snap-attendance-bar" class="progress-bar bg-success" style="width: 98.5%; border-radius: 10px;"></div>
+                    <!-- ==================== MODULE 1: KPI CARDS ==================== -->
+                    <div class="dashboard-module-container mb-4">
+                        <div class="module-title-strip d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                                <span class="module-badge-num bg-primary text-white">1</span>
+                                <span>بطاقات المؤشرات الرقمية السريعة (KPI Cards)</span>
+                            </h4>
+                            <span class="badge bg-light text-muted border"><i class="fa-solid fa-arrows-rotate me-1 text-primary"></i> بيانات حية موحدة</span>
+                        </div>
+                        <div class="kpi-grid-unified">
+                            <!-- Card 1: Students Active & Suspended -->
+                            <div class="kpi-unified-card glass-emerald">
+                                <div class="kpi-u-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                                <div class="kpi-u-content">
+                                    <span class="kpi-u-label">إجمالي الطلاب المقيدين</span>
+                                    <h3 class="kpi-u-value" id="kpi-students-total">0</h3>
+                                    <div class="kpi-u-subtags">
+                                        <span class="subtag tag-active"><i class="fa-solid fa-user-check"></i> <strong id="kpi-students-active">0</strong> نشط</span>
+                                        <span class="subtag tag-suspended"><i class="fa-solid fa-user-clock"></i> <strong id="kpi-students-suspended">0</strong> معلق</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="snapshot-card snapshot-orphans">
-                            <div class="snapshot-icon"><i class="fa-solid fa-heart text-danger"></i></div>
-                            <div class="snapshot-content">
-                                <span class="snapshot-label">طلاب رعاية الأيتام بالمركز</span>
-                                <h3 class="snapshot-value" id="snap-orphans-count">24 طالب</h3>
-                                <span class="snapshot-subtext text-muted small"><i class="fa-solid fa-hands-holding-child me-1"></i> كفالة ورعاية كاملة</span>
+
+                            <!-- Card 2: Circles & Teachers Capacity -->
+                            <div class="kpi-unified-card glass-blue">
+                                <div class="kpi-u-icon"><i class="fa-solid fa-circle-nodes"></i></div>
+                                <div class="kpi-u-content">
+                                    <span class="kpi-u-label">الحلقات والكادر التعليمي</span>
+                                    <h3 class="kpi-u-value" id="kpi-circles-active">0 <small class="fs-6 text-muted">حلقة فعالة</small></h3>
+                                    <div class="kpi-u-subtags">
+                                        <span class="subtag tag-capacity"><i class="fa-solid fa-users-viewfinder"></i> الاستيعاب: <strong id="kpi-capacity-rate">0%</strong></span>
+                                        <span class="subtag tag-teachers"><i class="fa-solid fa-chalkboard-user"></i> <strong id="kpi-teachers-total">0</strong> محفظ</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="snapshot-card snapshot-courses">
-                            <div class="snapshot-icon"><i class="fa-solid fa-award text-warning"></i></div>
-                            <div class="snapshot-content">
-                                <span class="snapshot-label">المساقات العلمية والتجويدية</span>
-                                <h3 class="snapshot-value" id="snap-courses-count">5 مساقات</h3>
-                                <span class="snapshot-subtext text-muted small"><i class="fa-solid fa-book-quran me-1"></i> تجويد وأحكام وتلاوة</span>
+
+                            <!-- Card 3: Parents & Link Rate -->
+                            <div class="kpi-unified-card glass-amber">
+                                <div class="kpi-u-icon"><i class="fa-solid fa-people-roof"></i></div>
+                                <div class="kpi-u-content">
+                                    <span class="kpi-u-label">حسابات أولياء الأمور</span>
+                                    <h3 class="kpi-u-value" id="kpi-parents-total">0</h3>
+                                    <div class="kpi-u-subtags">
+                                        <span class="subtag tag-linked"><i class="fa-solid fa-link"></i> <strong id="kpi-parents-linked">0</strong> مربوطين (<span id="kpi-parents-rate">0%</span>)</span>
+                                        <span class="subtag tag-unlinked"><i class="fa-solid fa-link-slash"></i> <strong id="kpi-parents-unlinked">0</strong> غير مكتمل</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="snapshot-card snapshot-juz">
-                            <div class="snapshot-icon"><i class="fa-solid fa-book-open text-primary"></i></div>
-                            <div class="snapshot-content">
-                                <span class="snapshot-label">إجمالي الأجزاء المحفوظة</span>
-                                <h3 class="snapshot-value" id="snap-juz-count">342 جزءاً</h3>
-                                <span class="snapshot-subtext text-muted small"><i class="fa-solid fa-check-circle me-1"></i> مقيدة بسجلات الطلاب</span>
+
+                            <!-- Card 4: Khatimun of the Quran -->
+                            <div class="kpi-unified-card glass-gold">
+                                <div class="kpi-u-icon"><i class="fa-solid fa-crown text-warning"></i></div>
+                                <div class="kpi-u-content">
+                                    <span class="kpi-u-label">الخاتمون لكتاب الله كاملاً</span>
+                                    <h3 class="kpi-u-value" id="kpi-khatimun-year">0 <small class="fs-6 text-warning">خاتماً هذا العام</small></h3>
+                                    <div class="kpi-u-subtags">
+                                        <span class="subtag tag-khatim-month"><i class="fa-solid fa-award"></i> <strong id="kpi-khatimun-month">0</strong> أتموا الختم هذا الشهر</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- KPI Cards Grid (Balanced Symmetrical Responsive Grid) -->
-                    <div class="kpi-grid mb-4">
-                        <div class="kpi-card glass-kpi color-1">
-                            <div class="kpi-icon-box"><i class="fa-solid fa-graduation-cap"></i></div>
-                            <div class="kpi-details">
-                                <h3 id="stat-total-students">243</h3>
-                                <p>إجمالي الطلاب المقيدين</p>
-                                <span class="kpi-badge"><i class="fa-solid fa-users me-1 text-success"></i> طلاب نشطون بالمركز</span>
+                    <!-- ==================== MODULE 2: REAL-TIME OPERATIONS PULSE ==================== -->
+                    <div class="dashboard-module-container mb-4">
+                        <div class="module-title-strip d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                                <span class="module-badge-num bg-success text-white">2</span>
+                                <span>المتابعة اليومية ونبض المركز (Real-time Operations)</span>
+                            </h4>
+                            <span class="badge bg-success bg-opacity-10 text-success"><i class="fa-solid fa-signal me-1"></i> رصد فوري لليوم الحالي</span>
+                        </div>
+                        <div class="row g-3">
+                            <!-- Student Attendance Today -->
+                            <div class="col-lg-4 col-md-6">
+                                <div class="pulse-card">
+                                    <div class="pulse-header">
+                                        <i class="fa-solid fa-clipboard-user text-success fs-5"></i>
+                                        <span class="fw-bold">نسبة حضور الطلاب اليوم</span>
+                                        <span class="badge bg-success rounded-pill ms-auto" id="pulse-student-rate">0%</span>
+                                    </div>
+                                    <div class="pulse-body mt-2">
+                                        <div class="d-flex justify-content-between text-center gap-2">
+                                            <div class="pulse-stat-box bg-success bg-opacity-10 text-success">
+                                                <strong class="d-block fs-5" id="pulse-present-today">0</strong>
+                                                <small>حاضر</small>
+                                            </div>
+                                            <div class="pulse-stat-box bg-warning bg-opacity-10 text-warning">
+                                                <strong class="d-block fs-5" id="pulse-excused-today">0</strong>
+                                                <small>غائب بعذر</small>
+                                            </div>
+                                            <div class="pulse-stat-box bg-danger bg-opacity-10 text-danger">
+                                                <strong class="d-block fs-5" id="pulse-unexcused-today">0</strong>
+                                                <small>غائب بلا عذر</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Teacher Presence Today -->
+                            <div class="col-lg-4 col-md-6">
+                                <div class="pulse-card">
+                                    <div class="pulse-header">
+                                        <i class="fa-solid fa-person-chalkboard text-primary fs-5"></i>
+                                        <span class="fw-bold">حضور وانضباط المعلمين اليوم</span>
+                                        <span class="badge bg-primary rounded-pill ms-auto" id="pulse-teacher-rate">0%</span>
+                                    </div>
+                                    <div class="pulse-body mt-2">
+                                        <div class="d-flex justify-content-between text-center gap-2">
+                                            <div class="pulse-stat-box bg-primary bg-opacity-10 text-primary">
+                                                <strong class="d-block fs-5" id="pulse-active-circles-today">0</strong>
+                                                <small>حلقة بدأت بالفعل</small>
+                                            </div>
+                                            <div class="pulse-stat-box bg-danger bg-opacity-10 text-danger">
+                                                <strong class="d-block fs-5" id="pulse-delayed-circles-today">0</strong>
+                                                <small>متأخرة أو معلقة</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sessions & Pages Recited Today -->
+                            <div class="col-lg-4 col-md-12">
+                                <div class="pulse-card">
+                                    <div class="pulse-header">
+                                        <i class="fa-solid fa-book-open-reader text-purple fs-5"></i>
+                                        <span class="fw-bold">جلسات التسميع المنجزة اليوم</span>
+                                        <span class="badge bg-purple bg-opacity-10 text-purple rounded-pill ms-auto" id="pulse-sessions-today">0 جلسة</span>
+                                    </div>
+                                    <div class="pulse-body mt-2">
+                                        <div class="d-flex justify-content-between text-center gap-2">
+                                            <div class="pulse-stat-box bg-light border text-dark">
+                                                <strong class="d-block fs-5 text-success" id="pulse-pages-today">0</strong>
+                                                <small>صفحة تم تسميعها</small>
+                                            </div>
+                                            <div class="pulse-stat-box bg-light border text-dark">
+                                                <strong class="d-block fs-5 text-primary" id="pulse-ajzaa-today">0</strong>
+                                                <small>أجزاء مسمَّعة</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="kpi-card glass-kpi color-2">
-                            <div class="kpi-icon-box"><i class="fa-solid fa-chalkboard-user"></i></div>
-                            <div class="kpi-details">
-                                <h3 id="stat-total-teachers">15</h3>
-                                <p>كادر المعلمين والمحفظين</p>
-                                <span class="kpi-badge"><i class="fa-solid fa-user-tie me-1 text-primary"></i> محفظون معتمدون</span>
+                    </div>
+
+                    <!-- ==================== MODULE 3: QUALITY & PERFORMANCE ==================== -->
+                    <div class="dashboard-module-container mb-4">
+                        <div class="module-title-strip d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                                <span class="module-badge-num bg-info text-white">3</span>
+                                <span>الجودة والرقابة ومتابعة الأداء (Quality & Performance)</span>
+                            </h4>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-info fw-bold" onclick="openDigitalAuditModal()">
+                                    <i class="fa-solid fa-clipboard-check me-1"></i> نموذج زيارة رقابية / فحص عينة
+                                </button>
                             </div>
                         </div>
-                        <div class="kpi-card glass-kpi color-3">
-                            <div class="kpi-icon-box"><i class="fa-solid fa-circle-nodes"></i></div>
-                            <div class="kpi-details">
-                                <h3 id="stat-total-circles">13</h3>
-                                <p>الحلقات القرآنية</p>
-                                <span class="kpi-badge"><i class="fa-solid fa-mosque me-1 text-warning"></i> حلقات قائمة ومسندة</span>
+                        <div class="row g-3">
+                            <!-- Top vs Lowest Circles -->
+                            <div class="col-lg-6">
+                                <div class="quality-card p-3 shadow-xs">
+                                    <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-ranking-star text-warning"></i> تصنيف تميز وانضباط الحلقات
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <span class="small fw-bold text-success d-block mb-1"><i class="fa-solid fa-arrow-trend-up"></i> الأكثر تميزاً وإنجازاً:</span>
+                                            <ul class="list-unstyled mb-0" id="quality-top-circles">
+                                                <li class="text-muted small">جارٍ التحميل...</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-6 border-end">
+                                            <span class="small fw-bold text-danger d-block mb-1"><i class="fa-solid fa-triangle-exclamation"></i> الأضعف التزاماً (بحاجة تدخل):</span>
+                                            <ul class="list-unstyled mb-0" id="quality-lowest-circles">
+                                                <li class="text-muted small">جارٍ التحميل...</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Evaluation Exams & Early Warnings -->
+                            <div class="col-lg-6">
+                                <div class="quality-card p-3 shadow-xs">
+                                    <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-award text-primary"></i> مؤشر الاختبارات التقييمية وتنبيهات الانقطاع
+                                    </h6>
+                                    <div class="d-flex justify-content-between gap-2 text-center mb-2">
+                                        <div class="border rounded-2 p-2 flex-grow-1 bg-light">
+                                            <span class="small text-muted d-block">اختبارات منجزة</span>
+                                            <strong class="fs-6 text-primary" id="quality-exams-count">0</strong>
+                                        </div>
+                                        <div class="border rounded-2 p-2 flex-grow-1 bg-light">
+                                            <span class="small text-muted d-block">نسبة النجاح</span>
+                                            <strong class="fs-6 text-success" id="quality-exams-success-rate">0%</strong>
+                                        </div>
+                                        <div class="border rounded-2 p-2 flex-grow-1 bg-light">
+                                            <span class="small text-muted d-block">مؤهلين للاختبار</span>
+                                            <strong class="fs-6 text-warning" id="quality-qualified-students">0 طالب</strong>
+                                        </div>
+                                    </div>
+                                    <div class="early-warning-ribbon mt-2 p-2 rounded-2 bg-danger bg-opacity-10 border border-danger">
+                                        <small class="fw-bold text-danger d-block mb-1"><i class="fa-solid fa-bell me-1"></i> تنبيهات الانقطاع المبكر للاتصال بأولياء الأمور:</small>
+                                        <div class="d-flex justify-content-between small text-dark">
+                                            <span>غياب 3 أيام متتالية دون عذر: <strong class="text-danger" id="early-absent-3days">0</strong> طالب</span>
+                                            <span>غياب 10 أيام في الشهر دون توالي: <strong class="text-danger" id="early-absent-10days">0</strong> طالب</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="kpi-card glass-kpi color-4">
-                            <div class="kpi-icon-box"><i class="fa-solid fa-book-bookmark"></i></div>
-                            <div class="kpi-details">
-                                <h3 id="stat-total-sessions">0</h3>
-                                <p>جلسات التسميع المسجلة</p>
-                                <span class="kpi-badge"><i class="fa-solid fa-check-double me-1 text-info"></i> النطاق المحدد</span>
+                    </div>
+
+                    <!-- ==================== MODULE 4: SPECIALIZED PROGRAMS ==================== -->
+                    <div class="dashboard-module-container mb-4">
+                        <div class="module-title-strip d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                                <span class="module-badge-num bg-purple text-white">4</span>
+                                <span>البرامج التخصصية والأنشطة الإثرائية</span>
+                            </h4>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="prog-card p-3 border rounded-3 bg-white shadow-xs">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <i class="fa-solid fa-scroll text-success fs-5"></i>
+                                        <h6 class="fw-bold m-0 text-success">شؤون الخاتمين والإجازات</h6>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-muted small mt-2">
+                                        <span>مرحلة التثبيت: <strong class="text-dark" id="prog-tathbeet-count">0</strong></span>
+                                        <span>الإجازة بالسند: <strong class="text-primary" id="prog-ijaza-count">0</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="prog-card p-3 border rounded-3 bg-white shadow-xs">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <i class="fa-solid fa-microphone-lines text-danger fs-5"></i>
+                                        <h6 class="fw-bold m-0 text-danger">الفتى الواعظ والأصوات الندية</h6>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-muted small mt-2">
+                                        <span>مسار الخطابة والوعظ: <strong class="text-dark" id="prog-preacher-count">0</strong></span>
+                                        <span>المسارات الصوتية والأذان: <strong class="text-dark" id="prog-sounds-count">0</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="prog-card p-3 border rounded-3 bg-white shadow-xs">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <i class="fa-solid fa-certificate text-warning fs-5"></i>
+                                        <h6 class="fw-bold m-0 text-warning">الشهادات الصادرة والتوثيق</h6>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center text-muted small mt-2">
+                                        <span>شهادات هذا الشهر: <strong class="text-dark fs-6" id="prog-certs-month-count">0</strong></span>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" onclick="exportCertificatesReport()">تصدير تقرير</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="kpi-card glass-kpi color-5">
-                            <div class="kpi-icon-box"><i class="fa-solid fa-lines-leaning"></i></div>
-                            <div class="kpi-details">
-                                <h3 id="stat-total-verses">0</h3>
-                                <p>الآيات القرآنية المسمَّعة</p>
-                                <span class="kpi-badge"><i class="fa-solid fa-quran me-1 text-purple"></i> إنجاز التلاوة والحفظ</span>
+                    </div>
+
+                    <!-- ==================== MODULE 5: QURANIC FLOW & TRAJECTORY ==================== -->
+                    <div class="dashboard-module-container mb-4">
+                        <div class="module-title-strip d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                                <span class="module-badge-num bg-warning text-dark">5</span>
+                                <span>مؤشرات التدفق القرآني والإنجاز التراكمي</span>
+                            </h4>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-lg-5">
+                                <div class="p-3 border rounded-3 bg-white shadow-xs h-100">
+                                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-gauge-high text-primary me-1"></i> معدلات الحفظ والمراجعة</h6>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span>متوسط الحفظ اليومي للطالب:</span>
+                                            <strong class="text-success" id="flow-daily-pages">0 صفحة/يوم</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span>متوسط الحفظ الأسبوعي للطالب:</span>
+                                            <strong class="text-primary" id="flow-weekly-pages">0 صفحة/أسبوع</strong>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div>
+                                        <div class="d-flex justify-content-between small fw-bold mb-1">
+                                            <span>معدل المراجعة (السرد) مقابل الحفظ الجديد:</span>
+                                            <span id="flow-review-ratio-text">0% مراجعة</span>
+                                        </div>
+                                        <div class="progress" style="height: 12px; border-radius: 6px;">
+                                            <div id="flow-review-bar" class="progress-bar bg-info" style="width: 70%;" title="مراجعة"></div>
+                                            <div id="flow-new-bar" class="progress-bar bg-success" style="width: 30%;" title="حفظ جديد"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem; margin-top: 4px;">
+                                            <span><i class="fa-solid fa-square text-info"></i> مراجعة وسرد تثبيت</span>
+                                            <span><i class="fa-solid fa-square text-success"></i> حفظ جديد</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-7">
+                                <div class="p-3 border rounded-3 bg-white shadow-xs h-100">
+                                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-chart-column text-success me-1"></i> توزيع أعداد الطلاب حسب مراحل الأجزاء</h6>
+                                    <div class="ajzaa-stages-list" id="flow-ajzaa-stages-list">
+                                        <!-- Rendered dynamically -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="kpi-card glass-kpi color-6">
-                            <div class="kpi-icon-box"><i class="fa-solid fa-user-large-slash"></i></div>
-                            <div class="kpi-details">
-                                <h3 id="stat-absence-count">0</h3>
-                                <p>حالات الغياب المسجلة</p>
-                                <span class="kpi-badge text-danger bg-danger bg-opacity-10"><i class="fa-solid fa-calendar-xmark me-1"></i> في النطاق المحدد</span>
+                    </div>
+
+                    <!-- ==================== MODULE 6: EARLY WARNINGS & BOTTLENECKS ==================== -->
+                    <div class="dashboard-module-container mb-4">
+                        <div class="module-title-strip d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold text-danger m-0 d-flex align-items-center gap-2">
+                                <span class="module-badge-num bg-danger text-white">6</span>
+                                <span>الرقابة والإنذار المبكر (Early Warnings & Bottlenecks)</span>
+                            </h4>
+                            <span class="badge bg-danger bg-opacity-10 text-danger">متابعة خاصة وتدخل عاجل</span>
+                        </div>
+                        <div class="row g-3">
+                            <!-- Needs Special Followup -->
+                            <div class="col-lg-4 col-md-6">
+                                <div class="warning-box p-3 border rounded-3 bg-white shadow-xs h-100">
+                                    <h6 class="fw-bold text-danger mb-2 small"><i class="fa-solid fa-user-xmark me-1"></i> طلاب انخفضت درجاتهم عن 70% (3 جلسات)</h6>
+                                    <div id="warnings-low-grades-list" class="warning-sublist" style="max-height: 140px; overflow-y: auto;">
+                                        <span class="text-muted small">لا توجد حالات مسجلة حالياً.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Delayed Circles -->
+                            <div class="col-lg-4 col-md-6">
+                                <div class="warning-box p-3 border rounded-3 bg-white shadow-xs h-100">
+                                    <h6 class="fw-bold text-warning mb-2 small"><i class="fa-solid fa-clock-rotate-left me-1"></i> حلقات متأخرة عن الخطة الزمنية المقررة</h6>
+                                    <div id="warnings-delayed-circles-list" class="warning-sublist" style="max-height: 140px; overflow-y: auto;">
+                                        <span class="text-muted small">كافة الحلقات تسير وفق الخطة.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pattern Absences -->
+                            <div class="col-lg-4 col-md-12">
+                                <div class="warning-box p-3 border rounded-3 bg-white shadow-xs h-100">
+                                    <h6 class="fw-bold text-primary mb-2 small"><i class="fa-solid fa-calendar-xmark me-1"></i> تنبيهات الغياب المتزامن (تكرار بأيام محددة)</h6>
+                                    <div id="warnings-day-patterns-list" class="warning-sublist" style="max-height: 140px; overflow-y: auto;">
+                                        <span class="text-muted small">لا يوجد نمط غياب متزامن متكرر.</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -642,9 +936,6 @@
                                 <button id="btn-add-teacher" class="btn btn-success shadow-sm px-3 py-2 rounded-3 fw-bold">
                                     <i class="fa-solid fa-plus me-1"></i> إضافة معلّم جديد
                                 </button>
-                                <button id="btn-import-teachers-excel" class="btn btn-outline-success shadow-sm px-3 py-2 rounded-3 fw-bold" title="استيراد وتحديث كافة المعلمين من قاعدة بيانات 29-8">
-                                    <i class="fa-solid fa-file-excel me-1"></i> استيراد كادر المعلمين (29-8)
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -790,11 +1081,54 @@
 
                     <!-- Dynamic Filter Controls Panel -->
                     <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background: #ffffff;">
-                        <div class="card-header bg-primary text-white p-3 fw-bold d-flex justify-content-between align-items-center" style="border-radius: 12px 12px 0 0;">
-                            <span><i class="fa-solid fa-sliders me-1"></i> لوحة التحكم بالفلاتر المركّبة والتقارير الحية</span>
-                            <span class="badge bg-light text-dark fw-bold"><span class="dynamic-center-name">مركز البيان لتعليم القرآن</span> - <span class="dynamic-mosque-name">مسجد علي بن أبي طالب</span></span>
+                        <div class="card-header bg-primary text-white p-3 fw-bold d-flex flex-wrap justify-content-between align-items-center gap-2" style="border-radius: 12px 12px 0 0;">
+                            <span class="d-inline-flex align-items-center gap-2" style="white-space: normal; line-height: 1.4;">
+                                <i class="fa-solid fa-sliders"></i> 
+                                <span class="fw-bold">لوحة التحكم بالفلاتر المركّبة والتقارير الحية</span>
+                            </span>
+                            <span class="badge bg-light text-dark fw-bold px-3 py-2 text-wrap"><span class="dynamic-center-name">مركز البيان لتعليم القرآن</span> - <span class="dynamic-mosque-name">مسجد علي بن أبي طالب</span></span>
                         </div>
                         <div class="card-body p-4 bg-light">
+                            <!-- Quick Specialized Report Preset Selector -->
+                            <div class="p-3 mb-3 bg-white border border-success border-opacity-50 rounded-3 shadow-xs">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-4 col-lg-3">
+                                        <label for="dyn-report-preset-type" class="form-label fw-bold text-success mb-0 d-flex align-items-center gap-2">
+                                            <i class="fa-solid fa-file-invoice fs-5 text-success"></i>
+                                            <span>نوع التقرير التنفيذي المطلوب:</span>
+                                        </label>
+                                    </div>
+                                    <div class="col-md-8 col-lg-9">
+                                        <select id="dyn-report-preset-type" class="form-select form-select-lg border-success fw-bold text-dark" onchange="applySpecializedReportPreset(this.value)">
+                                            <optgroup label="📋 التقارير الفورية المخصصة والسلاسل">
+                                                <option value="all" selected>كشف بيانات الطلاب الشامل (الفلترة الحرة)</option>
+                                                <option value="combined_chains">🎯 تقرير الطلاب المرشحين والمطالبين بسلاسل مجتمعة (5، 10، 15، 20، 30 جزء)</option>
+                                            </optgroup>
+                                            <optgroup label="📖 1. تقارير الإنجاز والتسميع القرآني">
+                                                <option value="sard_report">تقرير السرد اليومي والشهري (حفظ جديد، مراجعة صغرى وكبرى مع الدرجات)</option>
+                                                <option value="khatimun_ijaza">تقرير الخاتمين ومرحلة الإجازة بالسند المتصل</option>
+                                                <option value="juz_path">تقرير مسار أجزاء الحفظ (أين يقف كل طالب والمتبقي له)</option>
+                                            </optgroup>
+                                            <optgroup label="📅 2. تقارير الحضور والانضباط">
+                                                <option value="cumulative_absence">كشف الغياب التراكمي وإنذارات أولياء الأمور (3 أيام متتالية أو 10 متفرقة)</option>
+                                                <option value="teacher_discipline">سجل التزام المعلمين ومواعيد فتح الحلقات والجلسات المنجزة</option>
+                                                <option value="weekday_absence">تحليل حضور وغياب الطلاب حسب أيام الأسبوع (كشف أيام التسرب)</option>
+                                            </optgroup>
+                                            <optgroup label="🏆 3. تقارير الرقابة والجودة والاختبارات">
+                                                <option value="exam_results">نتائج اختبارات الأجزاء المرحلية وتقديرات اللجان والمؤهلين</option>
+                                                <option value="circle_scorecard">بطاقة تقييم أداء الحلقات (الحضور + معدل الحفظ + جودة الاختبارات)</option>
+                                                <option value="intensive_followup">كشف الطلاب المحتاجين متابعة مكثفة وخطط علاجية (أقل من 70%)</option>
+                                            </optgroup>
+                                            <optgroup label="👨‍👩‍👧‍👦 4. تقارير أولياء الأمور والأنشطة">
+                                                <option value="parent_governance">كشف حوكمة الأبناء وحسابات أولياء الأمور غير المربوطة للتواصل</option>
+                                                <option value="whatsapp_directory">دليل بيانات الطلاب وأرقام هواتف الواتساب للتواصل الإداري السريع</option>
+                                                <option value="specialized_activities">سجل برامج الأنشطة التخصصية (الفتى الواعظ والأصوات الندية)</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="row g-3">
                                 <!-- Filter 1: Social & Orphan Status -->
                                 <div class="col-md-6 col-lg-3">
@@ -2433,7 +2767,7 @@
     </div>
 
     <!-- ==================== LOGIN SCREEN ==================== -->
-    <div class="login-wrapper" id="login-screen">
+    <div class="login-wrapper hidden" id="login-screen">
         <div class="login-card animate-zoom">
             <div class="login-logo text-center">
                 <img src="assets/logo.png" alt="شعار المركز" class="login-logo-img mb-3">

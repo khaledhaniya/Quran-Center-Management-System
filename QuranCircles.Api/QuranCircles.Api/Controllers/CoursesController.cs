@@ -781,7 +781,7 @@ public class CoursesController : ControllerBase
                 CourseName = ca.Course != null ? ca.Course.Name : "دورة محذوفة",
                 ca.SessionDate,
                 ca.Status,
-                StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+                StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : (ca.Status == AttendanceStatus.ExcusedAbsent ? "غائب بعذر" : "متأخر"))
             })
             .ToListAsync();
         return Ok(history);

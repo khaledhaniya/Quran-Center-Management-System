@@ -238,4 +238,132 @@ public class QualityController : ControllerBase
             });
         }
     }
+
+    [HttpGet("visits")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
+    public async Task<IActionResult> GetVisits([FromQuery] int? circleId)
+    {
+        var query = _db.QualityVisits.Include(v => v.Circle).AsNoTracking().AsQueryable();
+        if (circleId.HasValue) query = query.Where(v => v.CircleId == circleId.Value);
+
+        var list = await query.OrderByDescending(v => v.VisitDate).ThenByDescending(v => v.Id).Take(50).ToListAsync();
+        return Ok(list.Select(v => new
+        {
+            v.Id,
+            v.CircleId,
+            CircleName = v.Circle?.Name ?? "حلقة قرآنية",
+            v.SupervisorName,
+            VisitDate = v.VisitDate.ToString("yyyy-MM-dd"),
+            v.PunctualityScore,
+            v.ClassManagementScore,
+            v.TajweedCorrectionScore,
+            v.OverallQualityScore,
+            v.Notes,
+            v.SpotCheckedStudentsJson,
+            v.IsSubstituteModeActive,
+            CreatedAt = v.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+        }));
+    }
+
+    [HttpPost("visits")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
+    public async Task<IActionResult> CreateVisit([FromBody] CreateQualityVisitDto dto)
+    {
+        if (dto.CircleId <= 0) return BadRequest(new { error = "يرجى اختيار الحلقة المراد زيارتها." });
+
+        var circle = await _db.Circles.FindAsync(dto.CircleId);
+        if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
+
+        int overall = (int)Math.Round((dto.PunctualityScore * 0.25) + (dto.ClassManagementScore * 0.25) + (dto.TajweedCorrectionScore * 0.50));
+
+        var visit = new QualityVisit
+        {
+            CircleId = dto.CircleId,
+            SupervisorName = !string.IsNullOrWhiteSpace(dto.SupervisorName) ? dto.SupervisorName.Trim() : "مشرف الجودة",
+            VisitDate = dto.VisitDate ?? DateOnly.FromDateTime(DateTime.Today),
+            PunctualityScore = Math.Clamp(dto.PunctualityScore, 0, 100),
+            ClassManagementScore = Math.Clamp(dto.ClassManagementScore, 0, 100),
+            TajweedCorrectionScore = Math.Clamp(dto.TajweedCorrectionScore, 0, 100),
+            OverallQualityScore = overall,
+            Notes = dto.Notes,
+            SpotCheckedStudentsJson = dto.SpotCheckedStudentsJson,
+            IsSubstituteModeActive = dto.IsSubstituteModeActive
+        };
+
+        _db.QualityVisits.Add(visit);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, id = visit.Id, overallQualityScore = overall, message = "تم توثيق الزيارة الرقابية بنجاح." });
+    }
+
+    [HttpGet("spot-check/{circleId}")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
+    public async Task<IActionResult> GetSpotCheckCandidates(int circleId)
+    {
+        var circle = await _db.Circles.Include(c => c.Teacher).FirstOrDefaultAsync(c => c.Id == circleId);
+        if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
+
+        var students = await _db.Students.Where(s => s.CircleId == circleId && s.IsActive).ToListAsync();
+        if (students.Count == 0) return Ok(new { circleId, circleName = circle.Name, candidates = new List<object>() });
+
+        var random = new Random();
+        var selected = students.OrderBy(_ => random.Next()).Take(Math.Min(3, students.Count)).Select(s => new
+        {
+            s.Id,
+            s.FullName,
+            s.StudentIdentityNumber,
+            s.CompletedAjzaa,
+            s.TargetAjzaaCount,
+            s.PreviousQuranMemorization
+        }).ToList();
+
+        return Ok(new
+        {
+            circleId,
+            circleName = circle.Name,
+            teacherName = circle.Teacher?.FullName ?? "غير محدد",
+            candidates = selected
+        });
+    }
+
+    [HttpPost("substitute-mode")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
+    public async Task<IActionResult> ToggleSubstituteMode([FromBody] SubstituteModeDto dto)
+    {
+        var circle = await _db.Circles.Include(c => c.Teacher).FirstOrDefaultAsync(c => c.Id == dto.CircleId);
+        if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
+
+        // Record a visit log or audit log
+        var visit = new QualityVisit
+        {
+            CircleId = dto.CircleId,
+            SupervisorName = dto.SupervisorName ?? "المشرف المناوب",
+            VisitDate = DateOnly.FromDateTime(DateTime.Today),
+            PunctualityScore = 100,
+            ClassManagementScore = 100,
+            TajweedCorrectionScore = 100,
+            OverallQualityScore = 100,
+            Notes = $"[وضع المعلم البديل]: تم تفعيل التغطية للحلقة نظراً لـ {dto.Reason ?? "غياب المحفظ الرسمي"}",
+            IsSubstituteModeActive = dto.Activate
+        };
+        _db.QualityVisits.Add(visit);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, isSubstituteModeActive = dto.Activate, message = dto.Activate ? "تم تفعيل وضع المعلم البديل للحلقة بنجاح." : "تم إلغاء وضع المعلم البديل." });
+    }
 }
+
+public record CreateQualityVisitDto(
+    int CircleId,
+    string? SupervisorName,
+    DateOnly? VisitDate,
+    int PunctualityScore,
+    int ClassManagementScore,
+    int TajweedCorrectionScore,
+    string? Notes,
+    string? SpotCheckedStudentsJson,
+    bool IsSubstituteModeActive
+);
+
+public record SubstituteModeDto(int CircleId, string? SupervisorName, string? Reason, bool Activate);
+

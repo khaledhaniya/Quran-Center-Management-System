@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
+using QuranCircles.Api.Entities;
 
 Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "true");
 
@@ -328,13 +329,42 @@ try
 catch { }
 
 
-// Enterprise Security Headers
+// Enterprise Security Headers & Maintenance Enforcement
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
     context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+
+    var path = context.Request.Path.Value ?? "";
+    if (path.StartsWith("/api") && 
+        !path.StartsWith("/api/auth/login") && 
+        !path.StartsWith("/api/status") && 
+        !(path.Equals("/api/settings", StringComparison.OrdinalIgnoreCase) && context.Request.Method.Equals("GET", StringComparison.OrdinalIgnoreCase)))
+    {
+        var db = context.RequestServices.GetService<AppDbContext>();
+        if (db != null)
+        {
+            try
+            {
+                var settings = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync();
+                if (settings != null && settings.MaintenanceMode)
+                {
+                    var userRole = FakeAuth.GetRole(context);
+                    if (userRole != UserRole.Developer)
+                    {
+                        context.Response.StatusCode = 503;
+                        context.Response.ContentType = "application/json; charset=utf-8";
+                        await context.Response.WriteAsync("{\"error\":\"النظام في وضع الصيانة والتحديث حالياً، ومتاح حالياً للمطور فقط.\",\"maintenance\":true}");
+                        return;
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+
     await next();
 });
 

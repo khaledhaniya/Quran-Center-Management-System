@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
     public DbSet<FinancialTransaction> FinancialTransactions => Set<FinancialTransaction>();
     public DbSet<TalentRecord> TalentRecords => Set<TalentRecord>();
     public DbSet<HuffazMember> HuffazMembers => Set<HuffazMember>();
+    public DbSet<QualityVisit> QualityVisits => Set<QualityVisit>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

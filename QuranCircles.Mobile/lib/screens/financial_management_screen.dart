@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
@@ -65,6 +66,79 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
     });
   }
 
+  void _showFinancialExportDialog() {
+    final totalIncome = _summary['totalIncome'] ?? 0;
+    final totalExpense = _summary['totalExpense'] ?? 0;
+    final netBalance = _summary['netBalance'] ?? 0;
+    final cashBalance = _summary['cashBalance'] ?? 0;
+    final bankBalance = _summary['bankBalance'] ?? 0;
+
+    final summaryText = '''
+سجل وحركة الصندوق المالي - مركز البيان لتعليم القرآن
+-------------------------------------------
+إجمالي الإيرادات والتبرعات: $totalIncome ₪
+إجمالي المصروفات والنفقات: $totalExpense ₪
+صافي الرصيد العام: $netBalance ₪
+رصيد الصندوق النقدي (كاش): $cashBalance ₪
+رصيد الحساب البنكي: $bankBalance ₪
+إجمالي عدد السندات المقيدة: ${_filteredTransactions.length}
+تاريخ التقرير: ${DateTime.now().toString().split(' ')[0]}
+-------------------------------------------
+''';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.picture_as_pdf, color: Color(0xFF0D5C3A)),
+            const SizedBox(width: 8),
+            Text('تصدير وطباعة التقرير المالي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('ملخص حركة الصندوق الحالية:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                summaryText,
+                style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace', height: 1.4),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D5C3A),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('نسخ كشف الحساب'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Clipboard.setData(ClipboardData(text: summaryText));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('تم نسخ ملخص الكشف المالي بنجاح'), backgroundColor: Color(0xFF0D5C3A)),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -81,6 +155,11 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
           elevation: 0,
           actions: [
             IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'تصدير وطباعة كشف الصندوق',
+              onPressed: _showFinancialExportDialog,
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'تحديث',
               onPressed: _loadData,
@@ -93,7 +172,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
                 onRefresh: _loadData,
                 color: const Color(0xFF0D5C3A),
                 child: ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                   children: [
                     // KPI Summary Cards
                     _buildKpiSummaryGrid(),

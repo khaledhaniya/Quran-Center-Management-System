@@ -8909,4 +8909,291 @@ body.dark-mode .plan-juz-btn:hover {
     }
 }
 
+/* ==========================================================================
+   1. ISLAMIC INITIAL LOADER CURTAIN (PREVENTS STALE LOGIN FLASH)
+   ========================================================================== */
+.app-initial-loader {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, #0f4d33 0%, #062c1d 60%, #02170e 100%);
+    z-index: 99999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    direction: rtl;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.app-initial-loader.fade-out {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.loader-content-box {
+    max-width: 580px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(197, 160, 89, 0.4);
+    border-radius: 24px;
+    padding: 36px 28px;
+    text-align: center;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.loader-logo-ring {
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 16px auto;
+    border-radius: 50%;
+    padding: 4px;
+    background: linear-gradient(135deg, #c5a059 0%, #fef3c7 50%, #9e782e 100%);
+    box-shadow: 0 0 30px rgba(197, 160, 89, 0.4);
+    animation: loaderLogoPulse 3s ease-in-out infinite;
+}
+@keyframes loaderLogoPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 25px rgba(197, 160, 89, 0.35); }
+    50% { transform: scale(1.05); box-shadow: 0 0 45px rgba(197, 160, 89, 0.65); }
+}
+.loader-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    background: #ffffff;
+}
+.loader-center-title {
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 1.45rem;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+}
+.loader-mosque-subtitle {
+    color: #a7f3d0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+.loader-ayah-box {
+    background: rgba(13, 92, 58, 0.35);
+    border: 1px solid rgba(197, 160, 89, 0.3);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    position: relative;
+}
+.loader-ayah-decoration {
+    color: #c5a059;
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+}
+.loader-ayah-text {
+    font-family: 'Amiri', 'Traditional Arabic', 'Cairo', serif;
+    font-size: 1.22rem;
+    color: #fef08a;
+    font-weight: 700;
+    line-height: 1.8;
+    margin: 0;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.loader-ayah-ref {
+    display: inline-block;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    margin-top: 6px;
+}
+.loader-hadith-box {
+    margin-bottom: 24px;
+}
+.loader-hadith-text {
+    color: #e2e8f0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-style: italic;
+    margin: 0;
+}
+.loader-spinner-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.loader-status-msg {
+    color: #f1f5f9;
+    font-size: 0.90rem;
+    font-weight: 600;
+    margin: 0;
+}
+.loader-hint-msg {
+    color: #94a3b8 !important;
+    font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   2. UNIFIED EXECUTIVE DASHBOARD 6 MODULES STYLING
+   ========================================================================== */
+.dashboard-module-container {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+.module-title-strip h4 {
+    font-size: 1.15rem;
+}
+.module-badge-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+.kpi-grid-unified {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+}
+.kpi-unified-card {
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.kpi-unified-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+}
+.glass-emerald { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #86efac; }
+.glass-blue { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #93c5fd; }
+.glass-amber { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-color: #fde68a; }
+.glass-gold { background: linear-gradient(135deg, #fffdf5 0%, #fef9c3 100%); border-color: #facc15; }
+
+.kpi-u-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    flex-shrink: 0;
+}
+.glass-emerald .kpi-u-icon { color: #16a34a; }
+.glass-blue .kpi-u-icon { color: #2563eb; }
+.glass-amber .kpi-u-icon { color: #d97706; }
+.glass-gold .kpi-u-icon { color: #ca8a04; }
+
+.kpi-u-content {
+    flex-grow: 1;
+}
+.kpi-u-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+    display: block;
+    margin-bottom: 4px;
+}
+.kpi-u-value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+    line-height: 1.2;
+}
+.kpi-u-subtags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.subtag {
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0,0,0,0.06);
+}
+.tag-active { color: #15803d; }
+.tag-suspended { color: #b45309; }
+.tag-capacity { color: #1d4ed8; }
+.tag-teachers { color: #4338ca; }
+.tag-linked { color: #047857; }
+.tag-unlinked { color: #b91c1c; }
+.tag-khatim-month { color: #a16207; }
+
+/* Pulse Realtime Cards */
+.pulse-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    height: 100%;
+}
+.pulse-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+.pulse-stat-box {
+    border-radius: 8px;
+    padding: 8px 6px;
+    flex: 1 1 0;
+}
+.pulse-stat-box small {
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+/* Attendance Option for ExcusedAbsent */
+.attendance-option.excused-option {
+    background: #fef3c7;
+    border: 1.5px solid #f59e0b;
+    color: #b45309;
+}
+.attendance-option.excused-option.selected {
+    background: #f59e0b;
+    color: #ffffff;
+    border-color: #d97706;
+}
+
+/* Parent Audit Scoped Scrolling Fix */
+#parent-audit-container {
+    overflow-x: hidden;
+    width: 100%;
+}
+.parent-audit-card-item .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 0 0 12px 12px;
+}
+
+/* Certificate Fixes (No letter spacing, perfect fit) */
+.premium-certificate,
+.cert-student-name,
+.cert-title-badge,
+.cert-bismillah {
+    letter-spacing: 0 !important;
+}
+
+
 

@@ -222,7 +222,7 @@ public class TeachersController : ControllerBase
                     Date = a.SessionDate.ToString("yyyy-MM-dd"),
                     SessionDate = a.SessionDate.ToString("yyyy-MM-dd"),
                     Status = (int)a.Status,
-                    StatusText = a.Status == AttendanceStatus.Present ? "حاضر" : (a.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+                    StatusText = a.Status == AttendanceStatus.Present ? "حاضر" : (a.Status == AttendanceStatus.Absent ? "غائب" : (a.Status == AttendanceStatus.ExcusedAbsent ? "غائب بعذر" : "متأخر"))
                 }),
                 // Recitation Sessions
                 TotalRecitationSessions = sessList.Count,
@@ -260,7 +260,7 @@ public class TeachersController : ControllerBase
                     {
                         Date = ca.SessionDate.ToString("yyyy-MM-dd"),
                         Status = (int)ca.Status,
-                        StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+                        StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : (ca.Status == AttendanceStatus.ExcusedAbsent ? "غائب بعذر" : "متأخر"))
                     })
                 })
             };

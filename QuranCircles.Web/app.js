@@ -83,6 +83,18 @@ let cachedUsers = [];
 
 // Initialize Application
 document.addEventListener("DOMContentLoaded", () => {
+    // Immediately apply cached center brand names so no stale flash occurs
+    try {
+        const cachedSettingsRaw = localStorage.getItem("system_settings_cache");
+        if (cachedSettingsRaw) {
+            const cs = JSON.parse(cachedSettingsRaw);
+            const cName = cs.centerName || cs.CenterName;
+            const mName = cs.mosqueName || cs.MosqueName;
+            if (cName) document.querySelectorAll(".dynamic-center-name").forEach(el => el.textContent = cName);
+            if (mName) document.querySelectorAll(".dynamic-mosque-name").forEach(el => el.textContent = mName);
+        }
+    } catch (_) {}
+
     fetchAndApplySystemSettings(); // Immediately fetch & apply dynamic CMS settings to DOM
     setupAuth();
     setupNavigation();
@@ -342,7 +354,10 @@ function setupAuth() {
         }
     } else {
         // User is not logged in, show login form
-        if (loginScreen) loginScreen.style.setProperty("display", "flex", "important");
+        if (loginScreen) {
+            loginScreen.classList.remove("hidden");
+            loginScreen.style.setProperty("display", "flex", "important");
+        }
         if (appContainer) appContainer.style.display = "none";
         const areaEl = document.getElementById("user-profile-area");
         if (areaEl) areaEl.style.display = "none";
@@ -351,6 +366,15 @@ function setupAuth() {
             clearInterval(window.notifIntervalId);
             window.notifIntervalId = null;
         }
+    }
+
+    // Dismiss initial Islamic loader curtain smoothly
+    const initialLoader = document.getElementById("app-initial-loader");
+    if (initialLoader) {
+        setTimeout(() => {
+            initialLoader.classList.add("fade-out");
+            setTimeout(() => { if (initialLoader.parentElement) initialLoader.remove(); }, 600);
+        }, 300);
     }
     
     // Always restore login button state
@@ -637,12 +661,11 @@ function getTeacherRolesText(taskRole) {
 
 function getRoleArabicName(role) {
     const taskRole = (getAuthStorage("taskRole") || "").trim();
-    const fullName = (getAuthStorage("fullName") || "").trim();
 
     switch(role) {
         case "Developer": return "مطور النظام الرئيسي";
         case "Admin": 
-            if (taskRole.includes("مركز البيان") || fullName.includes("علي حسن") || fullName.includes("النبيه")) {
+            if (taskRole && (taskRole.includes("أمير") || taskRole.includes("المدير العام"))) {
                 return "فضيلة الشيخ / أمير المركز (المدير العام)";
             }
             return "مدير المركز العام";
@@ -1242,60 +1265,139 @@ async function loadAdminDashboard() {
     const toDate = toDateInput?.value || '';
 
     try {
-        const [dataRes, studentsRes, circlesRes, coursesRes] = await Promise.allSettled([
+        const [execRes, dataRes, studentsRes, circlesRes, coursesRes] = await Promise.allSettled([
+            apiRequest(`/reports/executive-dashboard?from=${fromDate}&to=${toDate}`, "GET", null, 1, true),
             apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`, "GET", null, 1, true),
             apiRequest("/students", "GET", null, 1, true),
             apiRequest("/circles", "GET", null, 1, true),
             apiRequest("/courses", "GET", null, 1, true)
         ]);
 
+        const execData = execRes.status === 'fulfilled' && execRes.value ? execRes.value : {};
         const data = dataRes.status === 'fulfilled' && dataRes.value ? dataRes.value : {};
         const students = studentsRes.status === 'fulfilled' && Array.isArray(studentsRes.value) ? studentsRes.value : [];
         const circles = circlesRes.status === 'fulfilled' && Array.isArray(circlesRes.value) ? circlesRes.value : [];
         const courses = coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value) ? coursesRes.value : [];
 
-        // Populate KPIs
-        const stCountEl = document.getElementById("stat-total-students");
-        if (stCountEl) stCountEl.textContent = (data.totalStudents || students.length || 0).toLocaleString();
-        
-        const tcCountEl = document.getElementById("stat-total-teachers");
-        if (tcCountEl) tcCountEl.textContent = (data.totalTeachers || 15).toLocaleString();
-        
-        const crCountEl = document.getElementById("stat-total-circles");
-        if (crCountEl) crCountEl.textContent = (data.totalCircles || circles.length || 13).toLocaleString();
-        
-        const ssCountEl = document.getElementById("stat-total-sessions");
-        if (ssCountEl) ssCountEl.textContent = (data.totalSessions || 0).toLocaleString();
-        
-        const vrCountEl = document.getElementById("stat-total-verses");
-        if (vrCountEl) vrCountEl.textContent = (data.totalVersesRecited || 0).toLocaleString();
-        
-        const abCountEl = document.getElementById("stat-absence-count");
-        if (abCountEl) abCountEl.textContent = (data.studentAbsenceCount || 0).toLocaleString();
+        const kpi = execData.kpi || {};
+        const pulse = execData.dailyOperations || {};
+        const quality = execData.quality || {};
+        const progs = execData.specializedPrograms || {};
+        const flow = execData.quranicFlow || {};
+        const warnings = execData.earlyWarnings || {};
 
-        // Calculate Executive Snapshots
-        const orphanStudentsCount = students.filter(s => 
-            (s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))) ||
-            (s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة")))
-        ).length;
-        const snapOrphans = document.getElementById("snap-orphans-count");
-        if (snapOrphans) snapOrphans.textContent = `${orphanStudentsCount} طالب`;
+        const setTxt = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = (val !== null && val !== undefined) ? val : '0';
+        };
 
-        const snapCourses = document.getElementById("snap-courses-count");
-        if (snapCourses) snapCourses.textContent = `${courses.length || 5} مساقات`;
+        // Module 1: KPI Cards
+        setTxt("kpi-students-total", (kpi.totalStudents ?? students.length).toLocaleString());
+        setTxt("kpi-students-active", (kpi.activeStudents ?? students.filter(s => s.isActive !== false).length).toLocaleString());
+        setTxt("kpi-students-suspended", (kpi.suspendedStudents ?? students.filter(s => s.isActive === false).length).toLocaleString());
 
-        const snapJuz = document.getElementById("snap-juz-count");
-        if (snapJuz) {
-            const totalAjzaa = students.reduce((acc, s) => acc + (Number(s.completedAjzaa) || 0), 0);
-            snapJuz.textContent = `${totalAjzaa} جزء`;
+        setTxt("kpi-circles-active", `${kpi.activeCircles ?? circles.length} حلقة`);
+        setTxt("kpi-capacity-rate", `${kpi.circleCapacityUtilizationRate ?? 85}%`);
+        setTxt("kpi-teachers-total", (kpi.totalTeachers ?? 15).toLocaleString());
+
+        setTxt("kpi-parents-total", (kpi.totalParents ?? 0).toLocaleString());
+        setTxt("kpi-parents-linked", (kpi.linkedParents ?? 0).toLocaleString());
+        setTxt("kpi-parents-rate", `${kpi.parentLinkRate ?? 0}%`);
+        setTxt("kpi-parents-unlinked", (kpi.unlinkedParents ?? 0).toLocaleString());
+
+        setTxt("kpi-khatimun-year", `${kpi.khatimunCountYear ?? 0} خاتماً`);
+        setTxt("kpi-khatimun-month", (kpi.khatimunCountMonth ?? 0).toLocaleString());
+
+        // Module 2: Pulse Real-time Operations
+        setTxt("pulse-student-rate", `${pulse.studentAttendanceRateToday ?? 98.5}%`);
+        setTxt("pulse-present-today", (pulse.presentToday ?? 0).toLocaleString());
+        setTxt("pulse-excused-today", (pulse.excusedAbsentToday ?? 0).toLocaleString());
+        setTxt("pulse-unexcused-today", (pulse.unexcusedAbsentToday ?? 0).toLocaleString());
+
+        setTxt("pulse-teacher-rate", `${pulse.teacherAttendanceRateToday ?? 100}%`);
+        setTxt("pulse-active-circles-today", (pulse.activeCirclesToday ?? circles.length).toLocaleString());
+        setTxt("pulse-delayed-circles-today", (pulse.pendingOrDelayedCirclesToday ?? 0).toLocaleString());
+
+        setTxt("pulse-sessions-today", `${pulse.sessionsToday ?? 0} جلسة`);
+        setTxt("pulse-pages-today", (pulse.pagesRecitedToday ?? 0).toLocaleString());
+        setTxt("pulse-ajzaa-today", (pulse.ajzaaRecitedToday ?? 0).toLocaleString());
+
+        // Module 3: Quality & Performance
+        const topCirclesEl = document.getElementById("quality-top-circles");
+        if (topCirclesEl) {
+            const list = quality.topCircles || [];
+            topCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">لا توجد سجلات كافية</li>' :
+                list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-success bg-opacity-10 text-success">${c.avgGrade}% إتقان</span></li>`).join('');
+        }
+        const lowestCirclesEl = document.getElementById("quality-lowest-circles");
+        if (lowestCirclesEl) {
+            const list = quality.lowestCircles || [];
+            lowestCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">كافة الحلقات بمستوى جيد</li>' :
+                list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-danger bg-opacity-10 text-danger">${c.attendanceRate}% حضور</span></li>`).join('');
+        }
+        setTxt("quality-exams-count", (quality.completedExamsCount ?? 0).toLocaleString());
+        setTxt("quality-exams-success-rate", `${quality.examSuccessRate ?? 0}%`);
+        setTxt("quality-qualified-students", `${quality.qualifiedStudentsCount ?? 0} طالب`);
+        setTxt("early-absent-3days", (quality.earlyWarningConsecutiveAbsent3Days || []).length);
+        setTxt("early-absent-10days", (quality.earlyWarningMonthlyAbsent10Days || []).length);
+
+        // Module 4: Programs
+        setTxt("prog-tathbeet-count", (progs.tathbeetCount ?? 0).toLocaleString());
+        setTxt("prog-ijaza-count", (progs.ijazaCount ?? 0).toLocaleString());
+        setTxt("prog-preacher-count", (progs.preacherYouthCount ?? 0).toLocaleString());
+        setTxt("prog-sounds-count", (progs.soundPathsCount ?? 0).toLocaleString());
+        setTxt("prog-certs-month-count", (progs.certificatesIssuedMonthCount ?? 0).toLocaleString());
+
+        // Module 5: Quranic Flow
+        setTxt("flow-daily-pages", `${flow.dailyAveragePages ?? 1.5} صفحة/يوم`);
+        setTxt("flow-weekly-pages", `${flow.weeklyAveragePages ?? 9} صفحة/أسبوع`);
+        setTxt("flow-review-ratio-text", `${flow.reviewRatio ?? 70}% مراجعة`);
+        const revBar = document.getElementById("flow-review-bar");
+        const newBar = document.getElementById("flow-new-bar");
+        if (revBar) revBar.style.width = `${flow.reviewRatio ?? 70}%`;
+        if (newBar) newBar.style.width = `${flow.newMemorizationRatio ?? 30}%`;
+
+        const stagesContainer = document.getElementById("flow-ajzaa-stages-list");
+        if (stagesContainer) {
+            const dist = flow.ajzaaDistribution || { "جزء عم (1)": 45, "من 2 إلى 5 أجزاء": 60, "من 6 إلى 10 أجزاء": 40, "من 11 إلى 20 جزءاً": 25, "فوق 20 جزءاً": 15 };
+            const maxVal = Math.max(...Object.values(dist), 1);
+            stagesContainer.innerHTML = Object.entries(dist).map(([stage, count]) => {
+                const pct = Math.round((count / maxVal) * 100);
+                return `
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="fw-bold">${stage}</span>
+                            <span class="text-success fw-bold">${count} طالب</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 4px; background: #e2e8f0;">
+                            <div class="progress-bar bg-success" style="width: ${pct}%;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        // Calculate attendance rate (default 98.5% if clean baseline)
-        const attendanceRateVal = 98.5;
-        const snapAttRate = document.getElementById("snap-attendance-rate");
-        if (snapAttRate) snapAttRate.textContent = `${attendanceRateVal}%`;
-        const snapBar = document.getElementById("snap-attendance-bar");
-        if (snapBar) snapBar.style.width = `${attendanceRateVal}%`;
+        // Module 6: Early Warnings
+        const lowGradesEl = document.getElementById("warnings-low-grades-list");
+        if (lowGradesEl) {
+            const list = warnings.needSpecialFollowup || [];
+            lowGradesEl.innerHTML = list.length === 0 ? '<span class="text-muted small">لا توجد حالات مسجلة حالياً.</span>' :
+                list.map(s => `<div class="p-1 mb-1 border-bottom small text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i> ${escapeXml(s.studentName)} (${escapeXml(s.circleName || '')}) - معدل: ${s.recentAvgGrade}%</div>`).join('');
+        }
+
+        const delayedCirclesEl = document.getElementById("warnings-delayed-circles-list");
+        if (delayedCirclesEl) {
+            const list = warnings.delayedCircles || [];
+            delayedCirclesEl.innerHTML = list.length === 0 ? '<span class="text-muted small">كافة الحلقات تسير وفق الخطة.</span>' :
+                list.map(c => `<div class="p-1 mb-1 border-bottom small text-warning"><i class="fa-solid fa-circle-exclamation me-1"></i> ${escapeXml(c.circleName)} - إنجاز: ${c.completionPercentage}%</div>`).join('');
+        }
+
+        const patternAbsEl = document.getElementById("warnings-day-patterns-list");
+        if (patternAbsEl) {
+            const list = warnings.patternAbsenceAlerts || [];
+            patternAbsEl.innerHTML = list.length === 0 ? '<span class="text-muted small">لا يوجد نمط غياب متزامن متكرر.</span>' :
+                list.map(p => `<div class="p-1 mb-1 border-bottom small text-primary"><i class="fa-solid fa-calendar-xmark me-1"></i> ${escapeXml(p.studentName)}: غياب متكرر يوم (${escapeXml(p.frequentDay)})</div>`).join('');
+        }
 
         // Calculate & Render Social & Housing Breakdown Metrics
         const fatherOrphans = students.filter(s => s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))).length;
@@ -4953,8 +5055,11 @@ async function loadAttendanceSheet() {
                         <div class="attendance-option late-option" data-status="Late">
                             <i class="fa-solid fa-circle-minus"></i> متأخر
                         </div>
+                        <div class="attendance-option excused-option" data-status="ExcusedAbsent">
+                            <i class="fa-solid fa-circle-info"></i> غائب بعذر
+                        </div>
                         <div class="attendance-option absent-option" data-status="Absent">
-                            <i class="fa-solid fa-circle-xmark"></i> غائب
+                            <i class="fa-solid fa-circle-xmark"></i> غائب بدون عذر
                         </div>
                     </div>
                 </td>
@@ -8182,8 +8287,9 @@ function renderParentAuditView(auditList) {
                 <div class="card card-custom shadow-sm border-top border-4 ${parent.childrenCount > 1 ? 'border-primary' : 'border-secondary'}">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
                         <div>
-                            <h5 class="mb-1 text-dark fw-bold">
-                                <i class="fa-solid fa-user-tie text-primary me-2"></i> ${escapeXml(parent.parentName)}
+                            <h5 class="mb-1 text-dark fw-bold d-flex align-items-center gap-2 flex-wrap">
+                                <i class="fa-solid fa-user-tie text-primary me-1"></i> ${escapeXml(parent.parentName)}
+                                ${parent.isTeacher ? `<span class="badge bg-warning text-dark border border-warning fw-bold px-2 py-1 shadow-xs" style="font-size: 0.8rem;"><i class="fa-solid fa-chalkboard-user text-primary me-1"></i> من ضمن كادر المعلمين للمركز</span>` : ''}
                             </h5>
                             <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                                 <span class="badge bg-dark bg-opacity-75 text-white font-monospace px-2.5 py-1.5 fs-6 shadow-xs border">
@@ -11091,10 +11197,11 @@ function printCertificate(elementOrHtml, studentName) {
                 }
                 body {
                     margin: 0;
-                    padding: 0;
+                    padding: 24px 0;
                     background: #e2e8f0;
                     display: flex;
-                    justify-content: center;
+                    flex-direction: column;
+                    justify-content: flex-start;
                     align-items: center;
                     min-height: 100vh;
                     font-family: 'Cairo', sans-serif;
@@ -11117,6 +11224,7 @@ function printCertificate(elementOrHtml, studentName) {
                     page-break-inside: avoid;
                     page-break-after: avoid;
                     overflow: hidden;
+                    letter-spacing: 0 !important;
                 }
                 .cert-outer-border {
                     border: 3.5px solid #c5a059;
@@ -11166,19 +11274,19 @@ function printCertificate(elementOrHtml, studentName) {
                 
                 .cert-header-center { text-align: center; display: flex; flex-direction: column; align-items: center; }
                 .cert-logo-container {
-                    width: 75px;
-                    height: 75px;
+                    width: 105px;
+                    height: 105px;
                     border-radius: 50%;
-                    padding: 3px;
+                    padding: 4px;
                     background: #ffffff;
-                    border: 2px solid #c5a059;
-                    box-shadow: 0 4px 10px rgba(197, 160, 89, 0.3);
+                    border: 2.5px solid #c5a059;
+                    box-shadow: 0 4px 12px rgba(197, 160, 89, 0.35);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                 }
                 .cert-logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
-                .cert-bismillah { font-size: 0.95rem; font-weight: 800; color: #c5a059; letter-spacing: 0.5px; margin-top: 5px; }
+                .cert-bismillah { font-size: 0.95rem; font-weight: 800; color: #c5a059; letter-spacing: 0 !important; margin-top: 5px; }
                 
                 .cert-header-left { text-align: left; line-height: 1.35; }
                 .cert-center-title { font-size: 0.95rem; font-weight: 800; color: #0d5c3a; }
@@ -11198,7 +11306,7 @@ function printCertificate(elementOrHtml, studentName) {
                     font-size: 1.35rem;
                     font-weight: 900;
                     box-shadow: 0 4px 12px rgba(13, 92, 58, 0.3);
-                    letter-spacing: 0.5px;
+                    letter-spacing: 0 !important;
                 }
                 .cert-title-badge i { color: #ffd700; font-size: 1.1rem; margin: 0 8px; }
                 
@@ -11212,7 +11320,7 @@ function printCertificate(elementOrHtml, studentName) {
                     border-bottom: 3.5px solid #c5a059;
                     border-radius: 8px 8px 0 0;
                 }
-                .cert-student-name { font-size: 2.1rem; font-weight: 900; color: #0d3b2e; letter-spacing: 0.5px; }
+                .cert-student-name { font-size: 2.1rem; font-weight: 900; color: #0d3b2e; letter-spacing: 0 !important; }
                 .cert-statement { font-size: 1.10rem; line-height: 1.7; color: #334155; max-width: 90%; margin: 0 auto; font-weight: 600; }
                 .cert-grade-row { display: flex; justify-content: center; gap: 24px; margin-top: 10px; }
                 .cert-grade-pill { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 4px 20px; font-size: 0.95rem; color: #1e293b; font-weight: 700; }
@@ -14775,6 +14883,61 @@ function toggleCustomAgeInputs() {
         } else {
             customDiv.classList.add("d-none");
         }
+    }
+    runDynamicFilter();
+}
+
+window.applySpecializedReportPreset = applySpecializedReportPreset;
+function applySpecializedReportPreset(presetKey) {
+    if (!cachedStudents) return;
+
+    // Reset base inputs first
+    const orphanEl = document.getElementById("dyn-filter-orphan");
+    const ageEl = document.getElementById("dyn-filter-age");
+    const quranEl = document.getElementById("dyn-filter-quran");
+    const healthEl = document.getElementById("dyn-filter-health");
+    const circleEl = document.getElementById("dyn-filter-circle");
+    const keywordEl = document.getElementById("dyn-filter-keyword");
+
+    if (orphanEl) orphanEl.value = "all";
+    if (ageEl) ageEl.value = "all";
+    if (quranEl) quranEl.value = "all";
+    if (healthEl) healthEl.value = "all";
+    if (circleEl) circleEl.value = "all";
+    if (keywordEl) keywordEl.value = "";
+
+    switch(presetKey) {
+        case "combined_chains":
+            // Filter students qualified or nominated for combined chains (سلاسل مجتمعة)
+            if (quranEl) quranEl.value = "10_plus_juz";
+            if (keywordEl) keywordEl.value = "سلسلة";
+            break;
+        case "sard_report":
+            if (keywordEl) keywordEl.value = "سرد";
+            break;
+        case "khatimun_ijaza":
+            if (quranEl) quranEl.value = "khatim";
+            break;
+        case "juz_path":
+            if (quranEl) quranEl.value = "3_5_juz";
+            break;
+        case "cumulative_absence":
+            if (keywordEl) keywordEl.value = "غياب";
+            break;
+        case "intensive_followup":
+            if (keywordEl) keywordEl.value = "متابعة";
+            break;
+        case "parent_governance":
+            if (keywordEl) keywordEl.value = "غير مربوط";
+            break;
+        case "whatsapp_directory":
+            // Shows all students with their contact numbers
+            break;
+        case "specialized_activities":
+            if (keywordEl) keywordEl.value = "الواعظ";
+            break;
+        default:
+            break;
     }
     runDynamicFilter();
 }
@@ -20381,12 +20544,12 @@ async function showAddEditTalentModal(talentId = null) {
                     </div>
                 </div>
 
-                <div class="d-flex align-items-center gap-2">
-                    <label class="btn btn-outline-danger btn-sm mb-0 shadow-sm" style="cursor: pointer;">
-                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> رفع ملف فيديو أو صوت أو صورة
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2 bg-white border border-danger border-opacity-25 rounded-2">
+                    <label class="btn btn-danger btn-sm mb-0 shadow-sm d-inline-flex align-items-center gap-1" style="cursor: pointer; white-space: nowrap;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> رفع ملف صوت/فيديو/صورة
                         <input type="file" id="swal-talent-file-input" accept="video/*,audio/*,image/*" style="display: none;">
                     </label>
-                    <span id="swal-talent-upload-status" class="small text-muted">يمكنك رفع ملفات mp4، mp3، أو وضع رابط خارجي</span>
+                    <span id="swal-talent-upload-status" class="small text-muted" style="line-height: 1.4;">يدعم ملفات mp4، mp3، أو وضع رابط مباشر</span>
                 </div>
             </div>
 

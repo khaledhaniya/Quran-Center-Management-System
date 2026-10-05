@@ -130,13 +130,21 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.all(6),
+                                  padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(color: AppTheme.accent, width: 1.5),
                                     color: Colors.white,
                                   ),
-                                  child: const Icon(Icons.workspace_premium, color: AppTheme.accent, size: 28),
+                                  child: ClipOval(
+                                    child: Image.asset(
+                                      'assets/logo.png',
+                                      width: 52,
+                                      height: 52,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.workspace_premium, color: AppTheme.accent, size: 28),
+                                    ),
+                                  ),
                                 ),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,

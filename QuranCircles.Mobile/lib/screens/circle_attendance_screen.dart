@@ -887,16 +887,19 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
 
                             // Attendance Toggle Choice
                             ToggleButtons(
-                              constraints: const BoxConstraints(minWidth: 46, minHeight: 32),
+                              constraints: const BoxConstraints(minWidth: 40, minHeight: 30),
                               borderRadius: BorderRadius.circular(8),
                               selectedColor: Colors.white,
                               fillColor: currentStatus == 1
                                   ? Colors.green.shade600
-                                  : (currentStatus == 2 ? Colors.red.shade600 : Colors.orange.shade700),
+                                  : (currentStatus == 2
+                                      ? Colors.red.shade600
+                                      : (currentStatus == 3 ? Colors.orange.shade700 : Colors.amber.shade800)),
                               isSelected: [
                                 currentStatus == 1,
                                 currentStatus == 2,
                                 currentStatus == 3,
+                                currentStatus == 4,
                               ],
                               onPressed: (btnIndex) {
                                 setState(() {
@@ -904,9 +907,10 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                                 });
                               },
                               children: const [
-                                Text('حاضر', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                Text('غائب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                Text('متأخر', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                Text('حاضر', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text('غائب', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text('متأخر', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text('بعذر', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ],

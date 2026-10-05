@@ -114,9 +114,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final st = _attendanceStatus[s.id] ?? 'Present';
         if (st == 'Absent') {
           statusInt = 2;
-        } else if (st == 'Excused') {
-          statusInt = 3;
         } else if (st == 'Late') {
+          statusInt = 3;
+        } else if (st == 'ExcusedAbsent' || st == 'Excused') {
           statusInt = 4;
         }
 
@@ -395,8 +395,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                           children: [
                                             _buildStatusChip(s.id, 'Present', 'حاضر', Colors.green, currentStatus == 'Present'),
                                             _buildStatusChip(s.id, 'Absent', 'غائب', Colors.red, currentStatus == 'Absent'),
-                                            _buildStatusChip(s.id, 'Excused', 'معذور', Colors.amber.shade800, currentStatus == 'Excused'),
                                             _buildStatusChip(s.id, 'Late', 'متأخر', Colors.orange, currentStatus == 'Late'),
+                                            _buildStatusChip(s.id, 'ExcusedAbsent', 'غائب بعذر', Colors.amber.shade800, currentStatus == 'ExcusedAbsent' || currentStatus == 'Excused'),
                                           ],
                                         ),
                                       ],

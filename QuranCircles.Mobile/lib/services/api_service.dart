@@ -1092,6 +1092,23 @@ class ApiService {
     return null;
   }
 
+  // --- Executive Dashboard Report (Unified Source of Truth for Web & Mobile) ---
+  static Future<Map<String, dynamic>> getExecutiveDashboard({String? fromDate, String? toDate}) async {
+    String url = '$baseUrl/reports/executive-dashboard';
+    final q = <String>[];
+    if (fromDate != null && fromDate.isNotEmpty) q.add('from=${Uri.encodeComponent(fromDate)}');
+    if (toDate != null && toDate.isNotEmpty) q.add('to=${Uri.encodeComponent(toDate)}');
+    if (q.isNotEmpty) url += '?${q.join('&')}';
+
+    try {
+      final response = await http.get(Uri.parse(url), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {};
+  }
+
   // --- Executive Dashboard Summary Report ---
   static Future<Map<String, dynamic>> getDashboardSummary({String? fromDate, String? toDate}) async {
     String url = '$baseUrl/reports/summary';

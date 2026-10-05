@@ -772,7 +772,7 @@ public class StudentService
             CircleName = s.Circle?.Name ?? "حلقة التحفيظ",
             SessionDate = att.SessionDate.ToString("yyyy-MM-dd"),
             Status = (int)att.Status,
-            StatusText = att.Status == AttendanceStatus.Present ? "حاضر" : (att.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+            StatusText = att.Status == AttendanceStatus.Present ? "حاضر" : (att.Status == AttendanceStatus.Absent ? "غائب" : (att.Status == AttendanceStatus.ExcusedAbsent ? "غائب بعذر" : "متأخر"))
         }).ToList();
 
         var courseAttendances = await _db.CourseAttendances
@@ -787,7 +787,7 @@ public class StudentService
             CourseName = ca.Course?.Name ?? "مساق تعليمي",
             SessionDate = ca.SessionDate.ToString("yyyy-MM-dd"),
             Status = (int)ca.Status,
-            StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : "متأخر")
+            StatusText = ca.Status == AttendanceStatus.Present ? "حاضر" : (ca.Status == AttendanceStatus.Absent ? "غائب" : (ca.Status == AttendanceStatus.ExcusedAbsent ? "غائب بعذر" : "متأخر"))
         }).ToList();
 
         var exams = await _db.ExamNominations

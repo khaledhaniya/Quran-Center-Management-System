@@ -20,7 +20,8 @@ public enum AttendanceStatus
 {
     Present = 1,   
     Absent = 2,    
-    Late = 3        
+    Late = 3,
+    ExcusedAbsent = 4 // غائب بعذر
 }
 
 public enum SessionTiming

@@ -726,6 +726,29 @@ public static partial class DbSeeder
             ");
         }
         catch { }
+
+        // Ensure QualityVisits table exists
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS QualityVisits (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CircleId INTEGER NOT NULL,
+                    SupervisorName TEXT NOT NULL,
+                    VisitDate TEXT NOT NULL,
+                    PunctualityScore INTEGER NOT NULL DEFAULT 100,
+                    ClassManagementScore INTEGER NOT NULL DEFAULT 100,
+                    TajweedCorrectionScore INTEGER NOT NULL DEFAULT 100,
+                    OverallQualityScore INTEGER NOT NULL DEFAULT 100,
+                    Notes TEXT,
+                    SpotCheckedStudentsJson TEXT,
+                    IsSubstituteModeActive INTEGER NOT NULL DEFAULT 0,
+                    CreatedAt TEXT NOT NULL,
+                    FOREIGN KEY (CircleId) REFERENCES Circles(Id) ON DELETE CASCADE
+                );
+            ");
+        }
+        catch { }
     }
 
     private static void EnsureSystemSettings(AppDbContext db)

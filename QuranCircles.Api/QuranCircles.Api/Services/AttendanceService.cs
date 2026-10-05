@@ -166,6 +166,7 @@ public class AttendanceService
         AttendanceStatus.Present => "حاضر",
         AttendanceStatus.Absent => "غائب",
         AttendanceStatus.Late => "متأخر",
+        AttendanceStatus.ExcusedAbsent => "غائب بعذر",
         _ => s.ToString()
     };
 }

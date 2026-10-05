@@ -440,6 +440,7 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
                             final parentIdNumber = p['parentIdentityNumber'] ?? p['username'] ?? '-';
                             final phone = (p['contact'] ?? p['phone'] ?? '').toString();
                             final children = p['children'] as List? ?? [];
+                            final isTeacher = p['isTeacher'] == true || p['isTeacher'] == 1;
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -447,8 +448,13 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               child: ExpansionTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.4),
-                                  child: const Icon(Icons.family_restroom, color: AppTheme.primary),
+                                  backgroundColor: isTeacher
+                                      ? Colors.amber.shade100
+                                      : AppTheme.primaryLight.withValues(alpha: 0.4),
+                                  child: Icon(
+                                    isTeacher ? Icons.workspace_premium : Icons.family_restroom,
+                                    color: isTeacher ? Colors.amber.shade900 : AppTheme.primary,
+                                  ),
                                 ),
                                 title: Row(
                                   children: [
@@ -479,24 +485,48 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
                                 ),
                                 subtitle: Padding(
                                   padding: const EdgeInsets.only(top: 4.0),
-                                  child: Row(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        'هوية: $parentIdNumber',
-                                        style: AppTheme.cairoStyle(fontSize: 11.5, color: Colors.grey.shade700),
-                                      ),
-                                      if (phone.isNotEmpty) ...[
-                                        const SizedBox(width: 8),
-                                        InkWell(
-                                          onTap: () => ContactHelper.launchDialer(context, phone),
-                                          child: const Icon(Icons.phone_in_talk, size: 14, color: Colors.blue),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        InkWell(
-                                          onTap: () => ContactHelper.launchWhatsApp(context, phone),
-                                          child: const Icon(Icons.chat, size: 14, color: Colors.green),
+                                      if (isTeacher) ...[
+                                        Container(
+                                          margin: const EdgeInsets.only(bottom: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade50,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                                          ),
+                                          child: Text(
+                                            'من ضمن كادر المعلمين للمركز',
+                                            style: AppTheme.cairoStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.brown.shade800,
+                                            ),
+                                          ),
                                         ),
                                       ],
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'هوية: $parentIdNumber',
+                                            style: AppTheme.cairoStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                                          ),
+                                          if (phone.isNotEmpty) ...[
+                                            const SizedBox(width: 8),
+                                            InkWell(
+                                              onTap: () => ContactHelper.launchDialer(context, phone),
+                                              child: const Icon(Icons.phone_in_talk, size: 14, color: Colors.blue),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            InkWell(
+                                              onTap: () => ContactHelper.launchWhatsApp(context, phone),
+                                              child: const Icon(Icons.chat, size: 14, color: Colors.green),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),

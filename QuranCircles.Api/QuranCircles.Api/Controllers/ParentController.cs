@@ -203,7 +203,17 @@ public class ParentController : ControllerBase
     public async Task<IActionResult> GetParentAudit()
     {
         var parentUsers = await _db.Users
+            .Include(u => u.Teacher)
             .Where(u => u.Role == UserRole.Parent)
+            .ToListAsync();
+
+        var teacherUsers = await _db.Users
+            .Include(u => u.Teacher)
+            .Where(u => u.Role == UserRole.Teacher || u.TeacherId != null)
+            .ToListAsync();
+
+        var activeTeachers = await _db.Teachers
+            .Where(t => t.IsActive)
             .ToListAsync();
 
         var allStudents = await _db.Students
@@ -211,11 +221,36 @@ public class ParentController : ControllerBase
             .ToListAsync();
 
         var result = new List<object>();
+        var processedUserIds = new HashSet<int>();
 
+        // 1. Process standard parent accounts
         foreach (var parent in parentUsers)
         {
+            processedUserIds.Add(parent.Id);
             int pId = parent.ParentId ?? parent.Id;
             var uName = (parent.Username ?? "").Trim();
+
+            // Check if this parent user is also linked to an active teacher
+            bool isStaffTeacher = false;
+            string? teacherRoleName = null;
+            if (parent.TeacherId.HasValue)
+            {
+                var matchT = activeTeachers.FirstOrDefault(t => t.Id == parent.TeacherId.Value);
+                if (matchT != null)
+                {
+                    isStaffTeacher = true;
+                    teacherRoleName = matchT.TaskRole;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(uName))
+            {
+                var matchT = activeTeachers.FirstOrDefault(t => (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == uName) || (!string.IsNullOrWhiteSpace(t.Contact) && t.Contact.Trim() == uName));
+                if (matchT != null)
+                {
+                    isStaffTeacher = true;
+                    teacherRoleName = matchT.TaskRole;
+                }
+            }
 
             var linkedChildren = allStudents
                 .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == parent.Id))
@@ -237,14 +272,12 @@ public class ParentController : ControllerBase
                 })
                 .ToList();
 
-            // Derive parent identity number from children's parentIdentityNumber field or username
             var parentIdNumber = linkedChildren.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.ParentIdentityNumber))?.ParentIdentityNumber;
             if (string.IsNullOrWhiteSpace(parentIdNumber))
             {
                 parentIdNumber = !string.IsNullOrWhiteSpace(parent.Username) ? parent.Username : "غير مسجل";
             }
 
-            // Derive parent name if FullName is missing or generic
             var rawName = (parent.FullName ?? "").Trim();
             var isGeneric = string.IsNullOrWhiteSpace(rawName) || rawName == "ولي أمر" || rawName.StartsWith("ولي أمر (");
             
@@ -262,8 +295,78 @@ public class ParentController : ControllerBase
                 username = parent.Username,
                 parentIdentityNumber = parentIdNumber,
                 childrenCount = linkedChildren.Count,
-                children = linkedChildren
+                children = linkedChildren,
+                isTeacher = isStaffTeacher,
+                teacherNotice = isStaffTeacher ? "من ضمن كادر المعلمين للمركز" : "",
+                teacherRole = teacherRoleName
             });
+        }
+
+        // 2. Process teacher accounts who have children in the center
+        foreach (var tUser in teacherUsers)
+        {
+            if (processedUserIds.Contains(tUser.Id)) continue;
+
+            var teacherObj = tUser.Teacher ?? (tUser.TeacherId.HasValue ? activeTeachers.FirstOrDefault(t => t.Id == tUser.TeacherId.Value) : null);
+            if (teacherObj == null && !string.IsNullOrWhiteSpace(tUser.Username))
+            {
+                teacherObj = activeTeachers.FirstOrDefault(t => (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == tUser.Username.Trim()) || (!string.IsNullOrWhiteSpace(t.FullName) && t.FullName.Trim() == tUser.FullName.Trim()));
+            }
+
+            // Must be an active teacher to carry the teacher notice
+            bool isStaffTeacher = teacherObj != null && teacherObj.IsActive;
+
+            var idMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(tUser.Username) && tUser.Username.Trim().Length >= 7) idMatches.Add(tUser.Username.Trim());
+            if (teacherObj != null && !string.IsNullOrWhiteSpace(teacherObj.IdentityNumber)) idMatches.Add(teacherObj.IdentityNumber.Trim());
+
+            var contactMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (teacherObj != null && !string.IsNullOrWhiteSpace(teacherObj.Contact)) contactMatches.Add(teacherObj.Contact.Trim());
+            if (teacherObj != null && !string.IsNullOrWhiteSpace(teacherObj.WhatsappNumber)) contactMatches.Add(teacherObj.WhatsappNumber.Trim());
+
+            int pId = tUser.ParentId ?? tUser.Id;
+
+            var linkedChildren = allStudents
+                .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == tUser.Id))
+                         || (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && idMatches.Contains(s.ParentIdentityNumber.Trim()))
+                         || (!string.IsNullOrWhiteSpace(s.FamilyContact) && contactMatches.Contains(s.FamilyContact.Trim())))
+                .Select(s => new
+                {
+                    s.Id,
+                    s.FullName,
+                    CircleId = s.CircleId,
+                    CircleName = s.Circle?.Name ?? "غير مسند حلقة",
+                    DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
+                    s.FamilyContact,
+                    s.StudentIdentityNumber,
+                    s.ParentIdentityNumber,
+                    s.FatherStatus,
+                    s.MotherStatus,
+                    s.Notes
+                })
+                .ToList();
+
+            // Include if they have children registered in the center
+            if (linkedChildren.Count > 0)
+            {
+                processedUserIds.Add(tUser.Id);
+                var pIdNum = idMatches.FirstOrDefault() ?? (!string.IsNullOrWhiteSpace(tUser.Username) ? tUser.Username : "غير مسجل");
+                var teacherName = !string.IsNullOrWhiteSpace(teacherObj?.FullName) ? teacherObj!.FullName : (!string.IsNullOrWhiteSpace(tUser.FullName) ? tUser.FullName : "معلم المركز");
+
+                result.Add(new
+                {
+                    parentId = pId,
+                    parentUserId = tUser.Id,
+                    parentName = teacherName,
+                    username = tUser.Username,
+                    parentIdentityNumber = pIdNum,
+                    childrenCount = linkedChildren.Count,
+                    children = linkedChildren,
+                    isTeacher = isStaffTeacher,
+                    teacherNotice = isStaffTeacher ? "من ضمن كادر المعلمين للمركز" : "",
+                    teacherRole = teacherObj?.TaskRole ?? "معلم بالمركز"
+                });
+            }
         }
 
         return Ok(result);
