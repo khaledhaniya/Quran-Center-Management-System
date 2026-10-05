@@ -23,13 +23,11 @@ class ApiService {
   static List<Student>? _cachedStudents;
   static List<Teacher>? _cachedTeachers;
   static List<Circle>? _cachedCircles;
-  static DateTime? _cacheTime;
 
   static void invalidateCache() {
     _cachedStudents = null;
     _cachedTeachers = null;
     _cachedCircles = null;
-    _cacheTime = null;
   }
 
   static Map<String, String> _headers({String? code2FA}) {
@@ -80,23 +78,34 @@ class ApiService {
       OfflineSyncManager.initialize();
       return user;
     } else {
+      String errorMsg = 'بيانات الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور.';
       try {
         final err = jsonDecode(response.body);
-        throw Exception(err['message'] ?? err['error'] ?? 'فشل تسجيل الدخول. تحقق من كلمة المرور.');
-      } catch (e) {
-        final cached = await OfflineCache.load('user_login');
-        if (cached != null) {
-          final json = jsonDecode(cached);
-          final user = User.fromJson(json['user'] ?? json);
-          currentUser = user;
-          authToken = json['token']?.toString() ?? '';
-          NotificationService.start(user);
-          OfflineSyncManager.initialize();
-          return user;
-        }
-        if (e.toString().contains('Exception:')) rethrow;
-        throw Exception('فشل الاتصال بالسيرفر. يرجى التحقق من الاتصال بالإنترنت.');
-      }
+        errorMsg = err['message'] ?? err['error'] ?? errorMsg;
+      } catch (_) {}
+      throw Exception(errorMsg);
+    }
+  }
+
+  static Future<bool> changePassword({String? currentPassword, required String newPassword}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/change-password'),
+      headers: _headers(),
+      body: jsonEncode({
+        if (currentPassword != null && currentPassword.isNotEmpty) 'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      String msg = 'فشل تغيير كلمة المرور.';
+      try {
+        final err = jsonDecode(response.body);
+        msg = err['message'] ?? err['error'] ?? msg;
+      } catch (_) {}
+      throw Exception(msg);
     }
   }
 

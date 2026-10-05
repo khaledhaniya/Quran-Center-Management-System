@@ -538,9 +538,18 @@ public class ExamsController : ControllerBase
             .Include(n => n.Result)
             .FirstOrDefaultAsync(n => n.Id == id);
 
-        if (nomination == null || nomination.Result == null || nomination.Result.Grade < 60)
+        if (nomination == null || nomination.Result == null || nomination.Result.Grade < 60 || nomination.Status == "Failed" || !nomination.Result.Passed)
         {
             return NotFound("<h1>عذراً، الشهادة غير موجودة أو لم يستوفِ الطالب شروط الاجتياز.</h1>");
+        }
+
+        if (nomination.NominationType != "Quran" && nomination.CourseId.HasValue)
+        {
+            var enrollment = await _db.CourseEnrollments.FirstOrDefaultAsync(e => e.CourseId == nomination.CourseId.Value && e.StudentId == nomination.StudentId);
+            if (enrollment != null && (enrollment.Status == "Failed" || (enrollment.Grade.HasValue && enrollment.Grade.Value < 60)))
+            {
+                return NotFound("<h1>عذراً، الشهادة ملغاة أو لم يستوفِ الطالب شروط الاجتياز للمساق.</h1>");
+            }
         }
 
         var isQuran = nomination.NominationType == "Quran";

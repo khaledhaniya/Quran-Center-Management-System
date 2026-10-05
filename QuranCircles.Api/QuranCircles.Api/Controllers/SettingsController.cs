@@ -95,6 +95,8 @@ public class SettingsController : ControllerBase
             if (dto.AllowPublicAnnouncements.HasValue) settings.AllowPublicAnnouncements = dto.AllowPublicAnnouncements.Value;
             if (dto.EnableAbsenceAutoAlert.HasValue) settings.EnableAbsenceAutoAlert = dto.EnableAbsenceAutoAlert.Value;
             if (dto.AbsenceAlertTemplate != null) settings.AbsenceAlertTemplate = dto.AbsenceAlertTemplate.Trim();
+            if (dto.EnableRecitationIncompleteAlert.HasValue) settings.EnableRecitationIncompleteAlert = dto.EnableRecitationIncompleteAlert.Value;
+            if (dto.RecitationAlertTemplate != null) settings.RecitationAlertTemplate = dto.RecitationAlertTemplate.Trim();
 
             // 6. UI & Appearance
             if (dto.MaintenanceMode.HasValue) settings.MaintenanceMode = dto.MaintenanceMode.Value;
@@ -262,5 +264,7 @@ public record UpdateSettingsDto(
     bool? AllowPublicAnnouncements,
     bool? EnableAbsenceAutoAlert,
     string? AbsenceAlertTemplate,
+    bool? EnableRecitationIncompleteAlert,
+    string? RecitationAlertTemplate,
     bool? MaintenanceMode
 );

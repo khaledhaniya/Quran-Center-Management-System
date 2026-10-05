@@ -54,8 +54,52 @@ public class SessionService
         _db.Sessions.Add(s);
         await _db.SaveChangesAsync();
 
+        if (dto.Assessment == AssessmentLevel.DidNotRecite)
+        {
+            await SendIncompleteRecitationAlertAsync(student, dto.SessionDate);
+        }
+
         await _db.Entry(s).Reference(x => x.Student).LoadAsync();
         return (Map(s), null);
+    }
+
+    private async Task SendIncompleteRecitationAlertAsync(Student student, DateOnly sessionDate)
+    {
+        try
+        {
+            var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+            if (!settings.EnableRecitationIncompleteAlert) return;
+
+            var today = DateTime.UtcNow.Date;
+            var alreadyNotified = await _db.Announcements.AnyAsync(an =>
+                an.TargetType == AnnouncementTarget.Student &&
+                an.TargetId == student.Id &&
+                an.Title.Contains("تنبيه متابعة تسميع") &&
+                an.DateTimeSent >= today);
+
+            if (!alreadyNotified)
+            {
+                var template = !string.IsNullOrWhiteSpace(settings.RecitationAlertTemplate)
+                    ? settings.RecitationAlertTemplate
+                    : "نحيطكم علماً بأن الطالب/ة لم يتمكن من إتمام التسميع المطلوب في حلقة اليوم، يرجى تشجيعه ومتابعته في المنزل.";
+
+                var alert = new Announcement
+                {
+                    Title = $"📖 تنبيه متابعة تسميع: الطالب {student.FullName}",
+                    Content = $"{template}\n📅 تاريخ الجلسة: {sessionDate:yyyy-MM-dd}",
+                    DateTimeSent = DateTime.UtcNow,
+                    TargetType = AnnouncementTarget.Student,
+                    TargetId = student.Id,
+                    SenderName = "نظام التسميع والمتابعة القرآني"
+                };
+                _db.Announcements.Add(alert);
+                await _db.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            // Non-blocking
+        }
     }
 
     public async Task<(bool ok, string? error)> UpdateAsync(int id, UpdateSessionDto dto)

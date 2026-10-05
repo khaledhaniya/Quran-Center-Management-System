@@ -43,11 +43,28 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
   int _pendingRequestsCount = 0;
+  String _centerName = 'مركز البيان لتعليم القرآن';
+  String _mosqueName = 'مسجد علي بن أبي طالب';
+  bool _isMaintenanceMode = false;
 
   @override
   void initState() {
     super.initState();
     _fetchPendingRequestsCount();
+    _loadSystemSettings();
+  }
+
+  void _loadSystemSettings() async {
+    try {
+      final s = await ApiService.getSystemSettings();
+      if (s != null && mounted) {
+        setState(() {
+          _centerName = s['centerName'] ?? s['CenterName'] ?? _centerName;
+          _mosqueName = s['mosqueName'] ?? s['MosqueName'] ?? _mosqueName;
+          _isMaintenanceMode = s['maintenanceMode'] == true || s['MaintenanceMode'] == true;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchPendingRequestsCount() async {
@@ -148,6 +165,82 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
     }
 
+    // Maintenance Mode Blocker (For all non-developer users)
+    if (_isMaintenanceMode && !isDev) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF031E12),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.amber, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.build_rounded, size: 56, color: Colors.amber),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'النظام في وضع الصيانة والتحديث',
+                    textAlign: TextAlign.center,
+                    style: AppTheme.cairoStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'النظام داخل وضع الصيانة والتحديث حالياً، يرجى التواصل مع المطور للمزيد من التفاصيل.',
+                    textAlign: TextAlign.center,
+                    style: AppTheme.cairoStyle(
+                      fontSize: 14,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 26),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white12,
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white30),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.logout, color: Colors.redAccent),
+                    label: Text(
+                      'تسجيل الخروج',
+                      style: AppTheme.cairoStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: _handleLogout,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -155,50 +248,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'مركز البيان لتعليم القرآن',
+              _centerName,
               style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
-              'مسجد علي بن أبي طالب',
-              style: AppTheme.cairoStyle(fontSize: 11, color: Colors.white70),
+              _mosqueName,
+              style: AppTheme.cairoStyle(fontSize: 11, color: const Color(0xFFD4AF37)),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
-          // Live Notifications Bell with Real-Time Badge
-          ValueListenableBuilder<int>(
-            valueListenable: NotificationService.unreadCount,
-            builder: (context, count, _) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications),
-                    tooltip: 'مركز الإشعارات والتنبيهات',
-                    onPressed: _showNotificationsSheet,
-                  ),
-                  if (count > 0)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                        ),
-                        child: Text(
-                          count > 9 ? '9+' : '$count',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-
           // Pending Offline Sync Indicator
           ValueListenableBuilder<int>(
             valueListenable: OfflineSyncManager.pendingActionsCount,
@@ -221,13 +282,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             },
           ),
 
+          // Bell Icon restricted ONLY to Admin and Developer accounts
           if (isAdmin)
             Stack(
               alignment: Alignment.center,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_note),
-                  tooltip: 'طلبات التعديل والمعالجة',
+                  icon: const Icon(Icons.notifications_rounded),
+                  tooltip: 'طلبات تعديل البيانات والملفات',
                   onPressed: () {
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => const ProfileRequestsScreen())).then((_) => _fetchPendingRequestsCount());
                   },
@@ -237,16 +299,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
                       child: Text(
-                        '$_pendingRequestsCount',
+                        _pendingRequestsCount > 9 ? '9+' : '$_pendingRequestsCount',
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
               ],
-            ),
         ],
       ),
       drawer: Drawer(
@@ -526,14 +591,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.campaign, color: AppTheme.primary),
-                title: Text('مركز الإشعارات والتنبيهات', style: AppTheme.cairoStyle()),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => AnnouncementsScreen(currentUser: widget.currentUser)));
-                },
-              ),
               const Divider(),
               if (widget.currentUser.isFinancialSupervisor)
                 ListTile(
@@ -607,6 +664,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
             const Divider(),
             ListTile(
+              leading: const Icon(Icons.lock_reset_rounded, color: AppTheme.primary),
+              title: Text('تغيير كلمة المرور', style: AppTheme.cairoStyle()),
+              onTap: () {
+                Navigator.pop(context);
+                _showChangePasswordModal();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: Text('تسجيل الخروج', style: AppTheme.cairoStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               onTap: () {
@@ -678,119 +743,152 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  void _showNotificationsSheet() {
-    NotificationService.fetchLiveNotifications(widget.currentUser);
-    showModalBottomSheet(
+  void _showChangePasswordModal() {
+    final currentPwCtrl = TextEditingController();
+    final newPwCtrl = TextEditingController();
+    final confirmPwCtrl = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isSubmitting = false;
+
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.06),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.lock_reset_rounded, color: AppTheme.primary, size: 24),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.notifications_active, color: AppTheme.primary),
-                  const SizedBox(width: 8),
-                  Text('مركز الإشعارات والتنبيهات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () {
-                      NotificationService.markAllAsRead();
-                    },
-                    icon: const Icon(Icons.done_all, size: 16, color: Colors.green),
-                    label: Text('تحديد الكل كمقروء', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.green)),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(sheetCtx),
-                  ),
-                ],
+              const SizedBox(width: 10),
+              Text(
+                'تغيير كلمة المرور',
+                style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: currentPwCtrl,
+                  obscureText: obscureCurrent,
+                  decoration: InputDecoration(
+                    labelText: 'كلمة المرور الحالية',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscureCurrent = !obscureCurrent),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newPwCtrl,
+                  obscureText: obscureNew,
+                  decoration: InputDecoration(
+                    labelText: 'كلمة المرور الجديدة',
+                    prefixIcon: const Icon(Icons.vpn_key_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmPwCtrl,
+                  obscureText: obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: 'تأكيد كلمة المرور الجديدة',
+                    prefixIcon: const Icon(Icons.vpn_key_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
             ),
-
-            // Notifications List
-            Expanded(
-              child: ValueListenableBuilder<List<CenterNotification>>(
-                valueListenable: NotificationService.notificationsList,
-                builder: (context, list, _) {
-                  if (list.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.notifications_off_outlined, size: 54, color: Colors.grey),
-                          const SizedBox(height: 10),
-                          Text('لا توجد إشعارات جديدة حالياً', style: AppTheme.cairoStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final item = list[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: item.isRead ? Colors.grey.shade200 : AppTheme.primary.withOpacity(0.15),
-                          child: Icon(
-                            item.category == 'profile_request' ? Icons.edit_note : Icons.campaign,
-                            color: item.isRead ? Colors.grey : AppTheme.primary,
-                          ),
-                        ),
-                        title: Text(
-                          item.title,
-                          style: AppTheme.cairoStyle(
-                            fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
-                            color: item.isRead ? Colors.grey.shade700 : AppTheme.textDark,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.body, style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade600)),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${item.timestamp.hour}:${item.timestamp.minute.toString().padLeft(2, '0')} - ${item.timestamp.year}/${item.timestamp.month}/${item.timestamp.day}',
-                              style: AppTheme.cairoStyle(fontSize: 10, color: Colors.grey.shade400),
-                            ),
-                          ],
-                        ),
-                        trailing: !item.isRead
-                            ? Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
-                              )
-                            : null,
-                        onTap: () {
-                          NotificationService.markAsRead(item.id);
-                          Navigator.pop(sheetCtx);
-                          if (item.category == 'announcement') {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(currentUser: widget.currentUser)));
-                          } else if (item.category == 'profile_request') {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileRequestsScreen()));
-                          }
-                        },
-                      );
-                    },
-                  );
-                },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('إلغاء', style: AppTheme.cairoStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final current = currentPwCtrl.text.trim();
+                      final newPw = newPwCtrl.text;
+                      final confirm = confirmPwCtrl.text;
+
+                      if (current.isEmpty || newPw.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('يرجى ملء كافة الحقول', style: AppTheme.cairoStyle())),
+                        );
+                        return;
+                      }
+                      if (newPw.length < 4) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('يجب ألا تقل كلمة المرور عن 4 أحرف', style: AppTheme.cairoStyle())),
+                        );
+                        return;
+                      }
+                      if (newPw != confirm) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('كلمة المرور وتأكيدها غير متطابقين', style: AppTheme.cairoStyle())),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        final ok = await ApiService.changePassword(
+                          currentPassword: current,
+                          newPassword: newPw,
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                ok ? '✅ تم تحديث كلمة المرور بنجاح' : '❌ فشل تحديث كلمة المرور',
+                                style: AppTheme.cairoStyle(fontWeight: FontWeight.bold),
+                              ),
+                              backgroundColor: ok ? Colors.green : Colors.red,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('خطأ: $e', style: AppTheme.cairoStyle())),
+                          );
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('تحديث كلمة المرور', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

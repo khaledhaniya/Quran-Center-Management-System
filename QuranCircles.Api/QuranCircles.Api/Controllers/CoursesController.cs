@@ -659,6 +659,22 @@ public class CoursesController : ControllerBase
             enrollment.Status = "Failed";
             enrollment.CertificateCode = null;
             enrollment.CertificateDate = null;
+
+            // Revoke and sync any linked ExamNomination for this course & student
+            var linkedNominations = await _db.ExamNominations
+                .Include(n => n.Result)
+                .Where(n => n.StudentId == enrollment.StudentId && n.CourseId == enrollment.CourseId)
+                .ToListAsync();
+
+            foreach (var nom in linkedNominations)
+            {
+                nom.Status = "Failed";
+                if (nom.Result != null)
+                {
+                    nom.Result.Passed = false;
+                    nom.Result.Grade = dto.Grade;
+                }
+            }
         }
 
         await _db.SaveChangesAsync();

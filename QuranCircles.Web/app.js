@@ -366,6 +366,23 @@ function setupAuth() {
         loginForm.dataset.bound = "true";
         loginForm.addEventListener("submit", handleLogin);
     }
+
+    // Bind Login Password Visibility Toggle
+    const toggleLoginPwBtn = document.getElementById("btn-toggle-login-password");
+    if (toggleLoginPwBtn && !toggleLoginPwBtn.dataset.bound) {
+        toggleLoginPwBtn.dataset.bound = "true";
+        toggleLoginPwBtn.addEventListener("click", () => {
+            const pwInput = document.getElementById("login-password");
+            const icon = document.getElementById("icon-toggle-login-password");
+            if (pwInput) {
+                const isPassword = pwInput.type === "password";
+                pwInput.type = isPassword ? "text" : "password";
+                if (icon) {
+                    icon.className = isPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+                }
+            }
+        });
+    }
     
     // Bind Top Bar Change Password Button
     const changePwBtn = document.getElementById("btn-change-password");
@@ -10970,6 +10987,18 @@ async function loadPortfolio() {
             }
         });
 
+        // 3. Purge/Revoke any certificates if the student's latest result is Failed (< 60)
+        enrollments.forEach(e => {
+            if (e.status === "Failed" || (e.grade !== null && e.grade !== undefined && e.grade !== "" && parseFloat(e.grade) < 60)) {
+                const sName = (e.studentName || "").trim();
+                const sIdentifier = (e.studentId ? String(e.studentId) : sName.toLowerCase()).trim();
+                const cTitle = (e.courseName || "الدورة العلمية التخصصية").trim();
+                const cIdentifier = (e.courseId ? String(e.courseId) : cTitle.toLowerCase()).trim();
+                const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
+                uniqueCertsMap.delete(dedupKey);
+            }
+        });
+
         const allCertificates = Array.from(uniqueCertsMap.values());
 
         container.innerHTML = "";
@@ -16536,6 +16565,8 @@ const DEFAULT_SYSTEM_SETTINGS = {
     allowPublicAnnouncements: true,
     enableAbsenceAutoAlert: true,
     absenceAlertTemplate: "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة والتواصل مع إدارة المركز.",
+    enableRecitationIncompleteAlert: true,
+    recitationAlertTemplate: "نحيطكم علماً بأن الطالب/ة لم يتمكن من إتمام التسميع المطلوب في حلقة اليوم، يرجى تشجيعه ومتابعته في المنزل.",
     themeStyle: "Classic",
     maintenanceMode: false,
     logoUrl: ""
@@ -16586,6 +16617,8 @@ function normalizeSettings(s) {
         allowPublicAnnouncements: toBoolean(s.allowPublicAnnouncements ?? s.AllowPublicAnnouncements, DEFAULT_SYSTEM_SETTINGS.allowPublicAnnouncements),
         enableAbsenceAutoAlert: toBoolean(s.enableAbsenceAutoAlert ?? s.EnableAbsenceAutoAlert, DEFAULT_SYSTEM_SETTINGS.enableAbsenceAutoAlert),
         absenceAlertTemplate: cleanArabicText(s.absenceAlertTemplate || s.AbsenceAlertTemplate, DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate),
+        enableRecitationIncompleteAlert: toBoolean(s.enableRecitationIncompleteAlert ?? s.EnableRecitationIncompleteAlert, DEFAULT_SYSTEM_SETTINGS.enableRecitationIncompleteAlert),
+        recitationAlertTemplate: cleanArabicText(s.recitationAlertTemplate || s.RecitationAlertTemplate, DEFAULT_SYSTEM_SETTINGS.recitationAlertTemplate),
         maintenanceMode: toBoolean(s.maintenanceMode ?? s.MaintenanceMode, DEFAULT_SYSTEM_SETTINGS.maintenanceMode)
     };
 }
@@ -16725,6 +16758,59 @@ function livePreviewSettings() {
     }
     if (welcomeMsg) {
         document.querySelectorAll(".dynamic-welcome-msg, #brand-login-welcome-msg").forEach(el => el.textContent = welcomeMsg);
+    }
+    checkMaintenanceBlock();
+}
+
+window.checkMaintenanceBlock = checkMaintenanceBlock;
+function checkMaintenanceBlock() {
+    const isMaintenance = cachedSystemSettings?.maintenanceMode === true || cachedSystemSettings?.MaintenanceMode === true;
+    const isDev = currentUser && currentUser.role === "Developer";
+    const existingOverlay = document.getElementById("maintenance-block-overlay");
+
+    if (isMaintenance && currentUser && !isDev) {
+        if (!existingOverlay) {
+            const overlay = document.createElement("div");
+            overlay.id = "maintenance-block-overlay";
+            overlay.style.cssText = "position:fixed;inset:0;background:linear-gradient(135deg, #021a10, #06311e);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;";
+            overlay.innerHTML = `
+                <div class="card p-5 rounded-4 shadow-lg border border-warning" style="max-width:540px;background:rgba(15,23,42,0.95);backdrop-filter:blur(16px);color:#fff;">
+                    <div class="mb-4">
+                        <i class="fa-solid fa-screwdriver-wrench text-warning" style="font-size:4rem;"></i>
+                    </div>
+                    <h3 class="fw-bold text-warning mb-3">النظام في وضع الصيانة والتحديث</h3>
+                    <p class="fs-5 text-white mb-4" style="line-height:1.8;">النظام داخل وضع الصيانة والتحديث حالياً، يرجى التواصل مع المطور للمزيد من التفاصيل.</p>
+                    <div>
+                        <button class="btn btn-outline-light px-4 py-2 rounded-pill fw-bold" onclick="handleLogout(false)">
+                            <i class="fa-solid fa-right-from-bracket me-2"></i>تسجيل الخروج
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+    } else {
+        if (existingOverlay) existingOverlay.remove();
+    }
+
+    const devToggle = document.getElementById("dev-maintenance-toggle");
+    if (devToggle) {
+        devToggle.checked = isMaintenance;
+    }
+}
+
+window.toggleMaintenanceMode = toggleMaintenanceMode;
+async function toggleMaintenanceMode(isEnabled) {
+    try {
+        await apiRequest("/settings", "PUT", { maintenanceMode: isEnabled }, 0, true);
+        if (cachedSystemSettings) {
+            cachedSystemSettings.maintenanceMode = isEnabled;
+            localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
+        }
+        checkMaintenanceBlock();
+        showAlert(isEnabled ? "⚠️ تم تفعيل وضع الصيانة لكافة مستخدمي المنظومة عدا المطور." : "✅ تم إلغاء وضع الصيانة واستئناف عمل المنظومة لكافة المستخدمين.", "success");
+    } catch(err) {
+        showAlert("فشل تحديث وضع الصيانة: " + (err.message || err), "danger");
     }
 }
 
@@ -17183,18 +17269,34 @@ async function loadSystemSettingsForm() {
                             <div class="settings-switch-card ${settings.enableAbsenceAutoAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-absence-alert')">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> تفعيل تنبيهات الغياب الفورية لأولياء الأمور</span>
-                                    <span class="switch-desc">تجهيز رابط تنبيه واتساب مباشر لولي الأمر عند تسجيل غياب الطالب.</span>
+                                    <span class="switch-desc">إرسال تنبيه مباشر وتلقائي لولي الأمر عند تسجيل غياب الطالب عن الحلقة.</span>
                                 </div>
                                 <div class="custom-switch">
                                     <input type="checkbox" id="setting-enable-absence-alert" ${settings.enableAbsenceAutoAlert === true ? 'checked' : ''}>
                                     <span class="switch-slider"></span>
                                 </div>
                             </div>
+
+                            <div class="settings-switch-card ${settings.enableRecitationIncompleteAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-recitation-alert')">
+                                <div class="switch-label-block">
+                                    <span class="switch-title"><i class="fa-solid fa-book-open-reader text-warning me-1"></i> تفعيل تنبيهات عدم التسميع الفورية لأولياء الأمور</span>
+                                    <span class="switch-desc">إرسال تنبيه مباشر لولي الأمر عند تسجيل حالة (لم يُسمّع) للطالب في حلقة اليوم.</span>
+                                </div>
+                                <div class="custom-switch">
+                                    <input type="checkbox" id="setting-enable-recitation-alert" ${settings.enableRecitationIncompleteAlert === true ? 'checked' : ''}>
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="settings-input-group settings-grid-full">
-                            <label for="setting-absence-alert-template"><i class="fa-solid fa-message text-success"></i> نص ورسالة تنبيه الغياب التلقائية (قالب واتساب / SMS):</label>
-                            <textarea id="setting-absence-alert-template" class="settings-textarea-control" rows="3" placeholder="أدخل نص الرسالة التلقائية التي تصل لولي الأمر...">${escapeXml(settings.absenceAlertTemplate || DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate)}</textarea>
+                            <label for="setting-absence-alert-template"><i class="fa-solid fa-message text-success"></i> نص ورسالة تنبيه الغياب التلقائية (قالب واتساب / إشعار):</label>
+                            <textarea id="setting-absence-alert-template" class="settings-textarea-control" rows="2" placeholder="أدخل نص الرسالة التلقائية التي تصل لولي الأمر...">${escapeXml(settings.absenceAlertTemplate || DEFAULT_SYSTEM_SETTINGS.absenceAlertTemplate)}</textarea>
+                        </div>
+
+                        <div class="settings-input-group settings-grid-full mt-3">
+                            <label for="setting-recitation-alert-template"><i class="fa-solid fa-bell text-warning"></i> نص ورسالة تنبيه عدم التسميع (قالب واتساب / إشعار):</label>
+                            <textarea id="setting-recitation-alert-template" class="settings-textarea-control" rows="2" placeholder="أدخل نص الرسالة التلقائية لعدم التسميع...">${escapeXml(settings.recitationAlertTemplate || DEFAULT_SYSTEM_SETTINGS.recitationAlertTemplate)}</textarea>
                         </div>
                     </div>
 
@@ -17364,7 +17466,9 @@ async function loadSystemSettingsForm() {
             showHonorsBoard: getCheckboxValue("setting-show-honors-board"),
             allowPublicAnnouncements: getCheckboxValue("setting-allow-public-announcements"),
             enableAbsenceAutoAlert: getCheckboxValue("setting-enable-absence-alert"),
-            absenceAlertTemplate: (document.getElementById("setting-absence-alert-template")?.value || "").trim()
+            absenceAlertTemplate: (document.getElementById("setting-absence-alert-template")?.value || "").trim(),
+            enableRecitationIncompleteAlert: getCheckboxValue("setting-enable-recitation-alert"),
+            recitationAlertTemplate: (document.getElementById("setting-recitation-alert-template")?.value || "").trim()
         };
 
         // 1. Instant local and DOM application

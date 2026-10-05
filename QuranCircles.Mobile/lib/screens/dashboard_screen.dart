@@ -4,6 +4,8 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'student_360_screen.dart';
+import 'teacher_lottery_screen.dart';
+import 'exams_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final User currentUser;
@@ -34,17 +36,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isAzkarExpanded = false;
 
   final List<String> _morningAzkar = [
-    'أصبحنا وأصبح الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له.',
+    'أصبحنا وأصبح الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير.',
     'اللهم بك أصبحنا، وبك أمسينا، وبك نحيا، وبك نموت، وإليك النشور.',
-    'رضيت بالله رباً، وبالإسلام ديناً، وبمحمد صلى الله عليه وسلم نبياً.',
+    'اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك، وأنا على عهدك ووعدك ما استطعت، أعوذ بك من شر ما صنعت، أبوء لك بنعمتك عليّ وأبوء بذنبي فاغفر لي فإنه لا يغفر الذنوب إلا أنت (سيد الاستغفار).',
+    'بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء وهو السميع العليم (3 مرات).',
+    'رضيت بالله رباً، وبالإسلام ديناً، وبمحمد صلى الله عليه وسلم نبياً (3 مرات).',
     'يا حي يا قيوم برحمتك أستغيث، أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين.',
+    'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم (7 مرات).',
+    'اللهم عافني في بدني، اللهم عافني في سمعي، اللهم عافني في بصري، لا إله إلا أنت (3 مرات).',
+    'سبحان الله وبحمده: عدد خلقه، ورضا نفسه، وزنة عرشه، ومداد كلماته (3 مرات).',
+    'اللهم إني أسألك علماً نافعاً، ورزقاً طيباً، وعملاً متقبلاً.',
   ];
 
   final List<String> _eveningAzkar = [
-    'أمسينا وأمسى الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له.',
+    'أمسينا وأمسى الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير.',
     'اللهم بك أمسينا، وبك أصبحنا، وبك نحيا، وبك نموت، وإليك المصير.',
-    'أعوذ بكلمات الله التامات من شر ما خلق.',
+    'اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك، وأنا على عهدك ووعدك ما استطعت، أعوذ بك من شر ما صنعت، أبوء لك بنعمتك عليّ وأبوء بذنبي فاغفر لي فإنه لا يغفر الذنوب إلا أنت.',
+    'أعوذ بكلمات الله التامات من شر ما خلق (3 مرات).',
+    'بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء وهو السميع العليم (3 مرات).',
+    'رضيت بالله رباً، وبالإسلام ديناً، وبمحمد صلى الله عليه وسلم نبياً (3 مرات).',
+    'يا حي يا قيوم برحمتك أستغيث، أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين.',
     'اللهم إني أسألك العفو والعافية في الدنيا والآخرة.',
+    'أمسينا على فطرة الإسلام، وعلى كلمة الإخلاص، وعلى دين نبينا محمد صلى الله عليه وسلم.',
   ];
 
   final List<String> _faithReminders = [
@@ -491,40 +504,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ],
                         )
-                  : isParent
-                      ? const SizedBox.shrink()
-                      : (role == 'Admin' || role == 'Developer')
-                          ? _buildExecutiveDashboard()
-                          : Row(
-                              children: [
-                                Expanded(
-                                  child: _buildStatCard(
-                                    title: isTeacher ? 'طلابك بالحلقة' : 'إجمالي الطلاب',
-                                    count: '$_totalStudents',
-                                    icon: Icons.person_pin,
-                                    color: AppTheme.primary,
-                                  ),
+                  : isTeacher
+                      ? _buildTeacherDashboard()
+                      : isParent
+                          ? const SizedBox.shrink()
+                          : (role == 'Admin' || role == 'Developer')
+                              ? _buildExecutiveDashboard()
+                              : Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        title: 'إجمالي الطلاب',
+                                        count: '$_totalStudents',
+                                        icon: Icons.person_pin,
+                                        color: AppTheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        title: 'الحلقات',
+                                        count: '$_totalCircles',
+                                        icon: Icons.groups,
+                                        color: AppTheme.accent,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        title: 'المعلمون',
+                                        count: '$_totalTeachers',
+                                        icon: Icons.record_voice_over,
+                                        color: Colors.teal,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _buildStatCard(
-                                    title: isTeacher ? 'حلقاتك' : 'الحلقات',
-                                    count: '$_totalCircles',
-                                    icon: Icons.groups,
-                                    color: AppTheme.accent,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _buildStatCard(
-                                    title: isTeacher ? 'محفظ الحلقة' : 'المعلمون',
-                                    count: '$_totalTeachers',
-                                    icon: Icons.record_voice_over,
-                                    color: Colors.teal,
-                                  ),
-                                ),
-                              ],
-                            ),
           const SizedBox(height: 12),
 
           // ═══ PARENT & DUAL-ROLE MULTI-CHILD SELECTION & MANAGEMENT SECTION ═══
@@ -813,6 +828,274 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ═══ Inspiring Islamic Quran Teacher Dashboard ═══
+  Widget _buildTeacherDashboard() {
+    final hasNoTasks = _totalCircles == 0 && !widget.currentUser.isHalaqahTeacher && !widget.currentUser.isCourseTeacher;
+
+    if (hasNoTasks) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.amber.shade200, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.info_outline_rounded, size: 48, color: Colors.amber),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'ليس لديك أي صلاحيات أو مهام مسندة حالياً، يرجى مراجعة إدارة المركز.',
+              textAlign: TextAlign.center,
+              style: AppTheme.cairoStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'سيتم تفعيل لوحة تحكم المعلم فور إسناد حلقة قرآنية أو مساق علمي لك من قِبل إدارة المركز.',
+              textAlign: TextAlign.center,
+              style: AppTheme.cairoStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Islamic Virtue Banner
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF06331E), Color(0xFF0F5A38), Color(0xFF0A442A)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.4), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF06331E).withValues(alpha: 0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD4AF37).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.stars_rounded, color: Color(0xFFE5C07B), size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'فضل تعليم القرآن الكريم',
+                    style: AppTheme.cairoStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFFE5C07B),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '«خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ»',
+                style: AppTheme.cairoStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'هنيئاً لك يا معلم القرآن هذا الاصطفاء؛ فإنك تغرس نور الوحي في صدور الناشئة، ولك أجر كل آية يتلونها.',
+                style: AppTheme.cairoStyle(
+                  fontSize: 11.5,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Teacher Fast Stats Row
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'طلاب حلقتك',
+                count: '$_totalStudents',
+                icon: Icons.groups_rounded,
+                color: const Color(0xFF0F5A38),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildStatCard(
+                title: 'حلقاتك النشطة',
+                count: '$_totalCircles',
+                icon: Icons.menu_book_rounded,
+                color: const Color(0xFFD97706),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildStatCard(
+                title: 'المساقات والدورات',
+                count: '${widget.currentUser.isCourseTeacher ? 1 : 0}',
+                icon: Icons.school_rounded,
+                color: const Color(0xFF2563EB),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Quick Shortcuts for Teacher
+        Text(
+          'الوصول السريع لمهام الحلقة:',
+          style: AppTheme.cairoStyle(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _buildTeacherShortcutBtn(
+              title: 'حضور الحلقة',
+              subtitle: 'رصد الغياب والحضور اليومي',
+              icon: Icons.playlist_add_check_rounded,
+              color: const Color(0xFF15803D),
+              onTap: () => widget.onNavigateTab?.call(1),
+            ),
+            _buildTeacherShortcutBtn(
+              title: 'سجل التسميع',
+              subtitle: 'رصد الحفظ والتقييم',
+              icon: Icons.menu_book_rounded,
+              color: const Color(0xFF0284C7),
+              onTap: () => widget.onNavigateTab?.call(2),
+            ),
+            _buildTeacherShortcutBtn(
+              title: 'كشف المتابعة',
+              subtitle: 'متابعة شاملة وتقرير شهري',
+              icon: Icons.table_chart_rounded,
+              color: const Color(0xFFD97706),
+              onTap: () => widget.onNavigateTab?.call(3),
+            ),
+            _buildTeacherShortcutBtn(
+              title: 'القرعة الذكية',
+              subtitle: 'اختيار عشوائي للطلاب',
+              icon: Icons.casino_rounded,
+              color: const Color(0xFF7C3AED),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherLotteryScreen(currentUser: widget.currentUser)));
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTeacherShortcutBtn({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (MediaQuery.of(context).size.width - 42) / 2;
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            width: itemWidth,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTheme.cairoStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        subtitle,
+                        style: AppTheme.cairoStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -71,12 +71,28 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
 
       final List<Map<String, dynamic>> items = [];
 
+      final failedKeys = <String>{};
+      for (var c in myCourses) {
+        final sName = c['studentName']?.toString().trim() ?? '';
+        final cName = c['courseName']?.toString().trim() ?? '';
+        final status = c['status']?.toString();
+        final grade = (c['grade'] as num?)?.toDouble();
+        if (status == 'Failed' || (grade != null && grade < 60)) {
+          failedKeys.add('${sName}_$cName');
+        }
+      }
+
       for (var n in nominations) {
-        if (n.status == 'Completed' && n.result != null && n.result!.grade >= 60) {
+        if (n.status == 'Completed' && n.result != null && n.result!.grade >= 60 && n.status != 'Failed') {
           final isQuran = n.nominationType == 'Quran';
           final title = isQuran
               ? (n.juzStart == n.juzEnd ? 'حفظ الجزء ${n.juzStart}' : 'حفظ الأجزاء (${n.juzStart} - ${n.juzEnd})')
               : (n.courseName?.isNotEmpty == true ? n.courseName! : 'دورة تخصصية');
+          
+          if (!isQuran && failedKeys.contains('${n.studentName.trim()}_${title.trim()}')) {
+            continue;
+          }
+
           final code = isQuran ? 'CERT-Q-100${n.id}' : 'CERT-CRS-200${n.id}';
           final examDateStr = n.result!.examDate ?? n.examDate;
           final dateVal = (examDateStr != null && examDateStr.length >= 10) ? examDateStr.substring(0, 10) : (examDateStr ?? '2026-09-20');
@@ -97,7 +113,8 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
       for (var c in myCourses) {
         final code = c['certificateCode']?.toString() ?? 'CERT-CRS-${c['id']}';
         final studentName = c['studentName']?.toString() ?? '';
-        if (studentName.isNotEmpty && (c['status'] == 'Passed' || c['status'] == 'Certified')) {
+        final grade = (c['grade'] as num?)?.toDouble() ?? 0.0;
+        if (studentName.isNotEmpty && (c['status'] == 'Passed' || c['status'] == 'Certified') && grade >= 60) {
           final exists = items.any((it) => it['code'] == code || (it['studentName'] == studentName && it['title'] == c['courseName']));
           if (!exists) {
             items.add({
@@ -105,7 +122,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
               'isQuran': false,
               'studentName': studentName,
               'title': c['courseName']?.toString() ?? 'دورة علمية',
-              'grade': (c['grade'] as num?)?.toDouble() ?? 90.0,
+              'grade': grade > 0 ? grade : 90.0,
               'date': c['certificateDate']?.toString().substring(0, 10) ?? c['enrollmentDate']?.toString().substring(0, 10) ?? '2026-09-20',
               'teacherName': c['teacherName']?.toString() ?? 'معلم ومحاضر الدورة',
               'code': code,
@@ -114,6 +131,12 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
           }
         }
       }
+
+      items.removeWhere((it) {
+        final sName = it['studentName']?.toString().trim() ?? '';
+        final title = it['title']?.toString().trim() ?? '';
+        return failedKeys.contains('${sName}_$title');
+      });
 
       if (mounted) {
         setState(() {

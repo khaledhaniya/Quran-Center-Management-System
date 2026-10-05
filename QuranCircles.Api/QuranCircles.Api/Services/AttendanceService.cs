@@ -33,6 +33,7 @@ public class AttendanceService
 
             if (dto.Status == AttendanceStatus.Absent)
             {
+                await SendInstantAbsenceAlertAsync(student, circle, dto.SessionDate);
                 await CheckAndSendAbsenceWarningAsync(student, circle);
             }
 
@@ -51,10 +52,50 @@ public class AttendanceService
 
         if (dto.Status == AttendanceStatus.Absent)
         {
+            await SendInstantAbsenceAlertAsync(student, circle, dto.SessionDate);
             await CheckAndSendAbsenceWarningAsync(student, circle);
         }
 
         return (Map(a, student.FullName, circle.Name), null);
+    }
+
+    private async Task SendInstantAbsenceAlertAsync(Student student, Circle circle, DateOnly sessionDate)
+    {
+        try
+        {
+            var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+            if (!settings.EnableAbsenceAutoAlert) return;
+
+            var today = DateTime.UtcNow.Date;
+            var alreadyNotified = await _db.Announcements.AnyAsync(an =>
+                an.TargetType == AnnouncementTarget.Student &&
+                an.TargetId == student.Id &&
+                an.Title.Contains("إشعار غياب") &&
+                an.DateTimeSent >= today);
+
+            if (!alreadyNotified)
+            {
+                var template = !string.IsNullOrWhiteSpace(settings.AbsenceAlertTemplate)
+                    ? settings.AbsenceAlertTemplate
+                    : "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.";
+
+                var alert = new Announcement
+                {
+                    Title = $"🔔 إشعار غياب: الطالب {student.FullName}",
+                    Content = $"{template}\n📅 تاريخ الغياب: {sessionDate:yyyy-MM-dd} | حلقة: {circle.Name}",
+                    DateTimeSent = DateTime.UtcNow,
+                    TargetType = AnnouncementTarget.Student,
+                    TargetId = student.Id,
+                    SenderName = "نظام المتابعة الآلي - شؤون الطلاب"
+                };
+                _db.Announcements.Add(alert);
+                await _db.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            // Non-blocking
+        }
     }
 
     private async Task CheckAndSendAbsenceWarningAsync(Student student, Circle circle)

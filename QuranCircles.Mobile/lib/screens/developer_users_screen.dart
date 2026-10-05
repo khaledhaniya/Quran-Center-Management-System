@@ -24,6 +24,8 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
   // Filter states
   String _selectedRole = 'ALL';
   String _selectedStatus = 'ALL'; // 'ALL', 'ACTIVE', 'INACTIVE'
+  bool _isMaintenanceMode = false;
+  bool _isUpdatingMaintenance = false;
 
   @override
   void initState() {
@@ -31,6 +33,49 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
     _tabController = TabController(length: 2, vsync: this);
     _loadUsers();
     _loadAuditLogs();
+    _loadSystemSettings();
+  }
+
+  void _loadSystemSettings() async {
+    try {
+      final s = await ApiService.getSystemSettings();
+      if (s != null && mounted) {
+        setState(() {
+          _isMaintenanceMode = s['maintenanceMode'] == true || s['MaintenanceMode'] == true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _toggleMaintenanceMode(bool val) async {
+    setState(() => _isUpdatingMaintenance = true);
+    try {
+      await ApiService.updateSystemSettings({'maintenanceMode': val});
+      if (mounted) {
+        setState(() {
+          _isMaintenanceMode = val;
+          _isUpdatingMaintenance = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              val
+                  ? '⚠️ تم تفعيل وضع الصيانة لكافة مستخدمي المنظومة عدا المطور.'
+                  : '✅ تم إلغاء وضع الصيانة واستئناف العمل لكافة المستخدمين.',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: val ? Colors.amber.shade900 : Colors.green.shade800,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUpdatingMaintenance = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('فشل تحديث وضع الصيانة: $e', style: AppTheme.cairoStyle())),
+        );
+      }
+    }
   }
 
   @override
@@ -583,8 +628,47 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
               fontSize: 11.5,
               height: 1.4,
             ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.28),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _isMaintenanceMode ? Colors.amber : Colors.white24),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.build_rounded, size: 20, color: _isMaintenanceMode ? Colors.amber : Colors.white70),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'وضع الصيانة للمنظومة',
+                          style: AppTheme.cairoStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          _isMaintenanceMode ? 'مفعّل: يمنع دخول الجميع عدا المطور' : 'معطّل: المنظومة متاحة للجميع',
+                          style: AppTheme.cairoStyle(color: _isMaintenanceMode ? Colors.amber : Colors.white70, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                _isUpdatingMaintenance
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))
+                    : Switch(
+                        value: _isMaintenanceMode,
+                        activeColor: Colors.amber,
+                        onChanged: _toggleMaintenanceMode,
+                      ),
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(

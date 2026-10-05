@@ -1267,7 +1267,14 @@
                                 </h2>
                                 <p class="text-white-50 small mb-0">لوحة تحكم خاصة بالمطور للاطلاع على كلمات المرور، تعديل وتوليد الحسابات، وإدارة الصلاحيات الشاملة لكافة الفئات.</p>
                             </div>
-                            <div class="action-buttons-group flex-shrink-0">
+                            <div class="action-buttons-group flex-shrink-0 d-flex align-items-center gap-2">
+                                <div class="d-inline-flex align-items-center gap-2 bg-dark bg-opacity-50 border border-warning border-opacity-50 px-3 py-2 rounded-3 text-white">
+                                    <i class="fa-solid fa-screwdriver-wrench text-warning"></i>
+                                    <span class="small fw-bold">وضع الصيانة:</span>
+                                    <div class="form-check form-switch m-0">
+                                        <input class="form-check-input" type="checkbox" id="dev-maintenance-toggle" style="cursor: pointer;" onchange="toggleMaintenanceMode(this.checked)">
+                                    </div>
+                                </div>
                                 <button class="btn btn-warning text-dark shadow-sm px-3 py-2 rounded-3 fw-bold d-inline-flex align-items-center gap-2" onclick="showCreateUserModal()">
                                     <i class="fa-solid fa-plus"></i> إنشاء مستخدم جديد
                                 </button>
@@ -2445,7 +2452,12 @@
                 
                 <div class="form-group">
                     <label for="login-password"><i class="fa-solid fa-lock"></i> كلمة المرور:</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="أدخل كلمة المرور..." required autocomplete="current-password">
+                    <div class="input-group">
+                        <input type="password" id="login-password" class="form-control" placeholder="أدخل كلمة المرور..." required autocomplete="current-password">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-toggle-login-password" title="إظهار / إخفاء كلمة المرور">
+                            <i class="fa-solid fa-eye" id="icon-toggle-login-password"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-check d-flex align-items-center gap-2 mt-2 mb-3">

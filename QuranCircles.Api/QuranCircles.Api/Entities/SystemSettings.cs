@@ -40,6 +40,8 @@ public class SystemSettings
     public bool AllowPublicAnnouncements { get; set; } = true;
     public bool EnableAbsenceAutoAlert { get; set; } = true;
     public string? AbsenceAlertTemplate { get; set; } = "نود إشعاركم بغياب الطالب/ة اليوم عن حلقة القرآن الكريم، نرجو المتابعة مع إدارة المركز.";
+    public bool EnableRecitationIncompleteAlert { get; set; } = true;
+    public string? RecitationAlertTemplate { get; set; } = "نحيطكم علماً بأن الطالب/ة لم يتمكن من إتمام التسميع المطلوب في حلقة اليوم، يرجى تشجيعه ومتابعته في المنزل.";
 
     // 6. UI & Appearance
     public string? ThemeStyle { get; set; } = "Classic"; // Classic, Modern, Sapphire, Dark
