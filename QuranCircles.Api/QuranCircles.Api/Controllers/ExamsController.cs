@@ -538,7 +538,7 @@ public class ExamsController : ControllerBase
             .Include(n => n.Result)
             .FirstOrDefaultAsync(n => n.Id == id);
 
-        if (nomination == null || nomination.Result == null || nomination.Result.Grade < 60 || nomination.Status == "Failed" || !nomination.Result.Passed)
+        if (nomination == null || nomination.Result == null || nomination.Result.Grade < 60 || nomination.Status == "Failed")
         {
             return NotFound("<h1>عذراً، الشهادة غير موجودة أو لم يستوفِ الطالب شروط الاجتياز.</h1>");
         }

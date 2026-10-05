@@ -671,7 +671,6 @@ public class CoursesController : ControllerBase
                 nom.Status = "Failed";
                 if (nom.Result != null)
                 {
-                    nom.Result.Passed = false;
                     nom.Result.Grade = dto.Grade;
                 }
             }

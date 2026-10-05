@@ -392,6 +392,8 @@ public static partial class DbSeeder
             ("AllowPublicAnnouncements", "BIT NOT NULL DEFAULT 1"),
             ("EnableAbsenceAutoAlert", "BIT NOT NULL DEFAULT 1"),
             ("AbsenceAlertTemplate", "NVARCHAR(MAX) NULL"),
+            ("EnableRecitationIncompleteAlert", "BIT NOT NULL DEFAULT 1"),
+            ("RecitationAlertTemplate", "NVARCHAR(MAX) NULL"),
             ("MaintenanceMode", "BIT NOT NULL DEFAULT 0"),
             ("UpdatedAt", "DATETIME2 NOT NULL DEFAULT GETUTCDATE()")
         };
@@ -650,6 +652,8 @@ public static partial class DbSeeder
                 { "AllowPublicAnnouncements", "INTEGER NOT NULL DEFAULT 1" },
                 { "EnableAbsenceAutoAlert", "INTEGER NOT NULL DEFAULT 1" },
                 { "AbsenceAlertTemplate", "TEXT" },
+                { "EnableRecitationIncompleteAlert", "INTEGER NOT NULL DEFAULT 1" },
+                { "RecitationAlertTemplate", "TEXT" },
                 { "MaintenanceMode", "INTEGER NOT NULL DEFAULT 0" },
                 { "UpdatedAt", "TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'" }
             };
