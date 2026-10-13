@@ -102,8 +102,8 @@ public class ExamsController : ControllerBase
 
                             if (attendanceRate < minAttendance)
                             {
-                                return BadRequest(new { 
-                                    Message = $"لا يمكن لمعلم الدورة ترشيح الطالب للاختبار لتجاوزه نسبة الغياب المحددة (نسبة حضوره {attendanceRate}% والحد الأدنى المطلوب {minAttendance}%). يتطلب ترشيحه استثناءً وموافقة مباشرة من إدارة المركز." 
+                                return BadRequest(new {
+                                    Message = $"لا يمكن لمعلم الدورة ترشيح الطالب للاختبار لتجاوزه نسبة الغياب المحددة (نسبة حضوره {attendanceRate}% والحد الأدنى المطلوب {minAttendance}%). يتطلب ترشيحه استثناءً وموافقة مباشرة من إدارة المركز."
                                 });
                             }
                         }
@@ -222,9 +222,9 @@ public class ExamsController : ControllerBase
         if (currentUser == null) return Unauthorized();
 
         var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
-        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin || 
-                                   currentUser.Role == UserRole.Developer || 
-                                   currentUser.Role == UserRole.ExamSupervisor || 
+        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin ||
+                                   currentUser.Role == UserRole.Developer ||
+                                   currentUser.Role == UserRole.ExamSupervisor ||
                                    (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
 
         var query = _db.ExamNominations
@@ -243,7 +243,7 @@ public class ExamsController : ControllerBase
         }
         else if (currentUser.Role == UserRole.Teacher)
         {
-            query = query.Where(n => 
+            query = query.Where(n =>
                 (n.Student != null && n.Student.Circle != null && n.Student.Circle.TeacherId == currentUser.TeacherId) ||
                 (n.Course != null && n.Course.TeacherId == currentUser.TeacherId) ||
                 (n.Course != null && (n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value))) ||
@@ -265,7 +265,7 @@ public class ExamsController : ControllerBase
 
         var nominationsList = await query.ToListAsync();
 
-        var list = nominationsList.Select(n => 
+        var list = nominationsList.Select(n =>
         {
             bool canManage = isGeneralSupervisor || (n.Course != null && (
                 n.Course.ExamSupervisorId == currentUser.Id ||
@@ -335,9 +335,9 @@ public class ExamsController : ControllerBase
         if (currentUser == null) return Unauthorized();
 
         var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
-        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin || 
-                                   currentUser.Role == UserRole.Developer || 
-                                   currentUser.Role == UserRole.ExamSupervisor || 
+        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin ||
+                                   currentUser.Role == UserRole.Developer ||
+                                   currentUser.Role == UserRole.ExamSupervisor ||
                                    (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
 
         if (!isGeneralSupervisor)
@@ -411,9 +411,9 @@ public class ExamsController : ControllerBase
         if (currentUser == null) return Unauthorized();
 
         var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
-        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin || 
-                                   currentUser.Role == UserRole.Developer || 
-                                   currentUser.Role == UserRole.ExamSupervisor || 
+        bool isGeneralSupervisor = currentUser.Role == UserRole.Admin ||
+                                   currentUser.Role == UserRole.Developer ||
+                                   currentUser.Role == UserRole.ExamSupervisor ||
                                    (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
 
         if (!isGeneralSupervisor)
@@ -430,11 +430,8 @@ public class ExamsController : ControllerBase
             }
         }
 
-        var code2FA = HttpContext.Request.Headers["X-2FA-Code"].FirstOrDefault() ?? dto.Code2FA;
-        if (!string.IsNullOrWhiteSpace(code2FA) && code2FA != "123456")
-        {
-            return BadRequest(new { Message = "رمز التحقق الثنائي (2FA) غير صحيح. رمز التوجيه هو: 123456" });
-        }
+        if (!await QuranCircles.Api.Services.SensitiveActionVerifier.VerifyAsync(HttpContext, _db, dto.Code2FA))
+            return BadRequest(new { error = "يرجى إدخال كلمة مرور حسابك الحالية لتأكيد اعتماد النتيجة." });
 
         if (nomination.Result == null)
         {
@@ -595,10 +592,12 @@ public class ExamsController : ControllerBase
     <meta charset=""utf-8"">
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
     <title>شهادة اجتياز معتمدة - {studentName}</title>
-    <link rel=""""preconnect"""" href=""""https://fonts.googleapis.com"""">
-    <link rel=""""preconnect"""" href=""""https://fonts.gstatic.com"""" crossorigin>
-    <link href=""""https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Amiri:wght@700&display=swap"""" rel=""""stylesheet"""">
-    <script src=""""https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js""""></script>
+    <link rel=""preconnect"" href=""https://fonts.googleapis.com"">
+    <link rel=""preconnect"" href=""https://fonts.gstatic.com"" crossorigin>
+    <link href=""https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap"" rel=""stylesheet"">
+    <link rel=""stylesheet"" href=""https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"">
+    <script src=""https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js""></script>
+    <script src=""https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js""></script>
     <style>
         @page {{
             size: A4 landscape;
@@ -611,33 +610,36 @@ public class ExamsController : ControllerBase
         }}
         body {{
             margin: 0;
-            padding: 20px 0;
+            padding: 0 0 24px 0;
             background: #0f172a;
             display: flex;
             flex-direction: column;
             align-items: center;
             font-family: 'Cairo', sans-serif;
             direction: rtl;
+            min-height: 100vh;
         }}
         .action-bar {{
-            width: 297mm;
-            max-width: 95vw;
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+            width: 100%;
+            background: #1e293b;
+            border-bottom: 2px solid #c5a059;
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #1e293b;
-            padding: 12px 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
             color: #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            margin-bottom: 20px;
         }}
         .action-btn {{
             background: #0d5c3a;
             color: #fff;
-            border: none;
-            padding: 8px 18px;
-            font-size: 14px;
+            border: 1.5px solid #10b981;
+            padding: 8px 20px;
+            font-size: 13.5px;
             font-weight: bold;
             font-family: 'Cairo', sans-serif;
             border-radius: 8px;
@@ -649,123 +651,174 @@ public class ExamsController : ControllerBase
         }}
         .action-btn:hover {{
             background: #117a4d;
+            transform: translateY(-1px);
         }}
         .action-btn.secondary {{
-            background: #334155;
+            background: #475569;
+            border-color: #64748b;
         }}
         .action-btn.secondary:hover {{
-            background: #475569;
+            background: #64748b;
         }}
-        #cert-container {{
+        .premium-certificate {{
             width: 297mm;
             height: 210mm;
+            max-width: 297mm;
+            max-height: 210mm;
             background: #ffffff;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            background-image:
+                radial-gradient(circle at center, rgba(205, 162, 80, 0.05) 0%, transparent 70%),
+                repeating-linear-gradient(45deg, rgba(205, 162, 80, 0.015) 0, rgba(205, 162, 80, 0.015) 1px, transparent 0, transparent 16px);
+            box-sizing: border-box;
+            padding: 10mm;
             position: relative;
-            padding: 12mm;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            color: #1e293b;
+            letter-spacing: 0 !important;
             overflow: hidden;
-            box-sizing: border-box;
         }}
-        .cert-outer {{
-            border: 4px solid #c5a059;
-            outline: 2px solid rgba(13, 92, 58, 0.4);
-            outline-offset: -7px;
+        .cert-outer-border {{
+            border: 3.5px solid #c5a059;
+            outline: 1.5px solid rgba(13, 92, 58, 0.45);
+            outline-offset: -6px;
             height: 100%;
-            padding: 6mm;
             box-sizing: border-box;
-            background: #fdfdfb;
+            padding: 5mm;
             position: relative;
+            background: #fdfdfb;
         }}
-        .cert-inner {{
+        .cert-inner-border {{
             border: 1.5px solid rgba(197, 160, 89, 0.6);
             height: 100%;
-            padding: 6mm 10mm;
             box-sizing: border-box;
+            padding: 6mm 10mm;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            background: radial-gradient(circle at center, #ffffff 40%, #fbfaf6 100%);
             position: relative;
+            background: radial-gradient(circle at center, #ffffff 40%, #fbfaf6 100%);
         }}
-        .cert-title {{
-            font-family: 'Amiri', serif;
-            font-size: 28px;
-            color: #0d3b2e;
-            text-align: center;
-            margin: 0;
-            font-weight: bold;
+        .cert-corner {{
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            border: 3px solid #c5a059;
+            pointer-events: none;
         }}
-        .cert-body {{
-            text-align: center;
-            font-size: 15px;
-            color: #334155;
-            line-height: 1.8;
-            margin: 10px 0;
-        }}
-        .student-highlight {{
-            font-size: 24px;
-            font-weight: 900;
-            color: #0d3b2e;
-            padding: 4px 20px;
-            border-bottom: 2px dashed #c5a059;
-            display: inline-block;
-            margin: 4px 0;
-        }}
-        .grade-badge {{
-            display: inline-block;
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #f59e0b;
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 14px;
-        }}
-        .cert-footer {{
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            padding-top: 10px;
-            border-top: 1.5px solid rgba(197, 160, 89, 0.4);
-        }}
-        .sign-col {{
-            text-align: center;
-            width: 180px;
-        }}
-        .sign-role {{
-            font-size: 12px;
-            color: #64748b;
-            font-weight: bold;
-        }}
-        .sign-name {{
-            font-size: 14px;
-            color: #0d3b2e;
-            font-weight: 900;
-            margin-top: 4px;
-        }}
-        .stamp-box {{
-            width: 76px;
-            height: 76px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #fde68a 0%, #d97706 100%);
-            border: 3px double #ffffff;
-            box-shadow: 0 4px 10px rgba(217, 119, 6, 0.4);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        .cert-corner-tr {{ top: 4px; right: 4px; border-left: none; border-bottom: none; }}
+        .cert-corner-tl {{ top: 4px; left: 4px; border-right: none; border-bottom: none; }}
+        .cert-corner-br {{ bottom: 4px; right: 4px; border-left: none; border-top: none; }}
+        .cert-corner-bl {{ bottom: 4px; left: 4px; border-right: none; border-top: none; }}
+
+        .cert-header {{
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            color: #0d3b2e;
-            font-weight: 900;
+            gap: 16px;
+            border-bottom: 2px solid rgba(197, 160, 89, 0.35);
+            padding-bottom: 6px;
         }}
+        .cert-header-right {{ text-align: right; line-height: 1.35; }}
+        .cert-state {{ font-size: 1.05rem; font-weight: 800; color: #0d5c3a; }}
+        .cert-ministry {{ font-size: 0.82rem; color: #64748b; font-weight: 700; }}
+        .cert-mosque {{ font-size: 0.95rem; font-weight: 800; color: #1e293b; }}
+
+        .cert-header-center {{ text-align: center; display: flex; flex-direction: column; align-items: center; }}
+        .cert-logo-container {{
+            width: 135px;
+            height: 135px;
+            border-radius: 50%;
+            padding: 5px;
+            background: #ffffff;
+            border: 3px solid #c5a059;
+            box-shadow: 0 4px 14px rgba(197, 160, 89, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .cert-logo-img {{ width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }}
+        .cert-bismillah {{ font-size: 0.95rem; font-weight: 800; color: #c5a059; letter-spacing: 0 !important; margin-top: 4px; }}
+
+        .cert-header-left {{ text-align: left; line-height: 1.35; }}
+        .cert-center-title {{ font-size: 0.95rem; font-weight: 800; color: #0d5c3a; }}
+        .cert-dept {{ font-size: 0.82rem; color: #64748b; font-weight: 700; }}
+        .cert-serial-code {{ font-size: 0.82rem; color: #c5a059; font-weight: 700; }}
+        .cert-serial-code code {{ background: rgba(197, 160, 89, 0.15); padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.90rem; }}
+        .cert-date-text {{ font-size: 0.82rem; color: #64748b; font-weight: 700; margin-top: 3px; }}
+
+        .cert-title-section {{ text-align: center; margin: 6px 0 4px; }}
+        .cert-title-badge {{
+            display: inline-block;
+            padding: 5px 32px;
+            background: linear-gradient(135deg, #0d3b2e 0%, #15803d 50%, #0d3b2e 100%);
+            color: #ffffff;
+            border: 2px solid #c5a059;
+            border-radius: 30px;
+            font-size: 1.25rem;
+            font-weight: 900;
+            box-shadow: 0 4px 12px rgba(13, 92, 58, 0.3);
+            letter-spacing: 0 !important;
+        }}
+        .cert-title-badge i {{ color: #ffd700; font-size: 1rem; margin: 0 8px; }}
+
+        .cert-body {{ text-align: center; margin: 4px 0; }}
+        .cert-preamble {{ font-size: 1rem; color: #475569; font-weight: 700; margin-bottom: 4px; }}
+        .cert-student-box {{
+            margin: 4px auto 6px;
+            display: inline-block;
+            padding: 3px 40px;
+            background: rgba(205, 162, 80, 0.1);
+            border-bottom: 3.5px solid #c5a059;
+            border-radius: 8px 8px 0 0;
+        }}
+        .cert-student-name {{ font-size: 1.95rem; font-weight: 900; color: #0d3b2e; letter-spacing: 0 !important; }}
+        .cert-statement {{ font-size: 1.05rem; line-height: 1.65; color: #334155; max-width: 90%; margin: 0 auto; font-weight: 600; }}
+        .cert-grade-row {{ display: flex; justify-content: center; gap: 20px; margin-top: 8px; }}
+        .cert-grade-pill {{ background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 3px 18px; font-size: 0.90rem; color: #1e293b; font-weight: 700; }}
+
+        .cert-footer {{
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: flex-end;
+            gap: 20px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1.5px solid rgba(197, 160, 89, 0.35);
+        }}
+        .cert-signature-box {{ text-align: center; }}
+        .cert-signature-role {{ font-size: 0.90rem; font-weight: 800; color: #64748b; margin-bottom: 3px; }}
+        .cert-signature-name {{ font-size: 1.15rem; font-weight: 900; color: #0d3b2e; }}
+        .cert-signature-line {{ width: 160px; height: 2px; background: #c5a059; margin: 5px auto; }}
+        .cert-signature-note {{ font-size: 0.78rem; color: #94a3b8; font-weight: 600; }}
+
+        .cert-seal-box {{ text-align: center; display: flex; flex-direction: column; align-items: center; }}
+        .cert-luxury-stamp {{
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #ffe28a 0%, #c5a059 70%, #9e782e 100%);
+            border-radius: 50%;
+            border: 3.5px double #ffffff;
+            box-shadow: 0 4px 14px rgba(197, 160, 89, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1e3328;
+        }}
+        .cert-stamp-ring {{ text-align: center; line-height: 1.15; }}
+        .cert-stamp-star {{ font-size: 0.95rem; color: #0d3b2e; }}
+        .cert-stamp-text {{ font-size: 0.72rem; font-weight: 900; color: #0d3b2e; }}
+        .cert-stamp-center {{ font-size: 0.68rem; font-weight: 800; color: #1e293b; }}
+
         @media print {{
             body {{
                 background: none !important;
                 padding: 0 !important;
+                margin: 0 !important;
             }}
             .action-bar {{
                 display: none !important;
             }}
-            #cert-container {{
+            .premium-certificate {{
                 box-shadow: none !important;
                 margin: 0 !important;
                 width: 297mm !important;
@@ -775,68 +828,114 @@ public class ExamsController : ControllerBase
     </style>
 </head>
 <body>
-    <div class=""""action-bar"""">
-        <div style=""""display:flex; align-items:center; gap:10px;"""">
-            <span style=""""font-weight:bold; font-size:15px;"""">📜 شهادة اجتياز رقمية معتمدة</span>
-            <span style=""""background:rgba(255,255,255,0.15); padding:2px 10px; border-radius:6px; font-size:12px; font-family:monospace;"""">{code}</span>
+    <div class=""action-bar"">
+        <div style=""display:flex; align-items:center; gap:10px;"">
+            <span style=""font-weight:bold; font-size:15px;"">📜 شهادة اجتياز معتمدة - {studentName}</span>
+            <span style=""background:rgba(255,255,255,0.15); padding:2px 10px; border-radius:6px; font-size:12px; font-family:monospace;"">{code}</span>
         </div>
-        <div style=""""display:flex; gap:10px;"""">
-            <button class=""""action-btn"""" onclick=""""downloadPdf()"""">
-                <span>تحميل وحفظ كملف PDF 📥</span>
+        <div style=""display:flex; gap:10px;"">
+            <button class=""action-btn"" onclick=""downloadPdfDirect()"">
+                <i class=""fa-solid fa-file-pdf""></i>
+                <span>حفظ وتحميل بصيغة PDF 📥</span>
             </button>
-            <button class=""""action-btn secondary"""" onclick=""""window.print()"""">
+            <button class=""action-btn secondary"" onclick=""window.print()"">
+                <i class=""fa-solid fa-print""></i>
                 <span>طباعة مباشرة 🖨️</span>
             </button>
         </div>
     </div>
 
-    <div id=""""cert-container"""">
-        <div class=""""cert-outer"""">
-            <div class=""""cert-inner"""">
-                <div style=""""display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid rgba(197, 160, 89, 0.3); padding-bottom: 8px;"""">
-                    <div style=""""text-align:right; font-size:11px; font-weight:bold; color:#0d3b2e;"""">
-                        مركز البيان لتعليم القرآن الكريم<br>
-                        إدارة الشؤون التعليمية والاختبارات
+    <div class=""premium-certificate"" id=""cert-root-target"">
+        <div class=""cert-outer-border"">
+            <div class=""cert-corner cert-corner-tr""></div>
+            <div class=""cert-corner cert-corner-tl""></div>
+            <div class=""cert-corner cert-corner-br""></div>
+            <div class=""cert-corner cert-corner-bl""></div>
+
+            <div class=""cert-inner-border"">
+                <!-- Header -->
+                <div class=""cert-header"">
+                    <div class=""cert-header-right"">
+                        <div class=""cert-state"">دَوْلَةُ فِلَسْطِين</div>
+                        <div class=""cert-ministry"">دَارُ القُرْآنِ الكَرِيمِ وَالسُّنَّةِ</div>
+                        <div class=""cert-mosque"">مَرْكَزُ البَيَانِ لِتَعْلِيمِ القُرْآنِ</div>
                     </div>
-                    <div style=""""font-size:22px; font-weight:900; color:#0d3b2e; letter-spacing:1px;"""">
-                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+
+                    <div class=""cert-header-center"">
+                        <div class=""cert-logo-container"">
+                            <img src=""/assets/logo.png"" alt=""شعار المركز"" class=""cert-logo-img"" onerror=""this.src='/mobile/assets/logo.png'"">
+                        </div>
+                        <div class=""cert-bismillah"">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
                     </div>
-                    <div style=""""text-align:left; font-size:11px; color:#64748b; font-family:monospace;"""">
-                        الرقم: {code}<br>
-                        التاريخ: {examDate}
+
+                    <div class=""cert-header-left"">
+                        <div class=""cert-center-title"">إِدَارَةُ الشُّؤُونِ التَّعْلِيمِيَّةِ وَالاخْتِبَارَاتِ</div>
+                        <div class=""cert-dept"">شَهَادَةُ اجْتِيَازٍ رَسْمِيَّةٌ مُعْتَمَدَةٌ</div>
+                        <div class=""cert-serial-code"">الرَّقْمُ المُعْتَمَدُ: <code>{code}</code></div>
+                        <div class=""cert-date-text"">تَارِيخُ الإِصْدَارِ: {examDate}</div>
                     </div>
                 </div>
 
-                <div style=""""text-align:center; margin: 10px 0;"""">
-                    <h1 class=""""cert-title"""">شَهَادَةُ اجْتِيَازٍ وَتَقْدِير</h1>
-                    <div style=""""width:100px; height:2px; background:#c5a059; margin:6px auto;""""></div>
+                <!-- Title Section -->
+                <div class=""cert-title-section"">
+                    <div class=""cert-title-badge"">
+                        <i class=""fa-solid fa-award""></i>
+                        <span>{(isQuran ? "شَهَادَةُ اجْتِيَازِ اخْتِبَارِ القُرْآنِ الكَرِيمِ" : "شَهَادَةُ إِتْمَامِ دَوْرَةٍ عِلْمِيَّةٍ مُعْتَمَدَةٍ")}</span>
+                        <i class=""fa-solid fa-award""></i>
+                    </div>
                 </div>
 
-                <div class=""""cert-body"""">
-                    يَشْهَدُ مَرْكَزُ البَيَانِ لِتَعْلِيمِ القُرْآنِ الكَرِيمِ بِأَنَّ الطَّالِبَ المُجِدّ:<br>
-                    <div class=""""student-highlight"""">{studentName}</div><br>
-                    <span style=""""font-size:12.5px; color:#64748b;"""">رقم الهوية الوطنية: ({idNumber})</span><br>
-                    قَدِ اجْتَازَ بِفَضْلِ اللَّهِ وَتَوْفِيقِهِ اخْتِبَارَ: <strong>{examSubject}</strong><br>
-                    بِتَقْدِيرٍ عَامّ: <span class=""""grade-badge"""">{gradeText} ({grade}%)</span><br>
-                    سَائِلِينَ المَوْلَى عَزَّ وَجَلَّ لَهُ دَوَامَ التَّوْفِيقِ وَالسَّدَادِ فِي خِدْمَةِ كِتَابِ اللَّهِ تَعَالَى.
+                <!-- Body -->
+                <div class=""cert-body"">
+                    <div class=""cert-preamble"">
+                        تَشْهَدُ إِدَارَةُ مَرْكَزِ البَيَانِ لِتَعْلِيمِ القُرْآنِ الكَرِيمِ بِأَنَّ الطَّالِبَ المُبَارَكَ:
+                    </div>
+                    <div class=""cert-student-box"">
+                        <div class=""cert-student-name"">{studentName}</div>
+                    </div>
+                    <div class=""cert-statement"">
+                        {(isQuran
+                            ? $"قَدِ اجْتَازَ بِتَوْفِيقِ اللَّهِ تَعَالَى وَبِنَجَاحٍ اخْتِبَارَ حِفْظِ وَتَسْمِيعِ كِتَابِ اللَّهِ الكَرِيمِ <strong>{examSubject}</strong>، وَذَلِكَ بَعْدَ عَرْضِهِ شَفَوِيّاً عَلَى اللِّجَانِ المُخْتَصَّةِ بِالمَرْكَزِ، سَائِلِينَ اللَّهَ أَنْ يَجْعَلَهُ مِنْ أَهْلِ القُرْآنِ وَخَاصَّتِهِ."
+                            : $"قَدْ أَكْمَلَ بِتَوْفِيقِ اللَّهِ تَعَالَى وَبِنَجَاحٍ كَافَّةَ مُتَطَلَّبَاتِ حُضُورِ وَاجْتِيَازِ <strong>{examSubject}</strong>، بِمَا يَتَضَمَّنُهُ المَنْهَجُ التَّأْهِيلِيُّ مِنْ تَطْبِيقَاتٍ وَاخْتِبَارَاتٍ مُعْتَمَدَةٍ، سَائِلِينَ المَوْلَى لَهُ دَوَامَ التَّوْفِيقِ وَالسَّدَادِ.")}
+                    </div>
+
+                    <div class=""cert-grade-row"">
+                        <div class=""cert-grade-pill"">
+                            <strong>التقدير العام:</strong> {gradeText}
+                        </div>
+                        <div class=""cert-grade-pill"">
+                            <strong>الدرجة المستحقة:</strong> {grade}%
+                        </div>
+                        <div class=""cert-grade-pill"">
+                            <strong>رقم الهوية:</strong> <span style=""font-family:monospace;"">{idNumber}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class=""""cert-footer"""">
-                    <div class=""""sign-col"""">
-                        <div class=""""sign-role"""">المُعَلِّمُ المُشْرِف</div>
-                        <div class=""""sign-name"""">{teacherName}</div>
-                        <div style=""""width:120px; height:1px; background:#c5a059; margin:4px auto;""""></div>
+                <!-- Footer -->
+                <div class=""cert-footer"">
+                    <div class=""cert-signature-box"">
+                        <div class=""cert-signature-role"">{(isQuran ? "المُحَفِّظُ وَمُعَلِّمُ الحَلَقَةِ" : "مُعَلِّمُ وَمُحَاضِرُ الدَّوْرَةِ")}</div>
+                        <div class=""cert-signature-name"">{teacherName}</div>
+                        <div class=""cert-signature-line""></div>
+                        <div class=""cert-signature-note"">التوقيع والاعتماد الأكاديمي</div>
                     </div>
 
-                    <div class=""""stamp-box"""">
-                        <span style=""""font-size:18px;"""">★</span>
-                        <span style=""""font-size:11px;"""">مُعْتَمَد</span>
+                    <div class=""cert-seal-box"">
+                        <div class=""cert-luxury-stamp"">
+                            <div class=""cert-stamp-ring"">
+                                <div class=""cert-stamp-star"">★ ★ ★</div>
+                                <div class=""cert-stamp-text"">مُجَازٌ رَسْمِيّاً</div>
+                                <div class=""cert-stamp-center"">مَرْكَزُ البَيَانِ</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class=""""sign-col"""">
-                        <div class=""""sign-role"""">أَمِيرُ المَرْكَز</div>
-                        <div class=""""sign-name"""">الشيخ علي حسن النبيه</div>
-                        <div style=""""width:120px; height:1px; background:#c5a059; margin:4px auto;""""></div>
+                    <div class=""cert-signature-box"">
+                        <div class=""cert-signature-role"">أَمِيرُ المَرْكَزِ وَالمُشْرِفُ العَامُّ</div>
+                        <div class=""cert-signature-name"">فضيلة الشيخ / علي حسن النبيه</div>
+                        <div class=""cert-signature-line""></div>
+                        <div class=""cert-signature-note"">ختم واعتماد الإدارة العامة</div>
                     </div>
                 </div>
             </div>
@@ -844,16 +943,27 @@ public class ExamsController : ControllerBase
     </div>
 
     <script>
-        function downloadPdf() {{
-            const element = document.getElementById('cert-container');
-            const opt = {{
-                margin:       0,
-                filename:     'شهادة_{studentName.Replace(" ", "_")}.pdf',
-                image:        {{ type: 'jpeg', quality: 0.98 }},
-                html2canvas:  {{ scale: 2, useCORS: true, logging: false }},
-                jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }}
-            }};
-            html2pdf().set(opt).from(element).save();
+        async function downloadPdfDirect() {{
+            const el = document.getElementById('cert-root-target');
+            try {{
+                const canvas = await html2canvas(el, {{
+                    scale: 2.5,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                }});
+                const imgData = canvas.toDataURL('image/jpeg', 0.98);
+                const {{ jsPDF }} = window.jspdf;
+                const pdf = new jsPDF({{
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                }});
+                pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+                pdf.save('شهادة_{studentName.Replace(" ", "_")}.pdf');
+            }} catch(err) {{
+                window.print();
+            }}
         }}
         {autoDownloadScript}
     </script>

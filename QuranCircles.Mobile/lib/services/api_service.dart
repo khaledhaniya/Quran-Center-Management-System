@@ -1,35 +1,46 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import 'offline_cache.dart';
+import 'auth_storage.dart';
 import 'notification_service.dart';
 import 'offline_sync_manager.dart';
 
 class ApiService {
-  static String baseUrl = 'https://albayan-ali-center.tryasp.net/api';
+  static String baseUrl =
+      kIsWeb && ['localhost', '127.0.0.1'].contains(Uri.base.host)
+          ? '${Uri.base.origin}/api'
+          : 'https://albayan-ali-center.tryasp.net/api';
+  static http.Client httpClient = http.Client();
   static User? currentUser;
   static String? authToken;
 
-  static void setBaseUrl(String url) {
-    if (url.isNotEmpty) {
-      baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
-      if (!baseUrl.endsWith('/api') && !baseUrl.contains('/api')) {
-        baseUrl = '$baseUrl/api';
-      }
+  static Future<void> setBaseUrl(String url) async {
+    final parsed = Uri.tryParse(url.trim());
+    if (parsed == null ||
+        !parsed.hasAuthority ||
+        !['http', 'https'].contains(parsed.scheme)) {
+      throw ArgumentError('رابط الخادم غير صالح.');
     }
+    if (parsed.scheme != 'https' &&
+        !['localhost', '127.0.0.1', '10.0.2.2'].contains(parsed.host)) {
+      throw ArgumentError('يلزم HTTPS لحماية بيانات الدخول على الخادم البعيد.');
+    }
+    await logout();
+    baseUrl = url.trim().replaceFirst(RegExp(r'/+$'), '');
+    if (!baseUrl.endsWith('/api')) baseUrl = '$baseUrl/api';
   }
 
   // Fast In-Memory Cache for Instant UI
   static List<Student>? _cachedStudents;
   static List<Teacher>? _cachedTeachers;
   static List<Circle>? _cachedCircles;
-  static DateTime? _cacheTime;
 
   static void invalidateCache() {
     _cachedStudents = null;
     _cachedTeachers = null;
     _cachedCircles = null;
-    _cacheTime = null;
   }
 
   static Map<String, String> _headers({String? code2FA}) {
@@ -41,30 +52,72 @@ class ApiService {
       headers['Authorization'] = 'Bearer $authToken';
     }
     if (code2FA != null && code2FA.isNotEmpty) {
-      headers['X-2FA-Code'] = code2FA;
+      headers['X-Confirm-Password'] = code2FA;
     }
     return headers;
   }
 
   // --- Auth ---
-  static Future<User?> tryAutoLogin() async {
+  static bool isTokenCurrent(String? token) {
+    if (token == null) return false;
     try {
-      final cached = await OfflineCache.load('user_login');
-      if (cached != null && cached.isNotEmpty) {
-        final json = jsonDecode(cached);
-        final user = User.fromJson(json['user'] ?? json);
-        currentUser = user;
-        authToken = json['token']?.toString() ?? '';
-        NotificationService.start(user);
-        OfflineSyncManager.initialize();
-        return user;
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final claims = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final expiry = claims['exp'];
+      return expiry is num &&
+          expiry * 1000 > DateTime.now().millisecondsSinceEpoch;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<User?> tryAutoLogin() async {
+    // Do not migrate legacy plaintext credentials into secure storage.
+    await OfflineCache.remove('user_login');
+    try {
+      final cached = await AuthStorage.load(baseUrl);
+      if (cached == null) return null;
+      final json = jsonDecode(cached);
+      final token = json['token']?.toString();
+      if (!isTokenCurrent(token)) {
+        await AuthStorage.remove(baseUrl);
+        return null;
       }
-    } catch (_) {}
-    return null;
+      final user = User.fromJson(json['user'] ?? json);
+      if (user.id <= 0) return null;
+      currentUser = user;
+      authToken = token;
+      try {
+        final response = await httpClient
+            .get(Uri.parse('$baseUrl/auth/me'), headers: _headers())
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          await logout();
+          return null;
+        }
+      } catch (_) {/* Valid cached session supports offline work. */}
+      OfflineCache.configure(server: baseUrl, userId: user.id);
+      NotificationService.start(user);
+      OfflineSyncManager.initialize();
+      return user;
+    } catch (_) {
+      currentUser = null;
+      authToken = null;
+      OfflineCache.resetScope();
+      return null;
+    }
   }
 
   static Future<User> login(String username, String password) async {
-    final response = await http.post(
+    await OfflineSyncManager.stop();
+    NotificationService.stop();
+    invalidateCache();
+    currentUser = null;
+    authToken = null;
+    OfflineCache.resetScope();
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: _headers(),
       body: jsonEncode({'username': username, 'password': password}),
@@ -75,12 +128,15 @@ class ApiService {
       final user = User.fromJson(json['user'] ?? json);
       currentUser = user;
       authToken = json['token']?.toString() ?? '';
-      await OfflineCache.save('user_login', response.body);
+      OfflineCache.configure(server: baseUrl, userId: user.id);
+      await AuthStorage.save(baseUrl, response.body);
+      await OfflineCache.remove('user_login');
       NotificationService.start(user);
       OfflineSyncManager.initialize();
       return user;
     } else {
-      String errorMsg = 'بيانات الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور.';
+      String errorMsg =
+          'بيانات الدخول غير صحيحة. يرجى التحقق من اسم المستخدم وكلمة المرور.';
       try {
         final err = jsonDecode(response.body);
         errorMsg = err['message'] ?? err['error'] ?? errorMsg;
@@ -89,17 +145,20 @@ class ApiService {
     }
   }
 
-  static Future<bool> changePassword({String? currentPassword, required String newPassword}) async {
-    final response = await http.post(
+  static Future<bool> changePassword(
+      {String? currentPassword, required String newPassword}) async {
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/auth/change-password'),
       headers: _headers(),
       body: jsonEncode({
-        if (currentPassword != null && currentPassword.isNotEmpty) 'currentPassword': currentPassword,
+        if (currentPassword != null && currentPassword.isNotEmpty)
+          'currentPassword': currentPassword,
         'newPassword': newPassword,
       }),
     );
 
     if (response.statusCode == 200) {
+      await logout();
       return true;
     } else {
       String msg = 'فشل تغيير كلمة المرور.';
@@ -112,16 +171,22 @@ class ApiService {
   }
 
   static Future<void> logout() async {
+    await OfflineSyncManager.stop();
+    NotificationService.stop();
     currentUser = null;
     authToken = null;
-    NotificationService.stop();
+    await AuthStorage.remove(baseUrl);
     await OfflineCache.remove('user_login');
+    OfflineCache.resetScope();
     invalidateCache();
   }
 
   // --- Students CRUD ---
-  static Future<List<Student>> getStudents({String? search, bool forceRefresh = false}) async {
-    if (!forceRefresh && (search == null || search.isEmpty) && _cachedStudents != null) {
+  static Future<List<Student>> getStudents(
+      {String? search, bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        (search == null || search.isEmpty) &&
+        _cachedStudents != null) {
       return _cachedStudents!;
     }
 
@@ -130,13 +195,13 @@ class ApiService {
       url += '?search=${Uri.encodeComponent(search)}';
     }
     try {
-      final response = await http.get(Uri.parse(url), headers: _headers());
+      final response =
+          await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Student.fromJson(item)).toList();
         if (search == null || search.isEmpty) {
           _cachedStudents = list;
-          _cacheTime = DateTime.now();
         }
         await OfflineCache.save('students_list', response.body);
         return list;
@@ -151,13 +216,15 @@ class ApiService {
     return _cachedStudents ?? [];
   }
 
-  static Future<List<Student>> getAllStudentsForEnrollment({String? search}) async {
+  static Future<List<Student>> getAllStudentsForEnrollment(
+      {String? search}) async {
     String url = '$baseUrl/students/all-for-enrollment';
     if (search != null && search.isNotEmpty) {
       url += '?search=${Uri.encodeComponent(search)}';
     }
     try {
-      final response = await http.get(Uri.parse(url), headers: _headers());
+      final response =
+          await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return data.map((item) => Student.fromJson(item)).toList();
@@ -168,7 +235,7 @@ class ApiService {
 
   static Future<bool> createStudent(Map<String, dynamic> data) async {
     invalidateCache();
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/students'),
       headers: _headers(),
       body: jsonEncode(data),
@@ -178,7 +245,7 @@ class ApiService {
 
   static Future<bool> updateStudent(int id, Map<String, dynamic> data) async {
     invalidateCache();
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/students/$id'),
       headers: _headers(),
       body: jsonEncode(data),
@@ -188,7 +255,8 @@ class ApiService {
 
   static Future<bool> deleteStudent(int id) async {
     invalidateCache();
-    final response = await http.delete(Uri.parse('$baseUrl/students/$id'), headers: _headers());
+    final response = await httpClient.delete(Uri.parse('$baseUrl/students/$id'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
@@ -198,7 +266,8 @@ class ApiService {
       return _cachedTeachers!;
     }
     try {
-      final response = await http.get(Uri.parse('$baseUrl/teachers'), headers: _headers());
+      final response = await httpClient.get(Uri.parse('$baseUrl/teachers'),
+          headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Teacher.fromJson(item)).toList();
@@ -236,7 +305,7 @@ class ApiService {
     String? studentsCountTarget,
   }) async {
     invalidateCache();
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/teachers'),
       headers: _headers(),
       body: jsonEncode({
@@ -262,7 +331,8 @@ class ApiService {
     return response.statusCode == 201 || response.statusCode == 200;
   }
 
-  static Future<bool> updateTeacher(int id, {
+  static Future<bool> updateTeacher(
+    int id, {
     required String fullName,
     String? contact,
     String? address,
@@ -280,7 +350,7 @@ class ApiService {
     String? studentsCountTarget,
   }) async {
     invalidateCache();
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/teachers/$id'),
       headers: _headers(),
       body: jsonEncode({
@@ -306,7 +376,8 @@ class ApiService {
 
   static Future<bool> deleteTeacher(int id) async {
     invalidateCache();
-    final response = await http.delete(Uri.parse('$baseUrl/teachers/$id'), headers: _headers());
+    final response = await httpClient.delete(Uri.parse('$baseUrl/teachers/$id'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
@@ -316,7 +387,8 @@ class ApiService {
       return _cachedCircles!;
     }
     try {
-      final response = await http.get(Uri.parse('$baseUrl/circles'), headers: _headers());
+      final response = await httpClient.get(Uri.parse('$baseUrl/circles'),
+          headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Circle.fromJson(item)).toList();
@@ -341,7 +413,7 @@ class ApiService {
     int? assistantTeacherId,
   }) async {
     invalidateCache();
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/circles'),
       headers: _headers(),
       body: jsonEncode({
@@ -354,7 +426,8 @@ class ApiService {
     return response.statusCode == 201 || response.statusCode == 200;
   }
 
-  static Future<bool> updateCircle(int id, {
+  static Future<bool> updateCircle(
+    int id, {
     required String name,
     String? timing,
     int? teacherId,
@@ -362,7 +435,7 @@ class ApiService {
     bool isActive = true,
   }) async {
     invalidateCache();
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/circles/$id'),
       headers: _headers(),
       body: jsonEncode({
@@ -377,13 +450,15 @@ class ApiService {
   }
 
   static Future<bool> deleteCircle(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/circles/$id'), headers: _headers());
+    final response = await httpClient.delete(Uri.parse('$baseUrl/circles/$id'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
   // --- Courses CRUD ---
   static Future<List<Course>> getCourses() async {
-    final response = await http.get(Uri.parse('$baseUrl/courses'), headers: _headers());
+    final response = await httpClient.get(Uri.parse('$baseUrl/courses'),
+        headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((item) => Course.fromJson(item)).toList();
@@ -397,7 +472,7 @@ class ApiService {
     int? teacherId,
     int? examSupervisorId,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/courses'),
       headers: _headers(),
       body: jsonEncode({
@@ -410,13 +485,14 @@ class ApiService {
     return response.statusCode == 201 || response.statusCode == 200;
   }
 
-  static Future<bool> updateCourse(int id, {
+  static Future<bool> updateCourse(
+    int id, {
     required String name,
     String? description,
     int? teacherId,
     int? examSupervisorId,
   }) async {
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/courses/$id'),
       headers: _headers(),
       body: jsonEncode({
@@ -430,7 +506,8 @@ class ApiService {
   }
 
   static Future<bool> deleteCourse(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/courses/$id'), headers: _headers());
+    final response = await httpClient.delete(Uri.parse('$baseUrl/courses/$id'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
@@ -439,7 +516,7 @@ class ApiService {
     int? studentId,
     int? circleId,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/courses/enroll'),
       headers: _headers(),
       body: jsonEncode({
@@ -451,16 +528,16 @@ class ApiService {
     if (response.statusCode == 200) return true;
     try {
       final err = jsonDecode(response.body);
-      throw Exception(err['message'] ?? err['error'] ?? 'فشل تسجيل الطالب بالدورة');
+      throw Exception(
+          err['message'] ?? err['error'] ?? 'فشل تسجيل الطالب بالدورة');
     } catch (e) {
       if (e.toString().contains('Exception:')) rethrow;
       throw Exception('فشل الاتصال بالإنترنت لتسجيل الطالب بالدورة');
     }
   }
 
-
   static Future<List<Map<String, dynamic>>> getMyCourses() async {
-    final resp = await http.get(
+    final resp = await httpClient.get(
       Uri.parse('$baseUrl/courses/my-courses'),
       headers: _headers(),
     );
@@ -472,12 +549,13 @@ class ApiService {
   }
 
   // --- Attendance & Sessions ---
-  static Future<List<CourseAttendanceRecord>> getCourseAttendance(int courseId, String date) async {
-    final enrollmentsResp = await http.get(
+  static Future<List<CourseAttendanceRecord>> getCourseAttendance(
+      int courseId, String date) async {
+    final enrollmentsResp = await httpClient.get(
       Uri.parse('$baseUrl/courses/$courseId/enrollments'),
       headers: _headers(),
     );
-    final attendanceResp = await http.get(
+    final attendanceResp = await httpClient.get(
       Uri.parse('$baseUrl/courses/$courseId/attendance?date=$date'),
       headers: _headers(),
     );
@@ -514,32 +592,47 @@ class ApiService {
     return [];
   }
 
-  static Future<bool> saveCourseAttendance(int courseId, String sessionDate, List<Map<String, dynamic>> items) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/courses/attendance'),
-      headers: _headers(),
-      body: jsonEncode({
-        'courseId': courseId,
-        'sessionDate': sessionDate,
-        'items': items,
-      }),
-    );
+  static Future<bool> saveCourseAttendance(
+      int courseId, String sessionDate, List<Map<String, dynamic>> items,
+      {String? operationId}) async {
+    final response = await httpClient
+        .post(
+          Uri.parse('$baseUrl/courses/attendance'),
+          headers: {
+            ..._headers(),
+            if (operationId != null) 'Idempotency-Key': operationId
+          },
+          body: jsonEncode({
+            'courseId': courseId,
+            'sessionDate': sessionDate,
+            'items': items,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
     return response.statusCode == 200;
   }
 
-  static Future<bool> saveCircleAttendance(int circleId, String sessionDate, List<Map<String, dynamic>> records) async {
+  static Future<bool> saveCircleAttendance(
+      int circleId, String sessionDate, List<Map<String, dynamic>> records,
+      {String? operationId}) async {
     bool ok = true;
     for (var r in records) {
-      final resp = await http.post(
-        Uri.parse('$baseUrl/attendance'),
-        headers: _headers(),
-        body: jsonEncode({
-          'studentId': r['studentId'],
-          'circleId': circleId,
-          'sessionDate': sessionDate,
-          'status': r['status'],
-        }),
-      );
+      final resp = await httpClient
+          .post(
+            Uri.parse('$baseUrl/attendance'),
+            headers: {
+              ..._headers(),
+              if (operationId != null)
+                'Idempotency-Key': '$operationId-${r['studentId']}'
+            },
+            body: jsonEncode({
+              'studentId': r['studentId'],
+              'circleId': circleId,
+              'sessionDate': sessionDate,
+              'status': r['status'],
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
       if (resp.statusCode != 200) ok = false;
     }
     return ok;
@@ -555,52 +648,62 @@ class ApiService {
     String? notes,
     bool viaLottery = false,
     int recitationType = 1,
+    String? operationId,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/sessions'),
-      headers: _headers(),
-      body: jsonEncode({
-        'studentId': studentId,
-        'sessionDate': sessionDate,
-        'surahName': surahName,
-        'fromVerse': fromVerse,
-        'toVerse': toVerse,
-        'assessment': assessment,
-        'notes': notes,
-        'viaLottery': viaLottery,
-        'recitationType': recitationType,
-      }),
-    );
+    final response = await httpClient
+        .post(
+          Uri.parse('$baseUrl/sessions'),
+          headers: {
+            ..._headers(),
+            if (operationId != null) 'Idempotency-Key': operationId
+          },
+          body: jsonEncode({
+            'studentId': studentId,
+            'sessionDate': sessionDate,
+            'surahName': surahName,
+            'fromVerse': fromVerse,
+            'toVerse': toVerse,
+            'assessment': assessment,
+            'notes': notes,
+            'viaLottery': viaLottery,
+            'recitationType': recitationType,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
     return response.statusCode == 200 || response.statusCode == 201;
   }
 
   static Future<bool> enrollStudentInCircle(int circleId, int studentId) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/circles/$circleId/students'),
       headers: _headers(),
       body: jsonEncode({'studentId': studentId}),
     );
     if (response.statusCode == 200 || response.statusCode == 204) return true;
     final body = jsonDecode(response.body);
-    throw Exception(body['error'] ?? body['message'] ?? 'فشل تنسيب الطالب للحلقة');
+    throw Exception(
+        body['error'] ?? body['message'] ?? 'فشل تنسيب الطالب للحلقة');
   }
 
-  static Future<bool> unenrollStudentFromCircle(int circleId, int studentId) async {
-    final response = await http.delete(
+  static Future<bool> unenrollStudentFromCircle(
+      int circleId, int studentId) async {
+    final response = await httpClient.delete(
       Uri.parse('$baseUrl/circles/$circleId/students/$studentId'),
       headers: _headers(),
     );
     if (response.statusCode == 200 || response.statusCode == 204) return true;
     final body = jsonDecode(response.body);
-    throw Exception(body['error'] ?? body['message'] ?? 'فشل إلغاء تنسيب الطالب من الحلقة');
+    throw Exception(
+        body['error'] ?? body['message'] ?? 'فشل إلغاء تنسيب الطالب من الحلقة');
   }
 
-  static Future<List<Map<String, dynamic>>> getStudentsForEnrollment({String? search}) async {
+  static Future<List<Map<String, dynamic>>> getStudentsForEnrollment(
+      {String? search}) async {
     String url = '$baseUrl/students/all-for-enrollment';
     if (search != null && search.trim().isNotEmpty) {
       url += '?search=${Uri.encodeComponent(search.trim())}';
     }
-    final response = await http.get(Uri.parse(url), headers: _headers());
+    final response = await httpClient.get(Uri.parse(url), headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.cast<Map<String, dynamic>>();
@@ -618,7 +721,7 @@ class ApiService {
     String? notes,
     int recitationType = 1,
   }) async {
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/sessions/$id'),
       headers: _headers(),
       body: jsonEncode({
@@ -635,15 +738,16 @@ class ApiService {
   }
 
   static Future<bool> deleteRecitationSession(int id) async {
-    final response = await http.delete(
+    final response = await httpClient.delete(
       Uri.parse('$baseUrl/sessions/$id'),
       headers: _headers(),
     );
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
-  static Future<Map<String, dynamic>> drawLottery(int circleId, String date) async {
-    final response = await http.get(
+  static Future<Map<String, dynamic>> drawLottery(
+      int circleId, String date) async {
+    final response = await httpClient.get(
       Uri.parse('$baseUrl/sessions/lottery/$circleId?date=$date'),
       headers: _headers(),
     );
@@ -654,8 +758,9 @@ class ApiService {
     throw Exception(body['error'] ?? body['message'] ?? 'فشل سحب القرعة');
   }
 
-  static Future<List<Map<String, dynamic>>> getStudentSessions(int studentId) async {
-    final response = await http.get(
+  static Future<List<Map<String, dynamic>>> getStudentSessions(
+      int studentId) async {
+    final response = await httpClient.get(
       Uri.parse('$baseUrl/sessions/student/$studentId'),
       headers: _headers(),
     );
@@ -667,7 +772,8 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getQualityOverview() async {
-    final response = await http.get(Uri.parse('$baseUrl/quality/overview'), headers: _headers());
+    final response = await httpClient
+        .get(Uri.parse('$baseUrl/quality/overview'), headers: _headers());
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -676,12 +782,14 @@ class ApiService {
 
   // --- Exams & Nominations ---
   static Future<List<ExamNomination>> getNominations() async {
-    final response = await http.get(Uri.parse('$baseUrl/exams/nominations'), headers: _headers());
+    final response = await httpClient
+        .get(Uri.parse('$baseUrl/exams/nominations'), headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((item) => ExamNomination.fromJson(item)).toList();
     }
-    throw Exception('فشل جلب قائمة طلبات الترشيح والامتحانات (${response.statusCode})');
+    throw Exception(
+        'فشل جلب قائمة طلبات الترشيح والامتحانات (${response.statusCode})');
   }
 
   static Future<bool> nominateExam({
@@ -691,7 +799,7 @@ class ApiService {
     required int juzStart,
     required int juzEnd,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/exams/nominate'),
       headers: _headers(),
       body: jsonEncode({
@@ -708,7 +816,7 @@ class ApiService {
   }
 
   static Future<bool> scheduleExam(int nominationId, String examDate) async {
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/exams/schedule'),
       headers: _headers(),
       body: jsonEncode({
@@ -727,7 +835,7 @@ class ApiService {
     String? notes,
     required String code2FA,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/exams/evaluate'),
       headers: _headers(code2FA: code2FA),
       body: jsonEncode({
@@ -743,12 +851,16 @@ class ApiService {
       return true;
     } else {
       final err = jsonDecode(response.body);
-      throw Exception(err['message'] ?? 'فشل حفظ نتيجة التقييم');
+      throw Exception(
+          err['error'] ?? err['message'] ?? 'فشل حفظ نتيجة التقييم');
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getCourseEnrollments(int courseId) async {
-    final response = await http.get(Uri.parse('$baseUrl/courses/$courseId/enrollments'), headers: _headers());
+  static Future<List<Map<String, dynamic>>> getCourseEnrollments(
+      int courseId) async {
+    final response = await httpClient.get(
+        Uri.parse('$baseUrl/courses/$courseId/enrollments'),
+        headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.cast<Map<String, dynamic>>();
@@ -759,9 +871,9 @@ class ApiService {
   static Future<bool> recordCourseGrade({
     required int enrollmentId,
     required double grade,
-    String code2FA = '123456',
+    required String code2FA,
   }) async {
-    final response = await http.put(
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/courses/grade'),
       headers: _headers(code2FA: code2FA),
       body: jsonEncode({
@@ -771,44 +883,56 @@ class ApiService {
     );
     if (response.statusCode == 200) return true;
     final err = jsonDecode(response.body);
-    throw Exception(err['message'] ?? 'فشل رصد العلامة');
+    throw Exception(err['error'] ?? err['message'] ?? 'فشل رصد العلامة');
   }
 
   // --- Active Toggles ---
   static Future<bool> toggleStudentActive(int id) async {
-    final response = await http.post(Uri.parse('$baseUrl/students/$id/toggle-active'), headers: _headers());
+    final response = await httpClient.post(
+        Uri.parse('$baseUrl/students/$id/toggle-active'),
+        headers: _headers());
     return response.statusCode == 200;
   }
 
   static Future<bool> toggleTeacherActive(int id) async {
-    final response = await http.post(Uri.parse('$baseUrl/teachers/$id/toggle-active'), headers: _headers());
+    final response = await httpClient.post(
+        Uri.parse('$baseUrl/teachers/$id/toggle-active'),
+        headers: _headers());
     return response.statusCode == 200;
   }
 
   static Future<bool> toggleCircleActive(int id) async {
-    final response = await http.post(Uri.parse('$baseUrl/circles/$id/toggle-active'), headers: _headers());
+    final response = await httpClient.post(
+        Uri.parse('$baseUrl/circles/$id/toggle-active'),
+        headers: _headers());
     return response.statusCode == 200;
   }
 
   // --- Student 360 View ---
   static Future<Map<String, dynamic>> getStudent360(int studentId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/students/$studentId/progress'), headers: _headers());
+      final response = await httpClient.get(
+          Uri.parse('$baseUrl/students/$studentId/progress'),
+          headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
     } catch (_) {}
 
-    final responseFallback = await http.get(Uri.parse('$baseUrl/students/$studentId/360'), headers: _headers());
+    final responseFallback = await httpClient.get(
+        Uri.parse('$baseUrl/students/$studentId/360'),
+        headers: _headers());
     if (responseFallback.statusCode == 200) {
       return jsonDecode(responseFallback.body);
     }
-    throw Exception('فشل جلب الملف الموحد للطالب (${responseFallback.statusCode})');
+    throw Exception(
+        'فشل جلب الملف الموحد للطالب (${responseFallback.statusCode})');
   }
 
   // --- Users & Announcements ---
   static Future<List<User>> getUsers() async {
-    final response = await http.get(Uri.parse('$baseUrl/users'), headers: _headers());
+    final response =
+        await httpClient.get(Uri.parse('$baseUrl/users'), headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((item) => User.fromJson(item)).toList();
@@ -822,7 +946,7 @@ class ApiService {
     required String fullName,
     required String role,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/users'),
       headers: _headers(),
       body: jsonEncode({
@@ -836,7 +960,8 @@ class ApiService {
   }
 
   static Future<List<Announcement>> getAnnouncements() async {
-    final response = await http.get(Uri.parse('$baseUrl/announcements/my'), headers: _headers());
+    final response = await httpClient
+        .get(Uri.parse('$baseUrl/announcements/my'), headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((item) => Announcement.fromJson(item)).toList();
@@ -849,22 +974,29 @@ class ApiService {
     required String content,
     int targetType = 1,
     int? targetId,
+    String? operationId,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/announcements'),
-      headers: _headers(),
-      body: jsonEncode({
-        'title': title,
-        'content': content,
-        'targetType': targetType,
-        'targetId': targetId,
-      }),
-    );
+    final response = await httpClient
+        .post(
+          Uri.parse('$baseUrl/announcements'),
+          headers: {
+            ..._headers(),
+            if (operationId != null) 'Idempotency-Key': operationId
+          },
+          body: jsonEncode({
+            'title': title,
+            'content': content,
+            'targetType': targetType,
+            'targetId': targetId,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
     return response.statusCode == 201 || response.statusCode == 200;
   }
 
   static Future<List<AuditLog>> getAuditLogs() async {
-    final response = await http.get(Uri.parse('$baseUrl/audit-logs'), headers: _headers());
+    final response = await httpClient.get(Uri.parse('$baseUrl/audit-logs'),
+        headers: _headers());
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((item) => AuditLog.fromJson(item)).toList();
@@ -874,7 +1006,9 @@ class ApiService {
 
   // --- Profile Requests ---
   static Future<List<dynamic>> getProfileUpdateRequests() async {
-    final response = await http.get(Uri.parse('$baseUrl/profile-update-requests'), headers: _headers());
+    final response = await httpClient.get(
+        Uri.parse('$baseUrl/profile-update-requests'),
+        headers: _headers());
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as List;
     }
@@ -882,19 +1016,24 @@ class ApiService {
   }
 
   static Future<bool> approveProfileRequest(int id) async {
-    final response = await http.post(Uri.parse('$baseUrl/profile-update-requests/$id/approve'), headers: _headers());
+    final response = await httpClient.post(
+        Uri.parse('$baseUrl/profile-update-requests/$id/approve'),
+        headers: _headers());
     return response.statusCode == 200;
   }
 
   static Future<bool> rejectProfileRequest(int id) async {
-    final response = await http.post(Uri.parse('$baseUrl/profile-update-requests/$id/reject'), headers: _headers());
+    final response = await httpClient.post(
+        Uri.parse('$baseUrl/profile-update-requests/$id/reject'),
+        headers: _headers());
     return response.statusCode == 200;
   }
 
   // --- Parent & Dual-Role Children Data ---
   static Future<List<dynamic>> getMyChildrenProgressDetails() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/parent/children'), headers: _headers());
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/parent/children'), headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List;
       }
@@ -904,12 +1043,15 @@ class ApiService {
 
   static Future<List<Student>> getMyChildren() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/parent/children'), headers: _headers());
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/parent/children'), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return data.map((item) {
           final rawId = item['childId'] ?? item['id'];
-          final int childId = rawId is int ? rawId : (int.tryParse(rawId?.toString() ?? '0') ?? 0);
+          final int childId = rawId is int
+              ? rawId
+              : (int.tryParse(rawId?.toString() ?? '0') ?? 0);
           return Student(
             id: childId,
             fullName: item['fullName']?.toString() ?? 'ابن',
@@ -924,7 +1066,8 @@ class ApiService {
 
   static Future<List<Map<String, dynamic>>> getMyChildrenTeachers() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/parent/teachers'), headers: _headers());
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/parent/teachers'), headers: _headers());
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data);
@@ -935,7 +1078,8 @@ class ApiService {
 
   // --- Parent Audit Data ---
   static Future<List<dynamic>> getParentAuditData() async {
-    final response = await http.get(Uri.parse('$baseUrl/parent/audit'), headers: _headers());
+    final response = await httpClient.get(Uri.parse('$baseUrl/parent/audit'),
+        headers: _headers());
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as List;
     }
@@ -943,7 +1087,7 @@ class ApiService {
   }
 
   static Future<bool> unlinkChildFromParent(int studentId) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/parent/unlink-child'),
       headers: _headers(),
       body: jsonEncode({'studentId': studentId}),
@@ -951,8 +1095,9 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-  static Future<bool> reassignChildToParent(int studentId, int newParentId) async {
-    final response = await http.post(
+  static Future<bool> reassignChildToParent(
+      int studentId, int newParentId) async {
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/parent/reassign-child'),
       headers: _headers(),
       body: jsonEncode({'studentId': studentId, 'newParentId': newParentId}),
@@ -962,33 +1107,43 @@ class ApiService {
 
   // --- Permanent Hard Delete ---
   static Future<bool> hardDeleteStudent(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/students/$id/permanent'), headers: _headers());
+    final response = await httpClient.delete(
+        Uri.parse('$baseUrl/students/$id/permanent'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
   static Future<bool> hardDeleteTeacher(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/teachers/$id/permanent'), headers: _headers());
+    final response = await httpClient.delete(
+        Uri.parse('$baseUrl/teachers/$id/permanent'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
   static Future<bool> hardDeleteCircle(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/circles/$id/permanent'), headers: _headers());
+    final response = await httpClient.delete(
+        Uri.parse('$baseUrl/circles/$id/permanent'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
   // --- Announcements Actions ---
   static Future<bool> clearAllAnnouncements() async {
-    final response = await http.delete(Uri.parse('$baseUrl/announcements/clear-all'), headers: _headers());
+    final response = await httpClient.delete(
+        Uri.parse('$baseUrl/announcements/clear-all'),
+        headers: _headers());
     return response.statusCode == 200;
   }
 
   static Future<bool> deleteAnnouncement(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/announcements/$id'), headers: _headers());
+    final response = await httpClient
+        .delete(Uri.parse('$baseUrl/announcements/$id'), headers: _headers());
     return response.statusCode == 200;
   }
 
   static Future<bool> hardDeleteUser(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/users/$id'), headers: _headers());
+    final response = await httpClient.delete(Uri.parse('$baseUrl/users/$id'),
+        headers: _headers());
     return response.statusCode == 200 || response.statusCode == 204;
   }
 
@@ -999,7 +1154,7 @@ class ApiService {
     required String requestedByName,
     required Map<String, String> changes,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/profile-update-requests'),
       headers: _headers(),
       body: jsonEncode({
@@ -1018,7 +1173,7 @@ class ApiService {
     required int? targetId,
     required String messageContent,
   }) async {
-    final response = await http.post(
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/sms/send'),
       headers: _headers(),
       body: jsonEncode({
@@ -1034,8 +1189,9 @@ class ApiService {
   }
 
   // --- Student Plan & Juz Completion ---
-  static Future<bool> updateStudentPlan(int studentId, Map<String, dynamic> planData) async {
-    final response = await http.put(
+  static Future<bool> updateStudentPlan(
+      int studentId, Map<String, dynamic> planData) async {
+    final response = await httpClient.put(
       Uri.parse('$baseUrl/students/$studentId/plan'),
       headers: _headers(),
       body: jsonEncode(planData),
@@ -1043,8 +1199,9 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-  static Future<bool> completeJuz(int studentId, int juzNumber, bool isCompleted) async {
-    final response = await http.post(
+  static Future<bool> completeJuz(
+      int studentId, int juzNumber, bool isCompleted) async {
+    final response = await httpClient.post(
       Uri.parse('$baseUrl/students/$studentId/complete-juz'),
       headers: _headers(),
       body: jsonEncode({
@@ -1056,14 +1213,21 @@ class ApiService {
   }
 
   // --- Teacher Comprehensive Report ---
-  static Future<Map<String, dynamic>> getTeacherComprehensiveReport(int teacherId, {String? fromDate, String? toDate}) async {
+  static Future<Map<String, dynamic>> getTeacherComprehensiveReport(
+      int teacherId,
+      {String? fromDate,
+      String? toDate}) async {
     String url = '$baseUrl/teachers/$teacherId/comprehensive-report';
     final q = <String>[];
-    if (fromDate != null && fromDate.isNotEmpty) q.add('fromDate=${Uri.encodeComponent(fromDate)}');
-    if (toDate != null && toDate.isNotEmpty) q.add('toDate=${Uri.encodeComponent(toDate)}');
+    if (fromDate != null && fromDate.isNotEmpty) {
+      q.add('fromDate=${Uri.encodeComponent(fromDate)}');
+    }
+    if (toDate != null && toDate.isNotEmpty) {
+      q.add('toDate=${Uri.encodeComponent(toDate)}');
+    }
     if (q.isNotEmpty) url += '?${q.join('&')}';
 
-    final response = await http.get(
+    final response = await httpClient.get(
       Uri.parse(url),
       headers: _headers(),
     );
@@ -1073,18 +1237,24 @@ class ApiService {
     return {};
   }
 
-  static String getTeacherReportDownloadUrl(int teacherId, String format, {String? fromDate, String? toDate}) {
+  static String getTeacherReportDownloadUrl(int teacherId, String format,
+      {String? fromDate, String? toDate}) {
     String url = '$baseUrl/teachers/$teacherId/report/$format';
     final q = <String>[];
-    if (fromDate != null && fromDate.isNotEmpty) q.add('fromDate=${Uri.encodeComponent(fromDate)}');
-    if (toDate != null && toDate.isNotEmpty) q.add('toDate=${Uri.encodeComponent(toDate)}');
+    if (fromDate != null && fromDate.isNotEmpty) {
+      q.add('fromDate=${Uri.encodeComponent(fromDate)}');
+    }
+    if (toDate != null && toDate.isNotEmpty) {
+      q.add('toDate=${Uri.encodeComponent(toDate)}');
+    }
     if (q.isNotEmpty) url += '?${q.join('&')}';
     return url;
   }
 
   static Future<Circle?> getCircle(int id) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/circles/$id'), headers: _headers());
+      final response = await httpClient.get(Uri.parse('$baseUrl/circles/$id'),
+          headers: _headers());
       if (response.statusCode == 200) {
         return Circle.fromJson(jsonDecode(response.body));
       }
@@ -1093,15 +1263,21 @@ class ApiService {
   }
 
   // --- Executive Dashboard Report (Unified Source of Truth for Web & Mobile) ---
-  static Future<Map<String, dynamic>> getExecutiveDashboard({String? fromDate, String? toDate}) async {
+  static Future<Map<String, dynamic>> getExecutiveDashboard(
+      {String? fromDate, String? toDate}) async {
     String url = '$baseUrl/reports/executive-dashboard';
     final q = <String>[];
-    if (fromDate != null && fromDate.isNotEmpty) q.add('from=${Uri.encodeComponent(fromDate)}');
-    if (toDate != null && toDate.isNotEmpty) q.add('to=${Uri.encodeComponent(toDate)}');
+    if (fromDate != null && fromDate.isNotEmpty) {
+      q.add('from=${Uri.encodeComponent(fromDate)}');
+    }
+    if (toDate != null && toDate.isNotEmpty) {
+      q.add('to=${Uri.encodeComponent(toDate)}');
+    }
     if (q.isNotEmpty) url += '?${q.join('&')}';
 
     try {
-      final response = await http.get(Uri.parse(url), headers: _headers());
+      final response =
+          await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1110,15 +1286,21 @@ class ApiService {
   }
 
   // --- Executive Dashboard Summary Report ---
-  static Future<Map<String, dynamic>> getDashboardSummary({String? fromDate, String? toDate}) async {
+  static Future<Map<String, dynamic>> getDashboardSummary(
+      {String? fromDate, String? toDate}) async {
     String url = '$baseUrl/reports/summary';
     final q = <String>[];
-    if (fromDate != null && fromDate.isNotEmpty) q.add('from=${Uri.encodeComponent(fromDate)}');
-    if (toDate != null && toDate.isNotEmpty) q.add('to=${Uri.encodeComponent(toDate)}');
+    if (fromDate != null && fromDate.isNotEmpty) {
+      q.add('from=${Uri.encodeComponent(fromDate)}');
+    }
+    if (toDate != null && toDate.isNotEmpty) {
+      q.add('to=${Uri.encodeComponent(toDate)}');
+    }
     if (q.isNotEmpty) url += '?${q.join('&')}';
 
     try {
-      final response = await http.get(Uri.parse(url), headers: _headers());
+      final response =
+          await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1129,7 +1311,7 @@ class ApiService {
   // --- Developer Users Management ---
   static Future<bool> updateUser(int id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await httpClient.put(
         Uri.parse('$baseUrl/users/$id'),
         headers: _headers(),
         body: jsonEncode(data),
@@ -1142,7 +1324,7 @@ class ApiService {
 
   static Future<bool> deleteUser(int id) async {
     try {
-      final response = await http.delete(
+      final response = await httpClient.delete(
         Uri.parse('$baseUrl/users/$id'),
         headers: _headers(),
       );
@@ -1154,7 +1336,7 @@ class ApiService {
 
   static Future<bool> toggleUserStatus(int id) async {
     try {
-      final response = await http.patch(
+      final response = await httpClient.patch(
         Uri.parse('$baseUrl/users/$id/toggle-status'),
         headers: _headers(),
       );
@@ -1167,7 +1349,8 @@ class ApiService {
   // --- Dynamic System Settings CMS ---
   static Future<Map<String, dynamic>?> getSystemSettings() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/settings'), headers: _headers());
+      final response = await httpClient.get(Uri.parse('$baseUrl/settings'),
+          headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1175,9 +1358,10 @@ class ApiService {
     return null;
   }
 
-  static Future<bool> updateSystemSettings(Map<String, dynamic> settingsData) async {
+  static Future<bool> updateSystemSettings(
+      Map<String, dynamic> settingsData) async {
     try {
-      final response = await http.put(
+      final response = await httpClient.put(
         Uri.parse('$baseUrl/settings'),
         headers: _headers(),
         body: jsonEncode(settingsData),
@@ -1191,7 +1375,8 @@ class ApiService {
   // --- Financial Management & Treasury Ledger ---
   static Future<Map<String, dynamic>> getFinancialSummary() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/finance/summary'), headers: _headers());
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/finance/summary'), headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1219,14 +1404,23 @@ class ApiService {
     try {
       final queryParams = <String, String>{};
       if (type != null) queryParams['type'] = type.toString();
-      if (paymentMethod != null) queryParams['paymentMethod'] = paymentMethod.toString();
-      if (category != null && category.isNotEmpty) queryParams['category'] = category;
+      if (paymentMethod != null) {
+        queryParams['paymentMethod'] = paymentMethod.toString();
+      }
+      if (category != null && category.isNotEmpty) {
+        queryParams['category'] = category;
+      }
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
-      if (startDate != null && startDate.isNotEmpty) queryParams['startDate'] = startDate;
-      if (endDate != null && endDate.isNotEmpty) queryParams['endDate'] = endDate;
+      if (startDate != null && startDate.isNotEmpty) {
+        queryParams['startDate'] = startDate;
+      }
+      if (endDate != null && endDate.isNotEmpty) {
+        queryParams['endDate'] = endDate;
+      }
 
-      final uri = Uri.parse('$baseUrl/finance/transactions').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-      final response = await http.get(uri, headers: _headers());
+      final uri = Uri.parse('$baseUrl/finance/transactions')
+          .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+      final response = await httpClient.get(uri, headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       }
@@ -1234,9 +1428,10 @@ class ApiService {
     return [];
   }
 
-  static Future<bool> createFinancialTransaction(Map<String, dynamic> data) async {
+  static Future<bool> createFinancialTransaction(
+      Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await httpClient.post(
         Uri.parse('$baseUrl/finance/transactions'),
         headers: _headers(),
         body: jsonEncode(data),
@@ -1249,7 +1444,7 @@ class ApiService {
 
   static Future<bool> deleteFinancialTransaction(int id) async {
     try {
-      final response = await http.delete(
+      final response = await httpClient.delete(
         Uri.parse('$baseUrl/finance/transactions/$id'),
         headers: _headers(),
       );
@@ -1261,7 +1456,8 @@ class ApiService {
 
   static Future<List<String>> getFinancialCategories() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/finance/categories'), headers: _headers());
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/finance/categories'), headers: _headers());
       if (response.statusCode == 200) {
         final List list = jsonDecode(response.body);
         return list.map((x) => x.toString()).toList();
@@ -1281,15 +1477,19 @@ class ApiService {
   }
 
   // --- Talents & Preacher Youth (الفتى الواعظ والأصوات الندية) ---
-  static Future<List<TalentRecord>> getTalents({String? talentType, int? studentId}) async {
+  static Future<List<TalentRecord>> getTalents(
+      {String? talentType, int? studentId}) async {
     try {
       String url = '$baseUrl/talents';
       List<String> queryParams = [];
-      if (talentType != null && talentType.isNotEmpty) queryParams.add('talentType=${Uri.encodeComponent(talentType)}');
+      if (talentType != null && talentType.isNotEmpty) {
+        queryParams.add('talentType=${Uri.encodeComponent(talentType)}');
+      }
       if (studentId != null) queryParams.add('studentId=$studentId');
       if (queryParams.isNotEmpty) url += '?${queryParams.join('&')}';
 
-      final response = await http.get(Uri.parse(url), headers: _headers());
+      final response =
+          await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         final List list = jsonDecode(response.body);
         return list.map((x) => TalentRecord.fromJson(x)).toList();
@@ -1302,8 +1502,10 @@ class ApiService {
     try {
       final url = id != null ? '$baseUrl/talents/$id' : '$baseUrl/talents';
       final response = id != null
-          ? await http.put(Uri.parse(url), headers: _headers(), body: jsonEncode(data))
-          : await http.post(Uri.parse(url), headers: _headers(), body: jsonEncode(data));
+          ? await httpClient.put(Uri.parse(url),
+              headers: _headers(), body: jsonEncode(data))
+          : await httpClient.post(Uri.parse(url),
+              headers: _headers(), body: jsonEncode(data));
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (_) {
       return false;
@@ -1312,7 +1514,8 @@ class ApiService {
 
   static Future<bool> deleteTalent(int id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/talents/$id'), headers: _headers());
+      final response = await httpClient
+          .delete(Uri.parse('$baseUrl/talents/$id'), headers: _headers());
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
       return false;
@@ -1327,7 +1530,8 @@ class ApiService {
         url += '?filter=${Uri.encodeComponent(filter)}';
       }
 
-      final response = await http.get(Uri.parse(url), headers: _headers());
+      final response =
+          await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1337,7 +1541,8 @@ class ApiService {
 
   static Future<List<Teacher>> getHuffazSupervisors() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/huffaz/supervisors'), headers: _headers());
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/huffaz/supervisors'), headers: _headers());
       if (response.statusCode == 200) {
         final List list = jsonDecode(response.body);
         return list.map((x) => Teacher.fromJson(x)).toList();
@@ -1346,12 +1551,15 @@ class ApiService {
     return [];
   }
 
-  static Future<bool> saveHuffazMember(Map<String, dynamic> data, {int? id}) async {
+  static Future<bool> saveHuffazMember(Map<String, dynamic> data,
+      {int? id}) async {
     try {
       final url = id != null ? '$baseUrl/huffaz/$id' : '$baseUrl/huffaz';
       final response = id != null
-          ? await http.put(Uri.parse(url), headers: _headers(), body: jsonEncode(data))
-          : await http.post(Uri.parse(url), headers: _headers(), body: jsonEncode(data));
+          ? await httpClient.put(Uri.parse(url),
+              headers: _headers(), body: jsonEncode(data))
+          : await httpClient.post(Uri.parse(url),
+              headers: _headers(), body: jsonEncode(data));
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (_) {
       return false;
@@ -1360,11 +1568,71 @@ class ApiService {
 
   static Future<bool> deleteHuffazMember(int id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/huffaz/$id'), headers: _headers());
+      final response = await httpClient.delete(Uri.parse('$baseUrl/huffaz/$id'),
+          headers: _headers());
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (_) {
       return false;
     }
   }
-}
 
+  static Future<List<dynamic>> getQualityVisits({int? circleId}) async {
+    try {
+      final q = circleId != null ? '?circleId=$circleId' : '';
+      final response = await httpClient
+          .get(Uri.parse('$baseUrl/quality/visits$q'), headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> createQualityVisit(Map<String, dynamic> data) async {
+    try {
+      final response = await httpClient.post(
+        Uri.parse('$baseUrl/quality/visits'),
+        headers: _headers(),
+        body: jsonEncode(data),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSpotCheckCandidates(
+      int circleId) async {
+    try {
+      final response = await httpClient.get(
+          Uri.parse('$baseUrl/quality/spot-check/$circleId'),
+          headers: _headers());
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  static Future<Map<String, dynamic>> toggleSubstituteMode({
+    required int circleId,
+    required String supervisorName,
+    required String reason,
+    required bool activate,
+  }) async {
+    final response = await httpClient.post(
+      Uri.parse('$baseUrl/quality/substitute-mode'),
+      headers: _headers(),
+      body: jsonEncode({
+        'circleId': circleId,
+        'supervisorName': supervisorName,
+        'reason': reason,
+        'activate': activate,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('فشل تحديث وضع المعلم البديل (${response.statusCode})');
+  }
+}

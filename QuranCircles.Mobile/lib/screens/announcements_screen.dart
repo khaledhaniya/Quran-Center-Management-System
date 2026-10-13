@@ -114,7 +114,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
-                      value: targetType,
+                      initialValue: targetType,
                       decoration: const InputDecoration(labelText: 'الفئة المستهدفة'),
                       items: [
                         if (widget.currentUser.role == 'Student') ...const [
@@ -166,7 +166,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     if (targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10) ...[
                       if (targetType == 4) ...[
                         DropdownButtonFormField<int?>(
-                          value: selectedCircleFilter,
+                          initialValue: selectedCircleFilter,
                           decoration: const InputDecoration(labelText: 'فلترة بالحلقة القرآنية (اختياري)'),
                           items: [
                             const DropdownMenuItem<int?>(value: null, child: Text('-- جميع الحلقات والطلاب --')),
@@ -183,7 +183,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         const SizedBox(height: 8),
                       ] else if (targetType == 7) ...[
                         DropdownButtonFormField<int?>(
-                          value: selectedCircleFilter,
+                          initialValue: selectedCircleFilter,
                           decoration: const InputDecoration(labelText: 'فلترة بحلقة الأبناء (اختياري)'),
                           items: [
                             const DropdownMenuItem<int?>(value: null, child: Text('-- جميع أولياء الأمور --')),
@@ -203,12 +203,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         controller: searchController,
                         onChanged: (_) => setModalState(() {}),
                         decoration: InputDecoration(
-                          hintText: targetType == 4 
-                              ? '🔍 اكتب اسم الطالب أو رقم الهوية...' 
-                              : targetType == 7 
-                                  ? '🔍 اكتب اسم ولي الأمر أو هوية ولي الأمر...' 
+                          hintText: targetType == 4
+                              ? '🔍 اكتب اسم الطالب أو رقم الهوية...'
+                              : targetType == 7
+                                  ? '🔍 اكتب اسم ولي الأمر أو هوية ولي الأمر...'
                                   : (targetType == 3 || targetType == 8 || targetType == 9)
-                                      ? '🔍 اكتب اسم المعلم أو اسم الابن...' 
+                                      ? '🔍 اكتب اسم المعلم أو اسم الابن...'
                                       : '🔍 اكتب اسم الحلقة...',
                           prefixIcon: const Icon(Icons.search, color: AppTheme.primary),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -222,7 +222,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       Builder(builder: (c) {
                         final filtered = circles.where((item) => item.name.toLowerCase().contains(query)).toList();
                         return DropdownButtonFormField<int>(
-                          value: filtered.any((item) => item.id == selectedTargetId) ? selectedTargetId : null,
+                          initialValue: filtered.any((item) => item.id == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(labelText: 'اختر الحلقة (${filtered.length}) *'),
                           items: filtered
@@ -277,7 +277,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         }
 
                         return DropdownButtonFormField<int>(
-                          value: filtered.any((item) => (item['id'] as int? ?? 0) == selectedTargetId) ? selectedTargetId : null,
+                          initialValue: filtered.any((item) => (item['id'] as int? ?? 0) == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(
                             labelText: 'اختر المعلم المستهدف (${filtered.length}) *',
@@ -306,7 +306,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       Builder(builder: (c) {
                         final filtered = teachers.where((item) => item.fullName.toLowerCase().contains(query)).toList();
                         return DropdownButtonFormField<int>(
-                          value: filtered.any((item) => item.id == selectedTargetId) ? selectedTargetId : null,
+                          initialValue: filtered.any((item) => item.id == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(labelText: 'اختر المعلم (${filtered.length}) *'),
                           items: filtered
@@ -327,14 +327,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           filtered = filtered.where((s) => s.circleId == selectedCircleFilter).toList();
                         }
                         if (query.isNotEmpty) {
-                          filtered = filtered.where((item) => 
+                          filtered = filtered.where((item) =>
                               item.fullName.toLowerCase().contains(query) ||
                               (item.studentIdentityNumber != null && item.studentIdentityNumber!.contains(query)) ||
                               (item.circleName != null && item.circleName!.toLowerCase().contains(query))
                           ).toList();
                         }
                         return DropdownButtonFormField<int>(
-                          value: filtered.any((s) => s.id == selectedTargetId) ? selectedTargetId : null,
+                          initialValue: filtered.any((s) => s.id == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(labelText: 'اختر الطالب (${filtered.length}) *'),
                           items: filtered
@@ -370,7 +370,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         }
 
                         return DropdownButtonFormField<int>(
-                          value: filtered.any((p) => p['parentId'] == selectedTargetId) ? selectedTargetId : null,
+                          initialValue: filtered.any((p) => p['parentId'] == selectedTargetId) ? selectedTargetId : null,
                           isExpanded: true,
                           decoration: InputDecoration(labelText: 'اختر ولي الأمر (${filtered.length}) *'),
                           items: filtered
@@ -510,7 +510,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<int>(
-                      value: targetType,
+                      initialValue: targetType,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'فئة مستلم الرسالة النصية'),
                       items: [
@@ -544,7 +544,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
                     if (targetType == 2) ...[
                       DropdownButtonFormField<int>(
-                        value: circles.any((c) => c.id == selectedTargetId) ? selectedTargetId : null,
+                        initialValue: circles.any((c) => c.id == selectedTargetId) ? selectedTargetId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر الحلقة المستهدفة'),
                         items: circles.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
@@ -553,7 +553,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       const SizedBox(height: 10),
                     ] else if (targetType == 3) ...[
                       DropdownButtonFormField<int>(
-                        value: teachers.any((t) => t.id == selectedTargetId) ? selectedTargetId : null,
+                        initialValue: teachers.any((t) => t.id == selectedTargetId) ? selectedTargetId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر المعلم المستهدف'),
                         items: teachers.map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.fullName, overflow: TextOverflow.ellipsis))).toList(),
@@ -619,7 +619,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade300),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
                             ],
                           ),
                           child: filteredStudents.isEmpty
@@ -684,8 +684,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
                   if (targetType == 1) { // All Center
                     for (var s in students) {
-                      if (s.familyContact != null && s.familyContact!.isNotEmpty) targetNumbers.add(s.familyContact!);
-                      else if (s.studentMobile != null && s.studentMobile!.isNotEmpty) targetNumbers.add(s.studentMobile!);
+                      if (s.familyContact != null && s.familyContact!.isNotEmpty) {
+                        targetNumbers.add(s.familyContact!);
+                      } else if (s.studentMobile != null && s.studentMobile!.isNotEmpty) { targetNumbers.add(s.studentMobile!); }
                     }
                     for (var t in teachers) {
                       if (t.contact != null && t.contact!.isNotEmpty) targetNumbers.add(t.contact!);
@@ -697,8 +698,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   } else if (targetType == 2 && selectedTargetId != null) { // Specific Circle
                     final circleStudents = students.where((s) => s.circleId == selectedTargetId).toList();
                     for (var s in circleStudents) {
-                      if (s.familyContact != null && s.familyContact!.isNotEmpty) targetNumbers.add(s.familyContact!);
-                      else if (s.studentMobile != null && s.studentMobile!.isNotEmpty) targetNumbers.add(s.studentMobile!);
+                      if (s.familyContact != null && s.familyContact!.isNotEmpty) {
+                        targetNumbers.add(s.familyContact!);
+                      } else if (s.studentMobile != null && s.studentMobile!.isNotEmpty) { targetNumbers.add(s.studentMobile!); }
                     }
                   } else if (targetType == 3 && selectedTargetId != null) { // Specific Teacher
                     final t = teachers.firstWhere((item) => item.id == selectedTargetId, orElse: () => Teacher(id: 0, fullName: '', contact: '', address: '', isActive: true));
@@ -805,6 +807,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   if (ok) {
                     _loadAnnouncements();
                     if (!mounted) return;
+                    if (!mounted || !context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('تم مسح جميع الإعلانات والتعاميم بنجاح'), backgroundColor: Colors.green),
                     );

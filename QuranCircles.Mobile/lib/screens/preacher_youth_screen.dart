@@ -110,211 +110,300 @@ class _PreacherYouthScreenState extends State<PreacherYouthScreen> {
       talentTypes.insert(0, selectedType);
     }
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          contentPadding: const EdgeInsets.all(20),
-          title: Row(
-            children: [
-              Icon(isEdit ? Icons.edit_note : Icons.add_circle_outline, color: AppTheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                isEdit ? 'تعديل مشاركة موهبة' : 'تسجيل مشاركة موهبة جديدة',
-                style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
+        builder: (ctx, setDialogState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Student Selector
-                  Text('اختر الطالب المشارك *:', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<int>(
-                    value: selectedStudentId > 0 ? selectedStudentId : null,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                    hint: const Text('اختر الطالب...'),
-                    items: _allStudents.map((s) {
-                      return DropdownMenuItem<int>(
-                        value: s.id,
-                        child: Text('${s.fullName} (${s.circleName ?? "بدون حلقة"})', maxLines: 1, overflow: TextOverflow.ellipsis),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => selectedStudentId = val);
-                    },
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            top: 16,
+            left: 18,
+            right: 18,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Talent Type Selector
-                  Text('مسار الموهبة *:', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    value: selectedType,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                    items: talentTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => selectedType = val);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Title of Speech or Recitation
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'عنوان المشاركة / موضوع الخطبة / السورة *',
-                      prefixIcon: Icon(Icons.title),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Occasion & Date
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: occasionCtrl,
-                          decoration: const InputDecoration(labelText: 'المناسبة / المسجد', prefixIcon: Icon(Icons.place_outlined)),
-                        ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: dateCtrl,
-                          decoration: const InputDecoration(labelText: 'تاريخ الإلقاء (YYYY-MM-DD)', prefixIcon: Icon(Icons.calendar_today)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Supervisor Teacher
-                  Text('المشرف المتابع / المدرب:', style: AppTheme.cairoStyle(fontSize: 12)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<int?>(
-                    value: selectedTeacherId,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Icon(isEdit ? Icons.edit_note : Icons.record_voice_over, color: const Color(0xFFD97706), size: 22),
                     ),
-                    hint: const Text('اختر المشرف المدرب...'),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('— بدون مشرف محدد —')),
-                      ..._allTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName, maxLines: 1, overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (val) => setDialogState(() => selectedTeacherId = val),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Score & Prep Method
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: scoreCtrl,
-                          decoration: const InputDecoration(labelText: 'التقييم والدرجة', prefixIcon: Icon(Icons.star_outline)),
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isEdit ? 'تعديل مشاركة موهبة (الفتى الواعظ)' : 'تسجيل موهبة جديدة (الفتى الواعظ والأصوات الندية)',
+                        style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF1E293B)),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: prepCtrl,
-                          decoration: const InputDecoration(labelText: 'طريقة الإعداد والتدريب', prefixIcon: Icon(Icons.psychology_outlined)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Media URL / Audio link
-                  TextField(
-                    controller: mediaCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'رابط تسجيل صوتي أو مرئي (اختياري)',
-                      hintText: 'https://...',
-                      prefixIcon: Icon(Icons.link),
                     ),
-                  ),
-                  const SizedBox(height: 10),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-                  // Notes
-                  TextField(
-                    controller: notesCtrl,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'ملاحظات وتوصيات لجنة التحكيم', prefixIcon: Icon(Icons.note_alt_outlined)),
+                // 1. Student Selector
+                Text('اختر الطالب المشارك *:', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF475569))),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedStudentId > 0 ? selectedStudentId : null,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.person, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
-                ],
-              ),
+                  hint: const Text('اختر الطالب...'),
+                  items: _allStudents.map((s) {
+                    return DropdownMenuItem<int>(
+                      value: s.id,
+                      child: Text('${s.fullName} (${s.circleName ?? "بدون حلقة"})', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTheme.cairoStyle(fontSize: 13)),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedStudentId = val);
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                // 2. Talent Type Selector
+                Text('مسار الموهبة *:', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF475569))),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.stars, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  items: talentTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTheme.cairoStyle(fontSize: 13)))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedType = val);
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                // 3. Title
+                TextField(
+                  controller: titleCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'عنوان المشاركة / موضوع الخطبة / السورة *',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.title),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                // 4. Occasion
+                TextField(
+                  controller: occasionCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'المناسبة / المسجد / الفعالية',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.place_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                // 5. Date
+                TextField(
+                  controller: dateCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'تاريخ الإلقاء (YYYY-MM-DD)',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                // 6. Supervisor Teacher
+                Text('المشرف المتابع / الشيخ المدرب:', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF475569))),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<int?>(
+                  initialValue: selectedTeacherId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.person_pin, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  hint: const Text('اختر المشرف المدرب...'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('— بدون مشرف محدد —')),
+                    ..._allTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTheme.cairoStyle(fontSize: 13)))),
+                  ],
+                  onChanged: (val) => setDialogState(() => selectedTeacherId = val),
+                ),
+                const SizedBox(height: 14),
+
+                // 7. Prep Method
+                TextField(
+                  controller: prepCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'طريقة الإعداد والتدريب',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.psychology_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                // 8. Speech Content / Outline
+                TextField(
+                  controller: contentCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'عناصر ومحاور الخطبة أو الموعظة',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.notes),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                // 9. Media URL
+                TextField(
+                  controller: mediaCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'رابط تسجيل صوتي أو مرئي (فيديو أو صوت)',
+                    hintText: 'https://...',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.video_library_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                // 10. Score & Notes
+                TextField(
+                  controller: scoreCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'التقييم والدرجة المستحقة',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.star_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'ملاحظات وتوجيهات لجنة التحكيم',
+                    labelStyle: AppTheme.cairoStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.comment_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        child: Text('إلغاء', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.check_circle_outline, size: 20),
+                        label: Text(isEdit ? 'حفظ التعديلات' : 'تسجيل وتوثيق المشاركة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD97706),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          if (selectedStudentId <= 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('يرجى اختيار الطالب المشارك')),
+                            );
+                            return;
+                          }
+                          if (titleCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('يرجى إدخال عنوان المشاركة أو الخطبة')),
+                            );
+                            return;
+                          }
+
+                          final payload = {
+                            'studentId': selectedStudentId,
+                            'talentType': selectedType,
+                            'title': titleCtrl.text.trim(),
+                            'preparationMethod': prepCtrl.text.trim(),
+                            'speechContent': contentCtrl.text.trim(),
+                            'occasion': occasionCtrl.text.trim(),
+                            'eventDate': dateCtrl.text.trim(),
+                            'supervisorTeacherId': selectedTeacherId,
+                            'evaluationScore': scoreCtrl.text.trim(),
+                            'performanceNotes': notesCtrl.text.trim(),
+                            'mediaUrl': mediaCtrl.text.trim().isNotEmpty ? mediaCtrl.text.trim() : null,
+                          };
+
+                          final ok = await ApiService.saveTalent(payload, id: record?.id);
+                          if (!dialogCtx.mounted) return;
+                          Navigator.pop(dialogCtx);
+                          if (!mounted) return;
+
+                          if (ok) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(isEdit ? 'تم تحديث المشاركة بنجاح' : 'تم تسجيل مشاركة الطالب بنجاح'), backgroundColor: Colors.green),
+                            );
+                            _loadData();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('حدث خطأ أثناء حفظ المشاركة'), backgroundColor: Colors.red),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إلغاء')),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.check, size: 18),
-              label: Text(isEdit ? 'حفظ التعديلات' : 'تسجيل المشاركة'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
-              onPressed: () async {
-                if (selectedStudentId <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('يرجى اختيار الطالب المشارك')),
-                  );
-                  return;
-                }
-                if (titleCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('يرجى إدخال عنوان المشاركة أو الخطبة')),
-                  );
-                  return;
-                }
-
-                final payload = {
-                  'studentId': selectedStudentId,
-                  'talentType': selectedType,
-                  'title': titleCtrl.text.trim(),
-                  'preparationMethod': prepCtrl.text.trim(),
-                  'speechContent': contentCtrl.text.trim(),
-                  'occasion': occasionCtrl.text.trim(),
-                  'eventDate': dateCtrl.text.trim(),
-                  'supervisorTeacherId': selectedTeacherId,
-                  'evaluationScore': scoreCtrl.text.trim(),
-                  'performanceNotes': notesCtrl.text.trim(),
-                  'mediaUrl': mediaCtrl.text.trim().isNotEmpty ? mediaCtrl.text.trim() : null,
-                };
-
-                final ok = await ApiService.saveTalent(payload, id: record?.id);
-                if (!dialogCtx.mounted) return;
-                Navigator.pop(dialogCtx);
-                if (!mounted) return;
-
-                if (ok) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(isEdit ? 'تم تحديث المشاركة بنجاح' : 'تم تسجيل مشاركة الطالب بنجاح'), backgroundColor: Colors.green),
-                  );
-                  _loadData();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('حدث خطأ أثناء حفظ المشاركة'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-            ),
-          ],
         ),
       ),
     );

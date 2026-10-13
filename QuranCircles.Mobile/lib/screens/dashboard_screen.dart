@@ -73,7 +73,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedPreset = 'month';
   DateTime? _fromDate;
   DateTime? _toDate;
-  Map<String, dynamic> _execData = {};
   Map<String, dynamic> _kpi = {};
   Map<String, dynamic> _pulse = {};
   Map<String, dynamic> _quality = {};
@@ -83,12 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _execTotalStudents = 0;
   int _execTotalTeachers = 0;
   int _execTotalCircles = 0;
-  int _execTotalSessions = 0;
-  int _execTotalVerses = 0;
-  int _execAbsenceCount = 0;
-  double _execAttendanceRate = 98.5;
-  int _execOrphansCount = 24;
-  int _execCoursesCount = 5;
+  double _execAttendanceRate = 0;
   Map<String, int> _assessmentBreakdown = {};
   List<Circle> _topCircles = [];
 
@@ -131,7 +125,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final pIdNum = (p['parentIdentityNumber'] ?? '').toString().trim();
               final userPId = (widget.currentUser.parentId ?? widget.currentUser.id).toString();
 
-              if ((pIdNum.isNotEmpty && pIdNum == widget.currentUser.username) || 
+              if ((pIdNum.isNotEmpty && pIdNum == widget.currentUser.username) ||
                   (p['parentId'] != null && p['parentId'].toString() == userPId)) {
                 final childrenArr = p['children'] as List? ?? [];
                 _myChildren = childrenArr.map((ch) => Student(
@@ -178,7 +172,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           exec = await ApiService.getExecutiveDashboard(fromDate: fromStr, toDate: toStr);
         } catch (_) {}
 
-        _execData = exec;
         _kpi = (exec['kpi'] as Map<String, dynamic>?) ?? {};
         _pulse = (exec['dailyOperations'] as Map<String, dynamic>?) ?? {};
         _quality = (exec['quality'] as Map<String, dynamic>?) ?? {};
@@ -189,31 +182,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _execTotalStudents = (_kpi['totalStudents'] as int?) ?? (exec['totalStudents'] as int?) ?? students.length;
         _execTotalTeachers = (_kpi['totalTeachers'] as int?) ?? (exec['totalTeachers'] as int?) ?? teachers.length;
         _execTotalCircles = (_kpi['totalCircles'] as int?) ?? (exec['totalCircles'] as int?) ?? circles.length;
-        _execTotalSessions = (exec['totalSessions'] as int?) ?? 0;
-        _execTotalVerses = (exec['totalVersesRecited'] as int?) ?? 0;
-        _execAbsenceCount = (exec['studentAbsenceCount'] as int?) ?? 0;
 
-        _execAttendanceRate = double.tryParse((_pulse['studentAttendanceRateToday'] ?? exec['todayAttendanceRate'] ?? 98.5).toString()) ?? 98.5;
+        _execAttendanceRate = double.tryParse((_pulse['studentAttendanceRateToday'] ?? exec['todayAttendanceRate'] ?? 0).toString()) ?? 0;
 
-        _execOrphansCount = students.where((s) {
-          final f = s.fatherStatus ?? '';
-          final m = s.motherStatus ?? '';
-          return f.contains('متوفي') || f.contains('شهيد') || m.contains('متوفية') || m.contains('شهيدة');
-        }).length;
-        if (_execOrphansCount == 0 && students.isNotEmpty) _execOrphansCount = 24;
 
-        _execCoursesCount = (_programs['certificatesTotal'] as int?) ?? 5;
 
         if (exec['assessmentBreakdown'] is Map) {
           final raw = exec['assessmentBreakdown'] as Map;
           _assessmentBreakdown = raw.map((k, v) => MapEntry(k.toString(), v is int ? v : int.tryParse(v.toString()) ?? 0));
         } else {
-          _assessmentBreakdown = {
-            'ممتاز': (_execTotalSessions * 0.6).round(),
-            'جيد جداً': (_execTotalSessions * 0.25).round(),
-            'جيد': (_execTotalSessions * 0.1).round(),
-            'مقبول': (_execTotalSessions * 0.05).round(),
-          };
+          _assessmentBreakdown = {};
         }
 
         _topCircles = List.from(circles);
@@ -1369,7 +1347,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildModule1KpiCards() {
     final activeStudents = _kpi['activeStudents'] ?? _execTotalStudents;
     final suspendedStudents = _kpi['suspendedStudents'] ?? 0;
-    final capacityRate = _kpi['circleCapacityUtilizationRate'] ?? 85.0;
+    final capacityRate = _kpi['circleCapacityUtilizationRate'] ?? 0.0;
     final linkedParents = _kpi['linkedParents'] ?? 0;
     final unlinkedParents = _kpi['unlinkedParents'] ?? 0;
     final parentLinkRate = _kpi['parentLinkRate'] ?? 0.0;
@@ -1438,7 +1416,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final absentToday = _pulse['unexcusedAbsentToday'] ?? 0;
     final excusedToday = _pulse['excusedAbsentToday'] ?? 0;
     final lateToday = _pulse['lateToday'] ?? 0;
-    final teacherRate = _pulse['teacherAttendanceRateToday'] ?? 100.0;
+    final teacherRate = _pulse['teacherAttendanceRateToday'] ?? 0.0;
     final startedCircles = _pulse['activeCirclesToday'] ?? _execTotalCircles;
     final delayedCircles = _pulse['pendingOrDelayedCirclesToday'] ?? 0;
     final sessionsToday = _pulse['sessionsToday'] ?? 0;
@@ -1704,15 +1682,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildModule5QuranicFlow() {
-    final dailyPages = _quranFlow['dailyAveragePages'] ?? 1.5;
-    final weeklyPages = _quranFlow['weeklyAveragePages'] ?? 7.5;
-    final reviewRatio = _quranFlow['reviewRatio'] ?? 70;
-    final newRatio = _quranFlow['newMemorizationRatio'] ?? 30;
+    final dailyPages = _quranFlow['dailyAveragePages'] ?? 0;
+    final weeklyPages = _quranFlow['weeklyAveragePages'] ?? 0;
+    final reviewRatio = _quranFlow['reviewRatio'] ?? 0;
+    final newRatio = _quranFlow['newMemorizationRatio'] ?? 0;
     final ajzaaDist = (_quranFlow['ajzaaDistribution'] as Map?) ?? {
-      "من 1 إلى 5 أجزاء": 45,
-      "من 6 إلى 10 أجزاء": 40,
-      "من 11 إلى 20 جزءاً": 25,
-      "فوق 20 جزءاً": 15,
+      "من 1 إلى 5 أجزاء": 0,
+      "من 6 إلى 10 أجزاء": 0,
+      "من 11 إلى 20 جزءاً": 0,
+      "فوق 20 جزءاً": 0,
     };
 
     return Column(
@@ -2046,7 +2024,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final c = entry.value;
               final name = c['name'] ?? c['circleName'] ?? 'حلقة';
               final teacher = c['teacherName'] ?? 'المحفظ';
-              final rate = c['attendanceRate'] ?? c['averageGrade'] ?? 95;
+              final rate = c['attendanceRate'] ?? c['averageGrade'] ?? 0;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),

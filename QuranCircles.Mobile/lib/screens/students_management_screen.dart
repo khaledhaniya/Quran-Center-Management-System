@@ -134,7 +134,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
               Text('الحلقة الحالية: ${s.circleName ?? "غير مسند لحلقة"}', style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted)),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: newCircleId,
+                initialValue: newCircleId,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'اختر الحلقة الجديدة',
@@ -216,7 +216,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
     final notesController = TextEditingController(text: student?.notes ?? '');
 
     final usernameController = TextEditingController(text: student?.username ?? student?.studentIdentityNumber ?? '');
-    final passwordController = TextEditingController(text: student == null ? '123456' : '');
+    final passwordController = TextEditingController();
     int? selectedCircleId = student?.circleId;
     int currentTab = 0;
 
@@ -348,7 +348,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               ),
                               const SizedBox(height: 12),
                               DropdownButtonFormField<int>(
-                                value: selectedCircleId,
+                                initialValue: selectedCircleId,
                                 isExpanded: true,
                                 decoration: _inputDecoration('الحلقة القرآنية المسندة', Icons.mosque_outlined),
                                 items: [
@@ -437,7 +437,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
-                                      value: ['سليم', 'شهيد', 'متوفي', 'أسير'].contains(fatherStatus) ? fatherStatus : 'سليم',
+                                      initialValue: ['سليم', 'شهيد', 'متوفي', 'أسير'].contains(fatherStatus) ? fatherStatus : 'سليم',
                                       isExpanded: true,
                                       decoration: _inputDecoration('حالة الأب', Icons.person_pin_outlined),
                                       items: const [
@@ -454,7 +454,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
-                                      value: ['سليم', 'شهيدة', 'متوفاة'].contains(motherStatus) ? motherStatus : 'سليم',
+                                      initialValue: ['سليم', 'شهيدة', 'متوفاة'].contains(motherStatus) ? motherStatus : 'سليم',
                                       isExpanded: true,
                                       decoration: _inputDecoration('حالة الأم', Icons.female),
                                       items: const [
@@ -531,7 +531,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               TextField(
                                 controller: passwordController,
                                 decoration: _inputDecoration(
-                                  student == null ? 'كلمة المرور للطالب * (الافتراضي 123456)' : 'كلمة مرور جديدة (اتركها فارغة لعدم التغيير)',
+                                  student == null ? 'كلمة مرور جديدة للطالب' : 'كلمة مرور جديدة (اتركها فارغة لعدم التغيير)',
                                   Icons.lock_outline,
                                 ),
                               ),
@@ -932,7 +932,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<int?>(
-                                      value: _selectedCircleFilter,
+                                      initialValue: _selectedCircleFilter,
                                       isExpanded: true,
                                       decoration: InputDecoration(
                                         prefixIcon: const Icon(Icons.filter_list, size: 18, color: Color(0xFF0D5C3A)),

@@ -348,7 +348,7 @@ class _TeacherComprehensiveReportScreenState extends State<TeacherComprehensiveR
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: _selectedPeriod,
+                                    initialValue: _selectedPeriod,
                                     decoration: InputDecoration(
                                       labelText: 'النطاق الزمني:',
                                       labelStyle: AppTheme.cairoStyle(fontSize: 11),

@@ -16,7 +16,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
   List<User> _users = [];
   List<User> _filteredUsers = [];
   List<AuditLog> _auditLogs = [];
-  
+
   final _searchController = TextEditingController();
   bool _isLoadingUsers = true;
   bool _isLoadingLogs = true;
@@ -193,7 +193,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
   void _showEditUserDialog(User user) {
     final nameCtrl = TextEditingController(text: user.fullName);
     final userCtrl = TextEditingController(text: user.username);
-    final passCtrl = TextEditingController(text: user.plainPassword ?? '');
+    final passCtrl = TextEditingController();
     String selectedRole = user.role;
 
     showDialog(
@@ -205,7 +205,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.edit_note, color: AppTheme.primary, size: 24),
               ),
               const SizedBox(width: 10),
@@ -227,7 +227,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
+                  initialValue: selectedRole,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الدور والصلاحيات', prefixIcon: Icon(Icons.shield_outlined)),
                   items: const [
@@ -279,13 +279,16 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                   'teacherId': user.teacherId,
                 });
                 if (mounted) {
+                  if (!mounted || !ctx.mounted) return;
                   Navigator.pop(ctx);
                   if (success) {
+                    if (!mounted || !context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('تم تحديث بيانات الحساب بنجاح'), backgroundColor: Colors.green),
                     );
                     _loadUsers();
                   } else {
+                    if (!mounted || !context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('فشل تحديث الحساب'), backgroundColor: Colors.red),
                     );
@@ -302,7 +305,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
   void _showCreateUserDialog() {
     final nameCtrl = TextEditingController();
     final userCtrl = TextEditingController();
-    final passCtrl = TextEditingController(text: '123456');
+    final passCtrl = TextEditingController();
     String selectedRole = 'Student';
 
     showDialog(
@@ -314,7 +317,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.person_add_alt_1, color: AppTheme.primary, size: 24),
               ),
               const SizedBox(width: 10),
@@ -336,7 +339,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
+                  initialValue: selectedRole,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الدور والصلاحيات', prefixIcon: Icon(Icons.shield_outlined)),
                   items: const [
@@ -381,13 +384,16 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                   password: passCtrl.text.trim(),
                 );
                 if (mounted) {
+                  if (!mounted || !ctx.mounted) return;
                   Navigator.pop(ctx);
                   if (success) {
+                    if (!mounted || !context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('تم إنشاء الحساب بنجاح'), backgroundColor: Colors.green),
                     );
                     _loadUsers();
                   } else {
+                    if (!mounted || !context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('فشل إنشاء الحساب'), backgroundColor: Colors.red),
                     );
@@ -490,7 +496,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
       child: FilterChip(
         label: Text(label),
         selected: isSelected,
-        selectedColor: AppTheme.primary.withOpacity(0.18),
+        selectedColor: AppTheme.primary.withValues(alpha: 0.18),
         checkmarkColor: AppTheme.primary,
         backgroundColor: Colors.grey.shade100,
         shape: RoundedRectangleBorder(
@@ -523,7 +529,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
         avatar: Icon(icon, size: 14, color: isSelected ? AppTheme.primary : Colors.grey.shade600),
         label: Text(label),
         selected: isSelected,
-        selectedColor: AppTheme.primary.withOpacity(0.18),
+        selectedColor: AppTheme.primary.withValues(alpha: 0.18),
         checkmarkColor: AppTheme.primary,
         backgroundColor: Colors.grey.shade100,
         shape: RoundedRectangleBorder(
@@ -561,7 +567,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D3B26).withOpacity(0.2),
+            color: const Color(0xFF0D3B26).withValues(alpha: 0.2),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -576,9 +582,9 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.accent.withOpacity(0.2),
+                  color: AppTheme.accent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.accent.withOpacity(0.6)),
+                  border: Border.all(color: AppTheme.accent.withValues(alpha: 0.6)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -624,7 +630,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
           Text(
             'لوحة تحكم خاصة بالمطور للاطلاع على كلمات المرور، تعديل وتوليد الحسابات، وإدارة الصلاحيات الشاملة لكافة الفئات.',
             style: AppTheme.cairoStyle(
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withValues(alpha: 0.85),
               fontSize: 11.5,
               height: 1.4,
             ),
@@ -633,7 +639,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.28),
+              color: Colors.black.withValues(alpha: 0.28),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _isMaintenanceMode ? Colors.amber : Colors.white24),
             ),
@@ -663,7 +669,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))
                     : Switch(
                         value: _isMaintenanceMode,
-                        activeColor: Colors.amber,
+                        activeThumbColor: Colors.amber,
                         onChanged: _toggleMaintenanceMode,
                       ),
               ],
@@ -731,7 +737,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -743,7 +749,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -933,7 +939,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                       delegate: SliverChildBuilderDelegate(
                         (ctx, index) {
                           final u = _filteredUsers[index];
-                          final pw = u.plainPassword ?? '123456';
+                          const pw = 'محفوظة بأمان';
                           final roleColor = _getRoleColor(u.role);
                           final roleTitle = _getRoleDisplayName(u.role);
 
@@ -948,7 +954,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
+                                      color: Colors.black.withValues(alpha: 0.04),
                                       blurRadius: 8,
                                       offset: const Offset(0, 3),
                                     ),
@@ -965,7 +971,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                         children: [
                                           CircleAvatar(
                                             radius: 22,
-                                            backgroundColor: roleColor.withOpacity(0.12),
+                                            backgroundColor: roleColor.withValues(alpha: 0.12),
                                             child: Text(
                                               u.fullName.isNotEmpty ? u.fullName.trim()[0] : 'U',
                                               style: AppTheme.cairoStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 16),
@@ -1030,7 +1036,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                                       decoration: BoxDecoration(
-                                                        color: roleColor.withOpacity(0.1),
+                                                        color: roleColor.withValues(alpha: 0.1),
                                                         borderRadius: BorderRadius.circular(6),
                                                       ),
                                                       child: Text(
@@ -1074,10 +1080,10 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                                 ),
                                                 IconButton(
                                                   icon: const Icon(Icons.copy, size: 15, color: Colors.grey),
-                                                  tooltip: 'نسخ كلمة المرور',
+                                                  tooltip: 'تعيين كلمة مرور جديدة من تعديل الحساب',
                                                   constraints: const BoxConstraints(),
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  onPressed: () => _copyPassword(pw, u.fullName),
+                                                  onPressed: null,
                                                 ),
                                               ],
                                             ),
@@ -1128,7 +1134,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                             label: Text('تعديل', style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.primary)),
                                             style: OutlinedButton.styleFrom(
                                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                              side: BorderSide(color: AppTheme.primary.withOpacity(0.3)),
+                                              side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                             ),
                                             onPressed: () => _showEditUserDialog(u),
@@ -1137,13 +1143,13 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
 
                                           // Delete Button
                                           OutlinedButton(
-                                            child: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
                                             style: OutlinedButton.styleFrom(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                              side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                                              side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                             ),
                                             onPressed: () => _confirmDeleteUser(u),
+                                            child: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
                                           ),
                                         ],
                                       ),
@@ -1181,7 +1187,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                           margin: const EdgeInsets.only(bottom: 10),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: AppTheme.accentLight.withOpacity(0.2),
+                              backgroundColor: AppTheme.accentLight.withValues(alpha: 0.2),
                               child: const Icon(Icons.shield_outlined, color: AppTheme.primary),
                             ),
                             title: Text(log.action, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),

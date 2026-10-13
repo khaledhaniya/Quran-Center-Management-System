@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class FinancialManagementScreen extends StatefulWidget {
-  const FinancialManagementScreen({Key? key}) : super(key: key);
+  const FinancialManagementScreen({super.key});
 
   @override
   State<FinancialManagementScreen> createState() => _FinancialManagementScreenState();
@@ -36,10 +37,12 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
       );
 
       final results = await Future.wait([summaryFuture, transFuture]);
+      if (!mounted) return;
       _summary = results[0] as Map<String, dynamic>;
       _transactions = results[1] as List<dynamic>;
       _applyFilter();
     } catch (e) {
+      if (!mounted || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('خطأ أثناء تحميل البيانات المالية: $e')),
       );
@@ -139,6 +142,25 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
     );
   }
 
+  Future<void> _exportToExcel() async {
+    try {
+      final baseUrl = ApiService.baseUrl;
+      final uri = Uri.parse('$baseUrl/finance/export?format=xls');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('جاري بدء تنزيل كشف الصندوق بصيغة Excel 📥'), backgroundColor: Color(0xFF0D5C3A)),
+          );
+        }
+      } else {
+        _showFinancialExportDialog();
+      }
+    } catch (_) {
+      _showFinancialExportDialog();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -154,6 +176,11 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.file_download_outlined),
+              tooltip: 'تصدير إكسل (.xls)',
+              onPressed: _exportToExcel,
+            ),
             IconButton(
               icon: const Icon(Icons.print_outlined),
               tooltip: 'تصدير وطباعة كشف الصندوق',
@@ -193,10 +220,10 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        Expanded(child: Text(
                           'كشف الحركات المالية (${_filteredTransactions.length})',
                           style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF1E293B)),
-                        ),
+                        )),
                       ],
                     ),
 
@@ -213,6 +240,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (ctx, i) => _buildTransactionCard(_filteredTransactions[i]),
                       ),
+                    const SizedBox(height: 90),
                   ],
                 ),
               ),
@@ -227,6 +255,21 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
     );
   }
 
+  Widget _adaptiveRow({required List<Widget> children}) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final largeText = MediaQuery.textScalerOf(context).scale(14) > 18;
+      if (constraints.maxWidth < 520 || (largeText && constraints.maxWidth < 800)) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final child in children)
+            if (child is Expanded) child.child
+            else if (child is SizedBox) const SizedBox(height: 10)
+            else child,
+        ]);
+      }
+      return Row(children: children);
+    });
+  }
+
   Widget _buildKpiSummaryGrid() {
     final income = (_summary['totalIncome'] ?? 0).toDouble();
     final expense = (_summary['totalExpense'] ?? 0).toDouble();
@@ -236,7 +279,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
 
     return Column(
       children: [
-        Row(
+        _adaptiveRow(
           children: [
             Expanded(
               child: _buildKpiCard(
@@ -262,7 +305,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
+        _adaptiveRow(
           children: [
             Expanded(
               child: _buildKpiCard(
@@ -283,7 +326,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
                   ],
                 ),
                 child: Column(
@@ -318,7 +361,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -346,7 +389,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Row(
+    return _adaptiveRow(
       children: [
         Expanded(
           child: ElevatedButton.icon(
@@ -408,7 +451,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
+          _adaptiveRow(
             children: [
               Expanded(
                 child: Container(
@@ -449,7 +492,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
                       isExpanded: true,
                       style: AppTheme.cairoStyle(fontSize: 12, color: const Color(0xFF1E293B)),
                       items: const [
-                        DropdownMenuItem(value: null, child: Text('طريقة الدفع: الكل')),
+                        DropdownMenuItem(value: null, child: Text('طريقة الدفع: الكل', maxLines: 1, overflow: TextOverflow.ellipsis)),
                         DropdownMenuItem(value: 1, child: Text('💵 كاش (نقداً)')),
                         DropdownMenuItem(value: 2, child: Text('📱 تطبيق إلكتروني')),
                         DropdownMenuItem(value: 3, child: Text('🏦 تحويل بنكي')),
@@ -521,7 +564,7 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -617,11 +660,13 @@ class _FinancialManagementScreenState extends State<FinancialManagementScreen> {
     if (confirm == true) {
       final success = await ApiService.deleteFinancialTransaction(id);
       if (success) {
+        if (!mounted || !context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تم حذف السند المالي بنجاح')),
         );
         _loadData();
       } else {
+        if (!mounted || !context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('فشل حذف السند المالي')),
         );
@@ -650,10 +695,9 @@ class _AddTransactionBottomSheet extends StatefulWidget {
   final VoidCallback onSuccess;
 
   const _AddTransactionBottomSheet({
-    Key? key,
     required this.isIncome,
     required this.onSuccess,
-  }) : super(key: key);
+  });
 
   @override
   State<_AddTransactionBottomSheet> createState() => _AddTransactionBottomSheetState();
@@ -715,14 +759,17 @@ class _AddTransactionBottomSheetState extends State<_AddTransactionBottomSheet> 
     };
 
     final success = await ApiService.createFinancialTransaction(payload);
+    if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     if (success) {
+      if (!mounted || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم تسجيل السند المالي في الصندوق بنجاح 💰')),
       );
       widget.onSuccess();
     } else {
+      if (!mounted || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('حدث خطأ أثناء تسجيل السند')),
       );
@@ -838,7 +885,7 @@ class _AddTransactionBottomSheetState extends State<_AddTransactionBottomSheet> 
 
               // Payment Method
               DropdownButtonFormField<int>(
-                value: _paymentMethod,
+                initialValue: _paymentMethod,
                 decoration: InputDecoration(
                   labelText: 'طريقة الدفع *',
                   labelStyle: AppTheme.cairoStyle(fontSize: 12),

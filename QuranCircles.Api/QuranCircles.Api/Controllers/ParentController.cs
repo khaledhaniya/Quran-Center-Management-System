@@ -81,21 +81,21 @@ public class ParentController : ControllerBase
         // 3. Fetch courses for Course teachers
         var enrollments = await _db.CourseEnrollments
             .Include(e => e.Course)
-                .ThenInclude(co => co.Teacher)
+                .ThenInclude(co => co!.Teacher)
             .Include(e => e.Student)
             .Where(e => childIds.Contains(e.StudentId) && e.Course != null && e.Course.TeacherId.HasValue && e.Course.Teacher != null)
             .ToListAsync();
 
         // Aggregate by Teacher Id
         var teacherDict = new Dictionary<int, (
-            int Id, 
-            string FullName, 
-            string? Phone, 
-            bool IsQuran, 
-            bool IsCourse, 
-            HashSet<string> Children, 
-            HashSet<string> Circles, 
-            HashSet<string> Courses, 
+            int Id,
+            string FullName,
+            string? Phone,
+            bool IsQuran,
+            bool IsCourse,
+            HashSet<string> Children,
+            HashSet<string> Circles,
+            HashSet<string> Courses,
             List<string> Details
         )>();
 
@@ -280,11 +280,11 @@ public class ParentController : ControllerBase
 
             var rawName = (parent.FullName ?? "").Trim();
             var isGeneric = string.IsNullOrWhiteSpace(rawName) || rawName == "ولي أمر" || rawName.StartsWith("ولي أمر (");
-            
+
             var resolvedParentName = !isGeneric
                 ? rawName
-                : (linkedChildren.Any() 
-                    ? $"ولي أمر الطالب ({string.Join("، ", linkedChildren.Select(c => c.FullName))})" 
+                : (linkedChildren.Any()
+                    ? $"ولي أمر الطالب ({string.Join("، ", linkedChildren.Select(c => c.FullName))})"
                     : (!string.IsNullOrWhiteSpace(rawName) ? rawName : $"ولي أمر ({parent.Username})"));
 
             result.Add(new
@@ -365,6 +365,56 @@ public class ParentController : ControllerBase
                     isTeacher = isStaffTeacher,
                     teacherNotice = isStaffTeacher ? "من ضمن كادر المعلمين للمركز" : "",
                     teacherRole = teacherObj?.TaskRole ?? "معلم بالمركز"
+                });
+            }
+        }
+
+        // 3. Process any teacher directly from Teachers table who has children
+        var processedTeacherIds = new HashSet<int>(teacherUsers.Where(u => u.TeacherId.HasValue).Select(u => u.TeacherId!.Value));
+        foreach (var tch in activeTeachers)
+        {
+            if (processedTeacherIds.Contains(tch.Id)) continue;
+
+            var idMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(tch.IdentityNumber)) idMatches.Add(tch.IdentityNumber.Trim());
+
+            var contactMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(tch.Contact)) contactMatches.Add(tch.Contact.Trim());
+            if (!string.IsNullOrWhiteSpace(tch.WhatsappNumber)) contactMatches.Add(tch.WhatsappNumber.Trim());
+
+            var linkedChildren = allStudents
+                .Where(s => (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && idMatches.Contains(s.ParentIdentityNumber.Trim()))
+                         || (!string.IsNullOrWhiteSpace(s.FamilyContact) && contactMatches.Contains(s.FamilyContact.Trim())))
+                .Select(s => new
+                {
+                    s.Id,
+                    s.FullName,
+                    CircleId = s.CircleId,
+                    CircleName = s.Circle?.Name ?? "غير مسند حلقة",
+                    DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
+                    s.FamilyContact,
+                    s.StudentIdentityNumber,
+                    s.ParentIdentityNumber,
+                    s.FatherStatus,
+                    s.MotherStatus,
+                    s.Notes
+                })
+                .ToList();
+
+            if (linkedChildren.Count > 0)
+            {
+                result.Add(new
+                {
+                    parentId = 90000 + tch.Id,
+                    parentUserId = 90000 + tch.Id,
+                    parentName = tch.FullName,
+                    username = tch.IdentityNumber ?? tch.Contact ?? $"teacher_{tch.Id}",
+                    parentIdentityNumber = tch.IdentityNumber ?? "غير مسجل",
+                    childrenCount = linkedChildren.Count,
+                    children = linkedChildren,
+                    isTeacher = tch.IsActive,
+                    teacherNotice = tch.IsActive ? "من ضمن كادر المعلمين للمركز" : "",
+                    teacherRole = tch.TaskRole ?? "معلم بالمركز"
                 });
             }
         }

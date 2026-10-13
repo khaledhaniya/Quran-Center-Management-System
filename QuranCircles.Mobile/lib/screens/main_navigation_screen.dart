@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
-import '../services/notification_service.dart';
 import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import 'announcements_screen.dart';
 import 'certificates_screen.dart';
-import 'circle_attendance_screen.dart';
 import 'circles_management_screen.dart';
 import 'course_attendance_screen.dart';
 import 'courses_management_screen.dart';
@@ -137,13 +135,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (widget.currentUser.isCourseTeacher) {
         screens.add(CourseAttendanceScreen(currentUser: widget.currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.school), label: 'تحضير المساق'));
+
+        screens.add(const CoursesManagementScreen());
+        items.add(const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الدورات'));
       }
 
-      screens.add(const CoursesManagementScreen());
-      items.add(const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الدورات'));
-
-      screens.add(ExamsScreen(currentUser: widget.currentUser));
-      items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الترشيحات'));
+      if (widget.currentUser.isExamSupervisor) {
+        screens.add(ExamsScreen(currentUser: widget.currentUser));
+        items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الترشيحات'));
+      }
     } else if (isSupervisor) {
       screens.add(ExamsScreen(currentUser: widget.currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الاختبارات'));
@@ -570,29 +570,33 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   },
                 ),
               ],
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: Text('البرامج والمسارات المشتركة', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.menu_book, color: AppTheme.primary),
-                title: Text('الدورات والمسارات التدريبية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('استعراض المسارات وسجل إنجازات الطلاب', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CoursesManagementScreen()));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.assignment, color: AppTheme.primary),
-                title: Text('إدارة الاختبارات والترشيحات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('ترشيح الطلاب لاختبارات القرآن والأجزاء والتجويد', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
-                },
-              ),
-              const Divider(),
+              if (widget.currentUser.isCourseTeacher || widget.currentUser.isExamSupervisor) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Text('البرامج والمسارات المكلّف بها', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                if (widget.currentUser.isCourseTeacher)
+                  ListTile(
+                    leading: const Icon(Icons.menu_book, color: AppTheme.primary),
+                    title: Text('الدورات والمسارات التدريبية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('استعراض المسارات وسجل إنجازات الطلاب', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CoursesManagementScreen()));
+                    },
+                  ),
+                if (widget.currentUser.isExamSupervisor)
+                  ListTile(
+                    leading: const Icon(Icons.assignment, color: AppTheme.primary),
+                    title: Text('إدارة الاختبارات والترشيحات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('ترشيح الطلاب لاختبارات القرآن والأجزاء والتجويد', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
+                    },
+                  ),
+                const Divider(),
+              ],
               if (widget.currentUser.isFinancialSupervisor)
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)),
@@ -847,9 +851,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         );
                         return;
                       }
-                      if (newPw.length < 4) {
+                      if (newPw.length < 8) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('يجب ألا تقل كلمة المرور عن 4 أحرف', style: AppTheme.cairoStyle())),
+                          SnackBar(content: Text('يجب ألا تقل كلمة المرور عن 8 أحرف', style: AppTheme.cairoStyle())),
                         );
                         return;
                       }
@@ -868,6 +872,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         );
                         if (context.mounted) {
                           Navigator.pop(dialogCtx);
+                          if (ok) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(

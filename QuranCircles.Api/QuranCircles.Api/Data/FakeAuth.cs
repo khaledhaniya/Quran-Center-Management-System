@@ -25,50 +25,26 @@ public static class FakeAuth
         return authHeader.Trim();
     }
 
-    public static UserRole? GetRole(HttpContext ctx)
+    private static User? VerifiedUser(HttpContext ctx)
     {
+        const string cacheKey = "QuranCenter.VerifiedUser";
+        if (ctx.Items.TryGetValue(cacheKey, out var cached)) return cached as User;
+        ctx.Items[cacheKey] = null;
         var token = GetToken(ctx);
-        if (token != null)
-        {
-            var tokenSvc = ctx.RequestServices.GetRequiredService<TokenService>();
-            if (tokenSvc.ValidateToken(token, out _, out var role, out _))
-            {
-                return role;
-            }
-        }
-
-        return null;
+        if (token == null) return null;
+        var tokens = ctx.RequestServices.GetRequiredService<TokenService>();
+        if (!tokens.ValidateToken(token, out var id, out _, out _)) return null;
+        var db = ctx.RequestServices.GetRequiredService<AppDbContext>();
+        var user = db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
+        if (user == null || !tokens.ValidateTokenForUser(token, user)) return null;
+        ctx.Items[cacheKey] = user;
+        return user;
     }
 
-    public static int? GetUserId(HttpContext ctx)
-    {
-        var token = GetToken(ctx);
-        if (token != null)
-        {
-            var tokenSvc = ctx.RequestServices.GetRequiredService<TokenService>();
-            if (tokenSvc.ValidateToken(token, out var userId, out _, out _))
-            {
-                return userId;
-            }
-        }
+    public static UserRole? GetRole(HttpContext ctx) => VerifiedUser(ctx)?.Role;
+    public static int? GetUserId(HttpContext ctx) => VerifiedUser(ctx)?.Id;
+    public static string? GetUsername(HttpContext ctx) => VerifiedUser(ctx)?.Username;
 
-        return null;
-    }
-
-    public static string? GetUsername(HttpContext ctx)
-    {
-        var token = GetToken(ctx);
-        if (token != null)
-        {
-            var tokenSvc = ctx.RequestServices.GetRequiredService<TokenService>();
-            if (tokenSvc.ValidateToken(token, out _, out _, out var username))
-            {
-                return username;
-            }
-        }
-
-        return null;
-    }
 }
 
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
@@ -93,7 +69,7 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
             return;
         }
 
-        bool isAllowed = _allowed.Contains(role.Value) || 
+        bool isAllowed = _allowed.Contains(role.Value) ||
                           (role.Value == UserRole.Developer && _allowed.Contains(UserRole.Admin));
 
         // Dynamic Role Resolution: Check dual role permissions (Teacher who is also Parent, Parent who is also Teacher)
@@ -110,11 +86,7 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
                         var user = db.Users.Include(u => u.Teacher).FirstOrDefault(u => u.Id == userId.Value);
                         if (user != null)
                         {
-                            if (user.Role == UserRole.Admin || user.Role == UserRole.Developer)
-                            {
-                                isAllowed = true;
-                            }
-                            else if (_allowed.Contains(UserRole.Parent) && (user.Role == UserRole.Parent || user.ParentId.HasValue || user.TeacherId.HasValue))
+                            if (_allowed.Contains(UserRole.Parent) && (user.Role == UserRole.Parent || (user.Role != UserRole.Student && (user.ParentId.HasValue || db.Students.Any(s => s.ParentId == user.Id)))))
                             {
                                 isAllowed = true;
                             }
@@ -122,15 +94,7 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
                             {
                                 isAllowed = true;
                             }
-                            else if (_allowed.Contains(UserRole.Teacher))
-                            {
-                                var uName = (user.Username ?? "").Trim();
-                                var uFull = (user.FullName ?? "").Trim().ToLower();
-                                var isTch = db.Teachers.Any(t => (!string.IsNullOrEmpty(t.IdentityNumber) && t.IdentityNumber == uName) ||
-                                                                 (!string.IsNullOrEmpty(t.Contact) && t.Contact == uName) ||
-                                                                 (!string.IsNullOrEmpty(t.FullName) && t.FullName.ToLower() == uFull));
-                                if (isTch) isAllowed = true;
-                            }
+
                         }
                     }
                 }

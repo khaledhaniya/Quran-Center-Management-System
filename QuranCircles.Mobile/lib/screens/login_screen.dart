@@ -19,7 +19,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   String _serverUrl = ApiService.baseUrl;
   String _centerName = 'مركز البيان لتعليم القرآن الكريم';
   String _mosqueName = 'مسجد علي بن أبي طالب';
-  bool _showDemoAccounts = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -99,12 +98,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
-  void _quickFill(String user, String pass) {
-    _usernameController.text = user;
-    _passwordController.text = pass;
-    _login();
-  }
-
   void _showServerConfigModal() {
     final urlController = TextEditingController(text: ApiService.baseUrl);
     showDialog(
@@ -161,7 +154,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: const Color(0xFF042114),
@@ -346,14 +338,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               children: [
                                 const Icon(Icons.login_rounded, color: AppTheme.primary, size: 22),
                                 const SizedBox(width: 8),
-                                Text(
+                                Flexible(child: Text(
                                   'تسجيل الدخول للنظام',
+                                  textAlign: TextAlign.center,
                                   style: AppTheme.cairoStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
                                     color: const Color(0xFF0F3E28),
                                   ),
-                                ),
+                                )),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -508,14 +501,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         children: [
                                           const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                                           const SizedBox(width: 8),
-                                          Text(
+                                          Flexible(child: Text(
                                             'دخول النظام المعتمد',
+                                            textAlign: TextAlign.center,
                                             style: AppTheme.cairoStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w800,
                                               color: Colors.white,
                                             ),
-                                          ),
+                                          )),
                                         ],
                                       ),
                               ),
@@ -524,45 +518,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // Demo Quick-Fill Accordion
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _showDemoAccounts = !_showDemoAccounts;
-                          });
-                        },
-                        icon: Icon(
-                          _showDemoAccounts ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                          color: const Color(0xFFD4AF37),
-                          size: 20,
-                        ),
-                        label: Text(
-                          _showDemoAccounts ? 'إخفاء الحسابات التجريبية' : 'عرض حسابات التجربة السريعة',
-                          style: AppTheme.cairoStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFFE5C07B),
-                          ),
-                        ),
-                      ),
-
-                      if (_showDemoAccounts) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            _buildQuickChip('المطور', 'dev', 'dev123', Icons.terminal_rounded),
-                            _buildQuickChip('المدير', 'admin', 'admin123', Icons.admin_panel_settings_rounded),
-                            _buildQuickChip('المعلم', 'ahmad', '123456', Icons.school_rounded),
-                            _buildQuickChip('الطالب', 'mohammad', '123456', Icons.person_outline_rounded),
-                            _buildQuickChip('ولي الأمر', 'parent100', '123456', Icons.family_restroom_rounded),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 16),
 
                       // Server Connection Config Button
                       GestureDetector(
@@ -579,10 +534,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             children: [
                               const Icon(Icons.cloud_sync_outlined, size: 14, color: Color(0xFFD4AF37)),
                               const SizedBox(width: 6),
-                              Text(
+                              Flexible(child: Text(
                                 'خادم الربط: ${_serverUrl.replaceAll('https://', '').replaceAll('http://', '')}',
                                 style: AppTheme.cairoStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.75)),
-                              ),
+                                maxLines: 2, overflow: TextOverflow.ellipsis,
+                              )),
                             ],
                           ),
                         ),
@@ -598,20 +554,4 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildQuickChip(String label, String username, String pass, IconData icon) {
-    return ActionChip(
-      avatar: Icon(icon, size: 14, color: const Color(0xFF0F5A38)),
-      backgroundColor: Colors.white.withValues(alpha: 0.9),
-      side: BorderSide(color: const Color(0xFFD4AF37).withValues(alpha: 0.5)),
-      label: Text(
-        label,
-        style: AppTheme.cairoStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFF06331E),
-        ),
-      ),
-      onPressed: () => _quickFill(username, pass),
-    );
-  }
 }

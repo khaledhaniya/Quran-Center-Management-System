@@ -95,6 +95,7 @@ class _ProfileRequestsScreenState extends State<ProfileRequestsScreen> {
           ? await ApiService.approveProfileRequest(requestId)
           : await ApiService.rejectProfileRequest(requestId);
 
+      if (!success) throw StateError('لم يعتمد الخادم التغيير؛ حاول مرة أخرى.');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -300,7 +301,6 @@ class _ProfileRequestsScreenState extends State<ProfileRequestsScreen> {
     final String requestedByName = req['requestedByName'] ?? 'مقدم الطلب';
     final String requestedAt = req['requestedAt']?.toString() ?? '-';
     final bool isPending = status == 'Pending' || status == 'معلق';
-    final bool isApproved = status == 'Approved' || status == 'مقبول';
 
     Map<String, dynamic> changesMap = {};
     if (req['changes'] != null) {

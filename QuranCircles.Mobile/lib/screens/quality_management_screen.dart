@@ -3,7 +3,7 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class QualityManagementScreen extends StatefulWidget {
-  const QualityManagementScreen({Key? key}) : super(key: key);
+  const QualityManagementScreen({super.key});
 
   @override
   State<QualityManagementScreen> createState() => _QualityManagementScreenState();
@@ -62,6 +62,12 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: const Color(0xFF0D5C3A),
+          icon: const Icon(Icons.assignment_turned_in, color: Colors.white),
+          label: Text('زيارة رقابية موحدة', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          onPressed: circles.isEmpty ? null : () => _showNewQualityVisitModal(circles),
+        ),
         appBar: AppBar(
           title: Text('ملف الجودة والرقابة والتوجيه', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 17)),
           backgroundColor: const Color(0xFF0D5C3A),
@@ -348,6 +354,36 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFD97706)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.casino, size: 16, color: Color(0xFFD97706)),
+                          label: Text('فحص عينة (Spot-Check)', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFD97706))),
+                          onPressed: () => _showSpotCheckDialog(c),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF2563EB)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.person_pin, size: 16, color: Color(0xFF2563EB)),
+                          label: Text('المعلم البديل', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF2563EB))),
+                          onPressed: () => _showSubstituteModeDialog(c),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Text('سجل تفصيلي لطلاب الحلقة (${students.length}):', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFF475569))),
                   const SizedBox(height: 8),
                   if (students.isEmpty)
@@ -386,7 +422,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
             ),
@@ -487,9 +523,415 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNewQualityVisitModal(List<Map<String, dynamic>> circles) {
+    int selectedCircleId = circles.first['id'] as int;
+    final supervisorCtrl = TextEditingController(text: 'مشرف الجودة الميداني');
+    final notesCtrl = TextEditingController();
+    double punctuality = 95;
+    double classMgmt = 90;
+    double tajweed = 95;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+            top: 20,
+            left: 16,
+            right: 16,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Icon(Icons.assignment_turned_in, color: Color(0xFF0D5C3A)),
+                    const SizedBox(width: 8),
+                    Text('نموذج الزيارة الرقابية الموحد', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16, color: const Color(0xFF0D5C3A))),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('اختر الحلقة القرآنية:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedCircleId,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: circles.map((c) => DropdownMenuItem<int>(
+                    value: c['id'] as int,
+                    child: Text('${c['name']} (${c['teacherName'] ?? 'بدون محفظ'})', style: AppTheme.cairoStyle(fontSize: 12)),
+                  )).toList(),
+                  onChanged: (val) {
+                    if (val != null) setModalState(() => selectedCircleId = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Text('اسم المشرف الزائر:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: supervisorCtrl,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('معايير التقييم الرقابي الرقمي:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFF0D5C3A))),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('1. الحضور والانضباط (30%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('${punctuality.toInt()}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue[800]!)),
+                        ],
+                      ),
+                      Slider(
+                        value: punctuality,
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        activeColor: const Color(0xFF0D5C3A),
+                        onChanged: (v) => setModalState(() => punctuality = v),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('2. إدارة الحلقة والسمت (30%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('${classMgmt.toInt()}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green[800]!)),
+                        ],
+                      ),
+                      Slider(
+                        value: classMgmt,
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        activeColor: const Color(0xFF0D5C3A),
+                        onChanged: (v) => setModalState(() => classMgmt = v),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('3. تصحيح التلاوة والتجويد (40%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('${tajweed.toInt()}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber[900]!)),
+                        ],
+                      ),
+                      Slider(
+                        value: tajweed,
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        activeColor: const Color(0xFF0D5C3A),
+                        onChanged: (v) => setModalState(() => tajweed = v),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('الملاحظات والتوجيهات:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    hintText: 'اكتب الملاحظات والتوجيهات للشيخ...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.all(10),
+                  ),
+                  style: AppTheme.cairoStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D5C3A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.save),
+                    label: Text('حفظ وتوثيق الزيارة الرقابية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        final saved = await ApiService.createQualityVisit({
+                          'circleId': selectedCircleId,
+                          'supervisorName': supervisorCtrl.text.trim(),
+                          'visitDate': DateTime.now().toIso8601String().substring(0, 10),
+                          'punctualityScore': punctuality.toInt(),
+                          'classManagementScore': classMgmt.toInt(),
+                          'tajweedCorrectionScore': tajweed.toInt(),
+                          'notes': notesCtrl.text.trim(),
+                          'isSubstituteModeActive': false,
+                        });
+                if (!saved) throw StateError('لم يتم حفظ الزيارة على الخادم.');
+                        if (!mounted || !context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('تم توثيق الزيارة الرقابية بنجاح! 📋'), backgroundColor: Colors.green),
+                        );
+                        _fetchQualityOverview();
+                      } catch (e) {
+                        if (!mounted || !context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('فشل التوثيق: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSpotCheckDialog(Map<String, dynamic> circle) async {
+    final circleId = circle['id'] as int;
+    final circleName = circle['name'] ?? 'الحلقة';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator(color: Color(0xFF0D5C3A))),
+    );
+
+    try {
+      final res = await ApiService.getSpotCheckCandidates(circleId);
+      if (!mounted || !context.mounted) return;
+      Navigator.pop(context); // close loader
+
+      final candidates = (res['candidates'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (candidates.isEmpty) {
+        if (!mounted || !context.mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('فحص عينات عشوائية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+            content: Text('لا توجد عينات لطلاب مسجلين في $circleName حالياً.', style: AppTheme.cairoStyle(fontSize: 13)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+            ],
+          ),
+        );
+        return;
+      }
+
+      if (!mounted || !context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.casino, color: Color(0xFFD97706)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('فحص عينات عشوائية - $circleName', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('تم سحب ${candidates.length} طلاب عشوائياً لفحص جودة التثبيت ومطابقة السجل:', style: AppTheme.cairoStyle(fontSize: 12, color: const Color(0xFF64748B))),
+                  const SizedBox(height: 12),
+                  ...candidates.map((st) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(st['fullName'] ?? 'طالب', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF0D5C3A))),
+                        const SizedBox(height: 4),
+                        Text('الأجزاء: ${st['completedAjzaa'] ?? 0} | المستهدف: ${st['targetAjzaaCount'] ?? 1}', style: AppTheme.cairoStyle(fontSize: 11, color: const Color(0xFF475569))),
+                        const SizedBox(height: 4),
+                        Text('المحفوظ السابق: ${st['previousQuranMemorization'] ?? 'لا يوجد'}', style: AppTheme.cairoStyle(fontSize: 10, color: const Color(0xFF64748B))),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إغلاق'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D5C3A), foregroundColor: Colors.white),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final saved = await ApiService.createQualityVisit({
+                  'circleId': circleId,
+                  'supervisorName': 'مشرف الجودة الميداني',
+                  'visitDate': DateTime.now().toIso8601String().substring(0, 10),
+                  'punctualityScore': 95,
+                  'classManagementScore': 90,
+                  'tajweedCorrectionScore': 95,
+                  'notes': '[فحص عينات عشوائية]: تم فحص ${candidates.length} طلاب بنجاح.',
+                  'isSubstituteModeActive': false,
+                });
+                if (!saved) throw StateError('لم يتم حفظ الزيارة على الخادم.');
+                if (!mounted || !context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم توثيق فحص العينات العشوائية بنجاح! 🎲'), backgroundColor: Colors.green),
+                );
+              },
+              child: const Text('اعتماد وتوثيق الفحص'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted || !context.mounted) return;
+      Navigator.pop(context); // close loader
+      if (!mounted || !context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر جلب العينات: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showSubstituteModeDialog(Map<String, dynamic> circle) {
+    final circleId = circle['id'] as int;
+    final circleName = circle['name'] ?? 'الحلقة';
+    final subTeacherCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController(text: 'غياب الشيخ الأساسي');
+    bool isActive = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.person_pin, color: Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('وضع المعلم البديل - $circleName', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('اسم الشيخ أو المشرف البديل:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: subTeacherCtrl,
+                decoration: InputDecoration(
+                  hintText: 'اكتب اسم الشيخ البديل...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+                style: AppTheme.cairoStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Text('سبب التغطية البديلة:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: reasonCtrl,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+                style: AppTheme.cairoStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('تفعيل التغطية البديلة للحلقة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                value: isActive,
+                onChanged: (v) => setDialogState(() => isActive = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+              onPressed: () async {
+                final subName = subTeacherCtrl.text.trim();
+                if (subName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('يرجى إدخال اسم الشيخ البديل')),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx);
+                try {
+                  final res = await ApiService.toggleSubstituteMode(
+                    circleId: circleId,
+                    supervisorName: subName,
+                    reason: reasonCtrl.text.trim(),
+                    activate: isActive,
+                  );
+                  if (!mounted || !context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(res['message'] ?? 'تم تحديث وضع المعلم البديل'), backgroundColor: Colors.green),
+                  );
+                  _fetchQualityOverview();
+                } catch (e) {
+                  if (!mounted || !context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('فشل العملية: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              child: const Text('تأكيد التكليف'),
             ),
           ],
         ),

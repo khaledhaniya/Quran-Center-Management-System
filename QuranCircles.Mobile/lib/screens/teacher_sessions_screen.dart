@@ -173,7 +173,7 @@ class _TeacherSessionsScreenState extends State<TeacherSessionsScreen> {
                     children: [
                       // Circle Dropdown
                       DropdownButtonFormField<Circle>(
-                        value: _selectedCircle,
+                        initialValue: _selectedCircle,
                         decoration: InputDecoration(
                           labelText: 'الحلقة القرآنية:',
                           labelStyle: AppTheme.cairoStyle(fontSize: 12),
@@ -513,12 +513,13 @@ class _SessionFormModalState extends State<_SessionFormModal> {
       _viaLottery = s['viaLottery'] == true;
 
       final a = s['assessment'];
-      if (a == 'Excellent' || a == 1) _assessment = 1;
-      else if (a == 'VeryGood' || a == 2) _assessment = 2;
-      else if (a == 'Good' || a == 3) _assessment = 3;
-      else if (a == 'Medium' || a == 4) _assessment = 4;
-      else if (a == 'Rejected' || a == 5) _assessment = 5;
-      else if (a == 'DidNotRecite' || a == 6) _assessment = 6;
+      if (a == 'Excellent' || a == 1) {
+        _assessment = 1;
+      } else if (a == 'VeryGood' || a == 2) { _assessment = 2; }
+      else if (a == 'Good' || a == 3) { _assessment = 3; }
+      else if (a == 'Medium' || a == 4) { _assessment = 4; }
+      else if (a == 'Rejected' || a == 5) { _assessment = 5; }
+      else if (a == 'DidNotRecite' || a == 6) { _assessment = 6; }
     }
   }
 
@@ -700,7 +701,7 @@ class _SessionFormModalState extends State<_SessionFormModal> {
 
               // Assessment dropdown
               DropdownButtonFormField<int>(
-                value: _assessment,
+                initialValue: _assessment,
                 decoration: InputDecoration(
                   labelText: 'مستوى تقييم الحفظ والإتقان:',
                   labelStyle: AppTheme.cairoStyle(fontSize: 12),

@@ -6,7 +6,6 @@ void main() {
       final totalRecords = 50;
       final presentCount = 47;
       final excusedCount = 2;
-      final absentCount = 1;
 
       // Positive attendance = (Present + Excused) / Total
       final positiveRate = ((presentCount + excusedCount) / totalRecords) * 100.0;

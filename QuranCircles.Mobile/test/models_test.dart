@@ -19,56 +19,39 @@ void main() {
       expect(user.isActive, isTrue);
     });
 
-    test('Student model serializes with 360 degree profile fields', () {
-      final jsonStudent = {
+    test('Student parses family, housing and memorization data', () {
+      final student = Student.fromJson({
         'id': 42,
         'fullName': 'أحمد محمد علي',
         'studentIdentityNumber': '402123456',
         'circleId': 3,
         'circleName': 'حلقة الإمام الشاطبي',
         'fatherStatus': 'Orphan',
-        'motherStatus': 'Alive',
-        'housingStatus': 'DisplacedTent',
-        'memorizationPlan': 'Intensive',
-        'currentJuz': 15,
-        'monthlyRewardPoints': 120,
-        'dailyPageTarget': 2.5
-      };
-
-      final student = Student.fromJson(jsonStudent);
-      expect(student.id, equals(42));
-      expect(student.fullName, equals('أحمد محمد علي'));
-      expect(student.studentIdentityNumber, equals('402123456'));
-      expect(student.circleName, equals('حلقة الإمام الشاطبي'));
-      expect(student.fatherStatus, equals('Orphan'));
-      expect(student.housingStatus, equals('DisplacedTent'));
-      expect(student.memorizationPlan, equals('Intensive'));
-      expect(student.currentJuz, equals(15));
-      expect(student.dailyPageTarget, equals(2.5));
+        'currentAddress': 'غزة',
+        'previousQuranMemorization': '29,30',
+        'isActive': false,
+      });
+      expect(student.id, 42);
+      expect(student.circleName, 'حلقة الإمام الشاطبي');
+      expect(student.fatherStatus, 'Orphan');
+      expect(student.currentAddress, 'غزة');
+      expect(student.completedAjzaa, '29,30');
+      expect(student.isActive, isFalse);
     });
 
-    test('RecitationSession model handles scores and notes', () {
-      final jsonSession = {
+    test('Exam result preserves grade, mistakes and notes', () {
+      final result = ExamResultData.fromJson({
         'id': 101,
-        'studentId': 42,
-        'studentName': 'أحمد محمد',
-        'sessionDate': '2026-08-24',
-        'type': 'NewMemorization',
-        'fromSurah': 'البقرة',
-        'fromAyah': 1,
-        'toSurah': 'البقرة',
-        'toAyah': 25,
-        'pagesCount': 2.0,
-        'grade': 'Excellent',
-        'score': 98.5
-      };
-
-      final session = RecitationSession.fromJson(jsonSession);
-      expect(session.id, equals(101));
-      expect(session.studentId, equals(42));
-      expect(session.grade, equals('Excellent'));
-      expect(session.score, equals(98.5));
-      expect(session.pagesCount, equals(2.0));
+        'majorMistakes': 1,
+        'minorMistakes': 2,
+        'grade': 98,
+        'notes': 'مراجعة التجويد',
+        'examDate': '2026-08-24',
+      });
+      expect(result.grade, 98.0);
+      expect(result.majorMistakes, 1);
+      expect(result.minorMistakes, 2);
+      expect(result.notes, 'مراجعة التجويد');
     });
 
     test('SystemSettings model parses dynamic CMS configurations', () {

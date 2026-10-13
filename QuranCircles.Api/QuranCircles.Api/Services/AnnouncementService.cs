@@ -43,7 +43,7 @@ public class AnnouncementService
                 .Select(c => c.Id)
                 .ToListAsync();
 
-            query = query.Where(a => 
+            query = query.Where(a =>
                 a.SenderName == user.FullName ||
                 a.TargetType == AnnouncementTarget.All ||
                 a.TargetType == AnnouncementTarget.AllTeachers ||
@@ -142,9 +142,9 @@ public class AnnouncementService
         if (string.IsNullOrWhiteSpace(dto.Title)) return (null, "عنوان التعميم مطلوب.");
         if (string.IsNullOrWhiteSpace(dto.Content)) return (null, "محتوى التعميم مطلوب.");
 
-        if (dto.TargetType != AnnouncementTarget.All && 
-            dto.TargetType != AnnouncementTarget.AllTeachers && 
-            dto.TargetType != AnnouncementTarget.Admin && 
+        if (dto.TargetType != AnnouncementTarget.All &&
+            dto.TargetType != AnnouncementTarget.AllTeachers &&
+            dto.TargetType != AnnouncementTarget.Admin &&
             !dto.TargetId.HasValue)
         {
             return (null, "يجب تحديد المستهدف لهذا النوع من التعاميم.");
@@ -152,23 +152,23 @@ public class AnnouncementService
 
         if (dto.TargetType == AnnouncementTarget.Circle)
         {
-            var exists = await _db.Circles.AnyAsync(c => c.Id == dto.TargetId.Value);
+            var exists = await _db.Circles.AnyAsync(c => c.Id == dto.TargetId.GetValueOrDefault());
             if (!exists) return (null, "الحلقة المحددة غير موجودة.");
         }
         else if (dto.TargetType == AnnouncementTarget.Teacher)
         {
-            var exists = await _db.Teachers.AnyAsync(t => t.Id == dto.TargetId.Value);
+            var exists = await _db.Teachers.AnyAsync(t => t.Id == dto.TargetId.GetValueOrDefault());
             if (!exists) return (null, "المعلم المحدد غير موجود.");
         }
         else if (dto.TargetType == AnnouncementTarget.Student)
         {
-            var exists = await _db.Students.AnyAsync(s => s.Id == dto.TargetId.Value);
+            var exists = await _db.Students.AnyAsync(s => s.Id == dto.TargetId.GetValueOrDefault());
             if (!exists) return (null, "الطالب المحدد غير موجود.");
         }
         else if (dto.TargetType == AnnouncementTarget.Parent)
         {
-            var exists = await _db.Users.AnyAsync(u => u.Role == UserRole.Parent && (u.ParentId == dto.TargetId.Value || u.Id == dto.TargetId.Value))
-                         || await _db.Students.AnyAsync(s => s.ParentId == dto.TargetId.Value);
+            var exists = await _db.Users.AnyAsync(u => u.Role == UserRole.Parent && (u.ParentId == dto.TargetId.GetValueOrDefault() || u.Id == dto.TargetId.GetValueOrDefault()))
+                         || await _db.Students.AnyAsync(s => s.ParentId == dto.TargetId.GetValueOrDefault());
             if (!exists) return (null, "ولي الأمر المحدد غير موجود.");
         }
 
@@ -178,8 +178,8 @@ public class AnnouncementService
             Content = dto.Content.Trim(),
             DateTimeSent = DateTime.UtcNow,
             TargetType = dto.TargetType,
-            TargetId = (dto.TargetType == AnnouncementTarget.All || 
-                        dto.TargetType == AnnouncementTarget.AllTeachers || 
+            TargetId = (dto.TargetType == AnnouncementTarget.All ||
+                        dto.TargetType == AnnouncementTarget.AllTeachers ||
                         dto.TargetType == AnnouncementTarget.Admin) ? null : dto.TargetId,
             SenderName = senderName
         };

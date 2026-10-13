@@ -26,6 +26,7 @@ public class SessionsController : ControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     public async Task<IActionResult> Create([FromBody] CreateSessionDto dto)
     {
         var (created, error) = await _svc.CreateAsync(dto);

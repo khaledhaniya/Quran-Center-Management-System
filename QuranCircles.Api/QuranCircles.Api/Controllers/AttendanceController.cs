@@ -16,6 +16,7 @@ public class AttendanceController : ControllerBase
 
     // تسجيل/تحديث حضور
     [HttpPost]
+    [Idempotent]
     public async Task<IActionResult> Record([FromBody] RecordAttendanceDto dto)
     {
         var (created, error) = await _svc.RecordAsync(dto);

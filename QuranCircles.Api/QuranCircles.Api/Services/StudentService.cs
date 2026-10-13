@@ -65,7 +65,7 @@ public class StudentService
         var parentMap = parentUsers.ToDictionary(u => u.ParentId ?? u.Id, u => u.FullName);
 
         return students.Select(s => MapStudentToFullObject(
-            s, 
+            s,
             s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null,
             studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber
         )).ToList();
@@ -121,7 +121,7 @@ public class StudentService
         var parentMap = parentUsers.ToDictionary(u => u.ParentId ?? u.Id, u => u.FullName);
 
         return students.Select(s => MapStudentToFullObject(
-            s, 
+            s,
             s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null,
             studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber
         )).ToList();
@@ -268,8 +268,8 @@ public class StudentService
                     teacherUser = new User
                     {
                         Username = pIdNum,
-                        PasswordHash = _hasher.HashPassword("123456"),
-                        PlainPassword = "123456",
+                        PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                        PlainPassword = string.Empty,
                         FullName = matchedTeacher.FullName,
                         Role = UserRole.Teacher,
                         TeacherId = matchedTeacher.Id,
@@ -313,8 +313,8 @@ public class StudentService
                         newlyCreatedParent = new User
                         {
                             Username = pIdNum,
-                            PasswordHash = _hasher.HashPassword("123456"),
-                            PlainPassword = "123456",
+                            PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                            PlainPassword = string.Empty,
                             FullName = fatherName,
                             Role = UserRole.Parent,
                             IsActive = true
@@ -376,17 +376,17 @@ public class StudentService
                 if (!string.IsNullOrWhiteSpace(dto.Password))
                 {
                     existingUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
-                    existingUser.PlainPassword = dto.Password.Trim();
+                    existingUser.PlainPassword = string.Empty;
                 }
             }
             else
             {
-                string stPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : "123456";
+                string stPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : PasswordHasher.GenerateTemporaryPassword();
                 var stUser = new User
                 {
                     Username = stUsername,
                     PasswordHash = _hasher.HashPassword(stPw),
-                    PlainPassword = stPw,
+                    PlainPassword = string.Empty,
                     FullName = s.FullName,
                     Role = UserRole.Student,
                     StudentId = s.Id,
@@ -415,7 +415,7 @@ public class StudentService
         if (dto.Address != null) s.Address = dto.Address.Trim();
         if (dto.FamilyContact != null) s.FamilyContact = dto.FamilyContact.Trim();
         if (dto.DateOfBirth.HasValue) s.DateOfBirth = dto.DateOfBirth.Value;
-        
+
         // Always assign or unassign Circle
         s.CircleId = dto.CircleId;
         if (dto.IsActive.HasValue) s.IsActive = dto.IsActive.Value;
@@ -438,7 +438,7 @@ public class StudentService
         if (dto.OriginalHousingStatus != null) s.OriginalHousingStatus = string.IsNullOrWhiteSpace(dto.OriginalHousingStatus) ? null : dto.OriginalHousingStatus.Trim();
         if (dto.CurrentAddress != null) s.CurrentAddress = string.IsNullOrWhiteSpace(dto.CurrentAddress) ? null : dto.CurrentAddress.Trim();
         if (dto.CurrentHousingType != null) s.CurrentHousingType = string.IsNullOrWhiteSpace(dto.CurrentHousingType) ? null : dto.CurrentHousingType.Trim();
-        
+
         // Notes: properly update or clear
         if (dto.Notes != null)
         {
@@ -474,8 +474,8 @@ public class StudentService
                     teacherUser = new User
                     {
                         Username = pIdNum,
-                        PasswordHash = _hasher.HashPassword("123456"),
-                        PlainPassword = "123456",
+                        PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                        PlainPassword = string.Empty,
                         FullName = matchedTeacher.FullName,
                         Role = UserRole.Teacher,
                         TeacherId = matchedTeacher.Id,
@@ -519,8 +519,8 @@ public class StudentService
                         var newParent = new User
                         {
                             Username = pIdNum,
-                            PasswordHash = _hasher.HashPassword("123456"),
-                            PlainPassword = "123456",
+                            PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                            PlainPassword = string.Empty,
                             FullName = fatherName,
                             Role = UserRole.Parent,
                             IsActive = true
@@ -579,7 +579,7 @@ public class StudentService
             if (!string.IsNullOrWhiteSpace(dto.Password))
             {
                 studentUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
-                studentUser.PlainPassword = dto.Password.Trim();
+                studentUser.PlainPassword = string.Empty;
             }
         }
         else if (customUsername != null || !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))
@@ -588,12 +588,12 @@ public class StudentService
             var taken = await _db.Users.AnyAsync(u => u.Username.ToLower() == finalUName.ToLower());
             if (taken) return (false, "اسم المستخدم محجوز بالفعل لمستخدم أو طالب آخر.");
 
-            string finalPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : "123456";
+            string finalPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : PasswordHasher.GenerateTemporaryPassword();
             var newStUser = new User
             {
                 Username = finalUName,
                 PasswordHash = _hasher.HashPassword(finalPw),
-                PlainPassword = finalPw,
+                PlainPassword = string.Empty,
                 FullName = s.FullName,
                 Role = UserRole.Student,
                 StudentId = s.Id,

@@ -6,6 +6,8 @@ public class PasswordHasher
 {
     private readonly PasswordHasher<string> _hasher = new();
 
+    public static string GenerateTemporaryPassword() => Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
+
     public string HashPassword(string password)
     {
         return _hasher.HashPassword("user", password);
@@ -14,6 +16,6 @@ public class PasswordHasher
     public bool VerifyPassword(string hashedPassword, string password)
     {
         var result = _hasher.VerifyHashedPassword("user", hashedPassword, password);
-        return result == PasswordVerificationResult.Success;
+        return result != PasswordVerificationResult.Failed;
     }
 }

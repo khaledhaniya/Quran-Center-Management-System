@@ -26,6 +26,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
@@ -67,8 +68,8 @@ public class AuthController : ControllerBase
                         Role = UserRole.Teacher,
                         TeacherId = matchedTeacher.Id,
                         Teacher = matchedTeacher,
-                        PlainPassword = "123456",
-                        PasswordHash = _hasher.HashPassword("123456"),
+                        PlainPassword = string.Empty,
+                        PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
                         IsActive = true
                     };
                     _db.Users.Add(user);
@@ -121,54 +122,6 @@ public class AuthController : ControllerBase
         }
 
         if (user == null)
-        {
-            if (uLower == "admin" && dto.Password == "admin123")
-            {
-                user = new User
-                {
-                    Username = "admin",
-                    FullName = "مدير المركز",
-                    Role = UserRole.Admin,
-                    PasswordHash = _hasher.HashPassword("admin123"),
-                    PlainPassword = "admin123",
-                    IsActive = true
-                };
-                _db.Users.Add(user);
-                await _db.SaveChangesAsync();
-            }
-            else if (uLower == "dev" && dto.Password == "dev123")
-            {
-                user = new User
-                {
-                    Username = "dev",
-                    FullName = "مطور النظام",
-                    Role = UserRole.Developer,
-                    PasswordHash = _hasher.HashPassword("dev123"),
-                    PlainPassword = "dev123",
-                    IsActive = true
-                };
-                _db.Users.Add(user);
-                await _db.SaveChangesAsync();
-            }
-            else if (uLower == "ahmad" && (dto.Password == "123456" || dto.Password == "ahmad123"))
-            {
-                var firstTeacher = await _db.Teachers.FirstOrDefaultAsync();
-                user = new User
-                {
-                    Username = "ahmad",
-                    FullName = firstTeacher?.FullName ?? "المعلم أحمد",
-                    Role = UserRole.Teacher,
-                    TeacherId = firstTeacher?.Id,
-                    PasswordHash = _hasher.HashPassword("123456"),
-                    PlainPassword = "123456",
-                    IsActive = true
-                };
-                _db.Users.Add(user);
-                await _db.SaveChangesAsync();
-            }
-        }
-
-        if (user == null)
             return BadRequest(new { error = "اسم المستخدم غير موجود." });
 
         if (!user.IsActive)
@@ -194,14 +147,6 @@ public class AuthController : ControllerBase
             {
                 isPasswordValid = false;
             }
-        }
-        
-        // Dynamic fallback: verify against stored PlainPassword in database if hash was empty or needs sync
-        if (!isPasswordValid && !string.IsNullOrEmpty(user.PlainPassword) && user.PlainPassword == dto.Password)
-        {
-            isPasswordValid = true;
-            user.PasswordHash = _hasher.HashPassword(dto.Password);
-            await _db.SaveChangesAsync();
         }
 
         if (!isPasswordValid)
@@ -285,7 +230,7 @@ public class AuthController : ControllerBase
         }
 
         var token = _tokenSvc.GenerateToken(user);
-        
+
         // Find reference ID based on role
         int? teacherId = user.TeacherId;
         int? studentId = user.StudentId;
@@ -374,6 +319,10 @@ public class AuthController : ControllerBase
         });
     }
 
+    [HttpGet("me")]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.Student, UserRole.Parent, UserRole.ExamSupervisor)]
+    public IActionResult Me() => Ok(new { userId = FakeAuth.GetUserId(HttpContext), role = FakeAuth.GetRole(HttpContext)?.ToString() });
+
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {
@@ -399,28 +348,23 @@ public class AuthController : ControllerBase
                 try { currentValid = _hasher.VerifyPassword(user.PasswordHash, dto.CurrentPassword ?? ""); }
                 catch { currentValid = false; }
             }
-            if (!currentValid && !string.IsNullOrEmpty(user.PlainPassword))
-            {
-                currentValid = user.PlainPassword == (dto.CurrentPassword ?? "");
-            }
-
             if (!currentValid)
                 return BadRequest(new { error = "كلمة المرور الحالية غير صحيحة." });
         }
 
         var newPw = dto.NewPassword.Trim();
-        if (newPw.Length < 4)
-            return BadRequest(new { error = "يجب أن لا تقل كلمة المرور الجديدة عن 4 خانات." });
+        if (newPw.Length < 8)
+            return BadRequest(new { error = "يجب أن لا تقل كلمة المرور الجديدة عن 8 خانات." });
 
         user.PasswordHash = _hasher.HashPassword(newPw);
-        user.PlainPassword = newPw;
+        user.PlainPassword = string.Empty;
         await _db.SaveChangesAsync();
 
         await AuditLogger.LogAsync(_db, HttpContext, "ChangePassword", $"تغيير كلمة المرور للمستخدم: {user.Username} ({user.FullName})");
 
-        return Ok(new { 
-            message = "تم تغيير كلمة المرور واعتمادها رسمياً بنجاح.",
-            newPassword = newPw
+        return Ok(new {
+            message = "تم تغيير كلمة المرور. يرجى تسجيل الدخول مجدداً.",
+            requiresLogin = true
         });
     }
 }

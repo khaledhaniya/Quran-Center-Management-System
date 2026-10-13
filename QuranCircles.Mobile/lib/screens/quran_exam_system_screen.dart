@@ -24,7 +24,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
   late TabController _tabController;
   String _selectedExamKey = '1';
   GeneratedQuranExam? _generatedExam;
-  
+
   // Alternative questions swapped state (maps question index to bool)
   final Map<int, bool> _swappedQuestions = {};
 
@@ -244,7 +244,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'يرجى إدخال كلمة المرور الخاصة بالمشرف أو رمز الاعتماد لتأكيد رصد وحفظ النتيجة رسمياً.',
+              'يرجى إدخال كلمة المرور الحالية لحسابك لتأكيد رصد وحفظ النتيجة رسمياً.',
               style: AppTheme.cairoStyle(fontSize: 13, color: Colors.black87),
             ),
             const SizedBox(height: 16),
@@ -257,7 +257,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
               decoration: InputDecoration(
                 hintText: '******',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                helperText: 'الرمز التجريبي: 123456',
+                helperText: 'أدخل كلمة مرور حسابك الحالية',
                 helperStyle: const TextStyle(color: Color(0xFF0D5C3A)),
               ),
             ),
@@ -392,7 +392,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [Colors.green.shade900, Colors.teal.shade800]),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 3))],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 3))],
                 ),
                 child: Row(
                   children: [
@@ -553,7 +553,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: _getDifficultyColor(q.difficulty).withOpacity(0.12),
+                                      color: _getDifficultyColor(q.difficulty).withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(color: _getDifficultyColor(q.difficulty)),
                                     ),
@@ -578,7 +578,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
                             width: double.infinity,
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade50.withOpacity(0.5),
+                              color: Colors.green.shade50.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: Colors.green.shade100),
                             ),
@@ -639,7 +639,7 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4))],
                 border: Border.all(color: Colors.grey.shade200),
               ),
               child: Column(
@@ -886,9 +886,9 @@ class _QuranExamSystemScreenState extends State<QuranExamSystemScreen> with Sing
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [

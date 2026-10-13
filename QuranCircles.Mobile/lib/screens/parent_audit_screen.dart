@@ -147,7 +147,7 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
               Text('اختر ولي الأمر الجديد:', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
               const SizedBox(height: 6),
               DropdownButtonFormField<int>(
-                value: selectedParentId,
+                initialValue: selectedParentId,
                 isExpanded: true,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -234,7 +234,7 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
               Text('اختر الطالب المراد ربطه بحسابه:', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
               const SizedBox(height: 6),
               DropdownButtonFormField<int>(
-                value: selectedStudentId,
+                initialValue: selectedStudentId,
                 isExpanded: true,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

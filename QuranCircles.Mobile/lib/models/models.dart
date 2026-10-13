@@ -60,10 +60,15 @@ class User {
     return tr.contains('دورات') || tr.contains('الدورات');
   }
 
+  bool get isExamSupervisor {
+    final tr = (taskRole ?? '').trim();
+    return tr.contains('اختبار') || tr.contains('لجنة');
+  }
+
   factory User.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'] ?? json['userId'];
     final parsedId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '0') ?? 0;
-    
+
     dynamic rawRole = json['role'];
     String roleStr = 'Student';
     if (rawRole is int) {
@@ -92,12 +97,12 @@ class User {
         roleStr = s;
       }
     }
-    
+
     int? tId = json['teacherId'] is int ? json['teacherId'] : int.tryParse(json['teacherId']?.toString() ?? '');
     if (tId == null && roleStr == 'Teacher') {
       tId = parsedId;
     }
-    
+
     int? sId = json['studentId'] is int ? json['studentId'] : int.tryParse(json['studentId']?.toString() ?? '');
     if (sId == null && roleStr == 'Student') {
       sId = parsedId;
@@ -107,11 +112,6 @@ class User {
     if (pId == null && roleStr == 'Parent') {
       pId = parsedId;
     }
-
-    final p = json['plainPassword'] ?? json['PlainPassword'];
-    final defaultPw = (p != null && p.toString().trim().isNotEmpty)
-        ? p.toString().trim()
-        : (json['username'] == 'dev' ? 'dev123' : (json['username'] == 'admin' ? 'admin123' : (json['username'] == 'wael' ? 'wael123' : '123456')));
 
     final rawHasChildren = json['hasChildren'];
     final rawChildrenCount = json['childrenCount'];
@@ -132,7 +132,7 @@ class User {
       studentId: sId,
       teacherId: tId,
       parentId: pId,
-      plainPassword: defaultPw,
+      plainPassword: null,
       hasChildren: parsedHasChildren,
       childrenCount: parsedChildrenCount,
       taskRole: json['taskRole']?.toString(),

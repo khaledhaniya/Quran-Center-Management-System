@@ -45,8 +45,8 @@ public class CoursesController : ControllerBase
                 TeacherName = c.Teacher != null ? c.Teacher.FullName : "بدون معلم",
                 c.ExamSupervisorId,
                 ExamSupervisorTeacherId = c.ExamSupervisor != null ? c.ExamSupervisor.TeacherId : null,
-                ExamSupervisorName = c.ExamSupervisor != null 
-                    ? c.ExamSupervisor.FullName 
+                ExamSupervisorName = c.ExamSupervisor != null
+                    ? c.ExamSupervisor.FullName
                     : (c.ExamSupervisorId != null && _db.Teachers.Any(t => t.Id == c.ExamSupervisorId)
                         ? _db.Teachers.First(t => t.Id == c.ExamSupervisorId).FullName
                         : "بدون مشرف"),
@@ -280,7 +280,7 @@ public class CoursesController : ControllerBase
                 Role = UserRole.Teacher,
                 TeacherId = teacher.Id,
                 PasswordHash = "AQAAAAIAAYagAAAAEJrM9mFp9G1Gv8eO6Wl1k6Y1U2Z7Q8W9E0R1T2Y3U4I5O6P7A8S9D0F1G2H3J4K5L6",
-                PlainPassword = "123",
+                PlainPassword = string.Empty,
                 IsActive = true
             };
             _db.Users.Add(newUser);
@@ -470,7 +470,7 @@ public class CoursesController : ControllerBase
 
             if (currentUser.Role == UserRole.Teacher)
             {
-                query = query.Where(e => 
+                query = query.Where(e =>
                     (e.Student != null && e.Student.Circle != null && e.Student.Circle.TeacherId == currentUser.TeacherId) ||
                     (e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
                     (e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
@@ -632,18 +632,14 @@ public class CoursesController : ControllerBase
             }
         }
 
-        // 2FA Security check (simulated via header or DTO)
-        var twoFactorHeader = Request.Headers["X-2FA-Code"].FirstOrDefault() ?? dto.Code2FA;
-        if (!string.IsNullOrWhiteSpace(twoFactorHeader) && twoFactorHeader != "123456")
-        {
-            return BadRequest(new { Message = "رمز التحقق الثنائي (2FA) غير صحيح. رمز التوجيه هو: 123456", Require2FA = true });
-        }
+        if (!await QuranCircles.Api.Services.SensitiveActionVerifier.VerifyAsync(HttpContext, _db, dto.Code2FA))
+            return BadRequest(new { error = "يرجى إدخال كلمة مرور حسابك الحالية لتأكيد اعتماد النتيجة." });
 
         var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
         int passingScore = settings.PassingScoreThreshold > 0 ? settings.PassingScoreThreshold : 70;
 
         enrollment.Grade = dto.Grade;
-        
+
         string oldStatus = enrollment.Status;
         if (dto.Grade >= passingScore)
         {
@@ -691,14 +687,15 @@ public class CoursesController : ControllerBase
 
         // Trigger simulated WhatsApp alert if passed
         object? whatsappAlert = null;
-        if (enrollment.Status == "Passed" && oldStatus != "Passed")
+        if (enrollment.Status == "Passed" && oldStatus != "Passed" && enrollment.Student != null && enrollment.Course != null)
         {
             var message = $"مرحباً ولي أمر الطالب {enrollment.Student.FullName}، يسعدنا إعلامكم بنجاح ابنكم في {enrollment.Course.Name} بحصوله على درجة {dto.Grade}% وحصوله على شهادة رقمية معتمدة برمز: {enrollment.CertificateCode}. يمكنكم معاينتها من ملف الإنجاز الرقمي.";
             whatsappAlert = new
             {
                 Recipient = enrollment.Student.FamilyContact,
                 Message = message,
-                SentSuccessfully = true,
+                SentSuccessfully = false,
+                Status = "draft",
                 Timestamp = DateTime.Now
             };
         }
@@ -719,6 +716,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpPost("attendance")]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> RecordCourseAttendance([FromBody] BulkCourseAttendanceDto dto)
     {

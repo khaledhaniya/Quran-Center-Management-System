@@ -33,6 +33,7 @@ public class AnnouncementsController : ControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.Parent, UserRole.Student)]
     public async Task<IActionResult> Create([FromBody] CreateAnnouncementDto dto)
     {
@@ -83,7 +84,7 @@ public class AnnouncementsController : ControllerBase
             }
             else if (dto.TargetType == AnnouncementTarget.Student && dto.TargetId.HasValue)
             {
-                var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == dto.TargetId.Value);
+                var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == dto.TargetId.Value);
                 if (student == null || (!isSupervisorOrAdmin && student.Circle != null && student.Circle.TeacherId != tId && student.Circle.Teacher?.FullName != user.FullName))
                 {
                     return BadRequest(new { error = "غير مسموح بالإرسال لطالب خارج حلقتك." });

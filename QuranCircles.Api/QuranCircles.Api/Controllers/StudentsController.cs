@@ -111,7 +111,7 @@ public class StudentsController : ControllerBase
             }
 
             bool isHisStudent = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == tId || (c.Teacher != null && c.Teacher.FullName == currentUser.FullName)));
-            
+
             var taskRole = teacherObj?.TaskRole ?? "";
             bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
 
@@ -163,7 +163,7 @@ public class StudentsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             var q = search.Trim().ToLower();
-            query = query.Where(s => s.FullName.ToLower().Contains(q) 
+            query = query.Where(s => s.FullName.ToLower().Contains(q)
                 || (s.StudentIdentityNumber != null && s.StudentIdentityNumber.Contains(q))
                 || (s.FamilyContact != null && s.FamilyContact.Contains(q))
                 || (s.StudentMobile != null && s.StudentMobile.Contains(q))
@@ -198,7 +198,7 @@ public class StudentsController : ControllerBase
             {
                 id = createdParent.Id,
                 username = createdParent.Username,
-                password = "123456",
+                requiresPasswordSetup = true,
                 fullName = createdParent.FullName
             } : null
         });
@@ -214,7 +214,7 @@ public class StudentsController : ControllerBase
 
         if (currentUser?.Role == UserRole.Teacher)
         {
-            var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == id);
+            var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == id);
             if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
             int tId = currentUser.TeacherId ?? 0;
@@ -287,7 +287,7 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> UpdatePlan(int id, [FromBody] UpdateStudentPlanDto dto)
     {
-        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);
@@ -338,8 +338,8 @@ public class StudentsController : ControllerBase
         await _db.SaveChangesAsync();
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateStudentPlan", $"تحديث خطة حفظ الطالب: {student.FullName} (نوع الخطة: {student.PlanType}، المستهدف: {student.TargetAjzaaCount} أجزاء)");
 
-        return Ok(new 
-        { 
+        return Ok(new
+        {
             Message = "تم حفظ خطة الحفظ للطالب بنجاح.",
             StudentId = student.Id,
             PlanType = student.PlanType,
@@ -355,7 +355,7 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> CompleteJuz(int id, [FromBody] CompleteJuzDto dto)
     {
-        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c.Teacher).FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);

@@ -10,7 +10,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    uses: ./.github/workflows/validate.yml
   build-and-deploy:
+    needs: validate
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -22,5 +25,8 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Publish and Deploy API to MonsterASP
+        env:
+          MONSTERASP_PASSWORD: ${{ secrets.MONSTERASP_PASSWORD }}
         run: |
-          dotnet publish QuranCircles.Api/QuranCircles.Api/QuranCircles.Api.csproj -c Release /p:PublishProfile=MonsterASP /p:Password="z-3X6Z#rBh9=" /p:AllowUntrustedCertificate=True /p:AuthType=Basic
+          if ([string]::IsNullOrWhiteSpace($env:MONSTERASP_PASSWORD)) { throw "Configure the MONSTERASP_PASSWORD repository secret before deployment." }
+          dotnet publish QuranCircles.Api/QuranCircles.Api/QuranCircles.Api.csproj -c Release /p:PublishProfile=MonsterASP /p:Password="$env:MONSTERASP_PASSWORD" /p:AuthType=Basic

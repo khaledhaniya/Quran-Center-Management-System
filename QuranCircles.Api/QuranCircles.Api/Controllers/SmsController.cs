@@ -11,10 +11,12 @@ using QuranCircles.Api.Services;
 public class SmsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly SmsGateway _gateway;
 
-    public SmsController(AppDbContext db)
+    public SmsController(AppDbContext db, SmsGateway gateway)
     {
         _db = db;
+        _gateway = gateway;
     }
 
     public record SendSmsDto(
@@ -27,6 +29,8 @@ public class SmsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
     public async Task<IActionResult> SendSms([FromBody] SendSmsDto dto)
     {
+        if (!_gateway.IsConfigured)
+            return StatusCode(503, new { error = "خدمة SMS غير مهيأة. لم يتم إرسال أي رسالة؛ يرجى إعداد بوابة الرسائل أولاً." });
         if (string.IsNullOrWhiteSpace(dto.MessageContent))
         {
             return BadRequest(new { error = "محتوى نص رسالة SMS مطلوب." });
@@ -69,6 +73,8 @@ public class SmsController : ControllerBase
             if (dto.TargetType == 2 && dto.TargetId.HasValue)
             {
                 var circle = await _db.Circles.FindAsync(dto.TargetId.Value);
+                if (circle == null || (circle.TeacherId != teacherId && circle.AssistantTeacherId != teacherId))
+                    return StatusCode(403, new { error = "غير مسموح بالإرسال إلى حلقة خارج إشرافك." });
                 var students = await _db.Students.Where(s => s.CircleId == dto.TargetId.Value).ToListAsync();
                 foreach (var s in students)
                 {
@@ -80,6 +86,8 @@ public class SmsController : ControllerBase
             else if (dto.TargetType == 4 && dto.TargetId.HasValue)
             {
                 var s = await _db.Students.FindAsync(dto.TargetId.Value);
+                if (s == null || !await _db.Circles.AnyAsync(c => c.Id == s.CircleId && (c.TeacherId == teacherId || c.AssistantTeacherId == teacherId)))
+                    return StatusCode(403, new { error = "غير مسموح بالإرسال إلى طالب خارج حلقتك." });
                 if (s != null)
                 {
                     if (!string.IsNullOrEmpty(s.StudentMobile)) recipients.Add(s.StudentMobile);
@@ -153,10 +161,19 @@ public class SmsController : ControllerBase
 
         recipients = recipients.Where(r => !string.IsNullOrWhiteSpace(r)).Distinct().ToList();
 
+        if (recipients.Count == 0) return BadRequest(new { error = "لا توجد أرقام صالحة للمستلمين المحددين." });
+        try {
+            if (!await _gateway.SubmitAsync(recipients, dto.MessageContent, HttpContext.RequestAborted))
+                return StatusCode(502, new { error = "رفضت بوابة الرسائل طلب الإرسال. لم يتم تأكيد الإرسال." });
+        }
+        catch (HttpRequestException) { return StatusCode(502, new { error = "تعذر الاتصال ببوابة الرسائل." }); }
+        catch (TaskCanceledException) { return StatusCode(504, new { error = "انتهت مهلة الاتصال ببوابة الرسائل؛ حالة الطلب غير مؤكدة." }); }
+
         await AuditLogger.LogAsync(_db, HttpContext, "SendSmsNotification", $"إرسال رسالة SMS نصية إلى: {targetDescription} (عدد المستلمين: {recipients.Count}) بواسطة: {currentUser.FullName}");
 
         return Ok(new {
-            message = $"تم إرسال رسالة SMS بنجاح إلى {recipients.Count} مستلماً عبر البوابة.",
+            message = $"قبلت بوابة SMS طلب الإرسال إلى {recipients.Count} مستلماً. قبول الطلب لا يؤكد وصول الرسالة.",
+            status = "accepted",
             recipientCount = recipients.Count,
             target = targetDescription
         });

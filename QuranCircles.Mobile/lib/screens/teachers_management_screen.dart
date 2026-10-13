@@ -361,7 +361,7 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
     final walletOwnerCtrl = TextEditingController(text: teacher?.walletOwner ?? '');
     final familyCountCtrl = TextEditingController(text: teacher?.familyMembersCount?.toString() ?? '');
     final targetStudentsCtrl = TextEditingController(text: teacher?.studentsCountTarget ?? '');
-    final passwordCtrl = TextEditingController(text: '123456');
+    final passwordCtrl = TextEditingController();
 
     final availableRoles = TeacherRoleHelper.availableInputRoles;
 
@@ -624,7 +624,7 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: selectedSocialStatus,
+                                initialValue: selectedSocialStatus,
                                 decoration: const InputDecoration(
                                   labelText: 'الحالة الاجتماعية',
                                   prefixIcon: Icon(Icons.family_restroom_outlined),

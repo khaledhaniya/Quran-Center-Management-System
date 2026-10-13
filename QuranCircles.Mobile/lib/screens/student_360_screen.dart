@@ -157,7 +157,7 @@ class _Student360ScreenState extends State<Student360Screen> {
                 Text('اختر نوع الخطة المعتمدة:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: planType,
+                  initialValue: planType,
                   decoration: const InputDecoration(border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: 'Intensive', child: Text('🌟 الخطة المكثفة (جزء / أسبوعين)')),
@@ -260,7 +260,7 @@ class _Student360ScreenState extends State<Student360Screen> {
 
   void _exportStudentReportDialog() {
     if (_profileData == null) return;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,

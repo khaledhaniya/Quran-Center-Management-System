@@ -124,7 +124,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: nominationType,
+                    initialValue: nominationType,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'مسار الاختبار *'),
                     items: const [
@@ -147,7 +147,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   if (nominationType == 'Quran') ...[
                     if (quranStudents.isNotEmpty)
                       DropdownButtonFormField<Student>(
-                        value: selectedQuranStudent,
+                        initialValue: selectedQuranStudent,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'اختر طالب الحلقة القرآنية *',
@@ -169,7 +169,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     const SizedBox(height: 14),
 
                     DropdownButtonFormField<String>(
-                      value: juzSelectionMode,
+                      initialValue: juzSelectionMode,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'طريقة تحديد الأجزاء *'),
                       items: const [
@@ -184,7 +184,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
                     if (juzSelectionMode == 'Single')
                       DropdownButtonFormField<int>(
-                        value: singleJuz,
+                        initialValue: singleJuz,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر الجزء المطلوب اختباره *'),
                         items: List.generate(30, (i) => i + 1)
@@ -205,7 +205,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<int>(
-                              value: juzStart,
+                              initialValue: juzStart,
                               isExpanded: true,
                               decoration: const InputDecoration(labelText: 'من الجزء'),
                               items: List.generate(30, (i) => i + 1)
@@ -224,7 +224,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: DropdownButtonFormField<int>(
-                              value: juzEnd,
+                              initialValue: juzEnd,
                               isExpanded: true,
                               decoration: const InputDecoration(labelText: 'إلى الجزء'),
                               items: List.generate(30, (i) => i + 1)
@@ -241,7 +241,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     // Course nomination mode
                     if (courses.isNotEmpty) ...[
                       DropdownButtonFormField<Course>(
-                        value: selectedCourse,
+                        initialValue: selectedCourse,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'اختر المساق / الدورة *',
@@ -264,7 +264,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         )
                       else if (courseStudents.isNotEmpty) ...[
                         DropdownButtonFormField<int>(
-                          value: selectedCourseStudentId,
+                          initialValue: selectedCourseStudentId,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'اختر الطالب المسجل في الدورة *',
@@ -455,6 +455,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
     final majorController = TextEditingController(text: '0');
     final minorController = TextEditingController(text: '0');
     final notesController = TextEditingController();
+    final passwordController = TextEditingController();
     double currentGrade = 100.0;
 
     showDialog(
@@ -579,6 +580,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   ),
                   const SizedBox(height: 12),
 
+                  TextField(controller: passwordController, obscureText: true,
+                    decoration: const InputDecoration(labelText: 'كلمة المرور الحالية لتأكيد الاعتماد')),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: notesController,
                     decoration: const InputDecoration(labelText: 'ملاحظات وتوجيهات لجنة الاختبار (اختياري)'),
@@ -604,7 +608,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       minorMistakes: min,
                       grade: currentGrade,
                       notes: notesController.text,
-                      code2FA: '123456',
+                      code2FA: passwordController.text,
                     );
 
                     if (!dialogCtx.mounted) return;

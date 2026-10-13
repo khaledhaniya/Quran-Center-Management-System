@@ -21,7 +21,7 @@ public class TeacherService
         var q = _db.Teachers.Where(t => !string.IsNullOrEmpty(t.IdentityNumber)).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             q = q.Where(t => t.FullName.Contains(search) || (t.IdentityNumber != null && t.IdentityNumber.Contains(search)) || (t.Contact != null && t.Contact.Contains(search)));
-        
+
         var teachers = await q.ToListAsync();
 
         var parentCounts = await _db.Students
@@ -141,8 +141,8 @@ public class TeacherService
                 _db.Users.Add(new User
                 {
                     Username = username,
-                    PasswordHash = _hasher.HashPassword("123456"),
-                    PlainPassword = "123456",
+                    PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                    PlainPassword = string.Empty,
                     Role = assignedRole,
                     FullName = teacher.FullName,
                     TeacherId = teacher.Id,
@@ -157,10 +157,10 @@ public class TeacherService
                 existingUser.TeacherId = teacher.Id;
                 existingUser.Role = assignedRole;
                 existingUser.IsActive = true;
-                if (string.IsNullOrEmpty(existingUser.PasswordHash) || existingUser.PlainPassword == "123456")
+                if (string.IsNullOrEmpty(existingUser.PasswordHash))
                 {
-                    existingUser.PasswordHash = _hasher.HashPassword("123456");
-                    existingUser.PlainPassword = "123456";
+                    existingUser.PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword());
+                    existingUser.PlainPassword = string.Empty;
                 }
                 await _db.SaveChangesAsync();
             }
@@ -181,12 +181,12 @@ public class TeacherService
         if (err is not null) return (null, err);
 
         var idNumber = !string.IsNullOrWhiteSpace(dto.IdentityNumber) ? dto.IdentityNumber.Trim() : null;
-        var preferredUsername = !string.IsNullOrWhiteSpace(idNumber) 
-            ? idNumber 
+        var preferredUsername = !string.IsNullOrWhiteSpace(idNumber)
+            ? idNumber
             : (!string.IsNullOrWhiteSpace(dto.Username) ? dto.Username.Trim() : "tch_" + Random.Shared.Next(10000, 99999));
 
-        var password = string.IsNullOrWhiteSpace(dto.Password) 
-            ? "123456" 
+        var password = string.IsNullOrWhiteSpace(dto.Password)
+            ? PasswordHasher.GenerateTemporaryPassword()
             : dto.Password.Trim();
 
         var t = new Teacher
@@ -248,7 +248,7 @@ public class TeacherService
             {
                 Username = finalUsername,
                 PasswordHash = _hasher.HashPassword(password),
-                PlainPassword = password,
+                PlainPassword = string.Empty,
                 Role = UserRole.Teacher,
                 FullName = t.FullName,
                 TeacherId = t.Id,
@@ -318,7 +318,7 @@ public class TeacherService
             {
                 u.IsActive = t.IsActive;
             }
-            
+
             // Dynamically elevate to Admin if assigned to مركز البيان / أمير المركز
             if (t.TaskRole != null && (t.TaskRole.Contains("مركز البيان") || t.TaskRole.Contains("أمير المركز") || t.TaskRole.Contains("البيان") || t.IdentityNumber == "408118297"))
             {
@@ -532,8 +532,8 @@ public class TeacherService
                     FullName = t.FullName,
                     Role = UserRole.Teacher,
                     TeacherId = t.Id,
-                    PlainPassword = "123456",
-                    PasswordHash = _hasher.HashPassword("123456"),
+                    PlainPassword = string.Empty,
+                    PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
                     IsActive = true
                 };
                 _db.Users.Add(user);

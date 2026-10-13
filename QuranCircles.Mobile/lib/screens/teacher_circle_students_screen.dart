@@ -329,7 +329,7 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                             Expanded(
                               flex: 3,
                               child: DropdownButtonFormField<Circle>(
-                                value: _selectedCircle,
+                                initialValue: _selectedCircle,
                                 decoration: InputDecoration(
                                   labelText: 'اختر الحلقة القرآنية:',
                                   labelStyle: AppTheme.cairoStyle(fontSize: 12),
@@ -640,7 +640,7 @@ class _EnrollStudentModalDialogState extends State<_EnrollStudentModalDialog> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: DropdownButtonFormField<Circle>(
-                  value: _targetCircle,
+                  initialValue: _targetCircle,
                   decoration: InputDecoration(
                     labelText: 'الحلقة المستهدفة للتنسيب:',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

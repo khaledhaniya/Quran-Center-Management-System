@@ -437,7 +437,7 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
 
                         // Timing Dropdown
                         DropdownButtonFormField<String>(
-                          value: timing,
+                          initialValue: timing,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'موعد ووقت الانعقاد *',
@@ -457,7 +457,7 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
 
                         // Lead Teacher Dropdown
                         DropdownButtonFormField<int?>(
-                          value: selectedTeacherId,
+                          initialValue: selectedTeacherId,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'المعلم والمحفّظ المشرف الرئيسي *',
@@ -482,7 +482,7 @@ class _CirclesManagementScreenState extends State<CirclesManagementScreen> {
 
                         // Assistant Teacher Dropdown
                         DropdownButtonFormField<int?>(
-                          value: selectedAssistantId,
+                          initialValue: selectedAssistantId,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'مساعد الحلقة (المعلم المساعد - اختياري)',

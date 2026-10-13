@@ -115,7 +115,7 @@ class _MemorizationForumScreenState extends State<MemorizationForumScreen> {
                   Text('فئة العضو في المنتدى:', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: memberType,
+                    initialValue: memberType,
                     isExpanded: true,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -137,7 +137,7 @@ class _MemorizationForumScreenState extends State<MemorizationForumScreen> {
                     Text('اختر الطالب من قاعدة البيانات:', style: AppTheme.cairoStyle(fontSize: 12)),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<int?>(
-                      value: selectedStudentId,
+                      initialValue: selectedStudentId,
                       isExpanded: true,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -171,7 +171,7 @@ class _MemorizationForumScreenState extends State<MemorizationForumScreen> {
                     Text('اختر المعلم من الكادر:', style: AppTheme.cairoStyle(fontSize: 12)),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<int?>(
-                      value: selectedTeacherId,
+                      initialValue: selectedTeacherId,
                       isExpanded: true,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -266,7 +266,7 @@ class _MemorizationForumScreenState extends State<MemorizationForumScreen> {
                   Text('المشرف المتابع من الكادر:', style: AppTheme.cairoStyle(fontSize: 12)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<int?>(
-                    value: selectedSupervisorId,
+                    initialValue: selectedSupervisorId,
                     isExpanded: true,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

@@ -8,34 +8,19 @@ public static partial class DbSeeder
 {
     public static void Seed(AppDbContext db, PasswordHasher hasher)
     {
-        // 1. إضافة المستخدمين الإداريين الأساسيين (المدير، المطور، والمشرف) في حال عدم وجودهم
-        if (!db.Users.Any(u => u.Username.ToLower() == "admin"))
+        // Initial privileged accounts are created only with administrator-supplied secrets.
+        foreach (var (username, role, variable, fullName) in new[] {
+            ("admin", UserRole.Admin, "BOOTSTRAP_ADMIN_PASSWORD", "مدير المركز"),
+            ("dev", UserRole.Developer, "BOOTSTRAP_DEVELOPER_PASSWORD", "مطور النظام") })
         {
-            db.Users.Add(new User 
-            { 
-                Username = "admin", 
-                PasswordHash = hasher.HashPassword("admin123"), 
-                PlainPassword = "admin123",
-                Role = UserRole.Admin, 
-                FullName = "مدير المركز", 
-                IsActive = true 
-            });
+            var password = Environment.GetEnvironmentVariable(variable);
+            if (!db.Users.Any(u => u.Username == username) && !string.IsNullOrWhiteSpace(password))
+            {
+                if (password.Length < 12) throw new InvalidOperationException($"{variable} must contain at least 12 characters.");
+                db.Users.Add(new User { Username = username, FullName = fullName,
+                    Role = role, IsActive = true, PasswordHash = hasher.HashPassword(password) });
+            }
         }
-
-        if (!db.Users.Any(u => u.Username.ToLower() == "dev"))
-        {
-            db.Users.Add(new User 
-            { 
-                Username = "dev", 
-                PasswordHash = hasher.HashPassword("dev123"), 
-                PlainPassword = "dev123",
-                Role = UserRole.Developer, 
-                FullName = "مطور النظام", 
-                IsActive = true 
-            });
-        }
-
-        // Note: Wael seed removed to prevent reviving deleted supervisor
         db.SaveChanges();
 
         // 2. استيراد بيانات الطلاب الأساسية لمرة واحدة فقط إذا كان جدول الطلاب فارغاً
@@ -66,14 +51,14 @@ public static partial class DbSeeder
             Console.WriteLine($"[Schema Migration Notice] {ex.Message}");
         }
 
+        EnsureIdempotencySchema(db);
+
         // Provider-agnostic migrations (EF Core based)
         EnsureSystemSettings(db);
         EnsureUserPasswordHashes(db);
         EnsureSeedTeachers(db);
         EnsureSeedTalents(db);
         EnsureSeedHuffaz(db);
-        CleanupWaelUser(db);
-        CleanupDuplicateCourses(db);
 
         if (isSqlite)
         {
@@ -92,7 +77,7 @@ public static partial class DbSeeder
         {
             db.Database.ExecuteSqlRaw(@"
                 IF NOT EXISTS (
-                    SELECT 1 FROM sys.columns 
+                    SELECT 1 FROM sys.columns
                     WHERE object_id = OBJECT_ID(N'[Sessions]') AND name = 'RecitationType'
                 )
                 BEGIN
@@ -107,7 +92,7 @@ public static partial class DbSeeder
         {
             db.Database.ExecuteSqlRaw(@"
                 IF NOT EXISTS (
-                    SELECT 1 FROM sys.columns 
+                    SELECT 1 FROM sys.columns
                     WHERE object_id = OBJECT_ID(N'[Circles]') AND name = 'AssistantTeacherId'
                 )
                 BEGIN
@@ -152,9 +137,9 @@ public static partial class DbSeeder
         {
             try
             {
-                db.Database.ExecuteSqlRaw($@"
+                ExecuteSchemaSql(db, $@"
                     IF NOT EXISTS (
-                        SELECT 1 FROM sys.columns 
+                        SELECT 1 FROM sys.columns
                         WHERE object_id = OBJECT_ID(N'[Students]') AND name = '{colName}'
                     )
                     BEGIN
@@ -185,9 +170,9 @@ public static partial class DbSeeder
         {
             try
             {
-                db.Database.ExecuteSqlRaw($@"
+                ExecuteSchemaSql(db, $@"
                     IF NOT EXISTS (
-                        SELECT 1 FROM sys.columns 
+                        SELECT 1 FROM sys.columns
                         WHERE object_id = OBJECT_ID(N'[Teachers]') AND name = '{colName}'
                     )
                     BEGIN
@@ -203,7 +188,7 @@ public static partial class DbSeeder
         {
             db.Database.ExecuteSqlRaw(@"
                 IF EXISTS (
-                    SELECT 1 FROM sys.columns 
+                    SELECT 1 FROM sys.columns
                     WHERE object_id = OBJECT_ID(N'[ExamNominations]') AND name = 'TeacherId' AND is_nullable = 0
                 )
                 BEGIN
@@ -402,9 +387,9 @@ public static partial class DbSeeder
         {
             try
             {
-                db.Database.ExecuteSqlRaw($@"
+                ExecuteSchemaSql(db, $@"
                     IF NOT EXISTS (
-                        SELECT 1 FROM sys.columns 
+                        SELECT 1 FROM sys.columns
                         WHERE object_id = OBJECT_ID(N'[SystemSettings]') AND name = '{colName}'
                     )
                     BEGIN
@@ -476,7 +461,7 @@ public static partial class DbSeeder
             {
                 try
                 {
-                    db.Database.ExecuteSqlRaw($"ALTER TABLE Students ADD COLUMN {colName} {colType};");
+                    ExecuteSchemaSql(db, $"ALTER TABLE Students ADD COLUMN {colName} {colType};");
                 }
                 catch { /* Column already exists */ }
             }
@@ -525,7 +510,7 @@ public static partial class DbSeeder
             {
                 try
                 {
-                    db.Database.ExecuteSqlRaw($"ALTER TABLE Teachers ADD COLUMN {colName} {colType};");
+                    ExecuteSchemaSql(db, $"ALTER TABLE Teachers ADD COLUMN {colName} {colType};");
                 }
                 catch { /* Column already exists */ }
             }
@@ -664,7 +649,7 @@ public static partial class DbSeeder
                 {
                     try
                     {
-                        db.Database.ExecuteSqlRaw($"ALTER TABLE SystemSettings ADD COLUMN {colName} {colType};");
+                        ExecuteSchemaSql(db, $"ALTER TABLE SystemSettings ADD COLUMN {colName} {colType};");
                     }
                     catch { }
                 }
@@ -831,42 +816,53 @@ public static partial class DbSeeder
         }
     }
 
+    private static void ExecuteSchemaSql(AppDbContext db, string sql)
+    {
+        // Only this class's fixed column/type lists call this method; never request input.
+        // Validate the statements against DDL delimiters to guard future call sites.
+        if (sql.Contains("--") || sql.Contains("/*") || sql.Contains("*/"))
+            throw new ArgumentException("Unsupported schema SQL.");
+#pragma warning disable EF1002
+        db.Database.ExecuteSqlRaw(sql);
+#pragma warning restore EF1002
+    }
+
+    private static void EnsureIdempotencySchema(AppDbContext db)
+    {
+        if (db.Database.IsSqlServer())
+            db.Database.ExecuteSqlRaw("IF COL_LENGTH('Users', 'TokenVersion') IS NULL ALTER TABLE Users ADD TokenVersion int NOT NULL DEFAULT 0");
+        else if (db.Database.IsNpgsql())
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"TokenVersion\" integer NOT NULL DEFAULT 0");
+        else
+        {
+            try {
+                if (db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM pragma_table_info('Users') WHERE name = 'TokenVersion'").Single() == 0)
+                    db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN TokenVersion INTEGER NOT NULL DEFAULT 0");
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase)) { }
+        }
+
+        if (db.Database.IsSqlServer())
+            db.Database.ExecuteSqlRaw(@"IF OBJECT_ID(N'IdempotencyReceipts', N'U') IS NULL
+                CREATE TABLE IdempotencyReceipts (Id nvarchar(64) NOT NULL PRIMARY KEY,
+                RequestHash nvarchar(64) NOT NULL, ResponseJson nvarchar(max) NOT NULL,
+                StatusCode int NOT NULL, CreatedAt datetime2 NOT NULL)");
+        else if (db.Database.IsNpgsql())
+            db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"IdempotencyReceipts\" (\"Id\" text PRIMARY KEY, \"RequestHash\" text NOT NULL, \"ResponseJson\" text NOT NULL, \"StatusCode\" integer NOT NULL, \"CreatedAt\" timestamp with time zone NOT NULL)");
+        else
+            db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS IdempotencyReceipts (Id TEXT NOT NULL PRIMARY KEY, RequestHash TEXT NOT NULL, ResponseJson TEXT NOT NULL, StatusCode INTEGER NOT NULL, CreatedAt TEXT NOT NULL)");
+    }
+
     private static void EnsureUserPasswordHashes(AppDbContext db)
     {
-        try
+        var hasher = new PasswordHasher();
+        foreach (var user in db.Users.Where(u => u.PlainPassword != "").ToList())
         {
-            var users = db.Users.ToList();
-            var hasher = new PasswordHasher();
-            bool changed = false;
-
-            foreach (var u in users)
-            {
-                // Fix corrupted dev/admin default passwords if they were overwritten to 123456 by the old bug
-                if (u.Username.ToLower() == "dev" && (u.PlainPassword == "123456" || string.IsNullOrEmpty(u.PlainPassword)))
-                {
-                    u.PlainPassword = "dev123";
-                    u.PasswordHash = hasher.HashPassword("dev123");
-                    changed = true;
-                }
-                else if (u.Username.ToLower() == "admin" && (u.PlainPassword == "123456" || string.IsNullOrEmpty(u.PlainPassword)))
-                {
-                    u.PlainPassword = "admin123";
-                    u.PasswordHash = hasher.HashPassword("admin123");
-                    changed = true;
-                }
-                else if (string.IsNullOrEmpty(u.PasswordHash) && !string.IsNullOrEmpty(u.PlainPassword))
-                {
-                    u.PasswordHash = hasher.HashPassword(u.PlainPassword);
-                    changed = true;
-                }
-            }
-
-            if (changed)
-            {
-                db.SaveChanges();
-            }
+            if (string.IsNullOrEmpty(user.PasswordHash))
+                user.PasswordHash = hasher.HashPassword(user.PlainPassword);
+            user.PlainPassword = string.Empty;
         }
-        catch { }
+        db.SaveChanges();
     }
 
     private static void EnsureSeedTeachers(AppDbContext db)
@@ -942,8 +938,8 @@ public static partial class DbSeeder
                     db.Users.Add(new User
                     {
                         Username = username,
-                        PasswordHash = teacherHasher.HashPassword("123456"),
-                        PlainPassword = "123456",
+                        PasswordHash = teacherHasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                        PlainPassword = string.Empty,
                         Role = assignedRole,
                         FullName = teacher.FullName,
                         TeacherId = teacher.Id,

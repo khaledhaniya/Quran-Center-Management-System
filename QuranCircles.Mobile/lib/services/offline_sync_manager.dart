@@ -1,164 +1,213 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 import 'offline_cache.dart';
 
 class OfflineAction {
   final String id;
-  final String actionType; // 'circle_attendance', 'course_attendance', 'recitation_session', 'create_announcement'
+  final String actionType;
   final Map<String, dynamic> payload;
   final DateTime createdAt;
+  final int ownerUserId;
+  final String server;
 
-  OfflineAction({
-    required this.id,
-    required this.actionType,
-    required this.payload,
-    required this.createdAt,
-  });
+  OfflineAction(
+      {required this.id,
+      required this.actionType,
+      required this.payload,
+      required this.createdAt,
+      required this.ownerUserId,
+      required this.server});
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'actionType': actionType,
         'payload': payload,
         'createdAt': createdAt.toIso8601String(),
+        'ownerUserId': ownerUserId,
+        'server': server
       };
 
   factory OfflineAction.fromJson(Map<String, dynamic> json) => OfflineAction(
-        id: json['id'] ?? '',
-        actionType: json['actionType'] ?? '',
-        payload: Map<String, dynamic>.from(json['payload'] ?? {}),
-        createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      );
+      id: json['id'] ?? '',
+      actionType: json['actionType'] ?? '',
+      payload: Map<String, dynamic>.from(json['payload'] ?? {}),
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      ownerUserId: json['ownerUserId'] ?? 0,
+      server: json['server'] ?? '');
 }
 
 class OfflineSyncManager {
-  static const String _queueKey = 'offline_sync_queue';
-  static bool _isSyncing = false;
+  static const _queueKey = 'offline_sync_queue';
   static Timer? _autoSyncTimer;
+  static Future<int>? _syncFuture;
+  static Future<void> _queueTail = Future.value();
+  static bool _stopping = false;
+  static final pendingActionsCount = ValueNotifier<int>(0);
+  static final lastSyncError = ValueNotifier<String?>(null);
 
-  static final ValueNotifier<int> pendingActionsCount = ValueNotifier<int>(0);
-
-  static void initialize() {
-    _loadPendingCount();
-    _autoSyncTimer?.cancel();
-    _autoSyncTimer = Timer.periodic(const Duration(seconds: 45), (_) {
-      syncPendingActions();
+  static Future<T> _locked<T>(Future<T> Function() task) {
+    final result = Completer<T>();
+    _queueTail = _queueTail.then((_) async {
+      try {
+        result.complete(await task());
+      } catch (e, trace) {
+        result.completeError(e, trace);
+      }
     });
+    return result.future;
   }
 
-  static Future<void> _loadPendingCount() async {
-    final list = await getQueuedActions();
-    pendingActionsCount.value = list.length;
+  static void initialize() {
+    _autoSyncTimer?.cancel();
+    if (ApiService.currentUser == null) return;
+    _stopping = false;
+    _locked(() async {
+      pendingActionsCount.value = (await getQueuedActions()).length;
+    });
+    _autoSyncTimer = Timer.periodic(
+        const Duration(seconds: 45), (_) => syncPendingActions());
+  }
+
+  static Future<void> stop() async {
+    _stopping = true;
+    _autoSyncTimer?.cancel();
+    final active = _syncFuture;
+    if (active != null) await active;
+    await _queueTail;
+    pendingActionsCount.value = 0;
+    lastSyncError.value = null;
   }
 
   static Future<List<OfflineAction>> getQueuedActions() async {
-    final jsonStr = await OfflineCache.load(_queueKey);
-    if (jsonStr == null || jsonStr.isEmpty) return [];
-    try {
-      final List data = jsonDecode(jsonStr);
-      return data.map((item) => OfflineAction.fromJson(item)).toList();
-    } catch (_) {
-      return [];
+    final raw = await OfflineCache.load(_queueKey);
+    if (raw == null || raw.isEmpty) return [];
+    final List data = jsonDecode(raw);
+    return data
+        .map((item) => OfflineAction.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  static Future<void> _save(List<OfflineAction> actions) async {
+    await OfflineCache.save(
+        _queueKey, jsonEncode(actions.map((a) => a.toJson()).toList()));
+    pendingActionsCount.value = actions.length;
+  }
+
+  static Future<void> queueAction(
+      {required String actionType,
+      required Map<String, dynamic> payload}) async {
+    final user = ApiService.currentUser;
+    final server = ApiService.baseUrl;
+    if (user == null || user.id <= 0 || _stopping) {
+      throw StateError('يلزم تسجيل الدخول قبل حفظ عملية مؤجلة.');
     }
-  }
-
-  static Future<void> queueAction({
-    required String actionType,
-    required Map<String, dynamic> payload,
-  }) async {
-    final current = await getQueuedActions();
     final action = OfflineAction(
-      id: '${DateTime.now().millisecondsSinceEpoch}_${current.length}',
-      actionType: actionType,
-      payload: payload,
-      createdAt: DateTime.now(),
-    );
-    current.add(action);
-    await OfflineCache.save(_queueKey, jsonEncode(current.map((a) => a.toJson()).toList()));
-    pendingActionsCount.value = current.length;
-
-    // Trigger immediate sync attempt in background
-    syncPendingActions();
+        id: base64UrlEncode(
+            List.generate(24, (_) => Random.secure().nextInt(256))),
+        actionType: actionType,
+        payload: Map<String, dynamic>.from(payload),
+        createdAt: DateTime.now(),
+        ownerUserId: user.id,
+        server: server);
+    await _locked(() async {
+      if (ApiService.currentUser?.id != user.id ||
+          ApiService.baseUrl != server ||
+          _stopping) {
+        throw StateError('تغيرت جلسة الدخول أثناء الحفظ.');
+      }
+      final current = await getQueuedActions();
+      current.add(action);
+      await _save(current);
+    });
+    unawaited(syncPendingActions());
   }
 
-  static Future<int> syncPendingActions() async {
-    if (_isSyncing) return 0;
-    _isSyncing = true;
+  static Future<int> syncPendingActions() {
+    if (_stopping ||
+        ApiService.currentUser == null ||
+        ApiService.authToken == null) {
+      return Future.value(0);
+    }
+    return _syncFuture ??= _sync().whenComplete(() => _syncFuture = null);
+  }
 
-    int syncedCount = 0;
+  static Future<int> _sync() async {
+    final userId = ApiService.currentUser!.id;
+    final server = ApiService.baseUrl;
+    final token = ApiService.authToken;
+    final completed = <String>{};
     try {
-      final list = await getQueuedActions();
-      if (list.isEmpty) {
-        _isSyncing = false;
-        pendingActionsCount.value = 0;
-        return 0;
-      }
-
-      final remaining = <OfflineAction>[];
-
-      for (var action in list) {
-        bool success = false;
+      final snapshot = await _locked(getQueuedActions);
+      for (final action in snapshot) {
+        if (_stopping ||
+            ApiService.currentUser?.id != userId ||
+            ApiService.baseUrl != server ||
+            ApiService.authToken != token) {
+          break;
+        }
+        if (action.ownerUserId != userId || action.server != server) {
+          lastSyncError.value = 'عملية محفوظة لحساب مختلف؛ لم يتم إرسالها.';
+          continue;
+        }
         try {
-          switch (action.actionType) {
-            case 'circle_attendance':
-              success = await ApiService.saveCircleAttendance(
-                action.payload['circleId'],
-                action.payload['date'],
-                (action.payload['records'] as List).cast<Map<String, dynamic>>(),
-              );
-              break;
-
-            case 'course_attendance':
-              success = await ApiService.saveCourseAttendance(
-                action.payload['courseId'],
-                action.payload['date'],
-                (action.payload['records'] as List).cast<Map<String, dynamic>>(),
-              );
-              break;
-
-            case 'recitation_session':
-              success = await ApiService.saveRecitationSession(
-                studentId: action.payload['studentId'],
-                sessionDate: action.payload['sessionDate'],
-                surahName: action.payload['surahName'],
-                fromVerse: action.payload['fromVerse'],
-                toVerse: action.payload['toVerse'],
-                assessment: action.payload['assessment'],
-                notes: action.payload['notes'],
-                viaLottery: action.payload['viaLottery'] ?? false,
-                recitationType: action.payload['recitationType'] ?? 1,
-              );
-              break;
-
-            case 'create_announcement':
-              success = await ApiService.createAnnouncement(
-                title: action.payload['title'],
-                content: action.payload['content'],
-                targetType: action.payload['targetType'] ?? 1,
-                targetId: action.payload['targetId'],
-              );
-              break;
-
-            default:
-              success = true; // Unknown, discard
+          if (await _send(action)) {
+            completed.add(action.id);
+          } else {
+            lastSyncError.value =
+                'تعذر الحفظ على الخادم؛ العملية ما زالت محفوظة محلياً.';
           }
         } catch (_) {
-          success = false;
-        }
-
-        if (success) {
-          syncedCount++;
-        } else {
-          remaining.add(action);
+          lastSyncError.value = 'تعذر الاتصال؛ ستُعاد محاولة المزامنة.';
         }
       }
+      // Merge into the latest queue so additions made during HTTP requests survive.
+      await _locked(() async {
+        final current = await getQueuedActions();
+        await _save(current.where((a) => !completed.contains(a.id)).toList());
+        if (current.length == completed.length) lastSyncError.value = null;
+      });
+    } catch (_) {
+      lastSyncError.value = 'تعذر قراءة العمليات المحفوظة؛ لم يتم حذفها.';
+    }
+    return completed.length;
+  }
 
-      await OfflineCache.save(_queueKey, jsonEncode(remaining.map((a) => a.toJson()).toList()));
-      pendingActionsCount.value = remaining.length;
-    } catch (_) {}
-
-    _isSyncing = false;
-    return syncedCount;
+  static Future<bool> _send(OfflineAction action) async {
+    final p = action.payload;
+    switch (action.actionType) {
+      case 'circle_attendance':
+        return ApiService.saveCircleAttendance(p['circleId'], p['date'],
+            (p['records'] as List).cast<Map<String, dynamic>>(),
+            operationId: action.id);
+      case 'course_attendance':
+        return ApiService.saveCourseAttendance(p['courseId'], p['date'],
+            (p['records'] as List).cast<Map<String, dynamic>>(),
+            operationId: action.id);
+      case 'recitation_session':
+        return ApiService.saveRecitationSession(
+            studentId: p['studentId'],
+            sessionDate: p['sessionDate'],
+            surahName: p['surahName'],
+            fromVerse: p['fromVerse'],
+            toVerse: p['toVerse'],
+            assessment: p['assessment'],
+            notes: p['notes'],
+            viaLottery: p['viaLottery'] ?? false,
+            recitationType: p['recitationType'] ?? 1,
+            operationId: action.id);
+      case 'create_announcement':
+        return ApiService.createAnnouncement(
+            title: p['title'],
+            content: p['content'],
+            targetType: p['targetType'] ?? 1,
+            targetId: p['targetId'],
+            operationId: action.id);
+      default:
+        lastSyncError.value = 'نوع عملية غير مدعوم؛ بقيت محفوظة للمراجعة.';
+        return Future.value(false);
+    }
   }
 }

@@ -212,7 +212,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                             const SizedBox(height: 12),
                             // Circle dropdown
                             DropdownButtonFormField<Circle>(
-                              value: _selectedCircle,
+                              initialValue: _selectedCircle,
                               decoration: InputDecoration(
                                 labelText: 'الحلقة:',
                                 labelStyle: AppTheme.cairoStyle(),
@@ -569,7 +569,7 @@ class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: DropdownButtonFormField<Circle>(
-                  value: _targetCircle,
+                  initialValue: _targetCircle,
                   decoration: InputDecoration(
                     labelText: 'الحلقة المستهدفة:',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

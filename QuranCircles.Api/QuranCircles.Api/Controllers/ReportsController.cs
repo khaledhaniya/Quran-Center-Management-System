@@ -25,10 +25,10 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("executive-dashboard")]
-    public async Task<IActionResult> ExecutiveDashboard([FromQuery] DateOnly? from, [FromQuery] DateOnly? to)
+    public async Task<IActionResult> ExecutiveDashboard([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
     {
-        var f = from ?? DateOnly.FromDateTime(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
-        var t = to ?? DateOnly.FromDateTime(DateTime.Today);
+        var f = from ?? fromDate ?? DateOnly.FromDateTime(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+        var t = to ?? toDate ?? DateOnly.FromDateTime(DateTime.Today);
         if (t < f) t = f;
 
         return Ok(await _svc.GetExecutiveDashboardAsync(f, t));

@@ -205,7 +205,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> with Single
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -3))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, -3))],
         ),
         child: ElevatedButton.icon(
           onPressed: _isSaving ? null : _saveSettings,
@@ -304,7 +304,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> with Single
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, color: AppTheme.primary, size: 22),
           ),
           const SizedBox(width: 10),
@@ -343,7 +343,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> with Single
         subtitle: Text(subtitle, style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade600)),
         value: val,
         onChanged: onChanged,
-        activeColor: AppTheme.primary,
+        activeThumbColor: AppTheme.primary,
       ),
     );
   }

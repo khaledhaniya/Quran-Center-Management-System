@@ -3,61 +3,54 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OfflineCache {
-  static SharedPreferences? _prefs;
+  static String? _scope;
+  @visibleForTesting
+  static Directory? legacyDirectoryOverride;
 
-  static Future<SharedPreferences> _getPrefs() async {
-    _prefs ??= await SharedPreferences.getInstance();
-    return _prefs!;
+  static void configure({required String server, required int userId}) {
+    _scope = '${Uri.encodeComponent(server)}_$userId';
   }
 
-  static Future<void> save(String key, String jsonString) async {
-    try {
-      final prefs = await _getPrefs();
-      await prefs.setString('albayan_cache_$key', jsonString);
-    } catch (_) {}
+  static void resetScope() => _scope = null;
+  static String? _key(String key) =>
+      _scope == null ? null : 'albayan_cache_${_scope}_$key';
 
-    if (!kIsWeb) {
-      try {
-        final dir = Directory.systemTemp;
-        final file = File('${dir.path}/albayan_cache_$key.json');
-        await file.writeAsString(jsonString);
-      } catch (_) {}
-    }
+  static Future<void> save(String key, String value) async {
+    final storageKey = _key(key);
+    if (storageKey == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(storageKey, value);
   }
 
   static Future<String?> load(String key) async {
-    try {
-      final prefs = await _getPrefs();
-      final val = prefs.getString('albayan_cache_$key');
-      if (val != null && val.isNotEmpty) return val;
-    } catch (_) {}
-
-    if (!kIsWeb) {
-      try {
-        final dir = Directory.systemTemp;
-        final file = File('${dir.path}/albayan_cache_$key.json');
-        if (await file.exists()) {
-          return await file.readAsString();
-        }
-      } catch (_) {}
-    }
-    return null;
+    final storageKey = _key(key);
+    if (storageKey == null) return null;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(storageKey);
   }
 
   static Future<void> remove(String key) async {
-    try {
-      final prefs = await _getPrefs();
-      await prefs.remove('albayan_cache_$key');
-    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    final storageKey = _key(key);
+    if (storageKey != null) await prefs.remove(storageKey);
+    // Delete both copies written by older versions, especially user_login.
+    await prefs.remove('albayan_cache_$key');
+    if (!kIsWeb) {
+      final oldFile = File(
+          '${(legacyDirectoryOverride ?? Directory.systemTemp).path}/albayan_cache_$key.json');
+      if (await oldFile.exists()) await oldFile.delete();
+    }
   }
 
   static Future<void> clearAll() async {
-    try {
-      final prefs = await _getPrefs();
-      final keys = prefs.getKeys().where((k) => k.startsWith('albayan_cache_')).toList();
-      for (var k in keys) {
-        await prefs.remove(k);
-      }
-    } catch (_) {}
+    final scope = _scope;
+    if (scope == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in prefs
+        .getKeys()
+        .where((k) => k.startsWith('albayan_cache_${scope}_'))
+        .toList()) {
+      await prefs.remove(key);
+    }
   }
 }

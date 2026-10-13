@@ -10,13 +10,10 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory
 });
 
-builder.Host.ConfigureAppConfiguration((hostingContext, config) =>
-{
-    config.Sources.Clear();
-    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-          .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-          .AddEnvironmentVariables();
-});
+builder.Configuration.Sources.Clear();
+builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables().AddCommandLine(args);
 
 // 1. Dynamic Port binding for Cloud Providers (Render, Railway, Docker)
 var port = Environment.GetEnvironmentVariable("PORT");
@@ -64,7 +61,7 @@ if (!string.IsNullOrWhiteSpace(postgresUrl))
     }
 }
 
-if (!string.IsNullOrWhiteSpace(mssqlConnStr) && (mssqlConnStr.Contains("databaseasp.net") || mssqlConnStr.Contains("MultipleActiveResultSets=")))
+if (!string.IsNullOrWhiteSpace(mssqlConnStr))
 {
     Console.WriteLine("[Database] 🚀 Connected to Microsoft SQL Server 2025 (MonsterASP Cloud Database)!");
     builder.Services.AddDbContext<AppDbContext>(opt =>
@@ -152,6 +149,14 @@ else
 
 // 3. Enterprise Services & In-Memory Caching
 builder.Services.AddMemoryCache();
+builder.Services.AddRateLimiter(options => {
+    options.RejectionStatusCode = 429;
+    options.AddPolicy("login", context => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions {
+            PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+        }));
+});
+builder.Services.AddHttpClient<QuranCircles.Api.Services.SmsGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<QuranCircles.Api.Services.StudentService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.TeacherService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.CircleService>();
@@ -177,18 +182,16 @@ builder.Services.AddCors(options =>
     {
         policy.SetIsOriginAllowed(origin =>
               {
-                  if (string.IsNullOrWhiteSpace(origin) || origin.Equals("null", StringComparison.OrdinalIgnoreCase)) 
-                      return true;
+                  if (string.IsNullOrWhiteSpace(origin) || origin.Equals("null", StringComparison.OrdinalIgnoreCase))
+                      return builder.Environment.IsDevelopment();
 
                   if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
                   {
                       return uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
                              uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-                             allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) ||
-                             origin.EndsWith(".github.io", StringComparison.OrdinalIgnoreCase) ||
-                             origin.EndsWith(".onrender.com", StringComparison.OrdinalIgnoreCase);
+                             allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
                   }
-                  return true;
+                  return false;
               })
               .AllowAnyMethod()
               .AllowAnyHeader()
@@ -218,6 +221,11 @@ builder.Services.AddResponseCompression(options =>
 });
 
 var app = builder.Build();
+app.UseExceptionHandler(errorApp => errorApp.Run(async context => {
+    context.Response.StatusCode = 500;
+    context.Response.ContentType = "application/json; charset=utf-8";
+    await context.Response.WriteAsJsonAsync(new { error = "تعذر إتمام الطلب على الخادم. يرجى إعادة المحاولة أو مراجعة الإدارة.", traceId = context.TraceIdentifier });
+}));
 
 app.UseCors("EnterpriseCors");
 app.UseResponseCompression();
@@ -230,7 +238,7 @@ using (var scope = app.Services.CreateScope())
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<QuranCircles.Api.Services.PasswordHasher>();
         db.Database.EnsureCreated();
-        
+
         // Enable SQLite WAL mode (Write-Ahead Logging) and busy timeout to eliminate locks
         try
         {
@@ -280,8 +288,8 @@ try
     {
         var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webDir);
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
-        app.UseStaticFiles(new StaticFileOptions 
-        { 
+        app.UseStaticFiles(new StaticFileOptions
+        {
             FileProvider = fileProvider,
             ContentTypeProvider = contentTypeProvider,
             OnPrepareResponse = ctx =>
@@ -338,9 +346,9 @@ app.Use(async (context, next) =>
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
     var path = context.Request.Path.Value ?? "";
-    if (path.StartsWith("/api") && 
-        !path.StartsWith("/api/auth/login") && 
-        !path.StartsWith("/api/status") && 
+    if (path.StartsWith("/api") &&
+        !path.StartsWith("/api/auth/login") &&
+        !path.StartsWith("/api/status") &&
         !(path.Equals("/api/settings", StringComparison.OrdinalIgnoreCase) && context.Request.Method.Equals("GET", StringComparison.OrdinalIgnoreCase)))
     {
         var db = context.RequestServices.GetService<AppDbContext>();
@@ -407,7 +415,7 @@ app.MapGet("/healthz", async (AppDbContext db) =>
     try
     {
         var canConnect = await db.Database.CanConnectAsync();
-        return canConnect 
+        return canConnect
             ? Results.Ok(new { status = "healthy", database = "connected", timestamp = DateTime.UtcNow })
             : Results.Json(new { status = "degraded", database = "unreachable" }, statusCode: 503);
     }
@@ -417,6 +425,7 @@ app.MapGet("/healthz", async (AppDbContext db) =>
     }
 });
 
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

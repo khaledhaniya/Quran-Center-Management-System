@@ -97,7 +97,7 @@ public class HuffazForumController : ControllerBase
         // Filter teachers whose TaskRole contains "التحفيظ" or "منتدى الحفاظ"
         var allTeachers = await _db.Teachers.Where(t => t.IsActive).OrderBy(t => t.FullName).ToListAsync();
         var authorizedSupervisors = allTeachers
-            .Where(t => !string.IsNullOrEmpty(t.TaskRole) && 
+            .Where(t => !string.IsNullOrEmpty(t.TaskRole) &&
                        (t.TaskRole.Contains("التحفيظ") || t.TaskRole.Contains("منتدى الحفاظ") || t.TaskRole.Contains("الحفاظ") || t.TaskRole.Contains("مركز البيان")))
             .Select(t => new
             {
@@ -109,8 +109,8 @@ public class HuffazForumController : ControllerBase
             .ToList();
 
         // If no teacher specifically has this role yet, return all active teachers as fallback with indicator
-        var result = authorizedSupervisors.Any() 
-            ? authorizedSupervisors 
+        var result = authorizedSupervisors.Any()
+            ? authorizedSupervisors
             : allTeachers.Select(t => new { t.Id, t.FullName, t.TaskRole, t.Contact }).ToList();
 
         return Ok(result);
@@ -202,8 +202,8 @@ public class HuffazForumController : ControllerBase
                     StudentId = member.StudentId,
                     TeacherId = member.TeacherId,
                     IsActive = true,
-                    PasswordHash = _hasher.HashPassword(idNumber),
-                    PlainPassword = idNumber
+                    PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                    PlainPassword = string.Empty
                 };
                 _db.Users.Add(newUser);
             }

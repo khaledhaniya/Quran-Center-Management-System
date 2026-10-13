@@ -57,7 +57,7 @@ public class ReportService
         }
     }
 
-    
+
     public async Task<List<ChildProgressDto>> GetChildrenProgressAsync(int parentId)
     {
         var children = await _db.Students
@@ -137,7 +137,7 @@ public class ReportService
 
         // 1. Resolve national identity number of this user/teacher
         var idNumbersToMatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        
+
         if (!string.IsNullOrWhiteSpace(parentUser.Username) && parentUser.Username.All(char.IsDigit) && parentUser.Username.Trim().Length >= 7)
         {
             idNumbersToMatch.Add(parentUser.Username.Trim());
@@ -151,7 +151,7 @@ public class ReportService
         else if (teacher == null && (parentUser.Role == UserRole.Teacher || parentUser.Role == UserRole.Admin))
         {
             var uName = (parentUser.Username ?? "").Trim();
-            teacher = await _db.Teachers.FirstOrDefaultAsync(t => 
+            teacher = await _db.Teachers.FirstOrDefaultAsync(t =>
                 (!string.IsNullOrEmpty(t.IdentityNumber) && t.IdentityNumber == uName) ||
                 (!string.IsNullOrEmpty(t.FullName) && t.FullName == parentUser.FullName));
         }
@@ -226,7 +226,8 @@ public class ReportService
 
             int totalCircles = allCircles.Count;
             int activeCircles = allCircles.Count(c => c.IsActive);
-            int maxCapPerCircle = 20;
+            var dashboardSettings = await _db.SystemSettings.AsNoTracking().FirstOrDefaultAsync();
+            int maxCapPerCircle = Math.Max(1, dashboardSettings?.MaxStudentsPerCircle ?? 20);
             int totalCapacity = activeCircles * maxCapPerCircle;
             double capacityUtilization = totalCapacity > 0 ? Math.Round((double)totalStudentsActive / totalCapacity * 100, 1) : 0;
 
@@ -239,19 +240,16 @@ public class ReportService
             var studentFamilyPhones = allStudents.Where(s => !string.IsNullOrWhiteSpace(s.FamilyContact)).Select(s => s.FamilyContact!.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             int totalParentsCount = allParents.Count;
-            int linkedParentsCount = allParents.Count(p => 
+            int linkedParentsCount = allParents.Count(p =>
                 (p.ParentId.HasValue && studentParentIds.Contains(p.ParentId.Value)) ||
                 studentParentIds.Contains(p.Id) ||
                 (!string.IsNullOrWhiteSpace(p.Username) && (studentParentIdNums.Contains(p.Username.Trim()) || studentFamilyPhones.Contains(p.Username.Trim())))
             );
             int unlinkedParentsCount = Math.Max(0, totalParentsCount - linkedParentsCount);
-            double parentLinkPercent = totalStudentsActive > 0 ? Math.Round((double)allStudents.Count(s => s.ParentId.HasValue || !string.IsNullOrWhiteSpace(s.ParentIdentityNumber)) / totalStudentsActive * 100, 1) : 0;
+            double parentLinkPercent = Percentage(linkedParentsCount, totalParentsCount);
 
-            // Khatimun (Full Quran Completers)
-            var khatimunList = allStudents.Where(s => 
-                (s.CompletedAjzaa != null && s.CompletedAjzaa.Split(',', StringSplitOptions.RemoveEmptyEntries).Length >= 30) ||
-                (s.PreviousQuranMemorization != null && (s.PreviousQuranMemorization.Contains("خاتم") || s.PreviousQuranMemorization.Contains("كامل") || s.PreviousQuranMemorization.Contains("30")))
-            ).ToList();
+            // A completed Juz 30 alone does not mean the full Quran is completed.
+            var khatimunList = allStudents.Where(HasCompletedQuran).ToList();
             int khatimunTotal = khatimunList.Count;
 
             var currentYear = now.Year;
@@ -262,8 +260,8 @@ public class ReportService
                 .AsNoTracking()
                 .ToListAsync();
 
-            int khatimunThisYear = examNominations.Count(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzEnd >= 30 || e.JuzStart >= 30) && e.ExamDate.HasValue && e.ExamDate.Value.Year == currentYear);
-            int khatimunThisMonth = examNominations.Count(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzEnd >= 30 || e.JuzStart >= 30) && e.ExamDate.HasValue && e.ExamDate.Value.Month == currentMonth && e.ExamDate.Value.Year == currentYear);
+            int khatimunThisYear = examNominations.Count(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzStart == 1 && e.JuzEnd == 30 && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70)) && e.ExamDate.HasValue && e.ExamDate.Value.Year == currentYear);
+            int khatimunThisMonth = examNominations.Count(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzStart == 1 && e.JuzEnd == 30 && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70)) && e.ExamDate.HasValue && e.ExamDate.Value.Month == currentMonth && e.ExamDate.Value.Year == currentYear);
 
             int huffazCount = await _db.HuffazMembers.CountAsync();
             int huffazInIjaza = await _db.HuffazMembers.CountAsync(h => (h.Riwayah != null && (h.Riwayah.Contains("إجازة") || h.Riwayah.Contains("سند") || h.Riwayah.Contains("عشر"))) || (h.RevisionPlan != null && h.RevisionPlan.Contains("تثبيت")));
@@ -279,9 +277,9 @@ public class ReportService
             int todayStudentsAbsent = todayAttendances.Count(a => a.Status == AttendanceStatus.Absent);
             int todayStudentsLate = todayAttendances.Count(a => a.Status == AttendanceStatus.Late);
             int todayTotalAtt = todayAttendances.Count;
-            double todayAttendanceRate = todayTotalAtt > 0 ? Math.Round((double)todayStudentsPresent / todayTotalAtt * 100, 1) : 98.5;
+            double todayAttendanceRate = todayTotalAtt > 0 ? Math.Round((double)todayStudentsPresent / todayTotalAtt * 100, 1) : 0;
 
-            var todaySessions = await _db.Sessions
+            var todaySessions = await _db.Sessions.Include(s => s.Student)
                 .Where(s => s.SessionDate == today)
                 .AsNoTracking()
                 .ToListAsync();
@@ -302,7 +300,7 @@ public class ReportService
             int todayTeachersPresent = allCircles.Where(c => todayStartedCircleIds.Contains(c.Id) && c.TeacherId.HasValue).Select(c => c.TeacherId!.Value).Distinct().Count();
 
             // 3. Range-Based Data (from - to)
-            var rangeSessions = await _db.Sessions
+            var rangeSessions = await _db.Sessions.Include(s => s.Student)
                 .Where(s => s.SessionDate >= from && s.SessionDate <= to)
                 .AsNoTracking()
                 .ToListAsync();
@@ -323,13 +321,14 @@ public class ReportService
                 var cSess = rangeSessions.Where(s => s.Student != null && s.Student.CircleId == c.Id).ToList();
                 int cPresent = cAtts.Count(a => a.Status == AttendanceStatus.Present);
                 int cTotalAtt = cAtts.Count;
-                double rate = cTotalAtt > 0 ? Math.Round((double)cPresent / cTotalAtt * 100, 1) : 95.0;
+                double rate = cTotalAtt > 0 ? Math.Round((double)cPresent / cTotalAtt * 100, 1) : 0;
                 int verses = cSess.Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
 
                 return new
                 {
                     c.Id,
                     c.Name,
+                    CircleName = c.Name,
                     TeacherName = c.Teacher != null ? c.Teacher.FullName : "غير محدد",
                     StudentsCount = allStudents.Count(s => s.CircleId == c.Id && s.IsActive),
                     AttendanceRate = rate,
@@ -343,15 +342,15 @@ public class ReportService
 
             // Exam indicators
             int totalExamsCompleted = examNominations.Count(e => e.Status == "Completed");
-            int passedExams = examNominations.Count(e => e.Status == "Completed" && e.Result != null && e.Result.Grade >= 70);
-            double examPassRate = totalExamsCompleted > 0 ? Math.Round((double)passedExams / totalExamsCompleted * 100, 1) : 92.5;
+            int passedExams = examNominations.Count(e => e.Status == "Completed" && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70));
+            double examPassRate = totalExamsCompleted > 0 ? Math.Round((double)passedExams / totalExamsCompleted * 100, 1) : 0;
             int qualifiedStudentsForExam = allStudents.Count(s => s.IsActive && s.CompletedAjzaa != null && s.CompletedAjzaa.Length > 0);
 
             // Early Warning Absences (3 consecutive unexcused or 10 in month)
             var studentAbsences = rangeAttendances
                 .Where(a => a.Status == AttendanceStatus.Absent)
                 .GroupBy(a => a.StudentId)
-                .Select(g => new { StudentId = g.Key, AbsentDates = g.Select(x => x.SessionDate).OrderBy(d => d).ToList() })
+                .Select(g => new { StudentId = g.Key, AbsentDates = g.Select(x => x.SessionDate).Distinct().OrderBy(d => d).ToList() })
                 .ToList();
 
             var consecutiveAbsenceAlerts = new List<object>();
@@ -363,7 +362,7 @@ public class ReportService
                 if (st == null) continue;
 
                 // Check 10 days in month
-                if (sa.AbsentDates.Count >= 10)
+                if (sa.AbsentDates.GroupBy(d => new { d.Year, d.Month }).Any(g => g.Count() >= 10))
                 {
                     monthlyAbsenceAlerts.Add(new
                     {
@@ -379,14 +378,14 @@ public class ReportService
                 bool hasThreeConsecutive = false;
                 for (int i = 0; i < sa.AbsentDates.Count - 2; i++)
                 {
-                    if (sa.AbsentDates[i + 1].DayNumber - sa.AbsentDates[i].DayNumber <= 2 &&
-                        sa.AbsentDates[i + 2].DayNumber - sa.AbsentDates[i + 1].DayNumber <= 2)
+                    if (sa.AbsentDates[i + 1].DayNumber - sa.AbsentDates[i].DayNumber == 1 &&
+                        sa.AbsentDates[i + 2].DayNumber - sa.AbsentDates[i + 1].DayNumber == 1)
                     {
                         hasThreeConsecutive = true;
                         break;
                     }
                 }
-                if (hasThreeConsecutive || sa.AbsentDates.Count >= 3)
+                if (hasThreeConsecutive)
                 {
                     consecutiveAbsenceAlerts.Add(new
                     {
@@ -411,7 +410,13 @@ public class ReportService
             // 6. Quranic Flow & Cumulative Memorization
             int memorizationCount = rangeSessions.Count(s => s.RecitationType == RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
             int revisionCount = rangeSessions.Count(s => s.RecitationType == RecitationType.Revision && s.Assessment != AssessmentLevel.DidNotRecite);
-            double revisionRatio = memorizationCount > 0 ? Math.Round((double)revisionCount / memorizationCount, 2) : 1.5;
+            double revisionRatio = memorizationCount > 0 ? Math.Round((double)revisionCount / memorizationCount, 2) : 0;
+            double reviewPercent = Percentage(revisionCount, revisionCount + memorizationCount);
+            double newPercent = Percentage(memorizationCount, revisionCount + memorizationCount);
+            int rangeDays = Math.Max(1, to.DayNumber - from.DayNumber + 1);
+            // Page counts are estimates (15 verses/page), not exact Mushaf page positions.
+            double dailyPagesEstimate = totalStudentsActive > 0 ? Math.Round(rangeTotalVerses / 15.0 / totalStudentsActive / rangeDays, 2) : 0;
+            double weeklyPagesEstimate = Math.Round(dailyPagesEstimate * 7, 2);
 
             int juz1to5 = allStudents.Count(s => {
                 int count = s.CompletedAjzaa != null ? s.CompletedAjzaa.Split(',', StringSplitOptions.RemoveEmptyEntries).Length : 0;
@@ -432,7 +437,10 @@ public class ReportService
 
             // Special follow-up (<70% on recent sessions)
             var specialFollowUp = allStudents
-                .Where(s => s.IsActive && s.Sessions.Count(rs => rs.Assessment == AssessmentLevel.Rejected || rs.Assessment == AssessmentLevel.Medium) >= 2)
+                .Where(s => s.IsActive && rangeSessions.Where(rs => rs.StudentId == s.Id)
+                    .OrderByDescending(rs => rs.SessionDate).Take(3).Count() == 3 &&
+                    rangeSessions.Where(rs => rs.StudentId == s.Id).OrderByDescending(rs => rs.SessionDate).Take(3)
+                        .All(rs => rs.Assessment is AssessmentLevel.Rejected or AssessmentLevel.Medium))
                 .Take(10)
                 .Select(s => new
                 {
@@ -511,8 +519,8 @@ public class ReportService
                 certificatesTotal = certsTotal,
 
                 // 6. Quranic Flow
-                avgDailyPagesPerStudent = 1.5,
-                avgWeeklyPagesPerStudent = 7.5,
+                avgDailyPagesPerStudent = dailyPagesEstimate,
+                avgWeeklyPagesPerStudent = weeklyPagesEstimate,
                 revisionToNewRatio = revisionRatio,
                 ajzaaDistribution = new
                 {
@@ -551,7 +559,7 @@ public class ReportService
                     excusedAbsentToday = todayStudentsExcused,
                     unexcusedAbsentToday = todayStudentsAbsent,
                     lateToday = todayStudentsLate,
-                    teacherAttendanceRateToday = todayTeachersPresent > 0 ? 100.0 : 0.0,
+                    teacherAttendanceRateToday = Percentage(todayTeachersPresent, activeTeachers),
                     activeCirclesToday = todayCirclesStarted,
                     pendingOrDelayedCirclesToday = todayCirclesLateOrPending,
                     sessionsToday = todaySessionsCount,
@@ -580,10 +588,10 @@ public class ReportService
                 },
                 quranicFlow = new
                 {
-                    dailyAveragePages = 1.5,
-                    weeklyAveragePages = 7.5,
-                    reviewRatio = (int)Math.Round(revisionRatio * 40.0),
-                    newMemorizationRatio = Math.Max(10, 100 - (int)Math.Round(revisionRatio * 40.0)),
+                    dailyAveragePages = dailyPagesEstimate,
+                    weeklyAveragePages = weeklyPagesEstimate,
+                    reviewRatio = reviewPercent,
+                    newMemorizationRatio = newPercent,
                     ajzaaDistribution = new Dictionary<string, int>
                     {
                         { "من 1 إلى 5 أجزاء", juz1to5 },
@@ -603,60 +611,17 @@ public class ReportService
         catch (Exception ex)
         {
             Console.WriteLine($"[ReportService.GetExecutiveDashboardAsync Error] {ex.Message}");
-            return new
-            {
-                from = from.ToString("yyyy-MM-dd"),
-                to = to.ToString("yyyy-MM-dd"),
-                totalStudents = 0,
-                totalStudentsActive = 0,
-                totalStudentsInactive = 0,
-                totalCircles = 0,
-                activeCircles = 0,
-                totalCapacity = 0,
-                capacityUtilizationRate = 0.0,
-                totalTeachers = 0,
-                activeTeachers = 0,
-                totalParents = 0,
-                linkedParentsCount = 0,
-                unlinkedParentsCount = 0,
-                parentLinkPercentage = 0.0,
-                khatimunTotal = 0,
-                khatimunThisYear = 0,
-                khatimunThisMonth = 0,
-                huffazInIjazaCount = 0,
-                todayStudentsPresent = 0,
-                todayStudentsExcused = 0,
-                todayStudentsAbsent = 0,
-                todayStudentsLate = 0,
-                todayAttendanceRate = 98.5,
-                todayCirclesStarted = 0,
-                todayCirclesLateOrPending = 0,
-                todayTeachersPresent = 0,
-                todaySessionsCount = 0,
-                todayPagesRecited = 0,
-                todayVersesRecited = 0,
-                totalSessions = 0,
-                totalVersesRecited = 0,
-                studentAbsenceCount = 0,
-                assessmentBreakdown = new Dictionary<string, int>(),
-                topPerformingCircles = new List<object>(),
-                lowestPerformingCircles = new List<object>(),
-                totalExamsCompleted = 0,
-                examPassRate = 0.0,
-                qualifiedStudentsForExam = 0,
-                consecutiveAbsenceAlerts = new List<object>(),
-                monthlyAbsenceAlerts = new List<object>(),
-                khatimunAffairsCount = 0,
-                preacherYouthCount = 0,
-                preacherSpeechesCount = 0,
-                certificatesIssuedThisMonth = 0,
-                certificatesTotal = 0,
-                avgDailyPagesPerStudent = 1.5,
-                avgWeeklyPagesPerStudent = 7.5,
-                revisionToNewRatio = 1.5,
-                ajzaaDistribution = new { juz1to5 = 0, juz6to10 = 0, juz11to20 = 0, juz21to30 = 0 },
-                specialFollowUpStudents = new List<object>()
-            };
+            throw new InvalidOperationException("تعذر تحميل إحصائيات المركز. يرجى إعادة المحاولة.", ex);
         }
     }
+    public static double Percentage(int count, int total) => total > 0 ? Math.Round(count * 100.0 / total, 1) : 0;
+
+    public static bool HasCompletedQuran(Student student)
+    {
+        var parts = (student.CompletedAjzaa ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(v => int.TryParse(v.Trim(), out var number) ? number : 0).ToHashSet();
+        var text = (student.PreviousQuranMemorization ?? "").Trim();
+        return Enumerable.Range(1, 30).All(parts.Contains) || text is "خاتم" or "خاتم القرآن" or "كامل القرآن" or "القرآن كامل" or "القرآن كاملاً";
+    }
+
 }

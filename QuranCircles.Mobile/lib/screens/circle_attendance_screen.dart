@@ -329,6 +329,7 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                                                   try {
                                                     await ApiService.enrollStudentInCircle(_selectedCircle!.id, st.id);
                                                     if (!mounted) return;
+                                                    if (!mounted || !ctx.mounted) return;
                                                     Navigator.pop(ctx);
                                                     ScaffoldMessenger.of(context).showSnackBar(
                                                       SnackBar(content: Text('تم تنسيب الطالب (${st.fullName}) للحلقة بنجاح!'), backgroundColor: Colors.green),
@@ -340,7 +341,9 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                                                       _filterStudents(freshStudents);
                                                     });
                                                   } catch (e) {
+                                                    if (!mounted || !ctx.mounted) return;
                                                     setModalState(() => isSubmitting = false);
+                                                    if (!mounted || !context.mounted) return;
                                                     ScaffoldMessenger.of(context).showSnackBar(
                                                       SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
                                                     );
@@ -515,7 +518,7 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                   const SizedBox(height: 12),
 
                   DropdownButtonFormField<int>(
-                    value: assessmentLevel,
+                    initialValue: assessmentLevel,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'التقييم ومستوى الحفظ *'),
                     items: const [
@@ -754,7 +757,7 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                   Expanded(
                     flex: 3,
                     child: DropdownButtonFormField<Circle>(
-                      value: _selectedCircle,
+                      initialValue: _selectedCircle,
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'الحلقة المستهدفة',
@@ -1271,7 +1274,7 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                       style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600),
                     ),
                     value: _excludeAbsentees,
-                    activeColor: AppTheme.primary,
+                    activeThumbColor: AppTheme.primary,
                     onChanged: (val) => setState(() => _excludeAbsentees = val),
                   ),
                   const SizedBox(height: 10),

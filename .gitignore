@@ -31,3 +31,16 @@ Thumbs.db
 *.publishSettings
 scratch/
 
+
+# Runtime databases, backups and machine-local secrets
+*.db
+*.sqlite
+*.sqlite3
+backups/
+*.secret
+*.bin
+.env
+.env.*
+QuranCircles.Mobile/flutter/
+
+**/__pycache__/

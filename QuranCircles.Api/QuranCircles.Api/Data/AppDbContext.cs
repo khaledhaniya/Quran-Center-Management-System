@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<Student> Students => Set<Student>();
+    public DbSet<IdempotencyReceipt> IdempotencyReceipts => Set<IdempotencyReceipt>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<Circle> Circles => Set<Circle>();
     public DbSet<RecitationSession> Sessions => Set<RecitationSession>();
@@ -27,6 +28,35 @@ public class AppDbContext : DbContext
     public DbSet<TalentRecord> TalentRecords => Set<TalentRecord>();
     public DbSet<HuffazMember> HuffazMembers => Set<HuffazMember>();
     public DbSet<QualityVisit> QualityVisits => Set<QualityVisit>();
+
+    private void RemovePlaintextPasswords()
+    {
+        var hasher = new QuranCircles.Api.Services.PasswordHasher();
+        foreach (var entry in ChangeTracker.Entries<User>().Where(e => e.State is EntityState.Added or EntityState.Modified))
+        {
+            if (entry.State == EntityState.Modified &&
+                ((entry.Property(u => u.IsActive).IsModified && !entry.Entity.IsActive) || entry.Property(u => u.Role).IsModified))
+                entry.Entity.TokenVersion++;
+            if (!string.IsNullOrEmpty(entry.Entity.PlainPassword))
+            {
+                if (string.IsNullOrEmpty(entry.Entity.PasswordHash))
+                    entry.Entity.PasswordHash = hasher.HashPassword(entry.Entity.PlainPassword);
+                entry.Entity.PlainPassword = string.Empty;
+            }
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        RemovePlaintextPasswords();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        RemovePlaintextPasswords();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder b)
     {

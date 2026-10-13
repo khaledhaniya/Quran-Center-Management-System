@@ -1,0 +1,32 @@
+name: Validate source before release
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - run: dotnet test QuranCircles.Api.Tests/QuranCircles.Api.Tests.csproj -c Release
+      - run: node --check QuranCircles.Web/app.js
+      - run: python -m unittest discover -s tools -p 'test_*.py'
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: QuranCircles.Mobile
+      - run: flutter analyze
+        working-directory: QuranCircles.Mobile
+      - run: flutter test
+        working-directory: QuranCircles.Mobile

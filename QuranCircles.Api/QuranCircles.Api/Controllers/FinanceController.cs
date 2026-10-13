@@ -239,4 +239,94 @@ public class FinanceController : ControllerBase
 
         return Ok(cats);
     }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] string? format = "xls")
+    {
+        var list = await _db.FinancialTransactions
+                            .OrderByDescending(t => t.TransactionDate)
+                            .ThenByDescending(t => t.Id)
+                            .ToListAsync();
+
+        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("رقم السند,النوع,البيان,التصنيف,المبلغ (₪),طريقة الدفع,المتبرع/المستلم,الجهة/الواسطة,التاريخ,ملاحظات");
+            foreach (var t in list)
+            {
+                var typeStr = t.Type == TransactionType.Income ? "إيراد / تبرع" : "مصروف / نفقة";
+                var personStr = t.Type == TransactionType.Income ? (t.DonorName ?? "-") : (t.RecipientName ?? "-");
+                var methodStr = t.PaymentMethod switch
+                {
+                    PaymentMethod.Cash => "كاش (نقداً)",
+                    PaymentMethod.AppWallet => "محفظة إلكترونية",
+                    PaymentMethod.Bank => "حساب بنكي",
+                    _ => "أخرى"
+                };
+                sb.AppendLine($"\"{t.Id}\",\"{typeStr}\",\"{t.Title?.Replace("\"", "\"\"")}\",\"{t.Category?.Replace("\"", "\"\"")}\",\"{t.Amount}\",\"{methodStr}\",\"{personStr.Replace("\"", "\"\"")}\",\"{t.DonorSource?.Replace("\"", "\"\"")}\",\"{t.TransactionDate:yyyy-MM-dd}\",\"{t.Notes?.Replace("\"", "\"\"")}\"");
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+            return File(bytes, "text/csv; charset=utf-8", $"كشف_حركة_الصندوق_{DateTime.Today:yyyy-MM-dd}.csv");
+        }
+        else
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(@"<html xmlns:o=""urn:schemas-microsoft-com:office:office"" xmlns:x=""urn:schemas-microsoft-com:office:excel"" xmlns=""http://www.w3.org/TR/REC-html40"">
+<head><meta charset=""utf-8""><style>
+table { border-collapse: collapse; width: 100%; direction: rtl; font-family: Tahoma, Arial, sans-serif; }
+th { background-color: #0d5c3a; color: #ffffff; border: 1px solid #000; padding: 10px; font-size: 13px; text-align: center; }
+td { border: 1px solid #cccccc; padding: 8px; font-size: 12px; text-align: center; }
+.income { color: #166534; font-weight: bold; }
+.expense { color: #991b1b; font-weight: bold; }
+</style></head><body>
+<h2 style=""text-align:center; color:#0d5c3a;"">مركز البيان لتعليم القرآن الكريم - كشف حركة الصندوق المالي المعتمد</h2>
+<p style=""text-align:center; color:#64748b;"">تاريخ الاستخراج: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + @"</p>
+<table>
+<thead>
+<tr>
+<th>رقم السند</th>
+<th>النوع</th>
+<th>البيان / الشرح</th>
+<th>التصنيف</th>
+<th>المبلغ (₪)</th>
+<th>طريقة الدفع</th>
+<th>المتبرع / المستلم</th>
+<th>الجهة / الواسطة</th>
+<th>تاريخ السند</th>
+<th>ملاحظات</th>
+</tr>
+</thead><tbody>");
+
+            foreach (var t in list)
+            {
+                var typeStr = t.Type == TransactionType.Income ? "إيراد / تبرع" : "مصروف / نفقة";
+                var typeClass = t.Type == TransactionType.Income ? "income" : "expense";
+                var personStr = t.Type == TransactionType.Income ? (t.DonorName ?? "-") : (t.RecipientName ?? "-");
+                var methodStr = t.PaymentMethod switch
+                {
+                    PaymentMethod.Cash => "كاش (نقداً)",
+                    PaymentMethod.AppWallet => "محفظة إلكترونية",
+                    PaymentMethod.Bank => "حساب بنكي",
+                    _ => "أخرى"
+                };
+                sb.Append($@"<tr>
+<td>#{t.Id}</td>
+<td class=""{typeClass}"">{typeStr}</td>
+<td>{System.Net.WebUtility.HtmlEncode(t.Title)}</td>
+<td>{System.Net.WebUtility.HtmlEncode(t.Category ?? "-")}</td>
+<td><strong>{t.Amount:N2}</strong></td>
+<td>{methodStr}</td>
+<td>{System.Net.WebUtility.HtmlEncode(personStr)}</td>
+<td>{System.Net.WebUtility.HtmlEncode(t.DonorSource ?? "-")}</td>
+<td>{t.TransactionDate:yyyy-MM-dd}</td>
+<td>{System.Net.WebUtility.HtmlEncode(t.Notes ?? "-")}</td>
+</tr>");
+            }
+
+            sb.Append("</tbody></table></body></html>");
+            var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+            return File(bytes, "application/vnd.ms-excel", $"كشف_حساب_الصندوق_{DateTime.Today:yyyy-MM-dd}.xls");
+        }
+    }
 }

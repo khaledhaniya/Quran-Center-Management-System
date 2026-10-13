@@ -88,7 +88,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
           final title = isQuran
               ? (n.juzStart == n.juzEnd ? 'حفظ الجزء ${n.juzStart}' : 'حفظ الأجزاء (${n.juzStart} - ${n.juzEnd})')
               : (n.courseName?.isNotEmpty == true ? n.courseName! : 'دورة تخصصية');
-          
+
           if (!isQuran && failedKeys.contains('${n.studentName.trim()}_${title.trim()}')) {
             continue;
           }
@@ -167,7 +167,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
     }
 
     final supervisors = _users.where((u) => u.role == 'ExamSupervisor' || u.role == 'Admin' || u.role == 'Developer').toList();
-    
+
     for (var t in _teachers) {
       if (!supervisors.any((u) => u.id == t.id || u.fullName == t.fullName)) {
         supervisors.add(User(id: t.id, username: 'teacher_${t.id}', role: 'Teacher', fullName: '${t.fullName} (معلم)', isActive: true));
@@ -275,7 +275,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withOpacity(0.15),
+                          color: Colors.amber.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.amber),
                         ),
@@ -315,7 +315,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-              icon: isSaving 
+              icon: isSaving
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.save, color: Colors.white, size: 18),
               label: Text(
@@ -403,8 +403,8 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: status == 'Passed'
-                                  ? Colors.green.withOpacity(0.15)
-                                  : (status == 'Failed' ? Colors.red.withOpacity(0.15) : Colors.blue.withOpacity(0.15)),
+                                  ? Colors.green.withValues(alpha: 0.15)
+                                  : (status == 'Failed' ? Colors.red.withValues(alpha: 0.15) : Colors.blue.withValues(alpha: 0.15)),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -440,6 +440,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
 
   void _promptRecordStudentGrade(Map<String, dynamic> enrollmentItem, Course course) {
     final gradeCtrl = TextEditingController(text: enrollmentItem['grade']?.toString() ?? '');
+    final passwordCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -461,6 +462,9 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('دورة: ${course.name}', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
+            const SizedBox(height: 12),
+            TextField(controller: passwordCtrl, obscureText: true,
+              decoration: const InputDecoration(labelText: 'كلمة المرور الحالية لتأكيد الاعتماد')),
             const SizedBox(height: 12),
             TextField(
               controller: gradeCtrl,
@@ -491,15 +495,18 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
               }
               try {
                 final enrollmentId = enrollmentItem['id'] ?? enrollmentItem['enrollmentId'];
-                await ApiService.recordCourseGrade(enrollmentId: enrollmentId, grade: val);
+                await ApiService.recordCourseGrade(enrollmentId: enrollmentId, grade: val, code2FA: passwordCtrl.text);
                 if (!dialogCtx.mounted) return;
                 Navigator.pop(dialogCtx);
+                if (!mounted || !context.mounted) return;
                 Navigator.pop(context); // close enrollments dialog
                 _showCourseEnrollmentsModal(course); // re-open updated
+                if (!mounted || !context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('تم رصد العلامة واعتتماد النتيجة بنجاح ✨'), backgroundColor: Colors.green),
                 );
               } catch (e) {
+                if (!mounted || !context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
                 );
@@ -629,7 +636,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                   return ListTile(
                                     dense: true,
                                     selected: isSelected,
-                                    selectedTileColor: AppTheme.primary.withOpacity(0.12),
+                                    selectedTileColor: AppTheme.primary.withValues(alpha: 0.12),
                                     leading: CircleAvatar(
                                       radius: 14,
                                       backgroundColor: isSelected ? AppTheme.primary : Colors.grey.shade300,
@@ -707,6 +714,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                     }
                   } catch (e) {
                     if (!dialogCtx.mounted) return;
+                    if (!mounted || !context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
                     );
@@ -826,10 +834,10 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.primary.withOpacity(0.15)),
+                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -842,7 +850,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: AppTheme.primary.withOpacity(0.06),
+                              color: AppTheme.primary.withValues(alpha: 0.06),
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                             ),
                             child: Row(
@@ -859,7 +867,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: c.isActive ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                                    color: c.isActive ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(color: c.isActive ? Colors.green : Colors.red),
                                   ),
@@ -1090,7 +1098,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: AppTheme.primary.withOpacity(0.05),
+            color: AppTheme.primary.withValues(alpha: 0.05),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1106,7 +1114,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.accent.withOpacity(0.2),
+                        color: AppTheme.accent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1190,7 +1198,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                         margin: const EdgeInsets.only(bottom: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: AppTheme.accent.withOpacity(0.5), width: 1.2),
+                          side: BorderSide(color: AppTheme.accent.withValues(alpha: 0.5), width: 1.2),
                         ),
                         elevation: 2,
                         child: Container(
@@ -1310,6 +1318,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                         await launchUrl(url, mode: LaunchMode.externalApplication);
                                       } catch (e) {
                                         if (context.mounted) {
+                                          if (!mounted || !context.mounted) return;
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(content: Text('تعذر فتح الشهادة: $e')),
                                           );

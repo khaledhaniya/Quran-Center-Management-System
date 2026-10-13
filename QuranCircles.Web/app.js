@@ -42,12 +42,12 @@ if (window.location.protocol === "https:" && savedApiUrl && savedApiUrl.startsWi
     localStorage.removeItem("custom_api_url");
     savedApiUrl = null;
 }
-const isLocalEnv = window.location.hostname === "localhost" || 
-                   window.location.hostname === "127.0.0.1" || 
+const isLocalEnv = window.location.hostname === "localhost" ||
+                   window.location.hostname === "127.0.0.1" ||
                    window.location.protocol === "file:";
 
-let API_BASE = savedApiUrl || (isLocalEnv 
-    ? "http://localhost:5070/api" 
+let API_BASE = savedApiUrl || (isLocalEnv
+    ? "http://localhost:5070/api"
     : (window.location.hostname.includes("github.io")
         ? "https://albayan-ali-center.tryasp.net/api"
         : (window.location.origin + "/api")));
@@ -62,7 +62,7 @@ function getCurrentUser() {
         id: currentUserId || getAuthStorage("userId") || "",
         userId: currentUserId || getAuthStorage("userId") || "",
         role: currentRole || getAuthStorage("role") || "",
-        teacherId: parseInt(getAuthStorage("teacherId") || currentUserId || "0"),
+        teacherId: parseInt(getAuthStorage("teacherId") || "0"),
         studentId: parseInt(getAuthStorage("studentId") || "0"),
         parentId: parseInt(getAuthStorage("parentId") || "0"),
         fullName: getAuthStorage("fullName") || ""
@@ -96,18 +96,19 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
 
     fetchAndApplySystemSettings(); // Immediately fetch & apply dynamic CMS settings to DOM
+    Object.keys(localStorage).filter(key => key.startsWith("user_pw_")).forEach(key => localStorage.removeItem(key));
     setupAuth();
     setupNavigation();
     setupFormsAndModals();
     initSpiritualContent();
-    
+
     // Set default dates
     const today = getTodayDateString();
     const attendanceDateInput = document.getElementById("attendance-date");
     const lotteryDateInput = document.getElementById("lottery-date");
     if (attendanceDateInput) attendanceDateInput.value = today;
     if (lotteryDateInput) lotteryDateInput.value = today;
-    
+
     // Default dates for reports (last 30 days)
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
@@ -161,12 +162,12 @@ function matchArabicSearch(target, query) {
     const normTarget = normalizeArabicText(target);
     const normQuery = normalizeArabicText(query);
     if (normTarget.includes(normQuery)) return true;
-    
+
     // Also match without spaces (e.g. 'عبدالله' vs 'عبد الله')
     const targetNoSpace = normTarget.replace(/\s+/g, '');
     const queryNoSpace = normQuery.replace(/\s+/g, '');
     if (targetNoSpace.includes(queryNoSpace)) return true;
-    
+
     // Also match individual word tokens (e.g. searching 'محمد عزام')
     const words = normQuery.split(' ').filter(w => w.length > 0);
     if (words.length > 1) {
@@ -278,19 +279,19 @@ function setupAuth() {
     const role = getAuthStorage("role");
     const userId = getAuthStorage("userId");
     const fullName = getAuthStorage("fullName");
-    
+
     const loginScreen = document.getElementById("login-screen");
     const appContainer = document.querySelector(".app-container");
-    
+
     if (token && role && userId) {
         // User is logged in
         authToken = token;
         currentRole = role;
         currentUserId = userId;
-        
+
         if (loginScreen) loginScreen.style.setProperty("display", "none", "important");
         if (appContainer) appContainer.style.display = "flex";
-        
+
         // Show profile information safely
         const nameEl = document.getElementById("profile-display-name");
         if (nameEl) nameEl.textContent = fullName || "مستخدم";
@@ -298,9 +299,9 @@ function setupAuth() {
         if (roleEl) roleEl.textContent = getRoleArabicName(role);
         const areaEl = document.getElementById("user-profile-area");
         if (areaEl) areaEl.style.display = "flex";
-        
+
         if (cachedSystemSettings) applySystemSettingsToUI(cachedSystemSettings);
-        
+
         updateSidebarMenu();
         handleRouting();
         triggerFaithToast();
@@ -376,7 +377,7 @@ function setupAuth() {
             setTimeout(() => { if (initialLoader.parentElement) initialLoader.remove(); }, 600);
         }, 300);
     }
-    
+
     // Always restore login button state
     const submitBtn = document.querySelector("#login-form button[type='submit']");
     if (submitBtn) {
@@ -407,7 +408,7 @@ function setupAuth() {
             }
         });
     }
-    
+
     // Bind Top Bar Change Password Button
     const changePwBtn = document.getElementById("btn-change-password");
     if (changePwBtn && !changePwBtn.dataset.bound) {
@@ -446,7 +447,7 @@ async function handleLogin(e) {
     const passwordInput = (document.getElementById("login-password")?.value || "");
     const rememberMe = document.getElementById("remember-me-checkbox")?.checked || false;
     const errorContainer = document.getElementById("login-error-container");
-    
+
     if (!usernameInput || !passwordInput) {
         window._isLoggingIn = false;
         if (errorContainer) {
@@ -458,13 +459,13 @@ async function handleLogin(e) {
         }
         return false;
     }
-    
+
     const submitBtn = document.querySelector("#login-form button[type='submit']");
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> جاري التحقق والاتصال...';
     }
-    
+
     if (errorContainer) errorContainer.innerHTML = "";
 
     // Timer feedback for wake-up resilience
@@ -477,7 +478,7 @@ async function handleLogin(e) {
             }
         }
     }, 1000);
-    
+
     try {
         let response;
 
@@ -500,26 +501,9 @@ async function handleLogin(e) {
             }
         }
 
-        try {
-            // First attempt with active API_BASE
-            const timeout = (isLocalEnv && API_BASE.includes("localhost")) ? 3000 : 45000;
-            response = await tryFetchLogin(API_BASE, timeout);
-        } catch(fetchErr) {
-            // Fallback to MonsterASP Cloud API if local or primary failed
-            if (API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
-                console.log("Primary API failed or timed out, trying MonsterASP Cloud API...");
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down fa-spin me-2"></i> جاري الاتصال بالسيرفر السحابي...';
-                }
-                response = await tryFetchLogin("https://albayan-ali-center.tryasp.net/api", 45000);
-                if (response && response.ok) {
-                    API_BASE = "https://albayan-ali-center.tryasp.net/api";
-                }
-            } else {
-                throw fetchErr;
-            }
-        }
-        
+        // Keep credentials on the explicitly selected server; never fail over to another host.
+        response = await tryFetchLogin(API_BASE, 45000);
+
         if (!response.ok) {
             let errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة.";
             try {
@@ -528,9 +512,9 @@ async function handleLogin(e) {
             } catch(e) {}
             throw new Error(errorMsg);
         }
-        
+
         const data = await response.json();
-        
+
         // Secure Storage based on Remember Me preference
         clearAllAuthStorage();
         setAuthStorage("token", data.token, rememberMe);
@@ -547,12 +531,12 @@ async function handleLogin(e) {
         setAuthStorage("hasChildren", data.hasChildren ? "true" : "false", rememberMe);
         setAuthStorage("childrenCount", (data.childrenCount || 0).toString(), rememberMe);
         setAuthStorage("loginTime", Date.now().toString(), rememberMe);
-        
+
         showAlert(`مرحباً بك يا <strong>${data.fullName}</strong>. تم تسجيل الدخول بنجاح.`, "success");
-        
+
         // Re-run auth setup to refresh layout
         setupAuth();
-        
+
     } catch(err) {
         let msg = err.message || "حدث خطأ في الاتصال بالسيرفر";
         if (err.name === "AbortError" || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("aborted")) {
@@ -578,20 +562,20 @@ async function handleLogin(e) {
 function handleLogout(isSilent = false) {
     if (inactivityTimer) clearTimeout(inactivityTimer);
     clearAllAuthStorage();
-    
+
     authToken = "";
     currentRole = "";
     currentUserId = "";
-    
+
     // Clear cache
     cachedTeachers = [];
     cachedCircles = [];
     cachedStudents = [];
     cachedUsers = [];
-    
+
     // Reset path hash
     window.location.hash = "";
-    
+
     // Reset view
     setupAuth();
     if (!isSilent) {
@@ -646,7 +630,7 @@ function getTeacherRolesList(taskRole) {
 
 function formatTeacherRolesHtml(taskRole) {
     const roles = getTeacherRolesList(taskRole);
-    return `<div class="d-flex flex-wrap gap-1 align-items-center">` + 
+    return `<div class="d-flex flex-wrap gap-1 align-items-center">` +
         roles.map(r => `
             <span class="badge ${r.badgeClass} d-inline-flex align-items-center gap-1 px-2 py-1 shadow-xs" style="white-space: nowrap !important; font-size: 0.78rem;">
                 <i class="fa-solid ${r.icon} ${r.color}"></i> ${r.title}
@@ -664,12 +648,12 @@ function getRoleArabicName(role) {
 
     switch(role) {
         case "Developer": return "مطور النظام الرئيسي";
-        case "Admin": 
+        case "Admin":
             if (taskRole && (taskRole.includes("أمير") || taskRole.includes("المدير العام"))) {
                 return "فضيلة الشيخ / أمير المركز (المدير العام)";
             }
             return "مدير المركز العام";
-        case "Teacher": 
+        case "Teacher":
             return getTeacherRolesText(taskRole);
         case "Student": return "طالب حلقة تحفيظ";
         case "Parent": return "ولي أمر طالب";
@@ -690,14 +674,14 @@ function updateSidebarMenu() {
         const el = document.querySelector(cls);
         if (el) el.classList.add("hidden");
     });
-    
+
     const sharedEl = document.querySelector(".shared-links");
 
     // Show active role group (Developer shares all Admin links)
     if (currentRole === "Admin" || currentRole === "Developer") {
         const adminEl = document.querySelector(".admin-links");
         if (adminEl) adminEl.classList.remove("hidden");
-        
+
         if (currentRole === "Developer") {
             const devEl = document.querySelector(".developer-links");
             if (devEl) devEl.classList.remove("hidden");
@@ -710,7 +694,7 @@ function updateSidebarMenu() {
         const taskRole = (getAuthStorage("taskRole") || "").trim();
         const isNoTask = !taskRole || taskRole === "بدون تكليف" || taskRole === "غير مكلف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "لا يوجد" || taskRole === "لا يوجد تكليف" || taskRole === "-" || taskRole === "";
         const hasCircle = !isNoTask && (taskRole.includes("حلقة") || taskRole.includes("مساعد"));
-        
+
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
         if (circleTools) {
             circleTools.style.display = hasCircle ? "block" : "none";
@@ -741,7 +725,7 @@ function updateSidebarMenu() {
             }
         }
 
-        // Handle shared links: keep announcements visible; competitions, courses, exams visible whenever not isNoTask
+        // Handle shared links: keep announcements visible; courses and exams ONLY visible if explicitly assigned
         if (sharedEl) {
             sharedEl.classList.remove("hidden");
             const btnAnn = document.getElementById("btn-announcements");
@@ -755,9 +739,11 @@ function updateSidebarMenu() {
                 if (btnCourses) btnCourses.classList.add("hidden");
                 if (btnExams) btnExams.classList.add("hidden");
             } else {
+                const hasCourses = taskRole.includes("الدورات") || taskRole.includes("دورة");
+                const hasExams = taskRole.includes("اختبار") || taskRole.includes("مشرف اختبار");
                 if (btnComp) btnComp.classList.remove("hidden");
-                if (btnCourses) btnCourses.classList.remove("hidden");
-                if (btnExams) btnExams.classList.remove("hidden");
+                if (btnCourses) btnCourses.classList.toggle("hidden", !hasCourses);
+                if (btnExams) btnExams.classList.toggle("hidden", !hasExams);
             }
         }
 
@@ -802,24 +788,25 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
     let extraHeaders = (typeof retries === "object" && retries !== null) ? retries : (customHeaders || {});
 
     const headers = {
+        ...(method === "POST" || method === "PUT" ? { "Idempotency-Key": Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join('') } : {}),
         "Authorization": `Bearer ${authToken}`,
         ...extraHeaders
     };
-    
+
     if (body) {
         headers["Content-Type"] = "application/json";
     }
-    
+
     const options = {
         method,
         headers,
         body: body ? JSON.stringify(body) : null
     };
-    
+
     for (let attempt = 0; attempt <= actualRetries; attempt++) {
         try {
             const response = await fetch(`${API_BASE}${path}`, options);
-            
+
             if (response.status === 401) {
                 handleLogout();
                 throw new Error("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً.");
@@ -833,7 +820,20 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
                 } catch (e) {}
                 throw new Error(errorMsg);
             }
-            
+
+            if (response.status === 503) {
+                let errorMsg = "الخدمة غير متاحة مؤقتاً؛ يرجى إعادة المحاولة.";
+                try {
+                    const errJson = await response.json();
+                    errorMsg = errJson.error || errJson.message || errorMsg;
+                    if (errJson.maintenance === true) {
+                        if (typeof cachedSystemSettings !== "undefined" && cachedSystemSettings) cachedSystemSettings.maintenanceMode = true;
+                        checkMaintenanceBlock();
+                    }
+                } catch (error) {}
+                throw new Error(errorMsg);
+            }
+
             if (!response.ok) {
                 let errorMsg = "حدث خطأ أثناء الاتصال بالخادم.";
                 try {
@@ -842,30 +842,24 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
                 } catch (e) {}
                 throw new Error(errorMsg);
             }
-            
+
             if (response.status === 204) {
                 return null;
             }
-            
+
             return await response.json();
         } catch (error) {
             const isNetworkError = (error.name === "TypeError" || (error.message && (error.message.includes("fetch") || error.message.includes("network") || error.message.includes("Failed to fetch"))));
-            
-            if (isNetworkError && isLocalEnv && API_BASE.includes("localhost") && API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
-                console.warn(`[Failover] Localhost API unreachable for ${path}. Switching to MonsterASP Cloud API...`);
-                API_BASE = "https://albayan-ali-center.tryasp.net/api";
-                continue;
-            }
 
             if (isNetworkError && attempt < retries && method === "GET") {
                 console.warn(`[Auto-Retry ${attempt + 1}/${retries}] Retrying ${path}...`);
                 await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
                 continue;
             }
-            
+
             if (!silent) {
                 console.error(`API Error on ${path}:`, error);
-                const userFriendlyMsg = isNetworkError 
+                const userFriendlyMsg = isNetworkError
                     ? "⚠️ جاري استيقاظ الخادم السحابي أو تحديث البيانات. يرجى الانتظار ثوانٍ معدودة والضغط على إعادة المحاولة."
                     : error.message;
                 showAlert(userFriendlyMsg, "danger");
@@ -917,15 +911,34 @@ function setupNavigation() {
     }
 }
 
+function checkMaintenanceBlock() {
+    const currentUser = currentRole ? getCurrentUser() : null;
+    const isMaintenance = (typeof cachedSystemSettings !== "undefined" && cachedSystemSettings && cachedSystemSettings.maintenanceMode) ||
+                          localStorage.getItem("system_maintenance_mode") === "true";
+    const isDev = currentRole === "Developer";
+    const overlay = document.getElementById("maintenance-block-overlay");
+
+    if (overlay) {
+        if (isMaintenance && !isDev) {
+            overlay.classList.remove("hidden");
+            overlay.style.display = "flex";
+        } else {
+            overlay.classList.add("hidden");
+            overlay.style.display = "none";
+        }
+    }
+}
+
 function handleRouting() {
     if (!authToken) return; // Stop routing if not authenticated
     fetchAndApplySystemSettings(); // Silently ensure latest CMS settings are active on every navigation
+    checkMaintenanceBlock(); // Immediately enforce maintenance overlay if enabled for non-dev
 
     let defaultHash = "#admin-dashboard";
     if (currentRole === "Teacher") {
         const tRole = (getAuthStorage("taskRole") || "").trim();
         const isNoTask = tRole === "بدون تكليف" || tRole === "غير مكلف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
-        
+
         if (isNoTask) {
             defaultHash = "#teacher-empty-state";
         } else if (tRole.includes("اختبار") && !tRole.includes("حلقة")) {
@@ -959,7 +972,7 @@ function handleRouting() {
     // Deactivate all links & sections
     document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
     document.querySelectorAll(".content-section").forEach(sec => sec.classList.add("hidden"));
-    
+
     // If teacher has no assigned tasks or circles, allow announcements or lock view to empty state
     const tRoleForRouting = (getAuthStorage("taskRole") || "").trim();
     const isTeacherWithoutTask = currentRole === "Teacher" && (tRoleForRouting === "بدون تكليف" || tRoleForRouting === "غير مكلف" || tRoleForRouting === "معلق" || tRoleForRouting === "بدون مهام" || tRoleForRouting === "-" || tRoleForRouting === "");
@@ -991,7 +1004,7 @@ function handleRouting() {
         document.getElementById("btn-admin-dashboard")?.classList.add("active");
         document.getElementById("admin-dashboard-section")?.classList.remove("hidden");
         loadAdminDashboard();
-    } 
+    }
     else if (hash === "#profile-requests" && isAdminOrDev) {
         const btnAdmin = document.getElementById("btn-profile-requests");
         const btnDev = document.getElementById("btn-dev-profile-requests");
@@ -1010,31 +1023,31 @@ function handleRouting() {
         document.getElementById("btn-admin-circles")?.classList.add("active");
         document.getElementById("admin-circles-section")?.classList.remove("hidden");
         loadAdminCircles();
-    } 
+    }
     else if (hash === "#admin-teachers" && isAdminOrDev) {
         document.getElementById("btn-admin-teachers")?.classList.add("active");
         document.getElementById("admin-teachers-section")?.classList.remove("hidden");
         loadAdminTeachers();
-    } 
+    }
     else if (hash === "#admin-students" && isAdminOrDev) {
         document.getElementById("btn-admin-students")?.classList.add("active");
         document.getElementById("admin-students-section")?.classList.remove("hidden");
         loadAdminStudents();
-    } 
+    }
     else if (hash === "#parent-audit" && isAdminOrDev) {
         const btn = document.getElementById("btn-parent-audit");
         if (btn) btn.classList.add("active");
         const sec = document.getElementById("parent-audit-section");
         if (sec) sec.classList.remove("hidden");
         loadParentAuditScreen();
-    } 
+    }
     else if (hash === "#dynamic-reports" && isAdminOrDev) {
         const btn = document.getElementById("btn-dynamic-reports");
         if (btn) btn.classList.add("active");
         const sec = document.getElementById("dynamic-reports-section");
         if (sec) sec.classList.remove("hidden");
         loadDynamicReportsScreen();
-    } 
+    }
     else if (hash === "#financial-management" && (isAdminOrDev || (currentRole === "Teacher" && (getAuthStorage("taskRole") || "").includes("الملف المالي")))) {
         document.getElementById("btn-admin-financial")?.classList.add("active");
         document.getElementById("btn-teacher-financial")?.classList.add("active");
@@ -1063,12 +1076,12 @@ function handleRouting() {
         document.getElementById("btn-teacher-attendance")?.classList.add("active");
         document.getElementById("teacher-attendance-section")?.classList.remove("hidden");
         loadTeacherAttendanceSetup();
-    } 
+    }
     else if (hash === "#teacher-sessions" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
         document.getElementById("btn-teacher-sessions")?.classList.add("active");
         document.getElementById("teacher-sessions-section")?.classList.remove("hidden");
         loadTeacherSessionsSetup();
-    } 
+    }
     else if (hash === "#teacher-students" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
         document.getElementById("btn-teacher-students")?.classList.add("active");
         document.getElementById("teacher-students-section")?.classList.remove("hidden");
@@ -1089,12 +1102,12 @@ function handleRouting() {
         if (sec) sec.classList.remove("hidden");
         const nameEl = document.getElementById("teacher-empty-state-name");
         if (nameEl) nameEl.textContent = `فضيلة الشيخ / ${getAuthStorage("fullName") || "المعلّم"}`;
-    } 
+    }
     else if (hash === "#system-settings" && isAdminOrDev) {
         document.getElementById("btn-admin-system-settings")?.classList.add("active");
         document.getElementById("system-settings-section")?.classList.remove("hidden");
         loadSystemSettingsForm();
-    } 
+    }
     else if (hash === "#parent-progress" && (currentRole === "Parent" || currentRole === "Teacher" || isAdminOrDev)) {
         document.getElementById("btn-parent-progress")?.classList.add("active");
         document.getElementById("btn-teacher-my-children")?.classList.add("active");
@@ -1166,7 +1179,7 @@ function handleRouting() {
 // ----------------- Alert Notification helper -----------------
 function showAlert(message, type = "success") {
     const isModalOpen = document.getElementById("modal-container")?.classList.contains("open");
-    
+
     // If SweetAlert2 is loaded, show a crisp floating toast
     if (typeof Swal !== "undefined") {
         const swalIcon = type === "danger" ? "error" : (type === "warning" ? "warning" : (type === "info" ? "info" : "success"));
@@ -1186,19 +1199,19 @@ function showAlert(message, type = "success") {
     const container = document.getElementById("alert-container");
     if (!container || isModalOpen) return;
     const alertId = "alert_" + Date.now();
-    
+
     const icon = type === "success" ? "fa-circle-check" : (type === "danger" ? "fa-circle-exclamation" : "fa-circle-info");
-    
+
     container.innerHTML = `
         <div class="alert alert-${type}" id="${alertId}">
             <div>
-                <i class="fa-solid ${icon} me-2"></i> 
+                <i class="fa-solid ${icon} me-2"></i>
                 ${message}
             </div>
             <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
         </div>
     `;
-    
+
     // Auto remove after 5 seconds
     setTimeout(() => {
         const el = document.getElementById(alertId);
@@ -1309,12 +1322,12 @@ async function loadAdminDashboard() {
         setTxt("kpi-khatimun-month", (kpi.khatimunCountMonth ?? 0).toLocaleString());
 
         // Module 2: Pulse Real-time Operations
-        setTxt("pulse-student-rate", `${pulse.studentAttendanceRateToday ?? 98.5}%`);
+        setTxt("pulse-student-rate", `${pulse.studentAttendanceRateToday ?? 0}%`);
         setTxt("pulse-present-today", (pulse.presentToday ?? 0).toLocaleString());
         setTxt("pulse-excused-today", (pulse.excusedAbsentToday ?? 0).toLocaleString());
         setTxt("pulse-unexcused-today", (pulse.unexcusedAbsentToday ?? 0).toLocaleString());
 
-        setTxt("pulse-teacher-rate", `${pulse.teacherAttendanceRateToday ?? 100}%`);
+        setTxt("pulse-teacher-rate", `${pulse.teacherAttendanceRateToday ?? 0}%`);
         setTxt("pulse-active-circles-today", (pulse.activeCirclesToday ?? circles.length).toLocaleString());
         setTxt("pulse-delayed-circles-today", (pulse.pendingOrDelayedCirclesToday ?? 0).toLocaleString());
 
@@ -1327,12 +1340,12 @@ async function loadAdminDashboard() {
         if (topCirclesEl) {
             const list = quality.topCircles || [];
             topCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">لا توجد سجلات كافية</li>' :
-                list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-success bg-opacity-10 text-success">${c.avgGrade}% إتقان</span></li>`).join('');
+                list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-success bg-opacity-10 text-success">${c.attendanceRate ?? 0}% حضور</span></li>`).join('');
         }
         const lowestCirclesEl = document.getElementById("quality-lowest-circles");
         if (lowestCirclesEl) {
             const list = quality.lowestCircles || [];
-            lowestCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">كافة الحلقات بمستوى جيد</li>' :
+            lowestCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">لا توجد سجلات كافية</li>' :
                 list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-danger bg-opacity-10 text-danger">${c.attendanceRate}% حضور</span></li>`).join('');
         }
         setTxt("quality-exams-count", (quality.completedExamsCount ?? 0).toLocaleString());
@@ -1349,17 +1362,17 @@ async function loadAdminDashboard() {
         setTxt("prog-certs-month-count", (progs.certificatesIssuedMonthCount ?? 0).toLocaleString());
 
         // Module 5: Quranic Flow
-        setTxt("flow-daily-pages", `${flow.dailyAveragePages ?? 1.5} صفحة/يوم`);
-        setTxt("flow-weekly-pages", `${flow.weeklyAveragePages ?? 9} صفحة/أسبوع`);
-        setTxt("flow-review-ratio-text", `${flow.reviewRatio ?? 70}% مراجعة`);
+        setTxt("flow-daily-pages", `${flow.dailyAveragePages ?? 0} صفحة تقديرية/يوم`);
+        setTxt("flow-weekly-pages", `${flow.weeklyAveragePages ?? 0} صفحة تقديرية/أسبوع`);
+        setTxt("flow-review-ratio-text", `${flow.reviewRatio ?? 0}% مراجعة`);
         const revBar = document.getElementById("flow-review-bar");
         const newBar = document.getElementById("flow-new-bar");
-        if (revBar) revBar.style.width = `${flow.reviewRatio ?? 70}%`;
-        if (newBar) newBar.style.width = `${flow.newMemorizationRatio ?? 30}%`;
+        if (revBar) revBar.style.width = `${flow.reviewRatio ?? 0}%`;
+        if (newBar) newBar.style.width = `${flow.newMemorizationRatio ?? 0}%`;
 
         const stagesContainer = document.getElementById("flow-ajzaa-stages-list");
         if (stagesContainer) {
-            const dist = flow.ajzaaDistribution || { "جزء عم (1)": 45, "من 2 إلى 5 أجزاء": 60, "من 6 إلى 10 أجزاء": 40, "من 11 إلى 20 جزءاً": 25, "فوق 20 جزءاً": 15 };
+            const dist = flow.ajzaaDistribution || {};
             const maxVal = Math.max(...Object.values(dist), 1);
             stagesContainer.innerHTML = Object.entries(dist).map(([stage, count]) => {
                 const pct = Math.round((count / maxVal) * 100);
@@ -1402,7 +1415,7 @@ async function loadAdminDashboard() {
         // Calculate & Render Social & Housing Breakdown Metrics
         const fatherOrphans = students.filter(s => s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))).length;
         const motherOrphans = students.filter(s => s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة"))).length;
-        const tentStudents = students.filter(s => 
+        const tentStudents = students.filter(s =>
             (s.currentHousingType && (s.currentHousingType.includes("خيمة") || s.currentHousingType.includes("إيواء"))) ||
             (s.currentAddress && (s.currentAddress.includes("خيمة") || s.currentAddress.includes("إيواء") || s.currentAddress.includes("مخيم")))
         ).length;
@@ -1782,17 +1795,17 @@ async function fetchExecutiveReportData() {
     // Social & Housing Breakdown
     const fatherOrphans = students.filter(s => s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))).length;
     const motherOrphans = students.filter(s => s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة"))).length;
-    const bothOrphans = students.filter(s => 
+    const bothOrphans = students.filter(s =>
         (s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))) &&
         (s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة")))
     ).length;
-    const totalOrphans = students.filter(s => 
+    const totalOrphans = students.filter(s =>
         (s.fatherStatus && (s.fatherStatus.includes("متوفي") || s.fatherStatus.includes("شهيد"))) ||
         (s.motherStatus && (s.motherStatus.includes("متوفية") || s.motherStatus.includes("شهيدة")))
     ).length;
     const normalParents = Math.max(0, totalStudentsCount - totalOrphans);
 
-    const tentStudents = students.filter(s => 
+    const tentStudents = students.filter(s =>
         (s.currentHousingType && (s.currentHousingType.includes("خيمة") || s.currentHousingType.includes("إيواء") || s.currentHousingType.includes("كرفان"))) ||
         (s.currentAddress && (s.currentAddress.includes("خيمة") || s.currentAddress.includes("إيواء") || s.currentAddress.includes("مخيم")))
     ).length;
@@ -2916,21 +2929,21 @@ async function loadAdminCircles() {
     try {
         const circles = await apiRequest("/circles");
         cachedCircles = circles || [];
-        
+
         // Load teachers if not already loaded
         if (!cachedTeachers || cachedTeachers.length === 0) {
             cachedTeachers = await apiRequest("/teachers");
         }
-        
+
         const tbody = document.getElementById("circles-table-body");
         if (!tbody) return;
         tbody.innerHTML = "";
-        
+
         if (cachedCircles.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4">لا توجد حلقات مضافة حالياً.</td></tr>`;
             return;
         }
-        
+
         cachedCircles.forEach((c, index) => {
             const tr = document.createElement("tr");
             const leadTeacher = c.teacherName ? `<strong class="text-success"><i class="fa-solid fa-user-tie me-1"></i> ${c.teacherName}</strong>` : '<span class="text-danger">غير معين</span>';
@@ -2966,7 +2979,7 @@ async function loadAdminCircles() {
             `;
             tbody.appendChild(tr);
         });
-        
+
         // Bind Actions
         document.querySelectorAll(".btn-edit-circle").forEach(btn => {
             btn.addEventListener("click", (e) => showCircleModal(e.target.closest("button").dataset.id));
@@ -2989,7 +3002,7 @@ async function loadAdminCircles() {
             btnAddCircle._bound = true;
             btnAddCircle.addEventListener("click", () => showCircleModal());
         }
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -3277,43 +3290,43 @@ async function loadAdminTeachers(search = "") {
         const teachers = await apiRequest(`/teachers?search=${search}`);
         const validTeachers = (teachers || []).filter(t => t.identityNumber && t.identityNumber.trim() !== "");
         cachedTeachers = validTeachers;
-        
+
         const tbody = document.getElementById("teachers-table-body");
         tbody.innerHTML = "";
-        
+
         if (validTeachers.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">لا يوجد معلّمون يطابقون البحث.</td></tr>`;
             return;
         }
-        
+
         validTeachers.forEach((t, idx) => {
             const tr = document.createElement("tr");
-            
-            const idBadge = t.identityNumber 
-                ? `<div class="teacher-id-badge"><i class="fa-solid fa-id-card text-primary"></i> <span class="id-val">${t.identityNumber}</span></div>` 
+
+            const idBadge = t.identityNumber
+                ? `<div class="teacher-id-badge"><i class="fa-solid fa-id-card text-primary"></i> <span class="id-val">${t.identityNumber}</span></div>`
                 : '<span class="text-muted small">-</span>';
 
-            const mosqueStr = t.mosqueName 
-                ? `<span class="teacher-mosque-tag"><i class="fa-solid fa-mosque text-muted"></i> ${t.mosqueName}</span>` 
+            const mosqueStr = t.mosqueName
+                ? `<span class="teacher-mosque-tag"><i class="fa-solid fa-mosque text-muted"></i> ${t.mosqueName}</span>`
                 : '';
 
-            const phoneStr = t.contact 
-                ? `<div class="teacher-contact-pill"><i class="fa-solid fa-phone text-muted"></i> <span class="phone-val">${t.contact}</span></div>` 
+            const phoneStr = t.contact
+                ? `<div class="teacher-contact-pill"><i class="fa-solid fa-phone text-muted"></i> <span class="phone-val">${t.contact}</span></div>`
                 : '';
 
             const waNumClean = (t.whatsappNumber || '').replace(/[^0-9]/g, '');
-            const waStr = t.whatsappNumber 
-                ? `<a href="https://wa.me/${waNumClean}" target="_blank" class="teacher-wa-link" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> <span class="phone-val">${t.whatsappNumber}</span></a>` 
+            const waStr = t.whatsappNumber
+                ? `<a href="https://wa.me/${waNumClean}" target="_blank" class="teacher-wa-link" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> <span class="phone-val">${t.whatsappNumber}</span></a>`
                 : '';
 
             const roleBadge = formatTeacherRolesHtml(t.taskRole);
 
-            const qualStr = t.qualification 
-                ? `<span class="text-dark fw-bold small">${t.qualification}</span>` 
+            const qualStr = t.qualification
+                ? `<span class="text-dark fw-bold small">${t.qualification}</span>`
                 : '<span class="text-muted small">-</span>';
 
-            const juzBadge = t.memorizedAjzaa 
-                ? `<span class="teacher-juz-pill"><i class="fa-solid fa-book-quran text-warning"></i> ${t.memorizedAjzaa}</span>` 
+            const juzBadge = t.memorizedAjzaa
+                ? `<span class="teacher-juz-pill"><i class="fa-solid fa-book-quran text-warning"></i> ${t.memorizedAjzaa}</span>`
                 : '<span class="text-muted small">-</span>';
 
             tr.innerHTML = `
@@ -3354,7 +3367,7 @@ async function loadAdminTeachers(search = "") {
             `;
             tbody.appendChild(tr);
         });
-        
+
         // Bind Actions
         document.querySelectorAll(".btn-manage-teacher-roles").forEach(btn => {
             btn.addEventListener("click", (e) => manageTeacherRoles(e.target.closest("button").dataset.id));
@@ -3378,43 +3391,6 @@ async function loadAdminTeachers(search = "") {
             btnAddTeacher.addEventListener("click", () => showTeacherModal());
         }
 
-        const btnImportExcel = document.getElementById("btn-import-teachers-excel");
-        if (btnImportExcel && !btnImportExcel._bound) {
-            btnImportExcel._bound = true;
-            btnImportExcel.addEventListener("click", async () => {
-                let confirmed = false;
-                if (typeof Swal !== 'undefined') {
-                    const result = await Swal.fire({
-                        title: 'استيراد كادر المعلمين (29-8)',
-                        text: 'هل ترغب في استيراد وتحديث كافة المعلمين (35 معلماً) مع حسابات الدخول (رقم الهوية) والحلقات؟',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonText: 'نعم، استيراد وتحديث الآن',
-                        cancelButtonText: 'إلغاء',
-                        confirmButtonColor: '#0d5c3a'
-                    });
-                    confirmed = result.isConfirmed;
-                } else {
-                    confirmed = confirm('هل ترغب في استيراد كادر المعلمين وتحديث بياناتهم؟');
-                }
-
-                if (!confirmed) return;
-
-                try {
-                    btnImportExcel.disabled = true;
-                    btnImportExcel.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري الاستيراد...';
-                    const res = await apiRequest('/teachers/import-excel', 'POST');
-                    showAlert(res.message || 'تم استيراد كادر المعلمين بنجاح!', 'success');
-                    await loadAdminTeachers();
-                } catch(err) {
-                    showAlert(err.message || 'حدث خطأ أثناء استيراد البيانات', 'danger');
-                } finally {
-                    btnImportExcel.disabled = false;
-                    btnImportExcel.innerHTML = '<i class="fa-solid fa-file-excel me-1"></i> استيراد كادر المعلمين (29-8)';
-                }
-            });
-        }
-
         const searchInput = document.getElementById("teacher-search-input");
         if (searchInput && !searchInput._bound) {
             searchInput._bound = true;
@@ -3422,7 +3398,7 @@ async function loadAdminTeachers(search = "") {
                 loadAdminTeachers(e.target.value.trim());
             });
         }
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -4023,18 +3999,18 @@ async function loadAdminStudents(search = "") {
     if (tbody && (!cachedStudents || cachedStudents.length === 0)) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 mb-0">جاري تحميل بيانات الطلاب من الخادم...</p></td></tr>`;
     }
-    
+
     try {
         const students = await apiRequest(`/students?search=${search}`);
         cachedStudents = students;
-        
+
         if (tbody) tbody.innerHTML = "";
-        
+
         if (students.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">لا يوجد طلاب يطابقون البحث.</td></tr>`;
             return;
         }
-        
+
         students.forEach((s, idx) => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -4066,7 +4042,7 @@ async function loadAdminStudents(search = "") {
             `;
             tbody.appendChild(tr);
         });
-        
+
         // Bind Actions
         tbody.querySelectorAll(".clickable-student-360").forEach(el => {
             el.addEventListener("click", (e) => {
@@ -4086,7 +4062,7 @@ async function loadAdminStudents(search = "") {
                 hardDeleteStudent(b.dataset.id, b.dataset.name);
             });
         });
-        
+
     } catch(e) {
         console.error(e);
         if (tbody) {
@@ -4107,29 +4083,29 @@ async function loadAdminStudents(search = "") {
 async function loadTeacherAttendanceSetup() {
     try {
         const circles = await apiRequest("/circles");
-        
+
         // Backend API already filters circles for current teacher
         const myCircles = circles.filter(c => c.isActive);
-        
+
         const select = document.getElementById("attendance-circle-select");
         select.innerHTML = "";
-        
+
         if (myCircles.length === 0) {
             select.innerHTML = `<option value="">لا يوجد حلقات مسندة إليك</option>`;
             document.getElementById("attendance-list-card").classList.add("hidden");
             return;
         }
-        
+
         myCircles.forEach(c => {
             const opt = document.createElement("option");
             opt.value = c.id;
             opt.textContent = c.name;
             select.appendChild(opt);
         });
-        
+
         // Hide list card until user loads it
         document.getElementById("attendance-list-card").classList.add("hidden");
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -4351,7 +4327,7 @@ async function showTeacherEnrollExistingModal() {
         try {
             allStudents = await apiRequest("/students/all-for-enrollment");
         } catch(e) {}
-        
+
         if (!Array.isArray(allStudents) || allStudents.length === 0) {
             try {
                 allStudents = await apiRequest("/students?all=true");
@@ -4550,7 +4526,7 @@ async function showTeacherEnrollExistingModal() {
 function warnStudentInOtherCircle(studentName, circleName, teacherName) {
     const displayTeacher = teacherName && teacherName !== "غير محدد" ? teacherName : "معلم الحلقة";
     const displayCircle = circleName && circleName !== "غير مسند حلقة" ? circleName : "حلقة أخرى";
-    
+
     if (typeof Swal !== "undefined") {
         Swal.fire({
             icon: "warning",
@@ -4585,7 +4561,7 @@ async function executeTeacherStudentEnrollment(studentId, studentName, btnElemen
     // Check capacity client-side
     const maxCap = window.SYS_MAX_STUDENTS_CIRCLE || 20;
     const currentStudentsInTable = document.querySelectorAll("#teacher-students-table-body tr:not(.empty-row)").length;
-    
+
     if (btnElement) {
         btnElement.disabled = true;
         btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري التنسيب...';
@@ -4853,8 +4829,8 @@ async function showTeacherEditStudentPlanModal(studentId, studentName, currentPl
                         ${JUZ_NAMES.map(j => {
                             const isDone = completedSet.has(j.num);
                             return `
-                                <button type="button" 
-                                        class="btn btn-sm text-end tplan-juz-btn d-flex align-items-center justify-content-between ${isDone ? 'btn-success active shadow-xs' : 'btn-outline-secondary bg-white'}" 
+                                <button type="button"
+                                        class="btn btn-sm text-end tplan-juz-btn d-flex align-items-center justify-content-between ${isDone ? 'btn-success active shadow-xs' : 'btn-outline-secondary bg-white'}"
                                         data-juz="${j.num}"
                                         style="font-size: 0.78rem; padding: 6px 10px; border-radius: 8px; transition: all 0.15s ease;">
                                     <span>${j.name}</span>
@@ -5021,28 +4997,28 @@ async function showTeacherEditStudentPlanModal(studentId, studentName, currentPl
 async function loadAttendanceSheet() {
     const circleId = document.getElementById("attendance-circle-select").value;
     const date = document.getElementById("attendance-date").value;
-    
+
     if (!circleId) {
         showAlert("الرجاء اختيار حلقة.", "danger");
         return;
     }
-    
+
     try {
         const circle = await apiRequest(`/circles/${circleId}`);
         const students = circle.students || [];
-        
+
         const tbody = document.getElementById("attendance-table-body");
         tbody.innerHTML = "";
-        
+
         document.getElementById("attendance-list-title").textContent = `قائمة طلاب: ${circle.name}`;
         document.getElementById("attendance-status-badge").textContent = `التاريخ: ${date}`;
-        
+
         if (students.length === 0) {
             tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">لا يوجد طلاب منتسبين في هذه الحلقة.</td></tr>`;
             document.getElementById("attendance-list-card").classList.remove("hidden");
             return;
         }
-        
+
         for (const s of students) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -5066,20 +5042,20 @@ async function loadAttendanceSheet() {
             `;
             tbody.appendChild(tr);
         }
-        
+
         // Bind selection logic on options
         document.querySelectorAll(".attendance-choices .attendance-option").forEach(opt => {
             opt.addEventListener("click", (e) => {
                 const choice = e.target.closest(".attendance-option");
                 const parent = choice.parentElement;
-                
+
                 parent.querySelectorAll(".attendance-option").forEach(o => o.classList.remove("selected"));
                 choice.classList.add("selected");
             });
         });
-        
+
         document.getElementById("attendance-list-card").classList.remove("hidden");
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -5089,28 +5065,28 @@ async function saveAttendance() {
     const circleId = document.getElementById("attendance-circle-select").value;
     const date = document.getElementById("attendance-date").value;
     const choices = document.querySelectorAll(".attendance-choices");
-    
+
     if (choices.length === 0) return;
-    
+
     let recordedCount = 0;
-    
+
     try {
         for (const container of choices) {
             const studentId = container.dataset.studentId;
             const selectedOpt = container.querySelector(".attendance-option.selected");
             const status = selectedOpt.dataset.status;
-            
+
             const dto = {
                 studentId: parseInt(studentId),
                 circleId: parseInt(circleId),
                 sessionDate: date,
                 status: status
             };
-            
+
             await apiRequest("/attendance", "POST", dto);
             recordedCount++;
         }
-        
+
         showAlert(`تم حفظ سجل حضور لـ (${recordedCount}) طلاب بنجاح.`, "success");
         invalidateTeacherComprehensiveCache();
     } catch(e) {
@@ -5123,29 +5099,29 @@ async function loadTeacherSessionsSetup() {
     try {
         const circles = await apiRequest("/circles");
         const myCircles = circles.filter(c => c.isActive);
-        
+
         const circleSelect = document.getElementById("session-circle-select");
         circleSelect.innerHTML = "";
-        
+
         if (myCircles.length === 0) {
             circleSelect.innerHTML = `<option value="">لا يوجد حلقات</option>`;
             document.getElementById("session-students-list").innerHTML = `<p class="text-center p-3 text-muted">لا يوجد حلقات مسندة إليك</p>`;
             return;
         }
-        
+
         myCircles.forEach(c => {
             const opt = document.createElement("option");
             opt.value = c.id;
             opt.textContent = c.name;
             circleSelect.appendChild(opt);
         });
-        
+
         // Auto load students of first circle
         loadSessionCircleStudents();
-        
+
         // Bind change event
         circleSelect.addEventListener("change", loadSessionCircleStudents);
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -5154,19 +5130,19 @@ async function loadTeacherSessionsSetup() {
 async function loadSessionCircleStudents() {
     const circleId = document.getElementById("session-circle-select").value;
     if (!circleId) return;
-    
+
     try {
         const circle = await apiRequest(`/circles/${circleId}`);
         const students = circle.students || [];
-        
+
         const listDiv = document.getElementById("session-students-list");
         listDiv.innerHTML = "";
-        
+
         if (students.length === 0) {
             listDiv.innerHTML = `<p class="text-center p-3 text-muted">لا يوجد طلاب في هذه الحلقة</p>`;
             return;
         }
-        
+
         students.forEach(s => {
             const item = document.createElement("div");
             item.className = "student-list-item";
@@ -5179,17 +5155,17 @@ async function loadSessionCircleStudents() {
                 <i class="fa-solid fa-chevron-left text-muted"></i>
             `;
             listDiv.appendChild(item);
-            
+
             item.addEventListener("click", () => {
                 document.querySelectorAll(".student-list-item").forEach(i => i.classList.remove("active"));
                 item.classList.add("active");
                 showStudentRecitations(s.id, s.fullName, circle.name);
             });
         });
-        
+
         document.getElementById("no-student-selected").classList.remove("hidden");
         document.getElementById("student-sessions-detail").classList.add("hidden");
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -5198,13 +5174,13 @@ async function loadSessionCircleStudents() {
 async function showStudentRecitations(studentId, studentName, circleName) {
     try {
         const sessions = await apiRequest(`/sessions/student/${studentId}`);
-        
+
         document.getElementById("selected-student-name").textContent = `الطالب: ${studentName}`;
         document.getElementById("selected-student-sub").textContent = `الحلقة: ${circleName}`;
-        
+
         const timeline = document.getElementById("student-sessions-timeline");
         timeline.innerHTML = "";
-        
+
         if (sessions.length === 0) {
             timeline.innerHTML = `
                 <div class="text-center p-5 text-muted">
@@ -5220,27 +5196,27 @@ async function showStudentRecitations(studentId, studentName, circleName) {
                 }
                 return b.id - a.id;
             });
-            
+
             sessions.forEach(s => {
                 const item = document.createElement("div");
                 const isDidNotRecite = s.assessment === "DidNotRecite" || s.assessment === 6;
                 item.className = `timeline-item ${isDidNotRecite ? 'rejected' : String(s.assessment).toLowerCase()}-session`;
-                
+
                 let assessmentBadge = `<span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText || (isDidNotRecite ? 'لم يُسمّع' : s.assessment)}</span>`;
                 let lotteryBadge = s.viaLottery ? `<span class="badge badge-info"><i class="fa-solid fa-dice"></i> عبر القرعة</span>` : '';
-                const isRevision = s.recitationType === 2 || 
-                                   s.recitationType === '2' || 
-                                   String(s.recitationType).toLowerCase() === 'revision' || 
-                                   s.recitationTypeText === 'مراجعة وتثبيت' || 
+                const isRevision = s.recitationType === 2 ||
+                                   s.recitationType === '2' ||
+                                   String(s.recitationType).toLowerCase() === 'revision' ||
+                                   s.recitationTypeText === 'مراجعة وتثبيت' ||
                                    (s.recitationTypeText && s.recitationTypeText.includes('مراجعة'));
-                let typeBadge = isDidNotRecite ? '' : (isRevision 
-                    ? `<span class="badge bg-warning text-dark"><i class="fa-solid fa-repeat me-1"></i> مراجعة وتثبيت</span>` 
+                let typeBadge = isDidNotRecite ? '' : (isRevision
+                    ? `<span class="badge bg-warning text-dark"><i class="fa-solid fa-repeat me-1"></i> مراجعة وتثبيت</span>`
                     : `<span class="badge bg-success"><i class="fa-solid fa-book-bookmark me-1"></i> حفظ جديد</span>`);
 
-                const titleHtml = isDidNotRecite 
+                const titleHtml = isDidNotRecite
                     ? `<span class="text-danger fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i> لم يُسمّع اليوم</span>`
                     : `سورة ${s.surahName} (الآيات: ${s.fromVerse} - ${s.toVerse})`;
-                
+
                 item.innerHTML = `
                     <div class="timeline-marker"></div>
                     <div class="timeline-content">
@@ -5266,21 +5242,21 @@ async function showStudentRecitations(studentId, studentName, circleName) {
                 `;
                 timeline.appendChild(item);
             });
-            
+
             // Bind actions
             timeline.querySelectorAll(".btn-edit-session").forEach(btn => {
                 btn.addEventListener("click", (e) => {
                     showSessionFormModal(studentId, e.target.closest("button").dataset.id);
                 });
             });
-            
+
             timeline.querySelectorAll(".btn-delete-session").forEach(btn => {
                 btn.addEventListener("click", (e) => {
                     deleteSession(e.target.closest("button").dataset.id, studentId, studentName, circleName);
                 });
             });
         }
-        
+
         // Setup new session button click
         const btnNew = document.getElementById("btn-new-session");
         const newBtnNew = btnNew.cloneNode(true);
@@ -5288,10 +5264,10 @@ async function showStudentRecitations(studentId, studentName, circleName) {
         newBtnNew.addEventListener("click", () => {
             showSessionFormModal(studentId);
         });
-        
+
         document.getElementById("no-student-selected").classList.add("hidden");
         document.getElementById("student-sessions-detail").classList.remove("hidden");
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -5336,7 +5312,7 @@ function getAssessmentArabicText(level) {
 
 async function deleteSession(sessionId, studentId, studentName, circleName) {
     if (!confirm("هل أنت متأكد من حذف جلسة التسميع هذه؟")) return;
-    
+
     try {
         await apiRequest(`/sessions/${sessionId}`, "DELETE");
         showAlert("تم حذف جلسة التسميع بنجاح.", "success");
@@ -5352,25 +5328,25 @@ async function loadTeacherLotterySetup() {
     try {
         const circles = await apiRequest("/circles");
         const myCircles = circles.filter(c => c.isActive);
-        
+
         const select = document.getElementById("lottery-circle-select");
         select.innerHTML = "";
-        
+
         if (myCircles.length === 0) {
             select.innerHTML = `<option value="">لا يوجد حلقات</option>`;
             return;
         }
-        
+
         myCircles.forEach(c => {
             const opt = document.createElement("option");
             opt.value = c.id;
             opt.textContent = c.name;
             select.appendChild(opt);
         });
-        
+
         // Reset display
         document.getElementById("lottery-result-display").innerHTML = `<h3 class="text-muted">اضغط على "سحب القرعة" للاختيار</h3>`;
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -5379,25 +5355,25 @@ async function loadTeacherLotterySetup() {
 async function drawLottery() {
     const circleId = document.getElementById("lottery-circle-select").value;
     const date = document.getElementById("lottery-date").value;
-    
+
     if (!circleId) {
         showAlert("الرجاء اختيار حلقة للقرعة.", "danger");
         return;
     }
-    
+
     const wheel = document.getElementById("lottery-wheel");
     const display = document.getElementById("lottery-result-display");
-    
+
     wheel.classList.add("spinning");
     display.innerHTML = `<h3 class="text-muted"><i class="fa-solid fa-spinner fa-spin"></i> جاري سحب القرعة...</h3>`;
-    
+
     try {
         const url = `/sessions/lottery/${circleId}?date=${date}`;
         const result = await apiRequest(url);
-        
+
         setTimeout(() => {
             wheel.classList.remove("spinning");
-            
+
             display.innerHTML = `
                 <div class="animate-zoom">
                     <p class="text-muted small">تم اختيار الطالب عشوائياً بنجاح:</p>
@@ -5408,7 +5384,7 @@ async function drawLottery() {
                     </button>
                 </div>
             `;
-            
+
             document.getElementById("btn-quick-session").addEventListener("click", () => {
                 window.location.hash = "#teacher-sessions";
                 setTimeout(() => {
@@ -5421,9 +5397,9 @@ async function drawLottery() {
                     }
                 }, 400);
             });
-            
+
         }, 1200);
-        
+
     } catch(e) {
         wheel.classList.remove("spinning");
         display.innerHTML = `<h3 class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> عذراً: ${e.message}</h3>`;
@@ -5435,14 +5411,14 @@ let parentChildrenCache = [];
 
 async function loadParentProgress() {
     const parentId = parseInt(currentUserId);
-    
+
     try {
         const children = await apiRequest("/parent/children");
         parentChildrenCache = children || [];
-        
+
         const container = document.getElementById("parent-children-container");
         container.innerHTML = "";
-        
+
         if (!children || children.length === 0) {
             container.innerHTML = `
                 <div class="card shadow-sm p-5 text-center text-muted">
@@ -5453,7 +5429,7 @@ async function loadParentProgress() {
             `;
             return;
         }
-        
+
         // Multi-child switcher header
         let filterHeaderHtml = '';
         if (children.length > 1) {
@@ -5480,15 +5456,15 @@ async function loadParentProgress() {
                 </div>
             `;
         }
-        
+
         const cardsGrid = document.createElement("div");
         cardsGrid.id = "parent-children-cards-list";
-        
+
         children.forEach(c => {
             const card = document.createElement("div");
             card.className = "child-card parent-child-item-card";
             card.dataset.studentId = c.studentId;
-            
+
             let recentSessionsHtml = '';
             if (!c.recentSessions || c.recentSessions.length === 0) {
                 recentSessionsHtml = `<p class="text-muted text-center p-4">لا يوجد جلسات تسميع مسجلة مؤخراً لهذا الابن.</p>`;
@@ -5518,7 +5494,7 @@ async function loadParentProgress() {
                     </div>
                 `;
             }
-            
+
             card.innerHTML = `
                 <div class="child-card-header p-3 p-md-4">
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3">
@@ -5537,7 +5513,7 @@ async function loadParentProgress() {
                                 ` : ''}
                             </div>
                         </div>
-                        
+
                         <div class="child-quick-stats-grid">
                             <div class="child-stat-box">
                                 <i class="fa-solid fa-book-quran icon"></i>
@@ -5562,7 +5538,7 @@ async function loadParentProgress() {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="mt-3 pt-3 border-top border-white border-opacity-20 d-flex justify-content-end">
                         <button class="btn btn-warning btn-sm fw-bold shadow-sm rounded-3 px-3 py-2 btn-open-child-360 w-100 w-md-auto" data-id="${c.studentId}" style="font-size: 0.82rem;">
                             <i class="fa-solid fa-id-card me-1"></i> عرض الملف الموحد الشامل (360°)
@@ -5636,7 +5612,7 @@ async function loadParentProgress() {
             `;
             cardsGrid.appendChild(card);
         });
-        
+
         let sheikhBannerHtml = '';
         if (currentRole === "Teacher") {
             sheikhBannerHtml = `
@@ -5664,20 +5640,20 @@ async function loadParentProgress() {
 
         container.innerHTML = sheikhBannerHtml + filterHeaderHtml;
         container.appendChild(cardsGrid);
-        
+
         // Bind Filter Chips
         document.querySelectorAll(".parent-filter-chip").forEach(chip => {
             chip.addEventListener("click", (e) => {
                 const btn = e.target.closest("button");
                 const filterId = btn.dataset.id;
-                
+
                 document.querySelectorAll(".parent-filter-chip").forEach(b => {
                     b.classList.remove("active", "btn-primary");
                     b.classList.add("btn-outline-primary");
                 });
                 btn.classList.add("active", "btn-primary");
                 btn.classList.remove("btn-outline-primary");
-                
+
                 document.querySelectorAll(".parent-child-item-card").forEach(item => {
                     if (filterId === "all" || item.dataset.studentId === filterId) {
                         item.style.display = "block";
@@ -5687,7 +5663,7 @@ async function loadParentProgress() {
                 });
             });
         });
-        
+
         // Bind 360 buttons
         document.querySelectorAll(".btn-open-child-360").forEach(btn => {
             btn.addEventListener("click", (e) => {
@@ -5695,7 +5671,7 @@ async function loadParentProgress() {
                 showStudent360Modal(stId);
             });
         });
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -5711,7 +5687,7 @@ async function showStudent360Modal(studentId) {
             <p class="mt-2 text-muted fw-bold">جاري تحميل الملف الموحد 360° واستخراج السجلات القرآنية المعتمدة...</p>
         </div>
     `;
-    
+
     try {
         let data = null;
         try {
@@ -5768,7 +5744,7 @@ async function showStudent360Modal(studentId) {
         const seenCertKeys = new Set();
         rawCertificates.forEach(c => {
             const isQuran = c.nominationType === "Quran";
-            const dedupKey = isQuran 
+            const dedupKey = isQuran
                 ? `quran_${c.juzStart || 1}_${c.juzEnd || 1}`
                 : `course_${c.courseId || c.courseName || c.formattedDetails}`;
             if (!seenCertKeys.has(dedupKey)) {
@@ -6148,7 +6124,7 @@ async function showStudent360Modal(studentId) {
                                 const gradeLabel = gradeNum >= 95 ? "ممتاز مرتفع" : (gradeNum >= 90 ? "ممتاز" : (gradeNum >= 80 ? "جيد جداً" : (gradeNum >= 70 ? "جيد" : "ناجح")));
                                 const cCode = c.certificateCode || `CERT-${1000 + (c.id || 1)}`;
                                 const cDate = c.certificateDate || c.examDate || new Date().toISOString().substring(0, 10);
-                                
+
                                 const certJson = JSON.stringify({
                                     id: c.id,
                                     studentName: studentName,
@@ -6358,7 +6334,7 @@ async function downloadStudent360Pdf(studentId) {
         const seenExamKeys = new Set();
         rawCompletedExams.forEach(e => {
             const isQuran = e.nominationType === "Quran";
-            const dedupKey = isQuran 
+            const dedupKey = isQuran
                 ? `quran_${e.juzStart || 1}_${e.juzEnd || 1}`
                 : `course_${e.courseId || e.courseName || e.formattedDetails}`;
             if (!seenExamKeys.has(dedupKey)) {
@@ -6713,20 +6689,20 @@ async function downloadStudent360Pdf(studentId) {
 function setupFormsAndModals() {
     const modalContainer = document.getElementById("modal-container");
     const closeBtn = document.getElementById("modal-close");
-    
+
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
     if (modalContainer) {
         modalContainer.addEventListener("click", (e) => {
             if (e.target === modalContainer) closeModal();
         });
     }
-    
+
     // Bind triggers on static buttons safely
     document.getElementById("btn-add-circle")?.addEventListener("click", () => showCircleModal());
     document.getElementById("btn-add-teacher")?.addEventListener("click", () => showTeacherModal());
     document.getElementById("btn-add-student")?.addEventListener("click", () => showStudentModal());
     document.getElementById("btn-refresh-report")?.addEventListener("click", () => safeExecute(loadAdminDashboard, "تحديث التقرير"));
-    
+
     // Bind search inputs safely
     const teacherSearch = document.getElementById("teacher-search-input");
     if (teacherSearch) {
@@ -6734,7 +6710,7 @@ function setupFormsAndModals() {
             safeExecute(() => loadAdminTeachers(teacherSearch.value), "بحث المعلمين");
         }, 400));
     }
-    
+
     const studentSearch = document.getElementById("student-search-input");
     if (studentSearch) {
         studentSearch.addEventListener("input", debounce(() => {
@@ -6838,30 +6814,30 @@ function debounce(func, delay) {
 // ------ Add/Edit Student Modal (With all 26 Excel fields & Parent assignment) ------
 async function showStudentModal(studentId = null) {
     openModal(studentId ? "تعديل بيانات الطالب الكليّة" : "إضافة طالب جديد وحساب دخول بكافة البيانات", true);
-    
+
     if (cachedCircles.length === 0) {
         try { cachedCircles = await apiRequest("/circles"); } catch(e) {}
     }
-    
+
     if (cachedUsers.length === 0) {
         try { cachedUsers = await apiRequest("/users"); } catch(e) {}
     }
-    
+
     const circlesOptions = cachedCircles
         .filter(c => c.isActive)
         .map(c => `<option value="${c.id}">${c.name}</option>`)
         .join('');
-        
+
     const parentUsers = cachedUsers.filter(u => u.role === 'Parent' || u.role === 4 || u.parentId != null);
     const parentsOptions = parentUsers
         .map(u => `<option value="${u.parentId || u.id}">${u.fullName} (حساب ولي الأمر #${u.username || u.id})</option>`)
         .join('');
-        
+
     let s = null;
     if (studentId) {
         s = cachedStudents.find(x => x.id == studentId);
-        try { 
-            const fullS = await apiRequest(`/students/${studentId}`); 
+        try {
+            const fullS = await apiRequest(`/students/${studentId}`);
             if (fullS) s = fullS;
         } catch(e) {}
     }
@@ -7151,7 +7127,7 @@ async function showStudentModal(studentId = null) {
                             <i class="fa-solid fa-shield-halved"></i>
                             <span>4. بيانات حساب دخول الطالب للمنظومة</span>
                         </div>
-                        
+
                         <div class="alert alert-info border-info p-3 mb-3 d-flex align-items-center gap-3">
                             <i class="fa-solid fa-circle-info fs-4 text-primary flex-shrink-0"></i>
                             <div class="small fw-semibold" style="line-height: 1.6;">يُستخدم هذا الحساب لدخول الطالب للمنظومة لمتابعة حفظه وتسميعه. يمكنك تحديد وتعديل اسم المستخدم بنفسك يدوياً في أي وقت.</div>
@@ -7169,7 +7145,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-password" class="form-label-custom">كلمة المرور للطالب ${studentId ? '(اختياري)' : '<span class="text-danger">*</span>'}</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-lock input-icon text-success"></i>
-                                    <input type="password" id="student-password" class="form-control-custom font-monospace" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'أدخل كلمة مرور...'}" value="${!studentId ? '123456' : ''}">
+                                    <input type="password" id="student-password" class="form-control-custom font-monospace" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'أدخل كلمة مرور...'}" value="">
                                 </div>
                                 ${studentId ? `<small class="form-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> اترك كلمة المرور فارغة إذا كنت لا ترغب بتغييرها.</small>` : ''}
                             </div>
@@ -7229,7 +7205,7 @@ async function showStudentModal(studentId = null) {
             if (targetBtn) targetBtn.click();
         });
     });
-    
+
     if (s && s.circleId) {
         document.getElementById("student-circle").value = s.circleId;
     }
@@ -7291,12 +7267,12 @@ async function showStudentModal(studentId = null) {
         if (!cachedUsers || cachedUsers.length === 0) {
             try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(e) {}
         }
-        
-        const foundUser = cachedUsers.find(u => 
-            (u.role === 'Parent' || u.role === 4 || u.parentId != null) && 
+
+        const foundUser = cachedUsers.find(u =>
+            (u.role === 'Parent' || u.role === 4 || u.parentId != null) &&
             (u.username === val || u.parentId == val || (u.username && u.username.trim() === val))
         );
-        
+
         if (foundUser) {
             if (document.getElementById("student-parent")) document.getElementById("student-parent").value = foundUser.parentId || foundUser.id;
             if (pNameInput && !pNameInput.value) pNameInput.value = foundUser.fullName;
@@ -7307,7 +7283,7 @@ async function showStudentModal(studentId = null) {
             const enteredParentName = pNameInput ? pNameInput.value.trim() : "";
             const fatherNameCandidate = (stNameInput ? stNameInput.value : "").trim();
             const fatherName = enteredParentName || (fatherNameCandidate ? extractFatherNameJS(fatherNameCandidate) : "الأب");
-            
+
             if (pSearchHint) {
                 pSearchHint.innerHTML = `
                     <div class="alert alert-info border-primary p-3 mt-2 mb-0 shadow-sm" dir="rtl" style="text-align: right;">
@@ -7316,19 +7292,19 @@ async function showStudentModal(studentId = null) {
                             • لم يُعثر على حساب سابق برقم الهوية: <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${val}</code><br>
                             • اسم ولي الأمر للحساب الجديد: <span class="fw-bold text-success">${fatherName}</span><br>
                             • اسم المستخدم (رقم الهوية): <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${val}</code><br>
-                            • كلمة المرور التلقائية: <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">123456</code>
+                            • كلمة المرور: تُعين من إدارة الحسابات
                         </div>
                     </div>
                 `;
             }
         }
     }
-    
+
     document.getElementById("btn-cancel-student").addEventListener("click", closeModal);
-    
+
     document.getElementById("student-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
         const alertBox = document.getElementById("student-modal-alert-container");
         if (alertBox) alertBox.innerHTML = "";
 
@@ -7342,7 +7318,7 @@ async function showStudentModal(studentId = null) {
         const circleIdVal = document.getElementById("student-circle")?.value || "";
         const prevQuran = (document.getElementById("student-prev-quran")?.value || "").trim();
         const health = (document.getElementById("student-health")?.value || "").trim();
-        
+
         const parentIdVal = document.getElementById("student-parent")?.value || "";
         const kinship = (document.getElementById("student-kinship")?.value || "").trim();
         const pIdNum = (document.getElementById("student-parent-id")?.value || "").trim();
@@ -7368,7 +7344,7 @@ async function showStudentModal(studentId = null) {
             if (alertBox) {
                 alertBox.innerHTML = `
                     <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
-                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> 
+                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
                         <strong>حقل مطلوب:</strong> يرجى إدخال اسم الطالب الكامل (رباعي).
                     </div>
                 `;
@@ -7382,7 +7358,7 @@ async function showStudentModal(studentId = null) {
             if (alertBox) {
                 alertBox.innerHTML = `
                     <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
-                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i> 
+                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
                         <strong>حقل مطلوب:</strong> يرجى إدخال رقم جوال للتواصل مع العائلة.
                     </div>
                 `;
@@ -7394,7 +7370,7 @@ async function showStudentModal(studentId = null) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> جاري حفظ البيانات...';
         }
-        
+
         const dto = {
             fullName: name,
             parentName: parentNameVal ? parentNameVal.trim() : null,
@@ -7421,7 +7397,7 @@ async function showStudentModal(studentId = null) {
             currentHousingType: currType || null,
             notes: notes !== undefined ? notes : ""
         };
-        
+
         const usernameInput = document.getElementById("student-username");
         const passwordInput = document.getElementById("student-password");
         const activeSwitch = document.getElementById("student-active");
@@ -7437,18 +7413,18 @@ async function showStudentModal(studentId = null) {
         if (activeSwitch) {
             dto.isActive = activeSwitch.checked;
         }
-        
+
         try {
             if (id) {
                 // Update Existing Student
                 await apiRequest(`/students/${id}`, "PUT", dto, 1, true);
-                
+
                 // Update cached student in memory immediately
                 if (Array.isArray(cachedStudents)) {
                     const idx = cachedStudents.findIndex(x => x.id == id);
                     if (idx !== -1) {
-                        cachedStudents[idx] = { 
-                            ...cachedStudents[idx], 
+                        cachedStudents[idx] = {
+                            ...cachedStudents[idx],
                             ...dto,
                             notes: dto.notes,
                             circleName: circleIdVal ? (cachedCircles.find(c => c.id == circleIdVal)?.name || cachedStudents[idx].circleName) : "غير مسند حلقة"
@@ -7461,7 +7437,7 @@ async function showStudentModal(studentId = null) {
                 try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(err) { cachedUsers = []; }
                 if (typeof loadAdminStudents === "function") loadAdminStudents();
                 if (typeof loadAdminCircles === "function") loadAdminCircles();
-                
+
                 // Show In-Modal Success Card
                 document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> تم تحديث بيانات الطالب بنجاح';
                 content.innerHTML = `
@@ -7473,7 +7449,7 @@ async function showStudentModal(studentId = null) {
                         </div>
                         <h4 class="fw-bold text-success mb-2">تم حفظ وتحديث كافة بيانات الطالب بنجاح! 🎉</h4>
                         <p class="text-muted mb-4">تم تطبيق كافة التعديلات على الطالب <strong>(${escapeXml(name)})</strong> وجدول الطلاب والتقارير في المنظومة.</p>
-                        
+
                         <div class="d-flex justify-content-center gap-3 pt-3 border-top">
                             <button type="button" class="btn btn-primary px-4 py-2 fw-bold shadow-sm" onclick="showStudentModal('${id}')">
                                 <i class="fa-solid fa-pen-to-square me-1"></i> مواصلة التعديل
@@ -7487,7 +7463,7 @@ async function showStudentModal(studentId = null) {
             } else {
                 // Create New Student
                 const res = await apiRequest("/students", "POST", dto, 1, true);
-                
+
                 // Refresh cached data
                 try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(err) {}
                 try { cachedStudents = await apiRequest("/students", "GET", null, 0, true); } catch(err) {}
@@ -7497,11 +7473,11 @@ async function showStudentModal(studentId = null) {
                 const circleObj = cachedCircles.find(c => c.id == circleIdVal);
                 const circleName = circleObj ? circleObj.name : (circleIdVal ? 'الحلقة المحددة' : 'بدون حلقة حالياً');
                 const studentUserVal = dto.username || stIdNum || '-';
-                const studentPassVal = dto.password || '123456';
-                
+                const studentPassVal = dto.password || 'تُعين من إدارة الحسابات';
+
                 const parentNameFinal = (res && res.createdParent) ? res.createdParent.fullName : (parentNameVal || 'ولي الأمر المسجل');
                 const parentUserVal = (res && res.createdParent) ? res.createdParent.username : (pIdNum || 'مسجل مسبقاً');
-                const parentPassVal = '123456';
+                const parentPassVal = 'تُعين من إدارة الحسابات';
 
                 // Change Modal Title
                 document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> 🎉 تم تسجيل الطالب وتوليد الحساب بنجاح';
@@ -7514,10 +7490,10 @@ async function showStudentModal(studentId = null) {
                                 <i class="fa-solid fa-circle-check text-success" style="font-size: 2.3rem;"></i>
                             </div>
                         </div>
-                        
+
                         <h4 class="fw-bold mb-1" style="color: #0d5c3a;">🎉 تمت إضافة الطالب بنجاح!</h4>
                         <p class="text-muted small mb-4">تم حفظ كافة البيانات الشخصية والعائلية وإنشاء حسابات الدخول بالمنظومة فورياً.</p>
-                        
+
                         <div class="row g-3 text-start mb-4">
                             <!-- Student Card -->
                             <div class="col-md-6">
@@ -7579,7 +7555,7 @@ async function showStudentModal(studentId = null) {
             if (alertBox) {
                 alertBox.innerHTML = `
                     <div class="alert alert-danger p-3 mb-3 shadow-sm border border-danger animate-shake" dir="rtl">
-                        <i class="fa-solid fa-circle-exclamation fs-5 flex-shrink-0"></i> 
+                        <i class="fa-solid fa-circle-exclamation fs-5 flex-shrink-0"></i>
                         <div class="d-inline-flex align-items-center gap-2 flex-wrap">
                             <strong class="text-nowrap">تعذر الحفظ:</strong>
                             <span>${escapeXml(err.message || 'حدث خطأ أثناء حفظ بيانات الطالب. يرجى التحقق من الحقول المطلوبة.')}</span>
@@ -7596,7 +7572,7 @@ async function showStudentModal(studentId = null) {
 // Helper to copy student and parent credentials to clipboard for WhatsApp sharing
 window.copyStudentCredentials = function(stName, stUser, stPass, pName, pUser, pPass, circleName) {
     const text = `السلام عليكم ورحمة الله وبركاته،\nتم تسجيل الطالب: *${stName}* في *${circleName}*.\n\n📱 *بيانات دخول الطالب للمنظومة:*\nاسم المستخدم: ${stUser}\nكلمة المرور: ${stPass}\n\n👨‍👦 *بيانات دخول ولي الأمر للمتابعة:*\nاسم المستخدم: ${pUser}\nكلمة المرور: ${pPass}\n\nرابط المنظومة: ${window.location.origin + window.location.pathname}`;
-    
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
             if (typeof Swal !== "undefined") {
@@ -7683,7 +7659,7 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
     openModal(`طلب تعديل وتحديث بيانات الطالب: ${studentName}`, true);
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted fw-bold">جاري جلب كافة البيانات الحالية للطالب...</p></div>`;
-    
+
     let s = null;
     try {
         s = await apiRequest(`/students/${studentId}`);
@@ -7701,11 +7677,11 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
                     <b>ملاحظة لولي الأمر:</b> كافة بيانات ابنك الحالية معروضة أدناه. يمكنك تعديل أي بيان ترغب بتحديثه، وسيقوم المطور ومدير المركز بمراجعة التعديلات واعتمادها فوراً.
                 </div>
             </div>
-            
+
             <div class="row g-3">
                 <!-- 1. البيانات الشخصية والتعريفية للطالب -->
                 <div class="col-12"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-id-card me-1"></i> 1. البيانات الشخصية والتعريفية للطالب</h6></div>
-                
+
                 <div class="col-md-4">
                     <label for="req-fullname" class="fw-bold"><i class="fa-solid fa-user me-1 text-secondary"></i> اسم الطالب الكامل (رباعي):</label>
                     <input type="text" id="req-fullname" class="form-control" value="${s ? (s.fullName || '') : ''}">
@@ -7729,7 +7705,7 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
 
                 <!-- 2. بيانات العائلة وولي الأمر -->
                 <div class="col-12 mt-3"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-people-roof me-1"></i> 2. بيانات العائلة وولي الأمر</h6></div>
-                
+
                 <div class="col-md-4">
                     <label for="req-kinship" class="fw-bold"><i class="fa-solid fa-hands-holding-child me-1 text-primary"></i> صلة القرابة:</label>
                     <input type="text" id="req-kinship" class="form-control" value="${s ? (s.kinship || 'الأب') : 'الأب'}" placeholder="الأب / الأم / ولي الأمر">
@@ -7749,7 +7725,7 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
 
                 <!-- 3. أرقام التواصل والعناوين المفصلة -->
                 <div class="col-12 mt-3"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-map-location-dot me-1"></i> 3. أرقام التواصل والعناوين المفصلة</h6></div>
-                
+
                 <div class="col-md-4">
                     <label for="req-family-contact" class="fw-bold"><i class="fa-solid fa-phone text-success me-1"></i> رقم جوال التواصل (العائلة):</label>
                     <input type="text" id="req-family-contact" class="form-control" value="${s ? (s.familyContact || '') : ''}" placeholder="059xxxxxxx">
@@ -7789,7 +7765,7 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
 
                 <!-- 4. البيانات المالية والملاحظات -->
                 <div class="col-12 mt-3"><h6 class="text-primary border-bottom pb-2 mb-1 fw-bold"><i class="fa-solid fa-wallet me-1"></i> 4. البيانات المالية والملاحظات</h6></div>
-                
+
                 <div class="col-md-4">
                     <label for="req-wallet" class="fw-bold"><i class="fa-solid fa-wallet text-warning me-1"></i> رقم المحفظة المالية (PalPay/جوال باي):</label>
                     <input type="text" id="req-wallet" class="form-control" value="${s ? (s.walletNumber || '') : ''}" placeholder="رقم المحفظة...">
@@ -7807,7 +7783,7 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
                     <textarea id="req-notes" class="form-control" rows="2" placeholder="أدخل أي تفاصيل ترغب بتوضيحها للإدارة بخصوص هذا الطلب...">${s ? (s.notes || '') : ''}</textarea>
                 </div>
             </div>
-            
+
             <div class="d-flex justify-content-between mt-4 border-top pt-3">
                 <button type="submit" class="btn btn-warning text-dark fw-bold px-4 py-2 shadow-sm" id="btn-submit-profile-req">
                     <i class="fa-solid fa-paper-plane me-1"></i> إرسال طلب التعديل للإدارة والمطور
@@ -7882,10 +7858,10 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
                 requestedByName: reqName,
                 changes: changes
             });
-            
+
             closeModal();
             showAlert(`تم تقديم طلب التعديل للطالب (<strong>${studentName}</strong>) بنجاح، وسيتم مراجعته واعتماده من المطور والإدارة.`, "success");
-            
+
             if (typeof Swal !== "undefined") {
                 Swal.fire({
                     icon: 'success',
@@ -8071,7 +8047,7 @@ function renderProfileRequestsTable() {
     }
 
     if (query) {
-        filtered = filtered.filter(r => 
+        filtered = filtered.filter(r =>
             (r.studentName && r.studentName.toLowerCase().includes(query)) ||
             (r.requestedByName && r.requestedByName.toLowerCase().includes(query)) ||
             (r.studentId && r.studentId.toString().includes(query))
@@ -8124,10 +8100,10 @@ function renderProfileRequestsTable() {
                     const info = fieldLabels[k] || { label: k, icon: "fa-pen" };
                     const labelName = typeof info === 'object' ? info.label : info;
                     const iconClass = typeof info === 'object' ? info.icon : 'fa-circle-info';
-                    
+
                     // Retrieve previous/old value from currentStudentData if present
-                    const oldVal = (r.currentStudentData && r.currentStudentData[k] !== undefined && r.currentStudentData[k] !== null && r.currentStudentData[k] !== '') 
-                        ? r.currentStudentData[k] 
+                    const oldVal = (r.currentStudentData && r.currentStudentData[k] !== undefined && r.currentStudentData[k] !== null && r.currentStudentData[k] !== '')
+                        ? r.currentStudentData[k]
                         : '— (غير مسجل)';
 
                     changesCardsHtml.push(`
@@ -8460,7 +8436,7 @@ async function deactivateStudent(id) {
 // ------ Add/Edit Recitation Session Modal ------
 async function showSessionFormModal(studentId, sessionId = null, forceLottery = false) {
     openModal(sessionId ? "تعديل جلسة التسميع" : "تسجيل جلسة تسميع جديدة");
-    
+
     let session = null;
     if (sessionId) {
         try {
@@ -8473,12 +8449,12 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
 
     const isRecRevision = session && (session.recitationType === 2 || session.recitationType === 'Revision');
     const isDidNotRecite = session && (session.assessment === 'DidNotRecite' || session.assessment === 6);
-    
+
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="session-form">
             <input type="hidden" id="form-session-id" value="${sessionId || ''}">
-            
+
             <div class="modal-form-grid">
                 <div class="form-group modal-form-grid-full">
                     <label class="form-label fw-bold mb-2"><i class="fa-solid fa-list-check me-1 text-primary"></i> مسار ونوع التسميع:</label>
@@ -8498,22 +8474,22 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                     <label for="session-form-date">تاريخ التسميع:</label>
                     <input type="date" id="session-form-date" class="form-control" value="${session ? session.sessionDate : getTodayDateString()}" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="session-surah">اسم السورة مسمَّعة:</label>
                     <input type="text" id="session-surah" class="form-control" placeholder="مثلاً: البقرة، آل عمران" value="${session ? session.surahName : ''}" ${isDidNotRecite ? '' : 'required'}>
                 </div>
-                
+
                 <div class="form-group" id="group-from-verse">
                     <label for="session-from-verse">من الآية رقم:</label>
                     <input type="number" id="session-from-verse" class="form-control" value="${session ? session.fromVerse : '1'}" min="0" ${isDidNotRecite ? '' : 'required'}>
                 </div>
-                
+
                 <div class="form-group" id="group-to-verse">
                     <label for="session-to-verse">إلى الآية رقم:</label>
                     <input type="number" id="session-to-verse" class="form-control" value="${session ? session.toVerse : ''}" min="0" ${isDidNotRecite ? '' : 'required'}>
                 </div>
-                
+
                 <div class="form-group modal-form-grid-full">
                     <label for="session-assessment">مستوى تقييم الحفظ والإتقان:</label>
                     <select id="session-assessment" class="form-control" required>
@@ -8525,25 +8501,25 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                         <option value="DidNotRecite" ${isDidNotRecite ? 'selected' : ''}>❌ لم يُسمّع (Did Not Recite)</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group modal-form-grid-full">
                     <label for="session-notes">ملاحظات أو تنبيهات الشيخ:</label>
                     <textarea id="session-notes" class="form-control" rows="2" placeholder="اكتب ملاحظاتك على الأخطاء أو التجويد أو سبب عدم التسميع...">${session ? (session.notes || '') : ''}</textarea>
                 </div>
-                
+
                 <div class="form-group flex-row align-items-center gap-2 modal-form-grid-full">
                     <input type="checkbox" id="session-lottery-check" ${forceLottery || (session && session.viaLottery) ? 'checked' : ''} ${forceLottery ? 'disabled' : ''}>
                     <label for="session-lottery-check" style="margin-bottom:0">تسميع ناتج عن قرعة عشوائية</label>
                 </div>
             </div>
-            
+
             <div class="mt-4 d-flex justify-content-between">
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ البيانات</button>
                 <button type="button" class="btn btn-light" id="btn-cancel-session-form">إلغاء</button>
             </div>
         </form>
     `;
-    
+
     document.getElementById("btn-cancel-session-form").addEventListener("click", closeModal);
 
     const assessSelect = document.getElementById("session-assessment");
@@ -8580,10 +8556,10 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
     if (isDidNotRecite) {
         updateFieldsForAssessment();
     }
-    
+
     document.getElementById("session-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
         const id = document.getElementById("form-session-id").value;
         const sDate = document.getElementById("session-form-date").value;
         let surah = document.getElementById("session-surah").value.trim();
@@ -8593,7 +8569,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
         const notesVal = document.getElementById("session-notes").value;
         const viaLotteryVal = document.getElementById("session-lottery-check").checked;
         const recTypeVal = parseInt(document.querySelector('input[name="session-recitation-type"]:checked')?.value || "1");
-        
+
         const isDidNot = assess === "DidNotRecite";
         if (isDidNot) {
             surah = surah || "لم يُسمّع";
@@ -8609,7 +8585,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                 return;
             }
         }
-        
+
         try {
             if (id) {
                 const dto = {
@@ -8639,7 +8615,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
 
             closeModal();
             invalidateTeacherComprehensiveCache();
-            
+
             const selectedStudent = document.querySelector(".student-list-item.active");
             if (selectedStudent) {
                 const stId = selectedStudent.dataset.studentId;
@@ -8648,7 +8624,7 @@ async function showSessionFormModal(studentId, sessionId = null, forceLottery = 
                 const cName = circleSelect && circleSelect.selectedIndex >= 0 ? circleSelect.options[circleSelect.selectedIndex].text : "";
                 await showStudentRecitations(stId, stName, cName);
             }
-            
+
             showAlert(id ? "تم تحديث جلسة التسميع بنجاح." : "تم تسجيل جلسة التسميع بنجاح.", "success");
         } catch(e) {
             console.error("Error saving recitation session:", e);
@@ -8711,7 +8687,7 @@ async function loadAnnouncements() {
         announcements.forEach(a => {
             const item = document.createElement("div");
             item.className = `announcement-item announcement-${a.targetType.toLowerCase()}`;
-            
+
             let targetTypeArabic = "عام";
             if (a.targetType === "Circle") targetTypeArabic = "حلقة";
             else if (a.targetType === "Teacher") targetTypeArabic = "معلّم";
@@ -8719,9 +8695,9 @@ async function loadAnnouncements() {
             else if (a.targetType === "AllTeachers") targetTypeArabic = "كل المعلمين";
             else if (a.targetType === "Admin") targetTypeArabic = "مدير المركز";
 
-            const localTime = new Date(a.dateTimeSent).toLocaleString('ar-EG', { 
-                year: 'numeric', month: 'short', day: 'numeric', 
-                hour: '2-digit', minute: '2-digit' 
+            const localTime = new Date(a.dateTimeSent).toLocaleString('ar-EG', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
             });
 
             item.innerHTML = `
@@ -8942,8 +8918,8 @@ async function showAnnouncementFormModal() {
 
             searchInput.addEventListener("input", () => {
                 const q = searchInput.value.trim().toLowerCase();
-                const matched = filteredTeachers.filter(t => 
-                    t.fullName.toLowerCase().includes(q) || 
+                const matched = filteredTeachers.filter(t =>
+                    t.fullName.toLowerCase().includes(q) ||
                     (t.phone && t.phone.includes(q)) ||
                     (t.summaryText && t.summaryText.toLowerCase().includes(q)) ||
                     (t.childrenNames && t.childrenNames.some(ch => ch.toLowerCase().includes(q)))
@@ -9089,8 +9065,8 @@ async function showAnnouncementFormModal() {
                     }
 
                     if (q) {
-                        matched = matched.filter(s => 
-                            s.fullName.toLowerCase().includes(q) || 
+                        matched = matched.filter(s =>
+                            s.fullName.toLowerCase().includes(q) ||
                             (s.studentIdentityNumber && s.studentIdentityNumber.includes(q)) ||
                             (s.circleName && s.circleName.toLowerCase().includes(q))
                         );
@@ -9144,8 +9120,8 @@ async function showAnnouncementFormModal() {
                     const teacherFirstWord = (teacherFullName.split(' ')[0] || "").trim().toLowerCase();
 
                     // Match circles belonging to this teacher
-                    availableCircles = availableCircles.filter(c => 
-                        c.teacherId == tId || 
+                    availableCircles = availableCircles.filter(c =>
+                        c.teacherId == tId ||
                         (c.teacherName && teacherFirstWord && c.teacherName.toLowerCase().includes(teacherFirstWord))
                     );
 
@@ -9158,13 +9134,13 @@ async function showAnnouncementFormModal() {
                     const myCircleNames = availableCircles.map(c => (c.name || "").toLowerCase());
 
                     // Students in teacher's circles
-                    const myStudents = allStudentsList.filter(s => 
+                    const myStudents = allStudentsList.filter(s =>
                         (s.circleId && myCircleIds.includes(s.circleId)) ||
                         (s.circleName && myCircleNames.includes(s.circleName.toLowerCase()))
                     );
 
                     // Map parents from audit whose children are in teacher's circles
-                    const auditParents = (rawParentsList || []).filter(p => p.children && p.children.some(ch => 
+                    const auditParents = (rawParentsList || []).filter(p => p.children && p.children.some(ch =>
                         (ch.circleId && myCircleIds.includes(ch.circleId)) ||
                         (ch.circleName && myCircleNames.includes(ch.circleName.toLowerCase()))
                     ));
@@ -9175,13 +9151,13 @@ async function showAnnouncementFormModal() {
                     // 1. Add from auditParents
                     auditParents.forEach(p => {
                         const key = String(p.parentId || p.parentUserId || p.username);
-                        const idNum = p.parentIdentityNumber && p.parentIdentityNumber !== 'غير مسجل' 
-                            ? p.parentIdentityNumber 
+                        const idNum = p.parentIdentityNumber && p.parentIdentityNumber !== 'غير مسجل'
+                            ? p.parentIdentityNumber
                             : (p.username && /^\d+$/.test(p.username) ? p.username : '-');
-                        
+
                         const childNames = (p.children || []).map(c => c.fullName).filter(Boolean).join('، ');
-                        const resolvedName = p.parentName && p.parentName.trim() !== '' 
-                            ? p.parentName.trim() 
+                        const resolvedName = p.parentName && p.parentName.trim() !== ''
+                            ? p.parentName.trim()
                             : (childNames ? `ولي أمر الطالب (${childNames})` : `ولي أمر (${p.username})`);
 
                         parentMap.set(key, {
@@ -9201,7 +9177,7 @@ async function showAnnouncementFormModal() {
                         const sParentKey = String(s.parentId || s.parentIdentityNumber || s.familyContact || s.id);
                         if (!parentMap.has(sParentKey)) {
                             // Find matching audit parent if any
-                            const matchedAudit = (rawParentsList || []).find(ap => 
+                            const matchedAudit = (rawParentsList || []).find(ap =>
                                 (s.parentId && ap.parentId == s.parentId) ||
                                 (s.parentIdentityNumber && ap.parentIdentityNumber == s.parentIdentityNumber) ||
                                 (s.familyContact && ap.username == s.familyContact)
@@ -9238,8 +9214,8 @@ async function showAnnouncementFormModal() {
                     // Admin / Developer: include all parents
                     finalParentsList = (rawParentsList || []).map(p => {
                         const childNames = (p.children || []).map(c => c.fullName).filter(Boolean).join('، ');
-                        const resolvedName = p.parentName && p.parentName.trim() !== '' 
-                            ? p.parentName.trim() 
+                        const resolvedName = p.parentName && p.parentName.trim() !== ''
+                            ? p.parentName.trim()
                             : (childNames ? `ولي أمر الطالب (${childNames})` : `ولي أمر (${p.username})`);
                         const idNum = p.parentIdentityNumber || (p.username && /^\d+$/.test(p.username) ? p.username : '-');
 
@@ -9296,20 +9272,20 @@ async function showAnnouncementFormModal() {
                         const cId = parseInt(selectedCircle);
                         const selectedOption = circleFilter.options[circleFilter.selectedIndex];
                         const cName = (selectedOption?.dataset?.name || "").toLowerCase();
-                        matched = matched.filter(p => p.children && p.children.some(c => 
+                        matched = matched.filter(p => p.children && p.children.some(c =>
                             (c.circleId && c.circleId === cId) ||
                             (cName && c.circleName && c.circleName.toLowerCase() === cName)
                         ));
                     }
 
                     if (q) {
-                        matched = matched.filter(p => 
-                            (p.parentName && p.parentName.toLowerCase().includes(q)) || 
+                        matched = matched.filter(p =>
+                            (p.parentName && p.parentName.toLowerCase().includes(q)) ||
                             (p.parentIdentityNumber && p.parentIdentityNumber.includes(q)) ||
                             (p.username && p.username.toLowerCase().includes(q)) ||
                             (p.familyContact && p.familyContact.includes(q)) ||
                             (p.childrenNames && p.childrenNames.toLowerCase().includes(q)) ||
-                            (p.children && p.children.some(c => 
+                            (p.children && p.children.some(c =>
                                 (c.fullName && c.fullName.toLowerCase().includes(q)) ||
                                 (c.studentIdentityNumber && c.studentIdentityNumber.includes(q))
                             ))
@@ -9344,7 +9320,7 @@ async function showAnnouncementFormModal() {
         const title = document.getElementById("announcement-form-title").value;
         const contentVal = document.getElementById("announcement-form-content").value;
         const targetType = targetTypeSelect.value;
-        
+
         let targetId = null;
         if (targetType !== "All" && targetType !== "AllTeachers" && targetType !== "Admin") {
             const targetIdSelect = document.getElementById("announcement-form-target-id");
@@ -9388,29 +9364,9 @@ async function showAnnouncementFormModal() {
 }
 
 // ----------------- Developer: User Accounts Management -----------------
-function getUserDisplayPassword(u) {
-    if (!u) return "123456";
-    
-    // 1. Check official database returned plainPassword from API (single source of truth)
-    const p = u.plainPassword || u.PlainPassword;
-    if (p && p.trim() !== "") return p.trim();
-
-    // 2. Check temporary local storage fallback if API field was absent
-    if (u.id) {
-        const localById = localStorage.getItem("user_pw_" + u.id);
-        if (localById && localById.trim() !== "") return localById.trim();
-    }
-    if (u.username) {
-        const localByUsername = localStorage.getItem("user_pw_" + u.username.toLowerCase().trim());
-        if (localByUsername && localByUsername.trim() !== "") return localByUsername.trim();
-    }
-
-    // 3. Known initial credentials defaults
-    const uName = (u.username || "").toLowerCase().trim();
-    if (uName === "dev") return "dev123";
-    if (uName === "admin") return "admin123";
-    if (uName === "wael") return "wael123";
-    return "123456";
+function getUserDisplayPassword() {
+    // Passwords are never returned by the API or retained in browser storage.
+    return "";
 }
 
 window.copyPasswordToClipboard = function(pw, name) {
@@ -9446,27 +9402,27 @@ function updateUsersStatsCounters(list) {
 function renderUsersTableRows(usersList) {
     const tbody = document.getElementById("users-table-body");
     const cardsGrid = document.getElementById("users-cards-grid");
-    
+
     updateUsersStatsCounters(cachedUsers);
-    
+
     if (tbody) tbody.innerHTML = "";
     if (cardsGrid) cardsGrid.innerHTML = "";
-    
+
     if (!usersList || usersList.length === 0) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4"><i class="fa-solid fa-users-slash me-2"></i> لا توجد حسابات مطابقة لمعايير البحث.</td></tr>`;
         if (cardsGrid) cardsGrid.innerHTML = `<div class="p-4 text-center text-muted w-100"><i class="fa-solid fa-users-slash me-2"></i> لا توجد حسابات مطابقة لمعايير البحث.</div>`;
         return;
     }
-    
+
     usersList.forEach(u => {
         let refIdStr = "-";
         if (u.teacherId) refIdStr = `معلّم (#${u.teacherId})`;
         else if (u.studentId) refIdStr = `طالب (#${u.studentId})`;
         else if (u.parentId) refIdStr = `ولي أمر (#${u.parentId})`;
-        
+
         const pw = getUserDisplayPassword(u);
         const idNum = u.identityNumber || u.nationalId || (u.role === 'Parent' && u.username && /^\d+$/.test(u.username) ? u.username : '-');
-        
+
         // Resolve role & permissions badge with full harmony with Teachers page
         let roleHtml = "";
         let teacherIdForRole = u.teacherId;
@@ -9529,10 +9485,7 @@ function renderUsersTableRows(usersList) {
                 <td style="white-space: nowrap;"><span class="small text-muted">${refIdStr}</span></td>
                 <td style="white-space: nowrap;">
                     <div class="d-inline-flex align-items-center gap-1.5 bg-light px-2 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
-                        <code class="fw-bold text-dark font-monospace user-pw-value" id="pw-user-${u.id}" style="font-size: 0.88rem; letter-spacing: 0.5px;">${escapeXml(pw)}</code>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-1.5 rounded" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
-                            <i class="fa-solid fa-copy" style="font-size: 0.75rem;"></i>
-                        </button>
+                        <code class="fw-bold text-dark font-monospace user-pw-value" id="pw-user-${u.id}" style="font-size: 0.88rem; letter-spacing: 0.5px;">${pw ? escapeXml(pw) : "محفوظة بأمان"}</code>
                     </div>
                 </td>
                 <td style="white-space: nowrap; text-align: center;">
@@ -9581,10 +9534,7 @@ function renderUsersTableRows(usersList) {
                     <div class="dev-card-info-row">
                         <span class="text-muted small"><i class="fa-solid fa-key text-warning me-1"></i> كلمة المرور:</span>
                         <div class="d-inline-flex align-items-center gap-2">
-                            <code class="fw-bold font-monospace text-dark">${escapeXml(pw)}</code>
-                            <button class="btn btn-sm btn-light border py-0 px-2 rounded shadow-xs" title="نسخ" onclick="copyPasswordToClipboard('${escapeXml(pw)}', '${escapeXml(u.fullName)}')">
-                                <i class="fa-solid fa-copy text-muted"></i>
-                            </button>
+                            <code class="fw-bold font-monospace text-dark">${pw ? escapeXml(pw) : "محفوظة بأمان"}</code>
                         </div>
                     </div>
                     <div class="dev-card-info-row">
@@ -9606,7 +9556,7 @@ function renderUsersTableRows(usersList) {
             cardsGrid.appendChild(card);
         }
     });
-    
+
     // Bind Actions for both table and cards
     const container = document.getElementById("developer-users-section");
     if (container) {
@@ -9659,7 +9609,7 @@ async function loadDeveloperUsers() {
         if (users && Array.isArray(users)) {
             cachedUsers = users;
         }
-        
+
         applyUsersFilters();
     } catch(e) {
         console.error(e);
@@ -9686,7 +9636,7 @@ function applyUsersFilters() {
     let filtered = cachedUsers.filter(u => {
         // Search term matching
         if (query) {
-            const matchesQuery = 
+            const matchesQuery =
                 (u.fullName && u.fullName.toLowerCase().includes(query)) ||
                 (u.username && u.username.toLowerCase().includes(query)) ||
                 (u.identityNumber && u.identityNumber.toLowerCase().includes(query)) ||
@@ -9723,7 +9673,7 @@ function filterUsersTable(query) {
 
 function showCreateUserModal() {
     openModal("إنشاء حساب مستخدم جديد");
-    
+
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="create-user-form">
@@ -9732,12 +9682,12 @@ function showCreateUserModal() {
                     <label for="create-user-fullname">الاسم الكامل:</label>
                     <input type="text" id="create-user-fullname" class="form-control" required placeholder="مثال: الشيخ عبد الرحمن">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="create-user-username">اسم المستخدم (Username):</label>
                     <input type="text" id="create-user-username" class="form-control" required placeholder="مثال: abdelrahman">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="create-user-role">الدور والصلاحيات:</label>
                     <select id="create-user-role" class="form-control" required>
@@ -9749,7 +9699,7 @@ function showCreateUserModal() {
                         <option value="Parent">ولي أمر (Parent)</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="create-user-teacher">ربط ببيانات معلّم (اختياري):</label>
                     <select id="create-user-teacher" class="form-control">
@@ -9758,25 +9708,25 @@ function showCreateUserModal() {
                     </select>
                     <small class="form-helper-text"><i class="fa-solid fa-circle-info me-1 text-primary"></i> يربط حساب الدخول بملف المعلم ليعرض حلقه وطلابه تلقائياً عند دخوله.</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="create-user-password">كلمة المرور (Password):</label>
                     <input type="text" id="create-user-password" class="form-control font-monospace fw-bold" required placeholder="أدخل كلمة مرور للحساب...">
                 </div>
             </div>
-            
+
             <div class="mt-4 d-flex justify-content-between">
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إنشاء المستخدم</button>
                 <button type="button" class="btn btn-light" id="btn-cancel-create-user">إلغاء</button>
             </div>
         </form>
     `;
-    
+
     document.getElementById("btn-cancel-create-user").addEventListener("click", closeModal);
-    
+
     document.getElementById("create-user-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
         const teacherVal = document.getElementById("create-user-teacher").value;
         const dto = {
             username: document.getElementById("create-user-username").value,
@@ -9785,12 +9735,10 @@ function showCreateUserModal() {
             password: document.getElementById("create-user-password").value,
             teacherId: teacherVal ? parseInt(teacherVal) : null
         };
-        
+
         try {
             const res = await apiRequest("/users", "POST", dto);
             if (dto.password && dto.password.trim() !== "") {
-                if (res && res.id) localStorage.setItem("user_pw_" + res.id, dto.password.trim());
-                if (dto.username) localStorage.setItem("user_pw_" + dto.username.toLowerCase().trim(), dto.password.trim());
             }
             showAlert("تم إنشاء حساب المستخدم بنجاح.", "success");
             closeModal();
@@ -9803,9 +9751,9 @@ function showCreateUserModal() {
 
 function showEditUserModal(user) {
     openModal(`تعديل الحساب: ${user.fullName}`);
-    
+
     const pw = getUserDisplayPassword(user);
-    
+
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="edit-user-form">
@@ -9814,12 +9762,12 @@ function showEditUserModal(user) {
                     <label for="edit-user-fullname">الاسم الكامل:</label>
                     <input type="text" id="edit-user-fullname" class="form-control" value="${escapeXml(user.fullName)}" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit-user-username">اسم المستخدم (Username):</label>
                     <input type="text" id="edit-user-username" class="form-control" value="${escapeXml(user.username)}" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit-user-role">الدور والصلاحيات:</label>
                     <select id="edit-user-role" class="form-control" required>
@@ -9831,7 +9779,7 @@ function showEditUserModal(user) {
                         <option value="Parent" ${user.role === 'Parent' ? 'selected' : ''}>ولي أمر (Parent)</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit-user-teacher">ربط ببيانات معلّم (اختياري):</label>
                     <select id="edit-user-teacher" class="form-control">
@@ -9840,7 +9788,7 @@ function showEditUserModal(user) {
                     </select>
                     <small class="form-helper-text"><i class="fa-solid fa-circle-info me-1 text-primary"></i> يربط حساب الدخول بملف المعلم ليعرض حلقه وطلابه تلقائياً عند دخوله.</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit-user-password">كلمة المرور (تستطيع رؤيتها وتعديلها):</label>
                     <div class="input-group">
@@ -9877,16 +9825,16 @@ function showEditUserModal(user) {
                 </div>
                 ` : ''}
             </div>
-            
+
             <div class="mt-4 d-flex justify-content-between">
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ التغييرات</button>
                 <button type="button" class="btn btn-light" id="btn-cancel-edit-user">إلغاء</button>
             </div>
         </form>
     `;
-    
+
     document.getElementById("btn-cancel-edit-user").addEventListener("click", closeModal);
-    
+
     const modalTeacherRolesBtn = document.getElementById("btn-modal-teacher-roles");
     if (modalTeacherRolesBtn && user.teacherId) {
         modalTeacherRolesBtn.addEventListener("click", async () => {
@@ -9899,17 +9847,17 @@ function showEditUserModal(user) {
             }
         });
     }
-    
+
     document.getElementById("edit-user-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
         const fullName = document.getElementById("edit-user-fullname").value;
         const username = document.getElementById("edit-user-username").value;
         const role = document.getElementById("edit-user-role").value;
         const password = document.getElementById("edit-user-password").value;
         const teacherVal = document.getElementById("edit-user-teacher").value;
         const activeVal = document.getElementById("edit-user-active") ? document.getElementById("edit-user-active").checked : true;
-        
+
         const dto = {
             username: username,
             fullName: fullName,
@@ -9920,23 +9868,21 @@ function showEditUserModal(user) {
             parentId: user.parentId ? parseInt(user.parentId) : null,
             isActive: activeVal
         };
-        
+
         try {
             const res = await apiRequest(`/users/${user.id}`, "PUT", dto);
-            
+
             // Invalidate student and teacher caches so opened forms or screens fetch live synchronized data
             cachedStudents = [];
             cachedTeachers = [];
-            
+
             // Persist the edited password in localStorage as immediate guaranteed truth!
             if (password && password.trim() !== "") {
-                localStorage.setItem("user_pw_" + user.id, password.trim());
-                if (username) localStorage.setItem("user_pw_" + username.toLowerCase().trim(), password.trim());
             }
-            
+
             showAlert("تم تحديث حساب المستخدم وكلمة المرور بنجاح.", "success");
             closeModal();
-            
+
             // Immediately update local cache so change reflects without page reload
             const targetUser = cachedUsers.find(x => x.id == user.id);
             if (targetUser) {
@@ -9945,14 +9891,12 @@ function showEditUserModal(user) {
                 targetUser.role = role;
                 targetUser.isActive = activeVal;
                 if (password && password.trim() !== "") {
-                    targetUser.plainPassword = password.trim();
-                    targetUser.PlainPassword = password.trim();
                 }
             }
-            
+
             // Re-render table rows instantly with updated user data
             renderUsersTableRows(cachedUsers);
-            
+
             // Also directly update the badge text if present in DOM
             const pwBadge = document.getElementById(`pw-user-${user.id}`);
             if (pwBadge && password && password.trim() !== "") {
@@ -9978,10 +9922,10 @@ async function deleteUser(userId) {
 // ----------------- User Profile: Change My Password -----------------
 window.showChangeMyPasswordModal = function() {
     openModal("تغيير كلمة المرور الرسمية");
-    
+
     const content = document.getElementById("modal-body-content");
     const isDevOrAdmin = currentRole === "Developer" || currentRole === "Admin";
-    
+
     content.innerHTML = `
         <form id="change-my-password-form">
             <div class="modal-form-grid" style="grid-template-columns: 1fr;">
@@ -10018,18 +9962,18 @@ window.showChangeMyPasswordModal = function() {
                 <div class="form-group mb-3">
                     <label for="change-pw-new" class="fw-bold"><i class="fa-solid fa-key text-success me-1"></i> كلمة المرور الجديدة:</label>
                     <div class="input-group">
-                        <input type="password" id="change-pw-new" class="form-control font-monospace fw-bold" required minlength="4" placeholder="أدخل كلمة المرور الجديدة...">
+                        <input type="password" id="change-pw-new" class="form-control font-monospace fw-bold" required minlength="8" placeholder="أدخل كلمة المرور الجديدة...">
                         <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-new'); p.type = (p.type === 'password' ? 'text' : 'password');">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                     </div>
-                    <small class="form-helper-text text-muted"><i class="fa-solid fa-circle-info me-1"></i> يجب أن لا تقل كلمة المرور عن 4 خانات.</small>
+                    <small class="form-helper-text text-muted"><i class="fa-solid fa-circle-info me-1"></i> يجب أن لا تقل كلمة المرور عن 8 خانات.</small>
                 </div>
 
                 <div class="form-group mb-3">
                     <label for="change-pw-confirm" class="fw-bold"><i class="fa-solid fa-circle-check text-success me-1"></i> تأكيد كلمة المرور الجديدة:</label>
                     <div class="input-group">
-                        <input type="password" id="change-pw-confirm" class="form-control font-monospace fw-bold" required minlength="4" placeholder="أعد إدخال كلمة المرور الجديدة للتأكيد...">
+                        <input type="password" id="change-pw-confirm" class="form-control font-monospace fw-bold" required minlength="8" placeholder="أعد إدخال كلمة المرور الجديدة للتأكيد...">
                         <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-confirm'); p.type = (p.type === 'password' ? 'text' : 'password');">
                             <i class="fa-solid fa-eye"></i>
                         </button>
@@ -10066,18 +10010,7 @@ window.showChangeMyPasswordModal = function() {
             showAlert("✅ تم تغيير كلمة المرور واعتمادها رسمياً في قاعدة البيانات بنجاح.", "success");
             closeModal();
 
-            // Also update local cache if user is currently loaded in memory
-            if (currentUserId && typeof cachedUsers !== "undefined" && Array.isArray(cachedUsers) && cachedUsers.length > 0) {
-                const me = cachedUsers.find(x => x.id == currentUserId);
-                if (me) {
-                    me.plainPassword = newVal;
-                    me.PlainPassword = newVal;
-                    renderUsersTableRows(cachedUsers);
-                }
-            }
-            if (currentUserId) {
-                localStorage.setItem("user_pw_" + currentUserId, newVal);
-            }
+            handleLogout(true);
         } catch(err) {
             showAlert(err.message || "فشل تغيير كلمة المرور: " + (err.error || err), "danger");
         }
@@ -10088,29 +10021,29 @@ async function loadStudentProgress() {
     try {
         const data = await apiRequest("/students/my-progress");
         if (!data) return;
-        
+
         const studentName = data.studentName || data.fullName || (data.studentInfo ? data.studentInfo.fullName : '-') || '-';
         const circleName = data.circleName || (data.studentInfo ? data.studentInfo.circleName : '-') || 'غير مسند';
-        
+
         document.getElementById("student-self-name").textContent = `الطالب: ${studentName}`;
         document.getElementById("student-self-circle").textContent = `الحلقة: ${circleName}`;
-        
+
         const totalSessions = data.totalSessions ?? data.TotalSessions ?? (data.sessions ? data.sessions.length : 0);
         const absenceCount = data.absenceCount ?? data.AbsenceCount ?? data.absentCount ?? data.AbsentCount ?? data.absentDaysCount ?? 0;
         const lateCount = data.lateCount ?? data.LateCount ?? data.lateDaysCount ?? 0;
-        
+
         document.getElementById("student-self-total-sessions").innerHTML = `<i class="fa-solid fa-book"></i> الجلسات: ${totalSessions}`;
         document.getElementById("student-self-absence").innerHTML = `<i class="fa-solid fa-circle-xmark"></i> الغياب: ${absenceCount}`;
         document.getElementById("student-self-late").innerHTML = `<i class="fa-solid fa-clock"></i> التأخير: ${lateCount}`;
-        
+
         const tbody = document.getElementById("student-self-sessions-table");
         tbody.innerHTML = "";
-        
+
         if (!data.sessions || data.sessions.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">لا توجد جلسات تسميع مسجلة لك بعد.</td></tr>`;
             return;
         }
-        
+
         data.sessions.forEach(s => {
             const tr = document.createElement("tr");
             const assessText = s.assessmentText || s.AssessmentText || getAssessmentArabicText(s.assessment || s.Assessment);
@@ -10123,7 +10056,7 @@ async function loadStudentProgress() {
             `;
             tbody.appendChild(tr);
         });
-        
+
     } catch(e) {
         console.error(e);
     }
@@ -10201,7 +10134,7 @@ function initSpiritualContent() {
 
     if (azkarTitle && azkarText && azkarExpand && azkarWidget) {
         azkarTitle.textContent = titleText;
-        
+
         // Randomly choose one zikr to display on widget
         const randIndex = Math.floor(Math.random() * azkarList.length);
         azkarText.textContent = azkarList[randIndex].text;
@@ -10222,40 +10155,9 @@ function initSpiritualContent() {
 }
 
 function getHijriDate(date) {
-    let jd;
-    let y = date.getFullYear();
-    let m = date.getMonth() + 1;
-    const d = date.getDate();
-    if (m < 3) {
-        m += 12;
-        y--;
-    }
-    const a = Math.floor(y / 100);
-    const b = 2 - a + Math.floor(a / 4);
-    jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + b - 1524.5;
-
-    const epoch = 1948439.5;
-    const shift = 8.3; // fine tune umm al-qura
-    const h = jd - epoch - 0.5 + shift;
-    const cyc = Math.floor(h / 10631);
-    const r = h - cyc * 10631;
-    const j = Math.floor(r / 354.367);
-    const r2 = r - j * 354.367;
-    let hYear = cyc * 30 + j;
-    let hMonth = Math.floor((r2 + 30) / 29.5) - 1;
-    if (hMonth < 0) hMonth = 0;
-    if (hMonth > 11) hMonth = 11;
-    const r3 = r2 - Math.floor(hMonth * 29.5 + 0.5);
-    let hDay = Math.floor(r3) + 1;
-
-    const months = [
-        "محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة",
-        "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"
-    ];
-
-    const arDays = hDay.toLocaleString('ar-EG');
-    const arYear = hYear.toLocaleString('ar-EG');
-    return `${arDays} ${months[hMonth]} ${arYear} هـ`;
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
+        day: 'numeric', month: 'long', year: 'numeric'
+    }).format(date);
 }
 
 function getHijriDateShort(date) {
@@ -10682,7 +10584,7 @@ let currentCourseTab = "list";
 
 function switchCourseTab(tab) {
     currentCourseTab = tab;
-    
+
     const tabList = document.getElementById("tab-btn-courses-list");
     const tabPort = document.getElementById("tab-btn-portfolio");
     const listView = document.getElementById("course-tab-list-view");
@@ -10709,7 +10611,7 @@ async function loadCourses() {
     const isAcad = (currentRole === "Admin" || currentRole === "Developer" || currentRole === "Teacher");
     const addBtn = document.getElementById("btn-create-course-modal");
     const exportBtn = document.getElementById("btn-export-courses-report");
-    
+
     if (currentRole === "Admin" || currentRole === "Developer") {
         if (addBtn) addBtn.style.display = "inline-block";
         if (exportBtn) exportBtn.style.display = "inline-flex";
@@ -10763,7 +10665,7 @@ async function loadCoursesList() {
         uniqueCourses.forEach((c, index) => {
             const card = document.createElement("div");
             card.className = "course-card-2026";
-            
+
             const isSameSupervisor = c.teacherId && (c.examSupervisorId === c.teacherId || c.examSupervisorTeacherId === c.teacherId || (c.examSupervisorName && c.teacherName && c.examSupervisorName === c.teacherName));
 
             card.innerHTML = `
@@ -10778,7 +10680,7 @@ async function loadCoursesList() {
                         <i class="fa-solid fa-book-bookmark text-warning"></i> ${c.name}
                     </h3>
                     <p class="course-card-desc-2026">${c.description || 'لا يوجد وصف تفصيلي مسجل لهذه الدورة.'}</p>
-                    
+
                     <div class="course-info-grid-2026">
                         <div class="course-info-box">
                             <i class="fa-solid fa-chalkboard-user"></i>
@@ -10807,9 +10709,9 @@ async function loadCoursesList() {
                     ${isAdminOrDev ? `
                         <button class="btn btn-outline-primary btn-sm rounded-pill px-3 btn-enroll-student-card" data-id="${c.id}" title="تسجيل طلاب بالدورة"><i class="fa-solid fa-user-plus me-1"></i> تسجيل طلاب</button>
                     ` : ''}
-                    
+
                     <button class="btn btn-outline-success btn-sm rounded-pill px-3" onclick="showCourseAttendanceModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="تحضير وتفقد الدورة"><i class="fa-solid fa-clipboard-user me-1"></i> التحضير</button>
-                    
+
                     <button class="btn btn-light btn-sm rounded-pill px-3 border shadow-xs" onclick="showCourseEnrollmentsModal(${c.id}, '${c.name.replace(/'/g, "\\'")}')" title="رصد وعرض الدرجات والشهادات"><i class="fa-solid fa-marker text-warning me-1"></i> الدرجات</button>
 
                     ${isAdminOrDev ? `
@@ -10863,7 +10765,7 @@ function renderLuxuryCertificateHtml(options) {
                 <div class="cert-corner cert-corner-tl"></div>
                 <div class="cert-corner cert-corner-br"></div>
                 <div class="cert-corner cert-corner-bl"></div>
-                
+
                 <div class="cert-inner-border">
                     <!-- Header -->
                     <div class="cert-header">
@@ -10872,14 +10774,14 @@ function renderLuxuryCertificateHtml(options) {
                             <div class="cert-ministry">دَارُ القُرْآنِ الكَرِيمِ وَالسُّنَّةِ</div>
                             <div class="cert-mosque">${escapeXml(centerTitle)}</div>
                         </div>
-                        
+
                         <div class="cert-header-center">
                             <div class="cert-logo-container">
                                 <img src="${logoSrc}" alt="شعار المركز" class="cert-logo-img">
                             </div>
                             <div class="cert-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
                         </div>
-                        
+
                         <div class="cert-header-left">
                             <div class="cert-center-title">إِدَارَةُ الشُّؤُونِ التَّعْلِيمِيَّةِ وَالاخْتِبَارَاتِ</div>
                             <div class="cert-dept">شَهَادَةُ اجْتِيَازٍ رَسْمِيَّةٌ مُعْتَمَدَةٌ</div>
@@ -10887,7 +10789,7 @@ function renderLuxuryCertificateHtml(options) {
                             <div class="cert-date-text">تَارِيخُ الإِصْدَارِ: ${certDate}</div>
                         </div>
                     </div>
-                    
+
                     <!-- Title Section -->
                     <div class="cert-title-section">
                         <div class="cert-title-badge">
@@ -10896,7 +10798,7 @@ function renderLuxuryCertificateHtml(options) {
                             <i class="fa-solid fa-award"></i>
                         </div>
                     </div>
-                    
+
                     <!-- Body -->
                     <div class="cert-body">
                         <div class="cert-preamble">
@@ -10906,12 +10808,12 @@ function renderLuxuryCertificateHtml(options) {
                             <div class="cert-student-name">${escapeXml(studentName)}</div>
                         </div>
                         <div class="cert-statement">
-                            ${isQuran ? 
+                            ${isQuran ?
                                 `قَدِ اجْتَازَ بِتَوْفِيقِ اللَّهِ تَعَالَى وَبِنَجَاحٍ اخْتِبَارَ حِفْظِ وَتَسْمِيعِ كِتَابِ اللَّهِ الكَرِيمِ <strong>${courseOrJuzText}</strong>، وَذَلِكَ بَعْدَ عَرْضِهِ شَفَوِيّاً عَلَى اللِّجَانِ المُخْتَصَّةِ بِالمَرْكَزِ، سَائِلِينَ اللَّهَ أَنْ يَجْعَلَهُ مِنْ أَهْلِ القُرْآنِ وَخَاصَّتِهِ.` :
                                 `قَدْ أَكْمَلَ بِتَوْفِيقِ اللَّهِ تَعَالَى وَبِنَجَاحٍ كَافَّةَ مُتَطَلَّبَاتِ حُضُورِ وَاجْتِيَازِ <strong>${courseOrJuzText}</strong>، بِمَا يَتَضَمَّنُهُ المَنْهَجُ التَّأْهِيلِيُّ مِنْ تَطْبِيقَاتٍ وَاخْتِبَارَاتٍ مُعْتَمَدَةٍ، سَائِلِينَ المَوْلَى لَهُ دَوَامَ التَّوْفِيقِ وَالسَّدَادِ.`
                             }
                         </div>
-                        
+
                         <div class="cert-grade-row">
                             <div class="cert-grade-pill">
                                 <strong>التقدير العام:</strong> ${gradeText}
@@ -10921,7 +10823,7 @@ function renderLuxuryCertificateHtml(options) {
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Footer / Signatures -->
                     <div class="cert-footer">
                         <!-- Teacher Signature Box -->
@@ -10931,7 +10833,7 @@ function renderLuxuryCertificateHtml(options) {
                             <div class="cert-signature-line"></div>
                             <div class="cert-signature-note">التوقيع والاعتماد الأكاديمي</div>
                         </div>
-                        
+
                         <!-- Luxury Seal Box -->
                         <div class="cert-seal-box">
                             <div class="cert-luxury-stamp">
@@ -10942,7 +10844,7 @@ function renderLuxuryCertificateHtml(options) {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Center Emir Signature Box -->
                         <div class="cert-signature-box">
                             <div class="cert-signature-role">${centerEmirRole}</div>
@@ -10999,7 +10901,7 @@ async function loadPortfolio() {
                 const certDate = n.result.examDate ? new Date(n.result.examDate).toLocaleDateString('ar-EG') : (n.examDate ? new Date(n.examDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG'));
                 const sName = (n.studentName || "طالب العلم").trim();
                 const sIdentifier = (n.studentId ? String(n.studentId) : sName.toLowerCase()).trim();
-                
+
                 if (n.nominationType === "Quran") {
                     const jStart = n.juzStart || 1;
                     const jEnd = n.juzEnd || 1;
@@ -11008,7 +10910,7 @@ async function loadPortfolio() {
                     const cardTitle = (jStart === jEnd) ? `شهادة حفظ الجزء (${jStart})` : `شهادة حفظ الأجزاء (${jStart} - ${jEnd})`;
                     const cYear = n.examDate ? new Date(n.examDate).getFullYear() : 2026;
                     const certCode = `CERT-Q-${cYear}-${1000 + n.id}`;
-                    
+
                     if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
                         uniqueCertsMap.set(dedupKey, {
                             id: `cert-quran-${n.id}`,
@@ -11032,7 +10934,7 @@ async function loadPortfolio() {
                     const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
 
                     // Check if an enrollment exists with an official certificate code
-                    const matchingEnrollment = enrollments.find(e => 
+                    const matchingEnrollment = enrollments.find(e =>
                         (e.courseId && n.courseId && String(e.courseId) === String(n.courseId)) &&
                         ((e.studentId && n.studentId && String(e.studentId) === String(n.studentId)) || (e.studentName && n.studentName && e.studentName === n.studentName))
                     );
@@ -11123,9 +11025,9 @@ async function loadPortfolio() {
         allCertificates.forEach(cert => {
             const card = document.createElement("div");
             card.className = "certificate-card shadow-sm";
-            
+
             const certHtml = renderLuxuryCertificateHtml(cert);
-            
+
             card.innerHTML = `
                 <div class="certificate-preview-container">
                     ${certHtml}
@@ -11213,7 +11115,7 @@ function printCertificate(elementOrHtml, studentName) {
                     max-width: 297mm;
                     max-height: 210mm;
                     background: #ffffff;
-                    background-image: 
+                    background-image:
                         radial-gradient(circle at center, rgba(205, 162, 80, 0.05) 0%, transparent 70%),
                         repeating-linear-gradient(45deg, rgba(205, 162, 80, 0.015) 0, rgba(205, 162, 80, 0.015) 1px, transparent 0, transparent 16px);
                     box-sizing: border-box;
@@ -11258,7 +11160,7 @@ function printCertificate(elementOrHtml, studentName) {
                 .cert-corner-tl { top: 4px; left: 4px; border-right: none; border-bottom: none; }
                 .cert-corner-br { bottom: 4px; right: 4px; border-left: none; border-top: none; }
                 .cert-corner-bl { bottom: 4px; left: 4px; border-right: none; border-top: none; }
-                
+
                 .cert-header {
                     display: grid;
                     grid-template-columns: 1fr auto 1fr;
@@ -11271,30 +11173,30 @@ function printCertificate(elementOrHtml, studentName) {
                 .cert-state { font-size: 1.05rem; font-weight: 800; color: #0d5c3a; }
                 .cert-ministry { font-size: 0.82rem; color: #64748b; font-weight: 700; }
                 .cert-mosque { font-size: 0.95rem; font-weight: 800; color: #1e293b; }
-                
+
                 .cert-header-center { text-align: center; display: flex; flex-direction: column; align-items: center; }
                 .cert-logo-container {
-                    width: 105px;
-                    height: 105px;
+                    width: 135px;
+                    height: 135px;
                     border-radius: 50%;
-                    padding: 4px;
+                    padding: 5px;
                     background: #ffffff;
-                    border: 2.5px solid #c5a059;
-                    box-shadow: 0 4px 12px rgba(197, 160, 89, 0.35);
+                    border: 3px solid #c5a059;
+                    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.4);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                 }
                 .cert-logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
                 .cert-bismillah { font-size: 0.95rem; font-weight: 800; color: #c5a059; letter-spacing: 0 !important; margin-top: 5px; }
-                
+
                 .cert-header-left { text-align: left; line-height: 1.35; }
                 .cert-center-title { font-size: 0.95rem; font-weight: 800; color: #0d5c3a; }
                 .cert-dept { font-size: 0.82rem; color: #64748b; font-weight: 700; }
                 .cert-serial-code { font-size: 0.82rem; color: #c5a059; font-weight: 700; }
                 .cert-serial-code code { background: rgba(197, 160, 89, 0.15); padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.90rem; }
                 .cert-date-text { font-size: 0.82rem; color: #64748b; font-weight: 700; margin-top: 3px; }
-                
+
                 .cert-title-section { text-align: center; margin: 8px 0 6px; }
                 .cert-title-badge {
                     display: inline-block;
@@ -11309,7 +11211,7 @@ function printCertificate(elementOrHtml, studentName) {
                     letter-spacing: 0 !important;
                 }
                 .cert-title-badge i { color: #ffd700; font-size: 1.1rem; margin: 0 8px; }
-                
+
                 .cert-body { text-align: center; margin: 4px 0; }
                 .cert-preamble { font-size: 1.05rem; color: #475569; font-weight: 700; margin-bottom: 6px; }
                 .cert-student-box {
@@ -11324,7 +11226,7 @@ function printCertificate(elementOrHtml, studentName) {
                 .cert-statement { font-size: 1.10rem; line-height: 1.7; color: #334155; max-width: 90%; margin: 0 auto; font-weight: 600; }
                 .cert-grade-row { display: flex; justify-content: center; gap: 24px; margin-top: 10px; }
                 .cert-grade-pill { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 4px 20px; font-size: 0.95rem; color: #1e293b; font-weight: 700; }
-                
+
                 .cert-footer {
                     display: grid;
                     grid-template-columns: 1fr auto 1fr;
@@ -11339,7 +11241,7 @@ function printCertificate(elementOrHtml, studentName) {
                 .cert-signature-name { font-size: 1.20rem; font-weight: 900; color: #0d3b2e; }
                 .cert-signature-line { width: 170px; height: 2px; background: #c5a059; margin: 6px auto; }
                 .cert-signature-note { font-size: 0.80rem; color: #94a3b8; font-weight: 600; }
-                
+
                 .cert-seal-box { text-align: center; display: flex; flex-direction: column; align-items: center; }
                 .cert-luxury-stamp {
                     width: 85px;
@@ -11358,89 +11260,101 @@ function printCertificate(elementOrHtml, studentName) {
                 .cert-stamp-text { font-size: 0.75rem; font-weight: 900; color: #0d3b2e; }
                 .cert-stamp-center { font-size: 0.70rem; font-weight: 800; color: #1e293b; }
 
+                .cert-action-bar {
+                    position: sticky;
+                    top: 0;
+                    z-index: 9999;
+                    width: 100%;
+                    margin: 0 0 20px 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: #1e293b;
+                    color: #ffffff;
+                    padding: 12px 24px;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+                    border-bottom: 2px solid #c5a059;
+                }
+                .cert-btn {
+                    font-family: 'Cairo', sans-serif;
+                    font-size: 13.5px;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 8px 18px;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: all 0.2s;
+                }
+                .cert-btn-green { background: #0d5c3a; color: #ffffff; border: 1.5px solid #10b981; }
+                .cert-btn-green:hover { background: #117a4d; }
+                .cert-btn-dark { background: #475569; color: #ffffff; }
+                .cert-btn-dark:hover { background: #64748b; }
+                @media print {
+                    body {
+                        background: none !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                    }
                     .cert-action-bar {
-                        width: 297mm;
-                        max-width: 95vw;
-                        margin: 12px auto 16px auto;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        background: #1e293b;
-                        color: #ffffff;
-                        padding: 10px 18px;
-                        border-radius: 10px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        display: none !important;
                     }
-                    .cert-btn {
-                        font-family: 'Cairo', sans-serif;
-                        font-size: 13px;
-                        font-weight: bold;
-                        border: none;
-                        border-radius: 6px;
-                        padding: 6px 14px;
-                        cursor: pointer;
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 6px;
+                    .premium-certificate {
+                        box-shadow: none !important;
+                        margin: 0 !important;
+                        width: 297mm !important;
+                        height: 210mm !important;
                     }
-                    .cert-btn-green { background: #0d5c3a; color: #ffffff; }
-                    .cert-btn-dark { background: #475569; color: #ffffff; }
-                    @media print {
-                        body {
-                            background: none !important;
-                            padding: 0 !important;
-                            margin: 0 !important;
-                        }
-                        .cert-action-bar {
-                            display: none !important;
-                        }
-                        .premium-certificate {
-                            box-shadow: none !important;
-                            margin: 0 !important;
-                            width: 297mm !important;
-                            height: 210mm !important;
-                        }
-                    }
-                </style>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-            </head>
-            <body>
-                <div class="cert-action-bar">
-                    <span style="font-weight:bold; font-size:14px;">شهادة اجتياز معتمدة - ${escapeXml(studentName)}</span>
-                    <div style="display:flex; gap:8px;">
-                        <button class="cert-btn cert-btn-green" onclick="downloadPdfNow()">
-                            <i class="fa-solid fa-file-pdf"></i> حفظ وتحميل بصيغة PDF 📥
-                        </button>
-                        <button class="cert-btn cert-btn-dark" onclick="window.print()">
-                            <i class="fa-solid fa-print"></i> طباعة 🖨️
-                        </button>
-                    </div>
+                }
+            </style>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        </head>
+        <body>
+            <div class="cert-action-bar">
+                <span style="font-weight:bold; font-size:15px;"><i class="fa-solid fa-award text-warning me-2"></i>شهادة اجتياز معتمدة - ${escapeXml(studentName)}</span>
+                <div style="display:flex; gap:10px;">
+                    <button class="cert-btn cert-btn-green" onclick="downloadPdfNow()">
+                        <i class="fa-solid fa-file-pdf"></i> حفظ وتحميل بصيغة PDF 📥
+                    </button>
+                    <button class="cert-btn cert-btn-dark" onclick="window.print()">
+                        <i class="fa-solid fa-print"></i> طباعة 🖨️
+                    </button>
                 </div>
-                <div id="cert-root-wrapper">
-                    ${certHtml}
-                </div>
-                <script>
-                    function downloadPdfNow() {
-                        const element = document.querySelector('.premium-certificate') || document.getElementById('cert-root-wrapper');
-                        const opt = {
-                            margin:       0,
-                            filename:     'شهادة_${escapeXml(studentName).replace(/\s+/g, '_')}.pdf',
-                            image:        { type: 'jpeg', quality: 0.98 },
-                            html2canvas:  { scale: 2, useCORS: true, logging: false },
-                            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-                        };
-                        html2pdf().set(opt).from(element).save();
+            </div>
+            <div id="cert-root-wrapper">
+                ${certHtml}
+            </div>
+            <script>
+                async function downloadPdfNow() {
+                    const element = document.querySelector('.premium-certificate') || document.getElementById('cert-root-wrapper');
+                    try {
+                        const canvas = await html2canvas(element, {
+                            scale: 2.5,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#ffffff'
+                        });
+                        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF({
+                            orientation: 'landscape',
+                            unit: 'mm',
+                            format: 'a4'
+                        });
+                        pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+                        pdf.save('شهادة_${escapeXml(studentName).replace(/\s+/g, '_')}.pdf');
+                    } catch(err) {
+                        window.print();
                     }
-                    window.onload = function() {
-                        setTimeout(function() {
-                            window.print();
-                        }, 500);
-                    };
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
+                }
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 // -------------------------------------------------------------
@@ -11540,7 +11454,7 @@ function exportCoursesReportXls(reportData) {
     let coursesHtml = "";
 
     reportData.courses.forEach((c, cIdx) => {
-        const cStatusBadge = c.isActive 
+        const cStatusBadge = c.isActive
             ? `<span style="background-color:#ecfdf5;color:#065f46;padding:2px 8px;border-radius:4px;font-weight:bold;">نشطة</span>`
             : `<span style="background-color:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-weight:bold;">مؤرشفة</span>`;
 
@@ -11553,11 +11467,11 @@ function exportCoursesReportXls(reportData) {
             </tr>
             <tr>
                 <td colspan="${totalCols}" style="background-color: #f8fafc; padding: 7px 10px; font-size: 12px; border: 1px solid #cbd5e1; line-height: 1.6;">
-                    <b>الشيخ المعلم:</b> ${escapeHtml(c.teacherName)} (${escapeHtml(c.teacherMobile)}) &nbsp;|&nbsp; 
-                    <b>مشرف الاختبار:</b> ${escapeHtml(c.examSupervisorName)} &nbsp;|&nbsp; 
-                    <b>إجمالي المسجلين:</b> <span style="color:#0f172a;font-weight:bold;">${c.totalEnrolled}</span> &nbsp;|&nbsp; 
-                    <b>الناجحون:</b> <span style="color:#059669;font-weight:bold;">${c.totalPassed}</span> &nbsp;|&nbsp; 
-                    <b>الراسبون:</b> <span style="color:#dc2626;font-weight:bold;">${c.totalFailed}</span> &nbsp;|&nbsp; 
+                    <b>الشيخ المعلم:</b> ${escapeHtml(c.teacherName)} (${escapeHtml(c.teacherMobile)}) &nbsp;|&nbsp;
+                    <b>مشرف الاختبار:</b> ${escapeHtml(c.examSupervisorName)} &nbsp;|&nbsp;
+                    <b>إجمالي المسجلين:</b> <span style="color:#0f172a;font-weight:bold;">${c.totalEnrolled}</span> &nbsp;|&nbsp;
+                    <b>الناجحون:</b> <span style="color:#059669;font-weight:bold;">${c.totalPassed}</span> &nbsp;|&nbsp;
+                    <b>الراسبون:</b> <span style="color:#dc2626;font-weight:bold;">${c.totalFailed}</span> &nbsp;|&nbsp;
                     <b>قيد المتابعة:</b> <span style="color:#d97706;font-weight:bold;">${c.totalPending}</span>
                 </td>
             </tr>
@@ -11665,8 +11579,8 @@ function exportCoursesReportXls(reportData) {
                 </tr>
                 <tr>
                     <td colspan="${totalCols}" style="background-color: #f1f5f9; padding: 8px; font-size: 12px; text-align: center; border-bottom: 2px solid #0d5c3a;">
-                        <b>إجمالي الدورات:</b> ${reportData.totalCourses} &nbsp;|&nbsp; 
-                        <b>إجمالي الطلاب المسجلين:</b> ${reportData.totalStudentsEnrolled} &nbsp;|&nbsp; 
+                        <b>إجمالي الدورات:</b> ${reportData.totalCourses} &nbsp;|&nbsp;
+                        <b>إجمالي الطلاب المسجلين:</b> ${reportData.totalStudentsEnrolled} &nbsp;|&nbsp;
                         <b>تاريخ التصدير:</b> ${nowStr}
                     </td>
                 </tr>
@@ -11922,9 +11836,9 @@ async function showCreateCourseModal() {
         }
 
         try {
-            await apiRequest("/courses", "POST", { 
-                name, 
-                description: desc, 
+            await apiRequest("/courses", "POST", {
+                name,
+                description: desc,
                 teacherId: teacherId ? parseInt(teacherId) : null,
                 examSupervisorId: supervisorId ? parseInt(supervisorId) : null
             });
@@ -12008,9 +11922,9 @@ async function showEditCourseSupervisorModal(courseId, courseName, courseDesc, c
         const supervisorId = document.getElementById("edit-course-supervisor-input").value;
 
         try {
-            await apiRequest(`/courses/${courseId}`, "PUT", { 
-                name, 
-                description: desc, 
+            await apiRequest(`/courses/${courseId}`, "PUT", {
+                name,
+                description: desc,
                 teacherId: parseInt(teacherId),
                 examSupervisorId: supervisorId ? parseInt(supervisorId) : null
             });
@@ -12066,7 +11980,7 @@ async function populateCourseSupervisorsDropdown(selectId = "course-supervisor-i
     try {
         await ensureTeachersLoaded();
         const apiSupervisors = await apiRequest("/users/supervisors").catch(() => []);
-        
+
         supervisorSelect.innerHTML = '<option value="">-- اختر مشرف التقييم والاختبارات --</option>';
 
         // 1. Identify Teachers with "مشرف اختبارات" permission from taskRole
@@ -12078,7 +11992,7 @@ async function populateCourseSupervisorsDropdown(selectId = "course-supervisor-i
 
         const specialistGroup = document.createElement("optgroup");
         specialistGroup.label = "⭐ المشرفون المختصون بالاختبارات (المعتمدون بصلاحيات إدارة المعلمين)";
-        
+
         let hasSpecialists = false;
 
         // Add from apiSupervisors
@@ -12239,7 +12153,7 @@ function showEnrollModal(courseId) {
                 renderEnrollStudentResults(allAvailableStudents);
                 return;
             }
-            const filtered = allAvailableStudents.filter(s => 
+            const filtered = allAvailableStudents.filter(s =>
                 (s.fullName && s.fullName.toLowerCase().includes(query)) ||
                 (s.circleName && s.circleName.toLowerCase().includes(query)) ||
                 (s.id && s.id.toString().includes(query))
@@ -12427,7 +12341,7 @@ async function showCourseAttendanceModal(courseId, courseName) {
                     <label class="form-label" style="font-weight:700;">تاريخ الجلسة والتحضير:</label>
                     <input type="date" id="course-attendance-date" class="form-control" value="${dateStr}" max="${todayStr}" style="max-width:250px;">
                 </div>
-                
+
                 <div class="table-responsive" style="max-height: 380px; overflow-y:auto;">
                     <table class="data-table">
                         <thead>
@@ -12484,7 +12398,7 @@ async function showCourseAttendanceModal(courseId, courseName) {
                 refreshed.forEach(a => {
                     newMap[a.studentId] = a.status;
                 });
-                
+
                 // Re-render
                 content.innerHTML = renderForm(selectedDate);
                 bindEvents(selectedDate, newMap);
@@ -12567,20 +12481,20 @@ function showRecordGradeModal(enrollmentId, studentName, courseId) {
     document.getElementById("record-grade-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const gradeVal = parseFloat(document.getElementById("grade-input-value").value);
-        
+
         promptTwoFactor(async (code) => {
             try {
                 // Post grade with 2FA header and body
                 const res = await apiRequest(`/courses/grade`, "PUT", { enrollmentId, grade: gradeVal, code2FA: code }, { "X-2FA-Code": code });
                 showAlert("تم رصد العلامة وحفظ الشهادة بنجاح.", "success");
-                
+
                 if (typeof loadCourses === "function") {
                     loadCourses();
                 }
                 if (typeof loadPortfolio === "function") {
                     loadPortfolio();
                 }
-                
+
                 // If there's a simulated WhatsApp alert, pop it up!
                 if (res.whatsappAlert) {
                     showWhatsAppSimulateModal(res.whatsappAlert);
@@ -12600,18 +12514,15 @@ function promptTwoFactor(onVerifyCallback) {
     const prevTitle = document.getElementById("modal-title").textContent;
     const prevBody = document.getElementById("modal-body-content").innerHTML;
 
-    openModal("تأكيد الموثوقية الثنائية (2FA)");
+    openModal("تأكيد اعتماد النتيجة");
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <div class="twofa-dialog animate-zoom">
             <i class="fa-solid fa-shield-halved twofa-icon"></i>
             <h4 style="font-weight:700;">تأكيد خطوة الأمان الحساسة</h4>
-            <p class="text-muted small">تم إرسال رمز التحقق المكون من 6 أرقام لهاتف المسؤول/المحفظ. يرجى إدخال الرمز أدناه للتأكيد.</p>
+            <p class="text-muted small">أدخل كلمة مرور حسابك الحالية لتأكيد اعتماد النتيجة.</p>
             <div class="twofa-input-group">
-                <input type="text" id="twofa-input-code" class="twofa-code-input" maxlength="6" placeholder="******" required>
-            </div>
-            <div style="font-size:0.8rem; color:var(--primary-color); margin-bottom:15px;">
-                <strong>الرمز التجريبي للتأكيد السريع:</strong> <code>123456</code>
+                <input type="password" id="twofa-input-code" class="twofa-code-input" autocomplete="current-password" placeholder="******" required>
             </div>
             <div class="d-flex justify-content-between">
                 <button class="btn btn-success" id="btn-confirm-twofa"><i class="fa-solid fa-circle-check"></i> تأكيد الرمز</button>
@@ -12627,10 +12538,10 @@ function promptTwoFactor(onVerifyCallback) {
 
     document.getElementById("btn-confirm-twofa").addEventListener("click", () => {
         const val = document.getElementById("twofa-input-code").value.trim();
-        if (val === "123456") {
+        if (val) {
             onVerifyCallback(val);
         } else {
-            showAlert("رمز التحقق غير صحيح! يرجى إدخال الرمز التجريبي (123456).", "danger");
+            showAlert("يرجى إدخال كلمة المرور الحالية.", "danger");
         }
     });
 }
@@ -12644,12 +12555,12 @@ function showWhatsAppSimulateModal(alertData) {
             <div style="width:70px; height:70px; background:#25d366; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 15px; color:#fff; font-size:2.5rem; box-shadow:0 5px 15px rgba(37,211,102,0.3);">
                 <i class="fa-brands fa-whatsapp"></i>
             </div>
-            <h3 style="color:#128c7e; font-weight:800;">تم إرسال إشعار WhatsApp بنجاح!</h3>
-            <p class="text-muted small">محاكاة إطلاق إشعار الواتساب API لأولياء الأمور لتتبع تقدّم الأبناء.</p>
-            
+            <h3 style="color:#128c7e; font-weight:800;">مسودة إشعار WhatsApp جاهزة</h3>
+            <p class="text-muted small">لم تُرسل الرسالة تلقائياً. يمكنك مراجعة النص وإرساله عبر خدمة مهيأة.</p>
+
             <div class="card p-3 text-right" style="background:#efeae2; border:1px solid #ddd; border-radius:10px; margin:20px 0; text-align:right; font-family:'Cairo',sans-serif; position:relative;">
                 <div style="background:#d9fdd3; padding:12px; border-radius:8px; display:inline-block; max-width:85%; font-size:0.9rem; line-height:1.5; color:#303030; box-shadow:0 1px 2px rgba(0,0,0,0.15); border-top-right-radius:0;">
-                    ${alertData.message}
+                    ${escapeHtml(alertData.message)}
                     <div style="text-align:left; font-size:0.7rem; color:rgba(0,0,0,0.45); margin-top:4px;">
                         ${new Date(alertData.timestamp).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'})} ✓✓
                     </div>
@@ -12657,7 +12568,7 @@ function showWhatsAppSimulateModal(alertData) {
             </div>
 
             <div class="small text-muted">
-                <strong>المستلم:</strong> ولي الأمر (${alertData.recipient})
+                <strong>المستلم:</strong> ولي الأمر (${escapeHtml(alertData.recipient)})
             </div>
             <button class="btn btn-primary w-100 mt-4" onclick="closeModal()">حسناً، استمرار</button>
         </div>
@@ -12807,7 +12718,7 @@ function renderExamsTable(list, filterType, isAdmin, isSupervisor) {
 
     filtered.forEach(n => {
         const tr = document.createElement("tr");
-        
+
         let details = "-";
         if (n.nominationType === "Quran") {
             details = n.juzStart === n.juzEnd ? `الجزء (${n.juzStart})` : `الأجزاء (${n.juzStart}) إلى (${n.juzEnd})`;
@@ -12899,11 +12810,11 @@ function showNominateModal() {
                     <label>طريقة تحديد الأجزاء:</label>
                     <div class="d-flex gap-3 mt-1">
                         <label class="d-flex align-items-center gap-1" style="cursor: pointer;">
-                            <input type="radio" name="juz-mode" value="single" checked onchange="toggleJuzMode(this.value)"> 
+                            <input type="radio" name="juz-mode" value="single" checked onchange="toggleJuzMode(this.value)">
                             <span>جزء واحد فقط</span>
                         </label>
                         <label class="d-flex align-items-center gap-1" style="cursor: pointer;">
-                            <input type="radio" name="juz-mode" value="range" onchange="toggleJuzMode(this.value)"> 
+                            <input type="radio" name="juz-mode" value="range" onchange="toggleJuzMode(this.value)">
                             <span>نطاق أجزاء (من - إلى)</span>
                         </label>
                     </div>
@@ -13017,7 +12928,7 @@ async function updateNominateStudentsList() {
             const curUser = (typeof getCurrentUser === "function") ? getCurrentUser() : { teacherId: 0, fullName: "" };
             const students = await apiRequest("/students?onlyCircle=true");
             studentSelect.innerHTML = '<option value="">-- اختر طالب من الحلقة --</option>';
-            
+
             // Strictly filter: student must be active, must belong to a valid halaqah (not unassigned),
             // and for teachers, must belong to their specific halaqah
             let list = (students || []).filter(s => {
@@ -13112,7 +13023,7 @@ function showEvaluateExamModal(nominationId, studentName, nominationType) {
 
     openModal(`تقييم ورصد اختبار دورة: ${studentName}`);
     const content = document.getElementById("modal-body-content");
-    
+
     window.calculateQuranGrade = function() {
         const major = parseInt(document.getElementById("eval-major-mistakes")?.value || 0);
         const minor = parseInt(document.getElementById("eval-minor-mistakes")?.value || 0);
@@ -13121,18 +13032,18 @@ function showEvaluateExamModal(nominationId, studentName, nominationType) {
             gradeInput.value = Math.max(0, 100 - (major * 1.5) - (minor * 0.5));
         }
     };
-    
+
     window.calculateCourseGrade = function() {
         const total = parseInt(document.getElementById("course-total-questions")?.value || 1);
         const correct = parseInt(document.getElementById("course-correct-questions")?.value || 0);
         const half = parseInt(document.getElementById("course-half-questions")?.value || 0);
-        
+
         const incorrectInput = document.getElementById("course-incorrect-questions");
         const gradeInput = document.getElementById("eval-grade");
-        
+
         const incorrect = Math.max(0, total - correct - half);
         if (incorrectInput) incorrectInput.value = incorrect;
-        
+
         if (gradeInput) {
             const score = ((correct + (half * 0.5)) / total) * 100;
             gradeInput.value = Math.min(100, Math.max(0, Math.round(score * 10) / 10));
@@ -13219,16 +13130,16 @@ function showEvaluateExamModal(nominationId, studentName, nominationType) {
                     notes: notesVal || null,
                     code2FA: code
                 }, { "X-2FA-Code": code });
-                
+
                 showAlert("تم حفظ نتيجة التقييم واعتماد الشهادة بنجاح.", "success");
-                
+
                 if (typeof loadExams === "function") {
                     loadExams();
                 }
                 if (typeof loadPortfolio === "function") {
                     loadPortfolio();
                 }
-                
+
                 if (res.whatsappAlert) {
                     showWhatsAppSimulateModal(res.whatsappAlert);
                 } else {
@@ -13453,7 +13364,7 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
     currentActiveQuranExam.mainQuestions.forEach(q => {
         const d = currentExamDeductions[q.number] || { startVerse: 0, word: 0, letter: 0, tune: 0 };
         const qDeduct = (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
-        
+
         let diffBadgeColor = "#0d5c3a";
         if (q.difficulty === "سهل") diffBadgeColor = "#16a34a";
         else if (q.difficulty === "متوسط") diffBadgeColor = "#d97706";
@@ -13473,7 +13384,7 @@ function renderQuranExamModalLayout(examKey, forceRegenerate = false) {
                         <span><i class="fa-solid fa-hashtag text-muted me-1"></i> الآية: <strong>${q.verseStart} إلى ${q.verseEnd}</strong></span>
                     </div>
                 </div>
-                
+
                 <div class="quran-question-text">
                     <div style="font-weight:700; color:#0d5c3a; margin-bottom:4px;"><i class="fa-solid fa-quote-right me-1"></i> اقرأ من قوله تعالى:</div>
                     <div style="font-size:1.18rem; padding-right:12px;">« ${q.startText} »</div>
@@ -13681,7 +13592,7 @@ function adjustQuranDeduction(qNum, errorType, delta) {
         currentExamDeductions[qNum] = { startVerse: 0, word: 0, letter: 0, tune: 0 };
     }
     currentExamDeductions[qNum][errorType] = Math.max(0, (currentExamDeductions[qNum][errorType] || 0) + delta);
-    
+
     // Update question card visuals
     const d = currentExamDeductions[qNum];
     const qDeduct = (d.startVerse * 7.0) + (d.word * 3.0) + (d.letter * 2.5) + (d.tune * 1.5);
@@ -13758,7 +13669,7 @@ function updateQuranScoreSummary() {
 
     if (scoreDisplay) scoreDisplay.textContent = `${finalScore}%`;
     if (deductDisplay) deductDisplay.textContent = `${totalDeduct.toFixed(1)} درجة`;
-    
+
     if (statusBadge) {
         if (isPassed) {
             statusBadge.className = "badge bg-success px-3 py-1 mt-1";
@@ -13905,18 +13816,15 @@ function promptSupervisorExamAuth(onSuccess) {
                         <i class="fa-solid fa-lock"></i>
                     </div>
                     <h5 class="fw-bold text-dark">إدخال كلمة مرور المشرف</h5>
-                    <p class="text-muted small mb-0">يرجى كتابة كلمة المرور الخاصة بالمشرف أو رمز الاعتماد لتأكيد رصد وحفظ نتيجة الطالب رسمياً في النظام.</p>
+                    <p class="text-muted small mb-0">يرجى كتابة كلمة المرور الحالية لحسابك لتأكيد رصد وحفظ نتيجة الطالب رسمياً في النظام.</p>
                 </div>
                 <div class="mb-3 text-start">
-                    <label class="form-label small fw-bold text-secondary">كلمة المرور / رمز الاعتماد:</label>
+                    <label class="form-label small fw-bold text-secondary">كلمة المرور الحالية:</label>
                     <div class="input-group">
                         <input type="password" id="supervisor-exam-pwd-input" class="form-control form-control-lg text-center fw-bold" placeholder="******" required autofocus>
                         <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('supervisor-exam-pwd-input'); p.type = (p.type === 'password' ? 'text' : 'password');">
                             <i class="fa-solid fa-eye"></i>
                         </button>
-                    </div>
-                    <div class="mt-2 text-center" style="font-size:0.8rem; color:#0d5c3a;">
-                        <strong>الرمز التجريبي للاعتماد:</strong> <code>123456</code>
                     </div>
                 </div>
                 <div class="d-flex gap-2 mt-4">
@@ -13939,7 +13847,7 @@ function promptSupervisorExamAuth(onSuccess) {
     const handleConfirm = () => {
         const val = input ? input.value.trim() : "";
         if (!val) {
-            showAlert("يرجى إدخال كلمة المرور أو رمز الاعتماد.", "warning");
+            showAlert("يرجى إدخال كلمة المرور الحالية.", "warning");
             return;
         }
         overlay.remove();
@@ -14082,7 +13990,7 @@ function showQuranExamSubmitConfirmModal(customContext = null) {
                 }, { "X-2FA-Code": code });
 
                 showAlert("تم حفظ نتيجة التقييم القرآني واعتمادها بنجاح.", "success");
-                
+
                 if (customContext) {
                     closeModal();
                 } else {
@@ -14355,7 +14263,7 @@ function updateManualQuranScoreSummary() {
 
     if (scoreDisplay) scoreDisplay.textContent = `${finalScore}%`;
     if (deductDisplay) deductDisplay.textContent = `${totalDeduct.toFixed(1)} درجة`;
-    
+
     if (statusBadge) {
         if (isPassed) {
             statusBadge.className = "badge bg-success px-3 py-1 mt-1";
@@ -14376,7 +14284,7 @@ function submitManualQuranExam() {
     if (!window.manualQuranExamState) return;
     const notesInput = document.getElementById("manual-eval-notes");
     const notesVal = notesInput ? notesInput.value.trim() : "";
-    
+
     showQuranExamSubmitConfirmModal({
         nominationId: window.manualQuranExamState.nominationId,
         studentName: window.manualQuranExamState.studentName,
@@ -14403,7 +14311,7 @@ async function loadAuditLogs() {
         list.forEach((l, idx) => {
             const tr = document.createElement("tr");
             const localTime = new Date(l.timestamp).toLocaleString('ar-EG');
-            
+
             tr.innerHTML = `
                 <td style="white-space: nowrap;" class="fw-bold text-muted">#${idx + 1}</td>
                 <td style="white-space: nowrap;"><code class="px-2 py-1 bg-light text-dark rounded border font-monospace">${l.username}</code></td>
@@ -14445,7 +14353,7 @@ async function toggleCompleteJuz(studentId, juzNumber, isCompleted) {
 function showStudyPlanModal(studentId, studentName, currentPlanType, currentTargetAjzaa, currentDailyPace) {
     const prevModalTitle = document.getElementById("modal-title").textContent;
     openModal(`اعتماد خطة حفظ للطالب: ${studentName}`);
-    
+
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="study-plan-form" class="p-2">
@@ -14578,7 +14486,7 @@ function exportDynamicReportToExcelXls() {
     currentDynamicFilteredStudents.forEach((s, idx) => {
         const age = calculateStudentAge(s.dateOfBirth);
         const ageStr = age !== null ? `${age}` : (s.dateOfBirth || '-');
-        
+
         const f = (s.fatherStatus || "سليم").trim();
         const m = (s.motherStatus || "سليم").trim();
         const fOrphan = (f === 'شهيد' || f === 'متوفي' || f === 'شهيدة' || f === 'متوفاة');
@@ -14765,7 +14673,7 @@ function exportDynamicReportToExcelXlsx() {
     currentDynamicFilteredStudents.forEach((s, idx) => {
         const age = calculateStudentAge(s.dateOfBirth);
         const ageStr = age !== null ? `${age}` : (s.dateOfBirth || '-');
-        
+
         const f = (s.fatherStatus || "سليم").trim();
         const m = (s.motherStatus || "سليم").trim();
         const fOrphan = (f === 'شهيد' || f === 'متوفي' || f === 'شهيدة' || f === 'متوفاة');
@@ -14842,7 +14750,7 @@ async function loadDynamicReportsScreen() {
         if (!cachedStudents || cachedStudents.length === 0) {
             cachedStudents = await apiRequest("/students");
         }
-        
+
         if (!cachedCircles || cachedCircles.length === 0) {
             cachedCircles = await apiRequest("/circles");
         }
@@ -15015,7 +14923,7 @@ function runDynamicFilter() {
     const totalStudents = cachedStudents.length || 1;
     const count = results.length;
     const perc = ((count / totalStudents) * 100).toFixed(1);
-    
+
     let orphanCount = results.filter(s => {
         const f = (s.fatherStatus || "").trim();
         const m = (s.motherStatus || "").trim();
@@ -15032,7 +14940,7 @@ function runDynamicFilter() {
     if (ageOpt !== "all") tags.push(document.getElementById("dyn-filter-age").options[document.getElementById("dyn-filter-age").selectedIndex].text);
     if (quranOpt !== "all") tags.push(document.getElementById("dyn-filter-quran").options[document.getElementById("dyn-filter-quran").selectedIndex].text);
     if (healthOpt !== "all") tags.push(document.getElementById("dyn-filter-health").options[document.getElementById("dyn-filter-health").selectedIndex].text);
-    
+
     if (tagEl) {
         tagEl.textContent = tags.length > 0 ? `تقرير مخصص: ${tags.join(" | ")}` : "تقرير جميع الطلاب الشامل";
     }
@@ -15050,7 +14958,7 @@ function runDynamicFilter() {
     results.forEach((s, idx) => {
         const age = calculateStudentAge(s.dateOfBirth);
         const ageStr = age !== null ? `${age} سنة` : (s.dateOfBirth || '-');
-        
+
         const f = (s.fatherStatus || "سليم").trim();
         const m = (s.motherStatus || "سليم").trim();
         const fOrphan = (f === 'شهيد' || f === 'متوفي' || f === 'شهيدة' || f === 'متوفاة');
@@ -15404,7 +15312,7 @@ async function showManageStudentsModal(circleId) {
 
                     try {
                         await apiRequest(`/circles/${circleId}/students/${stId}`, "DELETE", null, 0, true);
-                        
+
                         // Update local lists and re-render modal content smoothly
                         const removedIdx = currentStudents.findIndex(s => s.id == stId);
                         if (removedIdx !== -1) {
@@ -15413,7 +15321,7 @@ async function showManageStudentsModal(circleId) {
                             removedSt.circleName = null;
                             availableStudents.push(removedSt);
                         }
-                        
+
                         if (typeof Swal !== "undefined") {
                             Swal.mixin({
                                 toast: true,
@@ -15426,7 +15334,7 @@ async function showManageStudentsModal(circleId) {
                                 title: `تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`
                             });
                         }
-                        
+
                         renderManageStudentsModalContent(`تم إلغاء تنسيب الطالب (${stName}) من الحلقة بنجاح.`, "success");
                         if (typeof loadAdminCircles === "function") loadAdminCircles();
                         if (typeof loadAdminStudents === "function") loadAdminStudents();
@@ -15453,8 +15361,8 @@ async function showManageStudentsModal(circleId) {
                 }
 
                 if (query) {
-                    list = list.filter(s => 
-                        matchArabicSearch(s.fullName, query) || 
+                    list = list.filter(s =>
+                        matchArabicSearch(s.fullName, query) ||
                         (s.studentIdentityNumber && String(s.studentIdentityNumber).includes(query)) ||
                         matchArabicSearch(s.circleName, query)
                     );
@@ -15500,7 +15408,7 @@ async function showManageStudentsModal(circleId) {
                                 addedSt.circleName = circle.name;
                                 currentStudents.push(addedSt);
                             }
-                            
+
                             if (typeof Swal !== "undefined") {
                                 Swal.mixin({
                                     toast: true,
@@ -15513,7 +15421,7 @@ async function showManageStudentsModal(circleId) {
                                     title: `تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`
                                 });
                             }
-                            
+
                             renderManageStudentsModalContent(`تم تنسيب الطالب (${stName}) للحلقة بنجاح! 🎉`, "success");
                             if (typeof loadAdminCircles === "function") loadAdminCircles();
                             if (typeof loadAdminStudents === "function") loadAdminStudents();
@@ -15550,7 +15458,7 @@ let currentTeacherRecitationFilter = {
 };
 
 function getTeacherDayNotesKey() {
-    let tId = getAuthStorage("teacherId") || currentUserId || "0";
+    let tId = getAuthStorage("teacherId") || "0";
     return `teacher_special_day_notes_${tId}`;
 }
 
@@ -15797,11 +15705,16 @@ async function showTeacherAddDayNoteModal() {
 }
 
 async function loadTeacherComprehensiveReport() {
-    let tId = getAuthStorage("teacherId") || currentUserId || "0";
+    let tId = getAuthStorage("teacherId") || "0";
     const matrixContainer = document.getElementById("teacher-recitation-matrix-container");
     const cardsContainer = document.getElementById("teacher-roster-cards-container");
     if (!matrixContainer) return;
 
+    if (parseInt(tId, 10) <= 0) {
+        matrixContainer.textContent = "هذا الحساب غير مرتبط بملف معلم.";
+        if (cardsContainer) cardsContainer.textContent = "";
+        return;
+    }
     matrixContainer.innerHTML = `<div class="text-center p-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x text-success"></i><p class="mt-3 fs-6">جاري إعداد كشف ومصفوفة تسميع طلاب الحلقة...</p></div>`;
 
     try {
@@ -16308,7 +16221,7 @@ function exportTeacherRosterXls() {
     const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
     const teacherName = matrix.teacherName;
     const nowStr = new Date().toLocaleDateString('ar-EG');
-    const periodLabel = currentTeacherRecitationFilter.fromDate 
+    const periodLabel = currentTeacherRecitationFilter.fromDate
         ? `من ${currentTeacherRecitationFilter.fromDate} إلى ${currentTeacherRecitationFilter.toDate || 'الآن'}`
         : 'كامل الفترة المسجلة';
 
@@ -16388,9 +16301,9 @@ function exportTeacherRosterXls() {
                 </tr>
                 <tr>
                     <td colspan="${totalCols}" style="background-color: #f8fafc; padding: 8px; font-size: 12px; text-align: center; border-bottom: 2px solid #0d5c3a;">
-                        <b>المعلم المحفظ:</b> ${escapeHtml(teacherName)} &nbsp;|&nbsp; 
-                        <b>إجمالي الطلاب:</b> ${matrix.totalStudents} &nbsp;|&nbsp; 
-                        <b>النطاق الزمني:</b> ${escapeHtml(periodLabel)} &nbsp;|&nbsp; 
+                        <b>المعلم المحفظ:</b> ${escapeHtml(teacherName)} &nbsp;|&nbsp;
+                        <b>إجمالي الطلاب:</b> ${matrix.totalStudents} &nbsp;|&nbsp;
+                        <b>النطاق الزمني:</b> ${escapeHtml(periodLabel)} &nbsp;|&nbsp;
                         <b>تاريخ التصدير:</b> ${nowStr}
                     </td>
                 </tr>
@@ -16452,7 +16365,7 @@ function exportTeacherRosterXlsx() {
 
     const centerName = cachedSystemSettings?.centerName || DEFAULT_SYSTEM_SETTINGS.centerName;
     const teacherName = matrix.teacherName;
-    const periodLabel = currentTeacherRecitationFilter.fromDate 
+    const periodLabel = currentTeacherRecitationFilter.fromDate
         ? `من ${currentTeacherRecitationFilter.fromDate} إلى ${currentTeacherRecitationFilter.toDate || 'الآن'}`
         : 'كامل الفترة المسجلة';
 
@@ -16575,7 +16488,7 @@ function printTeacherComprehensiveRoster() {
     const mosqueName = cachedSystemSettings?.mosqueName || DEFAULT_SYSTEM_SETTINGS.mosqueName;
     const teacherName = matrix.teacherName;
     const nowStr = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const periodLabel = currentTeacherRecitationFilter.fromDate 
+    const periodLabel = currentTeacherRecitationFilter.fromDate
         ? `من ${currentTeacherRecitationFilter.fromDate} إلى ${currentTeacherRecitationFilter.toDate || 'الآن'}`
         : 'كامل الفترة المسجلة';
 
@@ -16805,23 +16718,7 @@ async function fetchAndApplySystemSettings(silent = true) {
     // 2. Fetch fresh live settings from API with cross-browser cache-busting and seamless cloud failover
     try {
         const timestamp = Date.now();
-        let response = null;
-        try {
-            response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
-        } catch(netErr) {
-            if (isLocalEnv && API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
-                response = await fetch(`https://albayan-ali-center.tryasp.net/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
-                if (response && response.ok) {
-                    API_BASE = "https://albayan-ali-center.tryasp.net/api";
-                }
-            }
-        }
-        if ((!response || !response.ok) && isLocalEnv && API_BASE !== "https://albayan-ali-center.tryasp.net/api") {
-            response = await fetch(`https://albayan-ali-center.tryasp.net/api/settings?t=${timestamp}`, { cache: "no-store" }).catch(() => null);
-            if (response && response.ok) {
-                API_BASE = "https://albayan-ali-center.tryasp.net/api";
-            }
-        }
+        const response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
         if (response && response.ok) {
             const settings = await response.json();
             cachedSystemSettings = normalizeSettings(settings);
@@ -16911,7 +16808,7 @@ function livePreviewSettings() {
     const centerName = document.getElementById("setting-center-name")?.value.trim();
     const mosqueName = document.getElementById("setting-mosque-name")?.value.trim();
     const welcomeMsg = document.getElementById("setting-welcome-msg")?.value.trim();
-    
+
     if (centerName) {
         document.querySelectorAll(".dynamic-center-name, #brand-header-center-name, #brand-login-center-name").forEach(el => el.textContent = centerName);
         document.title = `${centerName} - نظام إدارة الحلقات القرآنيّة`;
@@ -16927,6 +16824,7 @@ function livePreviewSettings() {
 
 window.checkMaintenanceBlock = checkMaintenanceBlock;
 function checkMaintenanceBlock() {
+    const currentUser = currentRole ? getCurrentUser() : null;
     const isMaintenance = cachedSystemSettings?.maintenanceMode === true || cachedSystemSettings?.MaintenanceMode === true;
     const isDev = currentUser && currentUser.role === "Developer";
     const existingOverlay = document.getElementById("maintenance-block-overlay");
@@ -17758,7 +17656,7 @@ async function loadFinancialCategoriesDropdown() {
         const select = document.getElementById("finance-filter-category");
         if (select && cats && Array.isArray(cats)) {
             const currentVal = select.value;
-            select.innerHTML = '<option value="">كل بنود الصرف والتبرع</option>' + 
+            select.innerHTML = '<option value="">كل بنود الصرف والتبرع</option>' +
                 cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
             if (currentVal) select.value = currentVal;
         }
@@ -17834,18 +17732,18 @@ function getPaymentMethodInfo(paymentMethod, paymentDetails = '', title = '', no
 
     // 1. فحص المحافظ الإلكترونية والتطبيقات (AppWallet / 2)
     if (
-        rawMethod === '2' || 
-        rawMethod === 'appwallet' || 
-        rawMethod === 'app_wallet' || 
-        rawMethod === 'wallet' || 
-        rawMethod === 'app' || 
-        rawMethod.includes('تطبيق') || 
+        rawMethod === '2' ||
+        rawMethod === 'appwallet' ||
+        rawMethod === 'app_wallet' ||
+        rawMethod === 'wallet' ||
+        rawMethod === 'app' ||
+        rawMethod.includes('تطبيق') ||
         rawMethod.includes('محفظ') ||
-        allContext.includes('jawwal pay') || 
-        allContext.includes('palpay') || 
-        allContext.includes('جوال باي') || 
-        allContext.includes('بال باي') || 
-        allContext.includes('محفظة') || 
+        allContext.includes('jawwal pay') ||
+        allContext.includes('palpay') ||
+        allContext.includes('جوال باي') ||
+        allContext.includes('بال باي') ||
+        allContext.includes('محفظة') ||
         allContext.includes('محفظه') ||
         allContext.includes('paypal')
     ) {
@@ -17863,16 +17761,16 @@ function getPaymentMethodInfo(paymentMethod, paymentDetails = '', title = '', no
 
     // 2. فحص الحسابات والتحويلات البنكية (Bank / 3)
     if (
-        rawMethod === '3' || 
-        rawMethod === 'bank' || 
-        rawMethod.includes('بنك') || 
-        rawMethod.includes('تحويل') || 
+        rawMethod === '3' ||
+        rawMethod === 'bank' ||
+        rawMethod.includes('بنك') ||
+        rawMethod.includes('تحويل') ||
         rawMethod.includes('حساب بنك') ||
-        allContext.includes('بنك فلسطين') || 
-        allContext.includes('البنك الإسلامي') || 
-        allContext.includes('تحويل بنكي') || 
-        allContext.includes('إيداع بنكي') || 
-        allContext.includes('حوالة بنكية') || 
+        allContext.includes('بنك فلسطين') ||
+        allContext.includes('البنك الإسلامي') ||
+        allContext.includes('تحويل بنكي') ||
+        allContext.includes('إيداع بنكي') ||
+        allContext.includes('حوالة بنكية') ||
         allContext.includes('شيك') ||
         allContext.includes('iban') ||
         allContext.includes('حساب بنكي')
@@ -17923,7 +17821,7 @@ function renderFinancialTransactionsTable(list) {
 
     tbody.innerHTML = list.map((item, idx) => {
         const isIncome = item.type === 1 || item.type === "Income";
-        const typeBadge = isIncome 
+        const typeBadge = isIncome
             ? `<span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1"><i class="fa-solid fa-arrow-down me-1"></i>سند قبض (وارد)</span>`
             : `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-1"><i class="fa-solid fa-arrow-up me-1"></i>سند صرف (صادر)</span>`;
 
@@ -18357,12 +18255,12 @@ function printSingleReceipt(id) {
     const receiptColor = isIncome ? "#059669" : "#dc2626";
     const curLabel = item.currency === "ILS" ? "شيكل" : (item.currency === "USD" ? "دولار أمريكي" : item.currency);
     const dateStr = item.transactionDate ? item.transactionDate.substring(0, 10) : new Date().toISOString().slice(0, 10);
-    
+
     const methodInfo = getPaymentMethodInfo(item.paymentMethod, item.paymentDetails, item.title, item.notes);
     const methodText = methodInfo.labelWithDetails;
 
     const partyLabel = isIncome ? "استلمنا من الأخ/الأخت (المتبرع)" : "صُرف للأخ/الأخت (المستلم)";
-    const partyName = isIncome 
+    const partyName = isIncome
         ? (item.donorName || "فاعل خير") + (item.donorSource ? ` (طرف: ${item.donorSource})` : "")
         : (item.recipientName || "غير محدد");
 
@@ -18662,7 +18560,7 @@ function printFinancialLedgerReport() {
         else totalExpense += amt;
 
         const methodInfo = getPaymentMethodInfo(t.paymentMethod, t.paymentDetails, t.title, t.notes);
-        const party = isInc 
+        const party = isInc
             ? (t.donorName || "فاعل خير") + (t.donorSource ? ` (طرف: ${t.donorSource})` : "")
             : (t.recipientName || "-");
 
@@ -18817,7 +18715,7 @@ function renderFinancialTable(teachersList) {
         const social = t.socialStatus ? `<span class="badge bg-secondary bg-opacity-10 text-secondary">${t.socialStatus}</span>` : '<span class="text-muted">-</span>';
         const familyCount = t.familyMembersCount ? `<span class="badge bg-info bg-opacity-10 text-info fw-bold">${t.familyMembersCount} أفراد</span>` : '<span class="text-muted">-</span>';
         const taskRole = t.taskRole ? `<span class="teacher-task-pill">${t.taskRole}</span>` : '<span class="text-muted">-</span>';
-        
+
         let phoneHtml = '<span class="text-muted">-</span>';
         if (t.contact) {
             const rawPhone = t.contact.toString().replace(/\D/g, '');
@@ -18920,6 +18818,16 @@ async function loadQualityManagementScreen() {
                             <td class="text-center font-monospace text-primary fw-bold">${(c.totalVerses || 0).toLocaleString()}</td>
                             <td class="text-center"><span class="badge ${badgeClass} px-2 py-1 font-monospace">${rate}%</span></td>
                             <td><span class="badge bg-light text-success border border-success fw-bold px-2 py-1">${c.qualityScore || 'جيد ⭐'}</span></td>
+                            <td class="text-center">
+                                <div class="d-flex gap-1.5 justify-content-center">
+                                    <button class="btn btn-sm btn-outline-warning text-dark px-2 py-1 fw-bold" onclick="showQualitySpotCheckModal(${c.id}, '${escapeXml(c.name)}')" title="فحص عينات عشوائية واختبار 2-3 طلاب">
+                                        <i class="fa-solid fa-dice me-1 text-warning"></i> فحص عينة
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary px-2 py-1 fw-bold" onclick="showSubstituteModeModal(${c.id}, '${escapeXml(c.name)}')" title="تفعيل وضع المعلم البديل للحلقة">
+                                        <i class="fa-solid fa-user-clock me-1"></i> المعلم البديل
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 }).join("");
@@ -18950,8 +18858,259 @@ async function loadQualityManagementScreen() {
 
     } catch(err) {
         console.error("Failed to load quality management screen:", err);
-        if (tbodyCircles) tbodyCircles.innerHTML = '<tr><td colspan="10" class="text-center text-danger p-4">تعذر تحميل بيانات الجودة. يرجى المحاولة لاحقاً.</td></tr>';
+        if (tbodyCircles) tbodyCircles.innerHTML = '<tr><td colspan="11" class="text-center text-danger p-4">تعذر تحميل بيانات الجودة. يرجى المحاولة لاحقاً.</td></tr>';
         if (tbodyCourses) tbodyCourses.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">تعذر تحميل بيانات الدورات العلمية.</td></tr>';
+    }
+}
+
+window.showNewQualityVisitModal = showNewQualityVisitModal;
+async function showNewQualityVisitModal() {
+    let circles = [];
+    try {
+        circles = await apiRequest("/circles", "GET", null, 1, true);
+    } catch (_) {}
+    if (!Array.isArray(circles)) circles = [];
+
+    const circleOptions = circles.map(c => `<option value="${c.id}">${escapeXml(c.name)} (${escapeXml(c.teacherName || 'بدون محفظ')})</option>`).join("");
+    const u = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
+    const supervisorName = u?.fullName || getAuthStorage("fullName") || "مشرف الجودة";
+
+    const html = `
+        <div class="text-start" dir="rtl">
+            <div class="mb-3">
+                <label class="form-label fw-bold small"><i class="fa-solid fa-mosque text-success me-1"></i> اختر الحلقة القرآنية المراد زيارتها *</label>
+                <select id="swal-visit-circle-id" class="form-select">
+                    <option value="">-- اختر الحلقة --</option>
+                    ${circleOptions}
+                </select>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small"><i class="fa-solid fa-user-check text-primary me-1"></i> اسم المشرف الزائر</label>
+                    <input id="swal-visit-supervisor" class="form-control" value="${escapeXml(supervisorName)}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small"><i class="fa-solid fa-calendar-day text-secondary me-1"></i> تاريخ الزيارة</label>
+                    <input id="swal-visit-date" type="date" class="form-control font-monospace" value="${getTodayDateString()}">
+                </div>
+            </div>
+
+            <div class="p-3 bg-light rounded-3 border mb-3">
+                <div class="fw-bold small text-success mb-2"><i class="fa-solid fa-scale-balanced me-1"></i> معايير التقييم الرقابي الرقمي (المجموع 100%):</div>
+                <div class="mb-2.5">
+                    <div class="d-flex justify-content-between small fw-bold mb-1">
+                        <span>1. الحضور والانضباط الميداني (30%):</span>
+                        <span id="label-score-punctuality" class="text-primary font-monospace">95%</span>
+                    </div>
+                    <input type="range" class="form-range" id="swal-visit-punctuality" min="0" max="100" value="95" oninput="document.getElementById('label-score-punctuality').textContent = this.value + '%'">
+                </div>
+                <div class="mb-2.5">
+                    <div class="d-flex justify-content-between small fw-bold mb-1">
+                        <span>2. إدارة الحلقة والسمت القرآني (30%):</span>
+                        <span id="label-score-mgmt" class="text-success font-monospace">90%</span>
+                    </div>
+                    <input type="range" class="form-range" id="swal-visit-mgmt" min="0" max="100" value="90" oninput="document.getElementById('label-score-mgmt').textContent = this.value + '%'">
+                </div>
+                <div>
+                    <div class="d-flex justify-content-between small fw-bold mb-1">
+                        <span>3. تصحيح التلاوة وأحكام التجويد (40%):</span>
+                        <span id="label-score-tajweed" class="text-warning font-monospace">92%</span>
+                    </div>
+                    <input type="range" class="form-range" id="swal-visit-tajweed" min="0" max="100" value="92" oninput="document.getElementById('label-score-tajweed').textContent = this.value + '%'">
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label fw-bold small"><i class="fa-solid fa-comment-dots text-secondary me-1"></i> التوصيات والملاحظات الإشرافية والتوجيهية</label>
+                <textarea id="swal-visit-notes" rows="2" class="form-control" placeholder="اكتب الملاحظات والتوصيات لشيخ الحلقة..."></textarea>
+            </div>
+        </div>
+    `;
+
+    const res = await Swal.fire({
+        title: '📋 نموذج الزيارة الرقابية الموحد للحلقة',
+        html: html,
+        width: 'min(94vw, 650px)',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتوثيق الزيارة',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#0d5c3a',
+        preConfirm: () => {
+            const circleId = parseInt(document.getElementById("swal-visit-circle-id").value);
+            if (!circleId) {
+                Swal.showValidationMessage("يرجى اختيار الحلقة المراد زيارتها.");
+                return false;
+            }
+            return {
+                circleId,
+                supervisorName: document.getElementById("swal-visit-supervisor").value.trim(),
+                visitDate: document.getElementById("swal-visit-date").value,
+                punctualityScore: parseInt(document.getElementById("swal-visit-punctuality").value) || 0,
+                classManagementScore: parseInt(document.getElementById("swal-visit-mgmt").value) || 0,
+                tajweedCorrectionScore: parseInt(document.getElementById("swal-visit-tajweed").value) || 0,
+                notes: document.getElementById("swal-visit-notes").value.trim(),
+                isSubstituteModeActive: false
+            };
+        }
+    });
+
+    if (res.isConfirmed) {
+        try {
+            await apiRequest("/quality/visits", "POST", res.value);
+            showAlert("تم توثيق الزيارة الرقابية بنجاح! 📋", "success");
+            loadQualityManagementScreen();
+        } catch(err) {
+            showAlert("فشل توثيق الزيارة: " + (err.message || err), "danger");
+        }
+    }
+}
+
+window.showQualitySpotCheckModal = showQualitySpotCheckModal;
+async function showQualitySpotCheckModal(circleId, circleName) {
+    showLoading("جاري اختيار 2-3 عينات عشوائية واختبار إتقان الطلاب...");
+    try {
+        const data = await apiRequest(`/quality/spot-check/${circleId}`, "GET");
+        hideLoading();
+        const candidates = data.candidates || [];
+
+        if (candidates.length === 0) {
+            Swal.fire({
+                title: '🎲 فحص عينات عشوائية (Spot-Check)',
+                text: 'لا يوجد طلاب مسجلون أو نشطون في هذه الحلقة لإجراء الاختبار العشوائي.',
+                icon: 'info',
+                confirmButtonColor: '#0d5c3a'
+            });
+            return;
+        }
+
+        const cardsHtml = candidates.map((st, i) => `
+            <div class="p-3 mb-2 rounded-3 border bg-white shadow-xs">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong class="text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${i+1}. ${escapeXml(st.fullName)}</strong>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-0.5">الهوية: ${escapeXml(st.studentIdentityNumber || 'غير مسجلة')}</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 small text-muted mb-2">
+                    <span><strong>الأجزاء المنجزة:</strong> ${st.completedAjzaa || 0}</span> •
+                    <span><strong>المستهدف:</strong> ${st.targetAjzaaCount || 1} أجزاء</span> •
+                    <span><strong>المحفوظ السابق:</strong> ${escapeXml(st.previousQuranMemorization || 'لا يوجد')}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="small fw-bold text-secondary mb-0">نتيجة الفحص الفوري:</label>
+                    <select class="form-select form-select-sm spot-eval-select" data-st-id="${st.id}">
+                        <option value="ممتاز (متقن تماماً)">ممتاز (متقن تماماً ⭐⭐⭐)</option>
+                        <option value="جيد جداً (متقن مع تنبيهات يسيرة)">جيد جداً (متقن مع تنبيهات يسيرة ⭐⭐)</option>
+                        <option value="جيد (يحتاج مزيد تثبيت)">جيد (يحتاج مزيد تثبيت ⭐)</option>
+                        <option value="ضعيف (تثبيت متعثر)">ضعيف (تثبيت متعثر ⚠️)</option>
+                    </select>
+                </div>
+            </div>
+        `).join("");
+
+        const modalHtml = `
+            <div class="text-start" dir="rtl">
+                <div class="alert alert-info py-2 px-3 small mb-3">
+                    <i class="fa-solid fa-circle-info me-1"></i> تم سحب <strong>${candidates.length} طلاب</strong> عشوائياً من حلقة <strong>${escapeXml(circleName)}</strong> لاختبار جودة التثبيت ومطابقة السجل.
+                </div>
+                ${cardsHtml}
+                <div class="mt-3">
+                    <label class="form-label fw-bold small"><i class="fa-solid fa-comment-pen text-secondary me-1"></i> ملاحظات المشرف على العينة</label>
+                    <input id="swal-spot-notes" class="form-control form-control-sm" placeholder="ملاحظات حول ضبط الأحكام ومخارج الحروف...">
+                </div>
+            </div>
+        `;
+
+        const res = await Swal.fire({
+            title: `🎲 فحص عينات عشوائية - ${escapeXml(circleName)}`,
+            html: modalHtml,
+            width: 'min(94vw, 680px)',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-clipboard-check me-1"></i> حفظ وتوثيق فحص العينات',
+            cancelButtonText: 'إغلاق',
+            confirmButtonColor: '#0d5c3a'
+        });
+
+        if (res.isConfirmed) {
+            const results = [];
+            document.querySelectorAll(".spot-eval-select").forEach(sel => {
+                results.push({ studentId: parseInt(sel.dataset.stId), eval: sel.value });
+            });
+            const notes = document.getElementById("swal-spot-notes")?.value || "";
+
+            await apiRequest("/quality/visits", "POST", {
+                circleId: circleId,
+                supervisorName: getAuthStorage("fullName") || "مشرف الجودة",
+                visitDate: getTodayDateString(),
+                punctualityScore: 95,
+                classManagementScore: 90,
+                tajweedCorrectionScore: 95,
+                notes: `[فحص عينات عشوائية]: تم اختبار ${candidates.length} طلاب. ${notes}`,
+                spotCheckedStudentsJson: JSON.stringify(results),
+                isSubstituteModeActive: false
+            });
+            showAlert("تم توثيق نتائج فحص العينات العشوائية بنجاح! 🎲", "success");
+            loadQualityManagementScreen();
+        }
+    } catch(err) {
+        hideLoading();
+        showAlert("فشل استخراج العينات العشوائية: " + (err.message || err), "danger");
+    }
+}
+
+window.showSubstituteModeModal = showSubstituteModeModal;
+async function showSubstituteModeModal(circleId, circleName) {
+    const html = `
+        <div class="text-start" dir="rtl">
+            <div class="alert alert-warning py-2.5 px-3 small mb-3">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> يتيح <strong>وضع المعلم البديل</strong> تكليف محفظ أو مشرف بتغطية الحلقة رسمياً في حال غياب أو إجازة الشيخ الأساسي دون التأثير على التسميع اليومي للطلاب.
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold small"><i class="fa-solid fa-user-shield text-primary me-1"></i> اسم الشيخ / المشرف البديل *</label>
+                <input id="swal-sub-supervisor" class="form-control" value="${escapeXml(getAuthStorage("fullName") || '')}" placeholder="اكتب اسم الشيخ البديل...">
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold small"><i class="fa-solid fa-circle-question text-secondary me-1"></i> سبب التغطية البديلة</label>
+                <input id="swal-sub-reason" class="form-control" placeholder="مثال: إجازة مرضية، ظرف طارئ، سفر...">
+            </div>
+            <div class="form-check form-switch p-3 bg-light rounded-3 border">
+                <input class="form-check-input ms-2" type="checkbox" id="swal-sub-toggle" checked style="cursor: pointer; width: 44px; height: 22px;">
+                <label class="form-check-label fw-bold small text-dark" for="swal-sub-toggle">
+                    تفعيل التغطية البديلة فوراً للحلقة
+                </label>
+            </div>
+        </div>
+    `;
+
+    const res = await Swal.fire({
+        title: `🔄 وضع المعلم البديل - ${escapeXml(circleName)}`,
+        html: html,
+        width: 'min(94vw, 560px)',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> تأكيد التغطية البديلة',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#2563eb',
+        preConfirm: () => {
+            const supervisorName = document.getElementById("swal-sub-supervisor").value.trim();
+            if (!supervisorName) {
+                Swal.showValidationMessage("يرجى إدخال اسم الشيخ أو المشرف البديل.");
+                return false;
+            }
+            return {
+                circleId,
+                supervisorName,
+                reason: document.getElementById("swal-sub-reason").value.trim() || "غياب الشيخ الرسمي",
+                activate: document.getElementById("swal-sub-toggle").checked
+            };
+        }
+    });
+
+    if (res.isConfirmed) {
+        try {
+            const out = await apiRequest("/quality/substitute-mode", "POST", res.value);
+            showAlert(out.message || "تم تحديث وضع المعلم البديل بنجاح!", "success");
+            loadQualityManagementScreen();
+        } catch(err) {
+            showAlert("فشل تحديث وضع المعلم البديل: " + (err.message || err), "danger");
+        }
     }
 }
 
@@ -20531,25 +20690,29 @@ async function showAddEditTalentModal(talentId = null) {
             </div>
 
             <!-- Media Upload & Video/Audio Link -->
-            <div class="p-3 border rounded-3 mb-3" style="background: #fff8f8; border-color: #fca5a5 !important;">
-                <label class="form-label fw-bold text-danger mb-1 d-flex justify-content-between align-items-center">
+            <div class="p-3 border rounded-3 mb-3 bg-white" style="border-color: #fca5a5 !important;">
+                <label class="form-label fw-bold text-danger mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <span><i class="fa-solid fa-video me-1"></i> توثيق الفيديو أو الصوت أو الصورة:</span>
-                    <span class="badge bg-danger">يدعم التنزيل المباشر 📥</span>
+                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">يدعم التنزيل والتشغيل المباشر 📥</span>
                 </label>
-                
-                <div class="mb-2">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white"><i class="fa-solid fa-link text-muted"></i></span>
-                        <input id="swal-talent-media-url" class="form-control font-monospace" placeholder="رابط الفيديو أو الملف المرفوع (أو ارفع ملف من الزر أدناه)..." value="${talent ? (talent.mediaUrl || '') : ''}">
+
+                <div class="mb-3">
+                    <label class="small text-muted mb-1 d-block">رابط خارجي مباشر (يوتيوب أو درايف أو خادم مباشر):</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="fa-solid fa-link text-muted"></i></span>
+                        <input id="swal-talent-media-url" class="form-control font-monospace" placeholder="https://..." value="${talent ? (talent.mediaUrl || '') : ''}">
                     </div>
                 </div>
 
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2 bg-white border border-danger border-opacity-25 rounded-2">
-                    <label class="btn btn-danger btn-sm mb-0 shadow-sm d-inline-flex align-items-center gap-1" style="cursor: pointer; white-space: nowrap;">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> رفع ملف صوت/فيديو/صورة
-                        <input type="file" id="swal-talent-file-input" accept="video/*,audio/*,image/*" style="display: none;">
-                    </label>
-                    <span id="swal-talent-upload-status" class="small text-muted" style="line-height: 1.4;">يدعم ملفات mp4، mp3، أو وضع رابط مباشر</span>
+                <div class="d-flex flex-column gap-2 p-3 bg-light rounded-3 border">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <label class="btn btn-outline-danger btn-sm mb-0 shadow-sm d-inline-flex align-items-center gap-1.5" style="cursor: pointer; font-weight: 700;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> اختيار ورفع ملف وسائط من الجهاز
+                            <input type="file" id="swal-talent-file-input" accept="video/*,audio/*,image/*" style="display: none;">
+                        </label>
+                        <span class="text-muted small">الحد الأقصى للملف: 50MB</span>
+                    </div>
+                    <div id="swal-talent-upload-status" class="small text-muted" style="line-height: 1.4;">صيغ مدعومة: mp4, mp3, wav, m4a, webp, jpg</div>
                 </div>
             </div>
 
@@ -20570,7 +20733,7 @@ async function showAddEditTalentModal(talentId = null) {
     const result = await Swal.fire({
         title: talentId ? '✏️ تعديل مشاركة الفتى الواعظ' : '🎙️ إضافة مشاركة موهبة جديدة (الفتى الواعظ والأصوات الندية)',
         html: htmlContent,
-        width: '760px',
+        width: 'min(94vw, 760px)',
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتوثيق المشاركة',
         cancelButtonText: 'إلغاء',

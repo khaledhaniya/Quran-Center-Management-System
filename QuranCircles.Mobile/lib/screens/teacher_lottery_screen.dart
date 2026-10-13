@@ -132,7 +132,7 @@ class _TeacherLotteryScreenState extends State<TeacherLotteryScreen> with Single
                           const Divider(height: 20),
 
                           DropdownButtonFormField<Circle>(
-                            value: _selectedCircle,
+                            initialValue: _selectedCircle,
                             decoration: InputDecoration(
                               labelText: 'الحلقة المستهدفة:',
                               labelStyle: AppTheme.cairoStyle(fontSize: 12),

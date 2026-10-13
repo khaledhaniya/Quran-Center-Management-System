@@ -63,7 +63,7 @@ public class UsersController : ControllerBase
 
                 if (string.IsNullOrWhiteSpace(taskRole))
                 {
-                    var matchedT = allTeachers.FirstOrDefault(t => 
+                    var matchedT = allTeachers.FirstOrDefault(t =>
                         (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == u.Username.Trim()) ||
                         (!string.IsNullOrWhiteSpace(t.FullName) && t.FullName.Trim().Equals(u.FullName.Trim(), StringComparison.OrdinalIgnoreCase))
                     );
@@ -83,12 +83,12 @@ public class UsersController : ControllerBase
                 int pId = u.ParentId ?? u.Id;
                 // 1. Try matching student by ParentId
                 var matchedStudent = allStudents.FirstOrDefault(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == u.Id)) && !string.IsNullOrWhiteSpace(s.ParentIdentityNumber));
-                
+
                 // 2. If not found, try matching by Username matching student's ParentIdentityNumber or FamilyContact
                 if (matchedStudent == null && !string.IsNullOrWhiteSpace(u.Username))
                 {
                     var uName = u.Username.Trim();
-                    matchedStudent = allStudents.FirstOrDefault(s => 
+                    matchedStudent = allStudents.FirstOrDefault(s =>
                         (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && s.ParentIdentityNumber.Trim() == uName) ||
                         (!string.IsNullOrWhiteSpace(s.FamilyContact) && s.FamilyContact.Trim() == uName)
                     );
@@ -115,9 +115,7 @@ public class UsersController : ControllerBase
                 u.StudentId,
                 u.ParentId,
                 IdentityNumber = !string.IsNullOrWhiteSpace(idNum) ? idNum : "-",
-                PlainPassword = !string.IsNullOrEmpty(u.PlainPassword) 
-                    ? u.PlainPassword 
-                    : (u.Username == "dev" ? "dev123" : (u.Username == "admin" ? "admin123" : (u.Username == "wael" ? "wael123" : "123456")))
+                PasswordConfigured = !string.IsNullOrEmpty(u.PasswordHash)
             };
         }).ToList();
 
@@ -131,11 +129,16 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
             return BadRequest(new { error = "اسم المستخدم وكلمة المرور مطلوبان." });
 
+        if (dto.Password.Trim().Length < 8) return BadRequest(new { error = "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل." });
+
         var taken = await _db.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower().Trim());
         if (taken) return BadRequest(new { error = "اسم المستخدم محجوز بالفعل." });
 
-        if (!Enum.TryParse<UserRole>(dto.Role, out var roleVal))
+        if (!Enum.TryParse<UserRole>(dto.Role, out var roleVal) || !Enum.IsDefined(roleVal))
             return BadRequest(new { error = "نوع الحساب غير صالح." });
+
+        if (roleVal == UserRole.Developer && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
+            return StatusCode(403, new { error = "إنشاء حساب مطور متاح للمطور فقط." });
 
         int? teacherId = dto.TeacherId;
         int? studentId = dto.StudentId;
@@ -179,7 +182,7 @@ public class UsersController : ControllerBase
             ParentId = parentId,
             IsActive = true,
             PasswordHash = _hasher.HashPassword(dto.Password.Trim()),
-            PlainPassword = dto.Password.Trim()
+            PlainPassword = string.Empty
         };
 
         _db.Users.Add(user);
@@ -196,7 +199,7 @@ public class UsersController : ControllerBase
             user.StudentId,
             user.ParentId,
             user.IsActive,
-            user.PlainPassword
+            PasswordConfigured = !string.IsNullOrEmpty(user.PasswordHash)
         });
     }
 
@@ -204,10 +207,15 @@ public class UsersController : ControllerBase
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
     {
+        if (!string.IsNullOrWhiteSpace(dto.Password) && dto.Password.Trim().Length < 8)
+            return BadRequest(new { error = "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل." });
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { error = "المستخدم غير موجود." });
 
-        if (string.IsNullOrWhiteSpace(dto.Username)) 
+        if ((user.Role == UserRole.Developer || dto.Role == nameof(UserRole.Developer)) && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
+            return StatusCode(403, new { error = "تعديل حساب المطور متاح للمطور فقط." });
+
+        if (string.IsNullOrWhiteSpace(dto.Username))
             return BadRequest(new { error = "اسم المستخدم مطلوب." });
 
         var taken = await _db.Users.AnyAsync(u => u.Id != id && u.Username.ToLower() == dto.Username.ToLower().Trim());
@@ -221,7 +229,7 @@ public class UsersController : ControllerBase
         if (dto.TeacherId.HasValue) user.TeacherId = dto.TeacherId.Value > 0 ? dto.TeacherId.Value : null;
         if (dto.StudentId.HasValue) user.StudentId = dto.StudentId.Value > 0 ? dto.StudentId.Value : null;
         if (dto.ParentId.HasValue) user.ParentId = dto.ParentId.Value > 0 ? dto.ParentId.Value : null;
-        
+
         if (Enum.TryParse<UserRole>(dto.Role, out var roleVal))
         {
             user.Role = roleVal;
@@ -235,7 +243,7 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
             user.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
-            user.PlainPassword = dto.Password.Trim();
+            user.PlainPassword = string.Empty;
         }
 
         // --- Synchronize with Student Record ---
@@ -311,7 +319,7 @@ public class UsersController : ControllerBase
 
         await AuditLogger.LogAsync(_db, HttpContext, "UpdateUser", $"تعديل حساب المستخدم: {user.Username} ({user.FullName}) - الصفة: {user.Role} - الحالة: {(user.IsActive ? "نشط" : "معطل")}");
 
-        return Ok(new { 
+        return Ok(new {
             message = "تم تحديث الحساب وكلمة المرور ومزامنة البيانات بنجاح.",
             user.Id,
             user.Username,
@@ -321,7 +329,7 @@ public class UsersController : ControllerBase
             user.StudentId,
             user.ParentId,
             user.IsActive,
-            user.PlainPassword
+            PasswordConfigured = !string.IsNullOrEmpty(user.PasswordHash)
         });
     }
 
@@ -337,10 +345,10 @@ public class UsersController : ControllerBase
 
         await AuditLogger.LogAsync(_db, HttpContext, "ToggleUserStatus", $"تغيير حالة الحساب للمستخدم: {user.Username} إلى {(user.IsActive ? "نشط" : "معطل")}");
 
-        return Ok(new { 
-            id = user.Id, 
-            isActive = user.IsActive, 
-            message = user.IsActive ? "تم تفعيل وتنشيط الحساب بنجاح." : "تم تعطيل الحساب بنجاح." 
+        return Ok(new {
+            id = user.Id,
+            isActive = user.IsActive,
+            message = user.IsActive ? "تم تفعيل وتنشيط الحساب بنجاح." : "تم تعطيل الحساب بنجاح."
         });
     }
 
@@ -350,6 +358,8 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { error = "المستخدم غير موجود." });
+        if (user.Role == UserRole.Developer && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
+            return StatusCode(403, new { error = "إدارة حساب المطور متاحة للمطور فقط." });
 
         var uName = user.Username;
         var fName = user.FullName;

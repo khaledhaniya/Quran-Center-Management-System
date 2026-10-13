@@ -146,7 +146,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<Course>(
-                              value: _selectedCourse,
+                              initialValue: _selectedCourse,
                               isExpanded: true,
                               decoration: const InputDecoration(labelText: 'اختر المساق/الدورة'),
                               items: _courses.map((c) {

@@ -23,7 +23,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
   String _healthFilter = 'all';
   String _circleFilter = 'all';
   String _keyword = '';
-  
+
   double _minAgeInput = 5;
   double _maxAgeInput = 18;
 
@@ -177,7 +177,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                     decoration: BoxDecoration(
                       color: AppTheme.primaryLight,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -241,7 +241,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _orphanFilter,
+                                  initialValue: _orphanFilter,
                                   decoration: InputDecoration(
                                     labelText: 'حالة اليتم والوالدين',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -267,7 +267,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _ageFilter,
+                                  initialValue: _ageFilter,
                                   decoration: InputDecoration(
                                     labelText: 'الفئة العمرية',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -321,7 +321,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _quranFilter,
+                                  initialValue: _quranFilter,
                                   decoration: InputDecoration(
                                     labelText: 'مستوى الحفظ',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -347,7 +347,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _circleFilter,
+                                  initialValue: _circleFilter,
                                   decoration: InputDecoration(
                                     labelText: 'الحلقة القرآنية',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -428,7 +428,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                         final student = _filteredStudents[index];
                         final age = _calculateAge(student.dateOfBirth);
                         final ageText = age != null ? '$age سنة' : (student.dateOfBirth ?? '-');
-                        
+
                         final f = (student.fatherStatus ?? 'سليم').trim();
                         final m = (student.motherStatus ?? 'سليم').trim();
                         final fOrphan = (f == 'شهيد' || f == 'متوفي' || f == 'شهيدة' || f == 'متوفاة');
@@ -541,9 +541,9 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         '$label: $value',
