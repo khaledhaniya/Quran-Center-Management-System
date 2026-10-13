@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Host configuration stays on the server for every publish path, including Git deploy. -->
+    <Content Update="appsettings*.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
     <None Update="quran.db">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
