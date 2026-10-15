@@ -90,11 +90,11 @@ class _PreacherYouthScreenState extends State<PreacherYouthScreen> {
     int? selectedTeacherId = record?.supervisorTeacherId;
 
     final titleCtrl = TextEditingController(text: record?.title ?? '');
-    final prepCtrl = TextEditingController(text: record?.preparationMethod ?? 'حفظ وتدريب مع المحفظ');
+    final prepCtrl = TextEditingController(text: record?.preparationMethod ?? '');
     final contentCtrl = TextEditingController(text: record?.speechContent ?? '');
-    final occasionCtrl = TextEditingController(text: record?.occasion ?? 'خطبة الجمعة في المسجد');
+    final occasionCtrl = TextEditingController(text: record?.occasion ?? '');
     final dateCtrl = TextEditingController(text: record?.eventDate ?? DateTime.now().toString().split(' ')[0]);
-    final scoreCtrl = TextEditingController(text: record?.evaluationScore ?? 'ممتاز (95%)');
+    final scoreCtrl = TextEditingController(text: record?.evaluationScore ?? '');
     final notesCtrl = TextEditingController(text: record?.performanceNotes ?? '');
     final mediaCtrl = TextEditingController(text: record?.mediaUrl ?? '');
 

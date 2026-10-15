@@ -36,6 +36,8 @@ public class SessionService
             ? (dto.Assessment == AssessmentLevel.DidNotRecite ? "لم يُسمّع" : "") 
             : dto.SurahName.Trim();
 
+        if (!Enum.IsDefined(dto.RecitationType) || dto.Pages is < 0 or > 604 || dto.Score is < 0 or > 100 ||
+            (dto.Pages.HasValue && !double.IsFinite(dto.Pages.Value)) || (dto.Score.HasValue && !double.IsFinite(dto.Score.Value))) return (null, "عدد الصفحات أو الدرجة غير صالح.");
         var err = Validate(surah, dto.FromVerse, dto.ToVerse, dto.SessionDate, dto.Assessment);
         if (err is not null) return (null, err);
 
@@ -49,6 +51,7 @@ public class SessionService
             Assessment = dto.Assessment,
             RecitationType = dto.RecitationType,
             Notes = dto.Notes?.Trim(),
+            Pages = dto.Pages, Score = dto.Score,
             ViaLottery = dto.ViaLottery
         };
         _db.Sessions.Add(s);
@@ -111,6 +114,9 @@ public class SessionService
             ? (dto.Assessment == AssessmentLevel.DidNotRecite ? "لم يُسمّع" : "") 
             : dto.SurahName.Trim();
 
+        if (!Enum.IsDefined(dto.RecitationType) || dto.Pages is < 0 or > 604 || dto.Score is < 0 or > 100 ||
+            (dto.Pages.HasValue && !double.IsFinite(dto.Pages.Value)) || (dto.Score.HasValue && !double.IsFinite(dto.Score.Value))) return (false, "عدد الصفحات أو الدرجة غير صالح.");
+        s.Pages = dto.Pages; s.Score = dto.Score;
         var err = Validate(surah, dto.FromVerse, dto.ToVerse, dto.SessionDate, dto.Assessment);
         if (err is not null) return (false, err);
 
@@ -148,7 +154,7 @@ public class SessionService
             return (null, "لا يوجد طلاب مفعّلون في هذه الحلقة.");
 
         var absentIds = await _db.Attendances
-            .Where(a => a.CircleId == circleId && a.SessionDate == date && a.Status == AttendanceStatus.Absent)
+            .Where(a => a.CircleId == circleId && a.SessionDate == date && (a.Status == AttendanceStatus.Absent || a.Status == AttendanceStatus.ExcusedAbsent))
             .Select(a => a.StudentId)
             .ToListAsync();
 
@@ -163,6 +169,7 @@ public class SessionService
 
     private static string? Validate(string surah, int from, int to, DateOnly date, AssessmentLevel assessment)
     {
+        if (!Enum.IsDefined(assessment)) return "تقدير غير صالح.";
         if (date > DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2))) return "تاريخ الجلسة غير صالح (في المستقبل البعيد).";
         if (assessment == AssessmentLevel.DidNotRecite) return null;
         if (string.IsNullOrWhiteSpace(surah)) return "اسم السورة مطلوب.";
@@ -175,7 +182,7 @@ public class SessionService
         s.Id, s.StudentId, s.Student?.FullName ?? "",
         s.SessionDate, s.SurahName, s.FromVerse, s.ToVerse,
         s.Assessment, AssessmentText(s.Assessment), s.Notes, s.ViaLottery,
-        s.RecitationType, RecitationTypeText(s.RecitationType)
+        s.RecitationType, RecitationTypeText(s.RecitationType), s.Pages, s.Score
     );
 
     public static string AssessmentText(AssessmentLevel a) => a switch
@@ -192,7 +199,8 @@ public class SessionService
     public static string RecitationTypeText(RecitationType t) => t switch
     {
         RecitationType.Memorization => "حفظ جديد",
-        RecitationType.Revision => "مراجعة وتثبيت",
+        RecitationType.Revision => "مراجعة صغرى",
+        RecitationType.MajorRevision => "مراجعة كبرى / سرد",
         _ => t.ToString()
     };
 }

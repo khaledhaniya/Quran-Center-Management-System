@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'center_operations_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -74,6 +76,8 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
+            IconButton(icon: const Icon(Icons.calendar_month),tooltip:'خطط الحلقات وحضور المعلمين',
+              onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CenterOperationsScreen()))),
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'تحديث مؤشرات الجودة',
@@ -758,6 +762,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
       }
 
       if (!mounted || !context.mounted) return;
+      final scores = {for(final st in candidates) st['id'] as int: TextEditingController()};
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -792,6 +797,8 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(st['fullName'] ?? 'طالب', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF0D5C3A))),
+                        TextField(controller:scores[st['id'] as int],keyboardType:TextInputType.number,
+                          decoration:const InputDecoration(labelText:'الدرجة الرقابية من 100',border:OutlineInputBorder())),
                         const SizedBox(height: 4),
                         Text('الأجزاء: ${st['completedAjzaa'] ?? 0} | المستهدف: ${st['targetAjzaaCount'] ?? 1}', style: AppTheme.cairoStyle(fontSize: 11, color: const Color(0xFF475569))),
                         const SizedBox(height: 4),
@@ -811,7 +818,10 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D5C3A), foregroundColor: Colors.white),
               onPressed: () async {
-                Navigator.pop(ctx);
+                final samples=<Map<String,dynamic>>[];
+                for(final entry in scores.entries){final value=int.tryParse(entry.value.text);
+                  if(value==null || value<0 || value>100){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('سجل درجة صحيحة لكل طالب')));return;}
+                  samples.add({'studentId':entry.key,'score':value});}
                 final saved = await ApiService.createQualityVisit({
                   'circleId': circleId,
                   'supervisorName': 'مشرف الجودة الميداني',
@@ -820,10 +830,12 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                   'classManagementScore': 90,
                   'tajweedCorrectionScore': 95,
                   'notes': '[فحص عينات عشوائية]: تم فحص ${candidates.length} طلاب بنجاح.',
+                  'spotCheckedStudentsJson':jsonEncode(samples),
                   'isSubstituteModeActive': false,
                 });
                 if (!saved) throw StateError('لم يتم حفظ الزيارة على الخادم.');
                 if (!mounted || !context.mounted) return;
+                Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('تم توثيق فحص العينات العشوائية بنجاح! 🎲'), backgroundColor: Colors.green),
                 );

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
 using QuranCircles.Api.DTOs;
 using QuranCircles.Api.Entities;
+using QuranCircles.Api.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +37,7 @@ public class ExamsController : ControllerBase
 
         if (currentUser.Role == UserRole.Teacher)
         {
-            if (dto.NominationType == "Quran")
+            if ((dto.NominationType == "Quran" || dto.NominationType == "Combined"))
             {
                 if (student.Circle == null || student.Circle.TeacherId != currentUser.TeacherId)
                 {
@@ -130,6 +131,13 @@ public class ExamsController : ControllerBase
             }
         }
 
+        if (!new[] { "Quran", "Course", "Combined" }.Contains(dto.NominationType)) return BadRequest(new { Message = "نوع الترشيح غير صالح." });
+        if (dto.NominationType == "Combined" && (!dto.JuzStart.HasValue || !dto.JuzEnd.HasValue || dto.JuzStart < 1 || dto.JuzEnd > 30 || dto.JuzEnd < dto.JuzStart ||
+            !new[] { 5, 10, 15, 20, 30 }.Contains(dto.JuzEnd.Value - dto.JuzStart.Value + 1)))
+            return BadRequest(new { Message = "حدد سلسلة مجتمعة من 5 أو 10 أو 15 أو 20 أو 30 جزءاً." });
+        if (dto.NominationType == "Combined" && await _db.ExamNominations.AnyAsync(e => e.StudentId == dto.StudentId && e.NominationType == "Combined" && e.JuzStart == dto.JuzStart && e.JuzEnd == dto.JuzEnd && e.Status != "Cancelled"))
+            return Conflict(new { Message = "هذه السلسلة مرشحة مسبقاً للطالب." });
+
         var nomination = new ExamNomination
         {
             StudentId = dto.StudentId,
@@ -150,7 +158,7 @@ public class ExamsController : ControllerBase
             Username = currentUser.Username,
             Action = "NominateExam",
             Details = $"ترشيح الطالب {student.FullName} لاختبار {dto.NominationType} " +
-                      (dto.NominationType == "Quran" ? $"للأجزاء {dto.JuzStart} - {dto.JuzEnd}" : $"للمساق {dto.CourseId}"),
+                      ((dto.NominationType == "Quran" || dto.NominationType == "Combined") ? $"للأجزاء {dto.JuzStart} - {dto.JuzEnd}" : $"للمساق {dto.CourseId}"),
             Timestamp = DateTime.UtcNow,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "::1"
         });
@@ -218,7 +226,8 @@ public class ExamsController : ControllerBase
     public async Task<IActionResult> GetNominations()
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
-        var currentUser = await _db.Users.FindAsync(currentUserId);
+        var currentUser = await _db.Users.Include(u => u.Teacher)
+            .FirstOrDefaultAsync(u => u.Id == currentUserId);
         if (currentUser == null) return Unauthorized();
 
         var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
@@ -243,7 +252,11 @@ public class ExamsController : ControllerBase
         }
         else if (currentUser.Role == UserRole.Teacher)
         {
+            var children = await _db.Students.AsNoTracking().ToListAsync();
+            var ownChildren = children.Where(s => ParentLinks.IsChild(currentUser, s))
+                .Select(s => s.Id).ToList();
             query = query.Where(n =>
+                ownChildren.Contains(n.StudentId) ||
                 (n.Student != null && n.Student.Circle != null && n.Student.Circle.TeacherId == currentUser.TeacherId) ||
                 (n.Course != null && n.Course.TeacherId == currentUser.TeacherId) ||
                 (n.Course != null && (n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value))) ||
@@ -256,10 +269,9 @@ public class ExamsController : ControllerBase
         }
         else if (currentUser.Role == UserRole.Parent)
         {
-            var studentIds = await _db.Students
-                .Where(s => s.ParentId == currentUser.ParentId)
-                .Select(s => s.Id)
-                .ToListAsync();
+            var children = await _db.Students.AsNoTracking().ToListAsync();
+            var studentIds = children.Where(s => ParentLinks.IsChild(currentUser, s))
+                .Select(s => s.Id).ToList();
             query = query.Where(n => studentIds.Contains(n.StudentId));
         }
 

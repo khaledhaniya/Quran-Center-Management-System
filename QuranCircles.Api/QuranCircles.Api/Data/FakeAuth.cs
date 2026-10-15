@@ -90,7 +90,7 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
                             {
                                 isAllowed = true;
                             }
-                            else if (_allowed.Contains(UserRole.Teacher) && (user.TeacherId.HasValue || user.Role == UserRole.Teacher))
+                            else if (_allowed.Contains(UserRole.Teacher) && user.Teacher?.IsActive == true)
                             {
                                 isAllowed = true;
                             }
@@ -100,6 +100,24 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
                 }
             }
             catch { }
+        }
+
+        if (isAllowed && role.Value is not (UserRole.Admin or UserRole.Developer))
+        {
+            var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+            var userId = FakeAuth.GetUserId(context.HttpContext);
+            var task = db.Users.Include(u => u.Teacher).FirstOrDefault(u => u.Id == userId)?.Teacher;
+            var path = context.HttpContext.Request.Path.Value?.ToLowerInvariant() ?? "";
+            string[]? grants = path switch
+            {
+                var p when p.StartsWith("/api/quality") => ["الجودة"],
+                var p when p.StartsWith("/api/finance") => ["الملف المالي"],
+                var p when p.StartsWith("/api/talents") => ["الفتى الواعظ", "الأصوات الندية"],
+                var p when p.StartsWith("/api/huffaz") => ["التحفيظ", "منتدى الحفاظ"],
+                _ => null
+            };
+            if (grants != null)
+                isAllowed = task?.IsActive == true && grants.Any(g => (task.TaskRole ?? "").Contains(g));
         }
 
         if (!isAllowed)

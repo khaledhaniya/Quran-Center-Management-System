@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +24,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
 
   // Digital Portfolio & Certificates State
   List<Map<String, dynamic>> _portfolioItems = [];
+  final Map<String, Future<Uint8List>> _certificatePreviews = {};
   bool _isLoadingPortfolio = false;
   String _portfolioCategory = 'all'; // 'all', 'courses', 'quran'
   String _portfolioSearchQuery = '';
@@ -68,78 +70,61 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
     try {
       final nominations = await ApiService.getNominations();
       final myCourses = await ApiService.getMyCourses();
+      final settings = await ApiService.getSystemSettings();
+      final passing = (settings?['passingScoreThreshold'] as num?)?.toDouble() ?? 70;
 
       final List<Map<String, dynamic>> items = [];
 
-      final failedKeys = <String>{};
-      for (var c in myCourses) {
-        final sName = c['studentName']?.toString().trim() ?? '';
-        final cName = c['courseName']?.toString().trim() ?? '';
-        final status = c['status']?.toString();
-        final grade = (c['grade'] as num?)?.toDouble();
-        if (status == 'Failed' || (grade != null && grade < 60)) {
-          failedKeys.add('${sName}_$cName');
-        }
-      }
-
       for (var n in nominations) {
-        if (n.status == 'Completed' && n.result != null && n.result!.grade >= 60 && n.status != 'Failed') {
-          final isQuran = n.nominationType == 'Quran';
-          final title = isQuran
+        if (n.status == 'Completed' && n.result != null && n.result!.grade >= passing) {
+          final isQuran = n.nominationType != 'Course';
+          final title = n.nominationType == 'Combined'
+              ? 'السلاسل المجتمعة (${n.juzStart} - ${n.juzEnd})'
+              : isQuran
               ? (n.juzStart == n.juzEnd ? 'حفظ الجزء ${n.juzStart}' : 'حفظ الأجزاء (${n.juzStart} - ${n.juzEnd})')
               : (n.courseName?.isNotEmpty == true ? n.courseName! : 'دورة تخصصية');
 
-          if (!isQuran && failedKeys.contains('${n.studentName.trim()}_${title.trim()}')) {
-            continue;
-          }
-
-          final code = isQuran ? 'CERT-Q-100${n.id}' : 'CERT-CRS-200${n.id}';
           final examDateStr = n.result!.examDate ?? n.examDate;
-          final dateVal = (examDateStr != null && examDateStr.length >= 10) ? examDateStr.substring(0, 10) : (examDateStr ?? '2026-09-20');
+          final dateVal = examDateStr != null && examDateStr.length >= 10
+              ? examDateStr.substring(0, 10) : (examDateStr ?? '');
           items.add({
             'id': n.id,
+            'certificateKind': 'exam',
             'isQuran': isQuran,
             'studentName': n.studentName,
             'title': title,
             'grade': n.result!.grade,
             'date': dateVal,
-            'teacherName': n.teacherName.isNotEmpty ? n.teacherName : (isQuran ? 'محفظ ومربي الحلقة' : 'معلم ومحاضر الدورة'),
-            'code': code,
-            'pdfUrl': '${ApiService.baseUrl}/exams/certificate/${n.id}/printable?download=pdf',
+            'teacherName': n.teacherName,
+            'code': 'EXAM-${n.id}',
           });
         }
       }
 
       for (var c in myCourses) {
-        final code = c['certificateCode']?.toString() ?? 'CERT-CRS-${c['id']}';
+        final code = c['certificateCode']?.toString().trim() ?? '';
         final studentName = c['studentName']?.toString() ?? '';
-        final grade = (c['grade'] as num?)?.toDouble() ?? 0.0;
-        if (studentName.isNotEmpty && (c['status'] == 'Passed' || c['status'] == 'Certified') && grade >= 60) {
-          final exists = items.any((it) => it['code'] == code || (it['studentName'] == studentName && it['title'] == c['courseName']));
-          if (!exists) {
+        final grade = (c['grade'] as num?)?.toDouble();
+        if (studentName.isNotEmpty && code.isNotEmpty &&
+            (c['status'] == 'Passed' || c['status'] == 'Certified') &&
+            grade != null && grade >= passing) {
             items.add({
               'id': c['id'],
+              'certificateKind': 'course',
               'isQuran': false,
               'studentName': studentName,
               'title': c['courseName']?.toString() ?? 'دورة علمية',
-              'grade': grade > 0 ? grade : 90.0,
-              'date': c['certificateDate']?.toString().substring(0, 10) ?? c['enrollmentDate']?.toString().substring(0, 10) ?? '2026-09-20',
-              'teacherName': c['teacherName']?.toString() ?? 'معلم ومحاضر الدورة',
+              'grade': grade,
+              'date': (c['certificateDate']?.toString() ?? '').split('T').first,
+              'teacherName': c['teacherName']?.toString() ?? '',
               'code': code,
-              'pdfUrl': '${ApiService.baseUrl}/certificates/course/${c['id']}/printable?download=pdf',
             });
-          }
         }
       }
 
-      items.removeWhere((it) {
-        final sName = it['studentName']?.toString().trim() ?? '';
-        final title = it['title']?.toString().trim() ?? '';
-        return failedKeys.contains('${sName}_$title');
-      });
-
       if (mounted) {
         setState(() {
+          _certificatePreviews.clear();
           _portfolioItems = items;
           _isLoadingPortfolio = false;
         });
@@ -149,6 +134,13 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
         setState(() => _isLoadingPortfolio = false);
       }
     }
+  }
+
+  Future<Uint8List> _certificatePreview(Map<String, dynamic> item) {
+    final kind = item['certificateKind'] as String;
+    final id = item['id'] as int;
+    return _certificatePreviews.putIfAbsent('$kind:$id', () =>
+        ApiService.fetchCertificatePreview(certificateKind: kind, certificateId: id));
   }
 
   void _showAddEditCourseModal([Course? course]) {
@@ -1289,9 +1281,31 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                 style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700),
                               ),
 
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: AspectRatio(
+                                  aspectRatio: 297 / 210,
+                                  child: FutureBuilder<Uint8List>(
+                                    future: _certificatePreview(item),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.hasData) {
+                                        return Image.memory(snapshot.data!, fit: BoxFit.contain,
+                                            gaplessPlayback: true);
+                                      }
+                                      if (snapshot.hasError) {
+                                        return Center(child: Text('تعذر تحميل المعاينة',
+                                            style: AppTheme.cairoStyle(fontSize: 12)));
+                                      }
+                                      return const Center(child: CircularProgressIndicator());
+                                    },
+                                  ),
+                                ),
+                              ),
+
                               const Divider(height: 18),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween, spacing:8, runSpacing:8,
                                 children: [
                                   TextButton.icon(
                                     icon: const Icon(Icons.copy, size: 14, color: AppTheme.accent),
@@ -1301,6 +1315,21 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(content: Text('تم نسخ الرمز: $code'), duration: const Duration(seconds: 1)),
                                       );
+                                    },
+                                  ),
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.visibility, size:15),label:const Text('معاينة الشهادة'),
+                                    onPressed:() async {
+                                      try {
+                                        final bytes=await _certificatePreview(item);
+                                        if(!mounted)return;
+                                        showDialog(context:context,builder:(ctx)=>Dialog(child:ConstrainedBox(
+                                          constraints:BoxConstraints(maxWidth:900,maxHeight:MediaQuery.sizeOf(ctx).height*.82),
+                                          child:Column(mainAxisSize:MainAxisSize.min,children:[
+                                            Flexible(child:InteractiveViewer(child:Image.memory(bytes,fit:BoxFit.contain))),
+                                            Padding(padding:const EdgeInsets.all(8),child:TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('إغلاق')))
+                                          ]))));
+                                      }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
                                     },
                                   ),
                                   ElevatedButton.icon(
@@ -1313,9 +1342,11 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                     icon: const Icon(Icons.picture_as_pdf, size: 15),
                                     label: Text('تحميل PDF 📥', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                     onPressed: () async {
-                                      final url = Uri.parse(item['pdfUrl']?.toString() ?? '');
                                       try {
-                                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                                        final url = await ApiService.createDownloadTicket(format:'pdf',
+                                            certificateKind:item['certificateKind'] as String,
+                                            certificateId:item['id'] as int);
+                                        if (!await launchUrl(url, mode: LaunchMode.externalApplication)) throw Exception("تعذر فتح التنزيل");
                                       } catch (e) {
                                         if (context.mounted) {
                                           if (!mounted || !context.mounted) return;

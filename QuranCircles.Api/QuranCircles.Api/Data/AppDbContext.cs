@@ -7,6 +7,9 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    public DbSet<CirclePlan> CirclePlans => Set<CirclePlan>();
+    public DbSet<CircleSchedule> CircleSchedules => Set<CircleSchedule>();
+    public DbSet<CircleDay> CircleDays => Set<CircleDay>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<IdempotencyReceipt> IdempotencyReceipts => Set<IdempotencyReceipt>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
@@ -60,6 +63,10 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<CircleSchedule>().HasIndex(x => x.CircleId).IsUnique();
+        b.Entity<CircleDay>().HasIndex(x => new { x.CircleId, x.Date }).IsUnique();
+        b.Entity<CirclePlan>().Property(x => x.Target).HasPrecision(12, 2);
+        b.Entity<CirclePlan>().Property(x => x.Completed).HasPrecision(12, 2);
         b.Entity<User>()
             .HasIndex(u => u.Username)
             .IsUnique();

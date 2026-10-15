@@ -12,13 +12,15 @@ namespace QuranCircles.Api.Controllers;
 public class AttendanceController : ControllerBase
 {
     private readonly AttendanceService _svc;
-    public AttendanceController(AttendanceService svc) => _svc = svc;
+    private readonly AppDbContext _db;
+    public AttendanceController(AttendanceService svc, AppDbContext db) { _svc = svc; _db = db; }
 
     // تسجيل/تحديث حضور
     [HttpPost]
     [Idempotent]
     public async Task<IActionResult> Record([FromBody] RecordAttendanceDto dto)
     {
+        if (!await new CircleOperations(_db).CanRecordAsync(HttpContext, dto.CircleId, dto.SessionDate)) return Forbid();
         var (created, error) = await _svc.RecordAsync(dto);
         if (error is not null) return BadRequest(new { error });
         return Ok(created);

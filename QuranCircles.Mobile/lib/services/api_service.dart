@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
@@ -15,6 +16,35 @@ class ApiService {
   static http.Client httpClient = http.Client();
   static User? currentUser;
   static String? authToken;
+
+  static Future<Uri> createDownloadTicket({required String format, Map<String, dynamic>? filter,
+      String? certificateKind, int? certificateId}) async {
+    final response = await httpClient.post(Uri.parse('$baseUrl/exports/ticket'),
+        headers: _headers(), body: jsonEncode({'format': format, 'filter': filter,
+          'certificateKind': certificateKind, 'certificateId': certificateId}));
+    if (response.statusCode != 200) throw Exception('تعذر تجهيز الملف (${response.statusCode})');
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return Uri.parse(baseUrl).resolve(data['url'].toString());
+  }
+
+  static Future<Uint8List> fetchCertificatePreview({required String certificateKind,
+      required int certificateId}) async {
+    final uri = await createDownloadTicket(format: 'png',
+        certificateKind: certificateKind, certificateId: certificateId);
+    final response = await httpClient.get(uri);
+    if (response.statusCode != 200 ||
+        !(response.headers['content-type'] ?? '').contains('image/png')) {
+      throw Exception('تعذر عرض صورة الشهادة (${response.statusCode})');
+    }
+    return response.bodyBytes;
+  }
+
+  static Future<Map<String, dynamic>> previewReport(Map<String, dynamic> filter) async {
+    final response = await httpClient.post(Uri.parse('$baseUrl/exports/preview'),
+        headers: _headers(), body: jsonEncode(filter));
+    if (response.statusCode != 200) throw Exception('تعذر عرض التقرير (${response.statusCode})');
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
 
   static Future<void> setBaseUrl(String url) async {
     final parsed = Uri.tryParse(url.trim());

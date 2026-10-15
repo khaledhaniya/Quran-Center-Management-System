@@ -14,15 +14,13 @@ public class AuthController : ControllerBase
     private readonly PasswordHasher _hasher;
     private readonly TokenService _tokenSvc;
     private readonly ReportService _reportSvc;
-    private readonly TeacherService _teacherSvc;
 
-    public AuthController(AppDbContext db, PasswordHasher hasher, TokenService tokenSvc, ReportService reportSvc, TeacherService teacherSvc)
+    public AuthController(AppDbContext db, PasswordHasher hasher, TokenService tokenSvc, ReportService reportSvc)
     {
         _db = db;
         _hasher = hasher;
         _tokenSvc = tokenSvc;
         _reportSvc = reportSvc;
-        _teacherSvc = teacherSvc;
     }
 
     [HttpPost("login")]
@@ -31,12 +29,6 @@ public class AuthController : ControllerBase
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
             return BadRequest(new { error = "الرجاء إدخال اسم المستخدم وكلمة المرور." });
-
-        try
-        {
-            await _teacherSvc.SyncTeacherParentRelationshipsAsync();
-        }
-        catch { }
 
         var uLower = (dto.Username ?? "").Trim().ToLower();
         var user = await _db.Users
@@ -59,22 +51,7 @@ public class AuthController : ControllerBase
                     .Include(u => u.Student)
                     .FirstOrDefaultAsync(u => u.TeacherId == matchedTeacher.Id || (u.Username != null && u.Username.Trim() == matchedTeacher.IdentityNumber));
 
-                if (user == null)
-                {
-                    user = new User
-                    {
-                        Username = !string.IsNullOrWhiteSpace(matchedTeacher.IdentityNumber) ? matchedTeacher.IdentityNumber : (matchedTeacher.Contact ?? $"tch_{matchedTeacher.Id}"),
-                        FullName = matchedTeacher.FullName,
-                        Role = UserRole.Teacher,
-                        TeacherId = matchedTeacher.Id,
-                        Teacher = matchedTeacher,
-                        PlainPassword = string.Empty,
-                        PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
-                        IsActive = true
-                    };
-                    _db.Users.Add(user);
-                    await _db.SaveChangesAsync();
-                }
+
             }
         }
 
@@ -127,15 +104,6 @@ public class AuthController : ControllerBase
         if (!user.IsActive)
             return BadRequest(new { error = "اسم المستخدم غير موجود أو الحساب معطل من قبل الإدارة." });
 
-        if ((int)user.Role == 0)
-        {
-            if (user.TeacherId.HasValue) user.Role = UserRole.Teacher;
-            else if (user.StudentId.HasValue) user.Role = UserRole.Student;
-            else if (user.ParentId.HasValue) user.Role = UserRole.Parent;
-            else user.Role = UserRole.Student;
-            try { await _db.SaveChangesAsync(); } catch { }
-        }
-
         bool isPasswordValid = false;
         if (!string.IsNullOrEmpty(user.PasswordHash))
         {
@@ -152,82 +120,9 @@ public class AuthController : ControllerBase
         if (!isPasswordValid)
             return BadRequest(new { error = "كلمة المرور غير صحيحة." });
 
-        // Auto-heal teacher linking and permissions (ONLY FOR TEACHERS)
-        if (user.Role == UserRole.Teacher || user.TeacherId.HasValue)
-        {
-            try
-            {
-                if (!user.TeacherId.HasValue || user.Teacher == null)
-                {
-                    var uNameTrim = (user.Username ?? "").Trim();
-                    var uFullNameTrim = (user.FullName ?? "").Trim().ToLower();
-
-                    var t = await _db.Teachers.FirstOrDefaultAsync(x =>
-                        (!string.IsNullOrEmpty(x.IdentityNumber) && x.IdentityNumber.Trim() == uNameTrim) ||
-                        (!string.IsNullOrEmpty(x.Contact) && x.Contact.Trim() == uNameTrim) ||
-                        (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().ToLower() == uFullNameTrim) ||
-                        (user.TeacherId.HasValue && x.Id == user.TeacherId.Value));
-
-                    if (t != null)
-                    {
-                        user.TeacherId = t.Id;
-                        user.Teacher = t;
-                        user.Role = UserRole.Teacher;
-                        await _db.SaveChangesAsync();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Auth] Teacher link notice: {ex.Message}");
-            }
-        }
-
-        // Auto-heal student linking and synchronization (FOR STUDENTS)
-        if (user.Role == UserRole.Student || user.StudentId.HasValue)
-        {
-            try
-            {
-                if (!user.StudentId.HasValue || user.Student == null)
-                {
-                    var uNameTrim = (user.Username ?? "").Trim().ToLower();
-                    var uFullNameTrim = (user.FullName ?? "").Trim().ToLower();
-
-                    var st = await _db.Students.FirstOrDefaultAsync(x =>
-                        (user.StudentId.HasValue && x.Id == user.StudentId.Value) ||
-                        (!string.IsNullOrEmpty(x.StudentIdentityNumber) && x.StudentIdentityNumber.Trim().ToLower() == uNameTrim) ||
-                        (!string.IsNullOrEmpty(x.FullName) && x.FullName.Trim().ToLower() == uFullNameTrim));
-
-                    if (st != null)
-                    {
-                        user.StudentId = st.Id;
-                        user.Student = st;
-                        user.Role = UserRole.Student;
-                        if (st.FullName != user.FullName && !string.IsNullOrWhiteSpace(user.FullName))
-                        {
-                            st.FullName = user.FullName;
-                        }
-                        if (string.IsNullOrWhiteSpace(st.StudentIdentityNumber))
-                        {
-                            st.StudentIdentityNumber = user.Username;
-                        }
-                        await _db.SaveChangesAsync();
-                    }
-                }
-                else
-                {
-                    if (user.Student.FullName != user.FullName && !string.IsNullOrWhiteSpace(user.FullName))
-                    {
-                        user.Student.FullName = user.FullName;
-                        await _db.SaveChangesAsync();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Auth] Student link notice: {ex.Message}");
-            }
-        }
+        if (await _db.SystemSettings.AsNoTracking().AnyAsync(x => x.MaintenanceMode)
+            && user.Role != UserRole.Developer)
+            return StatusCode(503, new { error = "النظام في وضع الصيانة والتحديث حالياً، ومتاح للمطور فقط.", maintenance = true });
 
         var token = _tokenSvc.GenerateToken(user);
 
@@ -278,7 +173,7 @@ public class AuthController : ControllerBase
             catch { }
         }
 
-        bool isTeacher = user.Role == UserRole.Teacher || (user.TeacherId.HasValue && user.TeacherId.Value > 0);
+        bool isTeacher = user.Teacher?.IsActive == true && user.TeacherId.HasValue;
         bool isParent = user.Role == UserRole.Parent || hasChildren || (user.ParentId.HasValue && user.ParentId.Value > 0);
         bool isDualRole = isTeacher && isParent;
 

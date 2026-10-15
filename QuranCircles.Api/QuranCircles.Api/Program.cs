@@ -163,6 +163,7 @@ builder.Services.AddScoped<QuranCircles.Api.Services.CircleService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.SessionService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.AttendanceService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.ReportService>();
+builder.Services.AddHostedService<QuranCircles.Api.Services.TeacherPresenceMonitor>();
 builder.Services.AddScoped<QuranCircles.Api.Services.AnnouncementService>();
 builder.Services.AddSingleton<QuranCircles.Api.Services.PasswordHasher>();
 builder.Services.AddSingleton<QuranCircles.Api.Services.TokenService>();
@@ -349,6 +350,7 @@ app.Use(async (context, next) =>
     if (path.StartsWith("/api") &&
         !path.StartsWith("/api/auth/login") &&
         !path.StartsWith("/api/status") &&
+        !path.StartsWith("/api/exports/files/") &&
         !(path.Equals("/api/settings", StringComparison.OrdinalIgnoreCase) && context.Request.Method.Equals("GET", StringComparison.OrdinalIgnoreCase)))
     {
         var db = context.RequestServices.GetService<AppDbContext>();

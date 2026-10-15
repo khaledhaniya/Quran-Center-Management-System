@@ -30,6 +30,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Student> _myChildren = [];
   int? _selectedChildId;
   bool _isLoading = true;
+  String? _dashboardError;
+  DateTime? _serverToday;
 
   bool _isMorning = true;
   bool _isAzkarExpanded = false;
@@ -90,14 +92,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _currentFaithReminder = _faithReminders[Random().nextInt(_faithReminders.length)];
-    final now = DateTime.now();
-    _fromDate = DateTime(now.year, now.month, 1);
-    _toDate = now;
     _loadStats();
   }
 
   void _loadStats() async {
     try {
+      _dashboardError = null;
       final role = widget.currentUser.role;
       var students = await ApiService.getStudents();
       var teachers = await ApiService.getTeachers();
@@ -167,10 +167,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final fromStr = _fromDate != null ? '${_fromDate!.year}-${_fromDate!.month.toString().padLeft(2, '0')}-${_fromDate!.day.toString().padLeft(2, '0')}' : null;
         final toStr = _toDate != null ? '${_toDate!.year}-${_toDate!.month.toString().padLeft(2, '0')}-${_toDate!.day.toString().padLeft(2, '0')}' : null;
 
-        Map<String, dynamic> exec = {};
-        try {
-          exec = await ApiService.getExecutiveDashboard(fromDate: fromStr, toDate: toStr);
-        } catch (_) {}
+        final exec = await ApiService.getExecutiveDashboard(fromDate: fromStr, toDate: toStr);
+        if (exec['kpi'] is! Map || exec['dailyOperations'] is! Map) {
+          throw Exception('تعذر تحميل مؤشرات المركز من الخادم');
+        }
+        _serverToday = DateTime.tryParse('${exec['today']}');
+        _fromDate ??= DateTime.tryParse('${exec['from']}');
+        _toDate ??= DateTime.tryParse('${exec['to']}');
 
         _kpi = (exec['kpi'] as Map<String, dynamic>?) ?? {};
         _pulse = (exec['dailyOperations'] as Map<String, dynamic>?) ?? {};
@@ -179,9 +182,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _quranFlow = (exec['quranicFlow'] as Map<String, dynamic>?) ?? {};
         _earlyWarnings = (exec['earlyWarnings'] as Map<String, dynamic>?) ?? {};
 
-        _execTotalStudents = (_kpi['totalStudents'] as int?) ?? (exec['totalStudents'] as int?) ?? students.length;
-        _execTotalTeachers = (_kpi['totalTeachers'] as int?) ?? (exec['totalTeachers'] as int?) ?? teachers.length;
-        _execTotalCircles = (_kpi['totalCircles'] as int?) ?? (exec['totalCircles'] as int?) ?? circles.length;
+        _execTotalStudents = (_kpi['totalStudents'] as num).toInt();
+        _execTotalTeachers = (_kpi['totalTeachers'] as num).toInt();
+        _execTotalCircles = (_kpi['totalCircles'] as num).toInt();
 
         _execAttendanceRate = double.tryParse((_pulse['studentAttendanceRateToday'] ?? exec['todayAttendanceRate'] ?? 0).toString()) ?? 0;
 
@@ -211,9 +214,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
+          _dashboardError = 'تعذر تحميل الإحصائيات. أعد المحاولة بعد التحقق من الاتصال.';
           _isLoading = false;
         });
       }
@@ -330,6 +334,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // ═══ STAT CARDS TAILORED FOR EACH ROLE ═══
           _isLoading
               ? const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
+              : _dashboardError != null && (role == 'Admin' || role == 'Developer')
+                  ? Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(_dashboardError!)))
               : isSupervisor
                   ? Column(
                       children: [
@@ -1271,7 +1277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: () {
         setState(() {
           _selectedPreset = key;
-          final now = DateTime.now();
+    final now = _serverToday ?? DateTime.now();
           if (key == 'today') {
             _fromDate = DateTime(now.year, now.month, now.day);
             _toDate = now;
@@ -1374,7 +1380,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: _buildDetailedKpiCard(
                 title: 'الحلقات والمحفظين',
-                value: '$_execTotalCircles حلقة',
+                value: '${_kpi['activeCircles'] ?? 0} حلقة فعالة',
                 subtitle: 'المحفظون: $_execTotalTeachers | الإشغال: $capacityRate%',
                 icon: Icons.groups,
                 color: const Color(0xFF2563EB),
@@ -1417,7 +1423,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final excusedToday = _pulse['excusedAbsentToday'] ?? 0;
     final lateToday = _pulse['lateToday'] ?? 0;
     final teacherRate = _pulse['teacherAttendanceRateToday'] ?? 0.0;
-    final startedCircles = _pulse['activeCirclesToday'] ?? _execTotalCircles;
+    final startedCircles = _pulse['activeCirclesToday'] ?? 0;
     final delayedCircles = _pulse['pendingOrDelayedCirclesToday'] ?? 0;
     final sessionsToday = _pulse['sessionsToday'] ?? 0;
     final versesToday = _pulse['versesRecitedToday'] ?? 0;

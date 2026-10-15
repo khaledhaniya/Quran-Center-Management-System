@@ -202,224 +202,22 @@ public class ParentController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> GetParentAudit()
     {
-        var parentUsers = await _db.Users
-            .Include(u => u.Teacher)
-            .Where(u => u.Role == UserRole.Parent)
-            .ToListAsync();
-
-        var teacherUsers = await _db.Users
-            .Include(u => u.Teacher)
-            .Where(u => u.Role == UserRole.Teacher || u.TeacherId != null)
-            .ToListAsync();
-
-        var activeTeachers = await _db.Teachers
-            .Where(t => t.IsActive)
-            .ToListAsync();
-
-        var allStudents = await _db.Students
-            .Include(s => s.Circle)
-            .ToListAsync();
-
-        var result = new List<object>();
-        var processedUserIds = new HashSet<int>();
-
-        // 1. Process standard parent accounts
-        foreach (var parent in parentUsers)
-        {
-            processedUserIds.Add(parent.Id);
-            int pId = parent.ParentId ?? parent.Id;
-            var uName = (parent.Username ?? "").Trim();
-
-            // Check if this parent user is also linked to an active teacher
-            bool isStaffTeacher = false;
-            string? teacherRoleName = null;
-            if (parent.TeacherId.HasValue)
-            {
-                var matchT = activeTeachers.FirstOrDefault(t => t.Id == parent.TeacherId.Value);
-                if (matchT != null)
-                {
-                    isStaffTeacher = true;
-                    teacherRoleName = matchT.TaskRole;
-                }
-            }
-            else if (!string.IsNullOrWhiteSpace(uName))
-            {
-                var matchT = activeTeachers.FirstOrDefault(t => (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == uName) || (!string.IsNullOrWhiteSpace(t.Contact) && t.Contact.Trim() == uName));
-                if (matchT != null)
-                {
-                    isStaffTeacher = true;
-                    teacherRoleName = matchT.TaskRole;
-                }
-            }
-
-            var linkedChildren = allStudents
-                .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == parent.Id))
-                         || (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && !string.IsNullOrWhiteSpace(uName) && s.ParentIdentityNumber.Trim() == uName)
-                         || (!string.IsNullOrWhiteSpace(s.FamilyContact) && !string.IsNullOrWhiteSpace(uName) && s.FamilyContact.Trim() == uName))
-                .Select(s => new
-                {
-                    s.Id,
-                    s.FullName,
-                    CircleId = s.CircleId,
-                    CircleName = s.Circle?.Name ?? "غير مسند حلقة",
-                    DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
-                    s.FamilyContact,
-                    s.StudentIdentityNumber,
-                    s.ParentIdentityNumber,
-                    s.FatherStatus,
-                    s.MotherStatus,
-                    s.Notes
-                })
-                .ToList();
-
-            var parentIdNumber = linkedChildren.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.ParentIdentityNumber))?.ParentIdentityNumber;
-            if (string.IsNullOrWhiteSpace(parentIdNumber))
-            {
-                parentIdNumber = !string.IsNullOrWhiteSpace(parent.Username) ? parent.Username : "غير مسجل";
-            }
-
-            var rawName = (parent.FullName ?? "").Trim();
-            var isGeneric = string.IsNullOrWhiteSpace(rawName) || rawName == "ولي أمر" || rawName.StartsWith("ولي أمر (");
-
-            var resolvedParentName = !isGeneric
-                ? rawName
-                : (linkedChildren.Any()
-                    ? $"ولي أمر الطالب ({string.Join("، ", linkedChildren.Select(c => c.FullName))})"
-                    : (!string.IsNullOrWhiteSpace(rawName) ? rawName : $"ولي أمر ({parent.Username})"));
-
-            result.Add(new
-            {
-                parentId = pId,
-                parentUserId = parent.Id,
-                parentName = resolvedParentName,
-                username = parent.Username,
-                parentIdentityNumber = parentIdNumber,
-                childrenCount = linkedChildren.Count,
-                children = linkedChildren,
-                isTeacher = isStaffTeacher,
-                teacherNotice = isStaffTeacher ? "من ضمن كادر المعلمين للمركز" : "",
-                teacherRole = teacherRoleName
-            });
-        }
-
-        // 2. Process teacher accounts who have children in the center
-        foreach (var tUser in teacherUsers)
-        {
-            if (processedUserIds.Contains(tUser.Id)) continue;
-
-            var teacherObj = tUser.Teacher ?? (tUser.TeacherId.HasValue ? activeTeachers.FirstOrDefault(t => t.Id == tUser.TeacherId.Value) : null);
-            if (teacherObj == null && !string.IsNullOrWhiteSpace(tUser.Username))
-            {
-                teacherObj = activeTeachers.FirstOrDefault(t => (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == tUser.Username.Trim()) || (!string.IsNullOrWhiteSpace(t.FullName) && t.FullName.Trim() == tUser.FullName.Trim()));
-            }
-
-            // Must be an active teacher to carry the teacher notice
-            bool isStaffTeacher = teacherObj != null && teacherObj.IsActive;
-
-            var idMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(tUser.Username) && tUser.Username.Trim().Length >= 7) idMatches.Add(tUser.Username.Trim());
-            if (teacherObj != null && !string.IsNullOrWhiteSpace(teacherObj.IdentityNumber)) idMatches.Add(teacherObj.IdentityNumber.Trim());
-
-            var contactMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (teacherObj != null && !string.IsNullOrWhiteSpace(teacherObj.Contact)) contactMatches.Add(teacherObj.Contact.Trim());
-            if (teacherObj != null && !string.IsNullOrWhiteSpace(teacherObj.WhatsappNumber)) contactMatches.Add(teacherObj.WhatsappNumber.Trim());
-
-            int pId = tUser.ParentId ?? tUser.Id;
-
-            var linkedChildren = allStudents
-                .Where(s => (s.ParentId.HasValue && (s.ParentId == pId || s.ParentId == tUser.Id))
-                         || (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && idMatches.Contains(s.ParentIdentityNumber.Trim()))
-                         || (!string.IsNullOrWhiteSpace(s.FamilyContact) && contactMatches.Contains(s.FamilyContact.Trim())))
-                .Select(s => new
-                {
-                    s.Id,
-                    s.FullName,
-                    CircleId = s.CircleId,
-                    CircleName = s.Circle?.Name ?? "غير مسند حلقة",
-                    DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
-                    s.FamilyContact,
-                    s.StudentIdentityNumber,
-                    s.ParentIdentityNumber,
-                    s.FatherStatus,
-                    s.MotherStatus,
-                    s.Notes
-                })
-                .ToList();
-
-            // Include if they have children registered in the center
-            if (linkedChildren.Count > 0)
-            {
-                processedUserIds.Add(tUser.Id);
-                var pIdNum = idMatches.FirstOrDefault() ?? (!string.IsNullOrWhiteSpace(tUser.Username) ? tUser.Username : "غير مسجل");
-                var teacherName = !string.IsNullOrWhiteSpace(teacherObj?.FullName) ? teacherObj!.FullName : (!string.IsNullOrWhiteSpace(tUser.FullName) ? tUser.FullName : "معلم المركز");
-
-                result.Add(new
-                {
-                    parentId = pId,
-                    parentUserId = tUser.Id,
-                    parentName = teacherName,
-                    username = tUser.Username,
-                    parentIdentityNumber = pIdNum,
-                    childrenCount = linkedChildren.Count,
-                    children = linkedChildren,
-                    isTeacher = isStaffTeacher,
-                    teacherNotice = isStaffTeacher ? "من ضمن كادر المعلمين للمركز" : "",
-                    teacherRole = teacherObj?.TaskRole ?? "معلم بالمركز"
-                });
-            }
-        }
-
-        // 3. Process any teacher directly from Teachers table who has children
-        var processedTeacherIds = new HashSet<int>(teacherUsers.Where(u => u.TeacherId.HasValue).Select(u => u.TeacherId!.Value));
-        foreach (var tch in activeTeachers)
-        {
-            if (processedTeacherIds.Contains(tch.Id)) continue;
-
-            var idMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(tch.IdentityNumber)) idMatches.Add(tch.IdentityNumber.Trim());
-
-            var contactMatches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(tch.Contact)) contactMatches.Add(tch.Contact.Trim());
-            if (!string.IsNullOrWhiteSpace(tch.WhatsappNumber)) contactMatches.Add(tch.WhatsappNumber.Trim());
-
-            var linkedChildren = allStudents
-                .Where(s => (!string.IsNullOrWhiteSpace(s.ParentIdentityNumber) && idMatches.Contains(s.ParentIdentityNumber.Trim()))
-                         || (!string.IsNullOrWhiteSpace(s.FamilyContact) && contactMatches.Contains(s.FamilyContact.Trim())))
-                .Select(s => new
-                {
-                    s.Id,
-                    s.FullName,
-                    CircleId = s.CircleId,
-                    CircleName = s.Circle?.Name ?? "غير مسند حلقة",
-                    DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
-                    s.FamilyContact,
-                    s.StudentIdentityNumber,
-                    s.ParentIdentityNumber,
-                    s.FatherStatus,
-                    s.MotherStatus,
-                    s.Notes
-                })
-                .ToList();
-
-            if (linkedChildren.Count > 0)
-            {
-                result.Add(new
-                {
-                    parentId = 90000 + tch.Id,
-                    parentUserId = 90000 + tch.Id,
-                    parentName = tch.FullName,
-                    username = tch.IdentityNumber ?? tch.Contact ?? $"teacher_{tch.Id}",
-                    parentIdentityNumber = tch.IdentityNumber ?? "غير مسجل",
-                    childrenCount = linkedChildren.Count,
-                    children = linkedChildren,
-                    isTeacher = tch.IsActive,
-                    teacherNotice = tch.IsActive ? "من ضمن كادر المعلمين للمركز" : "",
-                    teacherRole = tch.TaskRole ?? "معلم بالمركز"
-                });
-            }
-        }
-
-        return Ok(result);
+        var users = await _db.Users.Include(u => u.Teacher).Where(u => u.Role != UserRole.Student).AsNoTracking().ToListAsync();
+        var students = await _db.Students.Include(s => s.Circle).AsNoTracking().ToListAsync();
+        return Ok(users.Select(user => new { user, children = students.Where(s => ParentLinks.IsChild(user, s)).ToList() })
+            .Where(x => x.user.Role == UserRole.Parent || x.children.Count > 0)
+            .Select(x => new {
+                parentId = x.user.ParentId ?? x.user.Id, parentUserId = x.user.Id,
+                parentName = x.user.FullName, username = x.user.Username,
+                parentIdentityNumber = x.user.Teacher?.IdentityNumber ?? x.user.Username,
+                isActive = x.user.IsActive,
+                childrenCount = x.children.Count,
+                children = x.children.Select(s => new { s.Id, s.FullName, s.CircleId, CircleName = s.Circle?.Name ?? "غير مسند",
+                    s.DateOfBirth, s.FamilyContact, s.StudentIdentityNumber, s.ParentIdentityNumber, s.FatherStatus, s.MotherStatus, s.Notes }),
+                isTeacher = x.user.Teacher?.IsActive == true,
+                teacherNotice = x.user.Teacher?.IsActive == true ? "من ضمن كادر المعلمين للمركز" : "",
+                teacherRole = x.user.Teacher?.TaskRole
+            }));
     }
 
     public record UnlinkDto(int StudentId);
@@ -447,7 +245,7 @@ public class ParentController : ControllerBase
         var student = await _db.Students.FindAsync(dto.StudentId);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
-        var parentUser = await _db.Users.FirstOrDefaultAsync(u => (u.ParentId == dto.NewParentId || u.Id == dto.NewParentId) && u.Role == UserRole.Parent);
+        var parentUser = await _db.Users.FirstOrDefaultAsync(u => (u.ParentId == dto.NewParentId || u.Id == dto.NewParentId) && u.Role != UserRole.Student);
         if (parentUser == null) return BadRequest(new { error = "حساب ولي الأمر الجديد غير موجود." });
 
         student.ParentId = parentUser.ParentId ?? parentUser.Id;

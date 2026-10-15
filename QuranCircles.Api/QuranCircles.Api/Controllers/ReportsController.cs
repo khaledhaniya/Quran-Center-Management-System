@@ -17,8 +17,9 @@ public class ReportsController : ControllerBase
     [HttpGet("summary")]
     public async Task<IActionResult> Summary([FromQuery] DateOnly? from, [FromQuery] DateOnly? to)
     {
-        var f = from ?? DateOnly.FromDateTime(DateTime.Today.AddMonths(-1));
-        var t = to ?? DateOnly.FromDateTime(DateTime.Today);
+        var today = CenterClock.Today;
+        var f = from ?? new DateOnly(today.Year, today.Month, 1);
+        var t = to ?? today;
         if (t < f) return BadRequest(new { error = "تاريخ النهاية يسبق تاريخ البداية." });
 
         return Ok(await _svc.GetSummaryAsync(f, t));
@@ -27,8 +28,9 @@ public class ReportsController : ControllerBase
     [HttpGet("executive-dashboard")]
     public async Task<IActionResult> ExecutiveDashboard([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
     {
-        var f = from ?? fromDate ?? DateOnly.FromDateTime(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
-        var t = to ?? toDate ?? DateOnly.FromDateTime(DateTime.Today);
+        var today = CenterClock.Today;
+        var f = from ?? fromDate ?? new DateOnly(today.Year, today.Month, 1);
+        var t = to ?? toDate ?? today;
         if (t < f) t = f;
 
         return Ok(await _svc.GetExecutiveDashboardAsync(f, t));

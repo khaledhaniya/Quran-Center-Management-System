@@ -12,7 +12,9 @@ public record CreateSessionDto(
     AssessmentLevel Assessment,
     string? Notes,
     bool ViaLottery,
-    RecitationType RecitationType = RecitationType.Memorization
+    RecitationType RecitationType = RecitationType.Memorization,
+    double? Pages = null,
+    double? Score = null
 );
 
 public record UpdateSessionDto(
@@ -22,7 +24,9 @@ public record UpdateSessionDto(
     int ToVerse,
     AssessmentLevel Assessment,
     string? Notes,
-    RecitationType RecitationType = RecitationType.Memorization
+    RecitationType RecitationType = RecitationType.Memorization,
+    double? Pages = null,
+    double? Score = null
 );
 
 public record SessionDto(
@@ -38,7 +42,9 @@ public record SessionDto(
     string? Notes,
     bool ViaLottery,
     RecitationType RecitationType = RecitationType.Memorization,
-    string RecitationTypeText = "حفظ جديد"
+    string RecitationTypeText = "حفظ جديد",
+    double? Pages = null,
+    double? Score = null
 );
 
 // نتيجة القرعة (اللوتري)

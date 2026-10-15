@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -12,6 +13,10 @@ class DynamicReportsScreen extends StatefulWidget {
 
 class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
   bool _isLoading = true;
+  String _reportKind = 'all';
+  Map<String,dynamic>? _serverReport;
+  DateTime? _reportFrom;
+  DateTime? _reportTo;
   List<Student> _allStudents = [];
   List<Circle> _circles = [];
   List<Student> _filteredStudents = [];
@@ -26,6 +31,59 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
 
   double _minAgeInput = 5;
   double _maxAgeInput = 18;
+
+  static const _reports = <String,String>{
+    'all':'دليل الطلاب والحلقات', 'combined_chains':'السلاسل المجتمعة',
+    'sard_report':'الحفظ والمراجعة والسرد', 'khatimun_ijaza':'الخاتمون والإجازة',
+    'juz_path':'مسار أجزاء الحفظ', 'cumulative_absence':'الغياب التراكمي',
+    'teacher_discipline':'التزام المعلمين', 'weekday_absence':'الغياب حسب أيام الأسبوع',
+    'exam_results':'نتائج الاختبارات', 'circle_scorecard':'أداء الحلقات',
+    'intensive_followup':'المتابعة المكثفة', 'parent_governance':'ربط أولياء الأمور',
+    'whatsapp_directory':'دليل التواصل', 'specialized_activities':'الأنشطة',
+    'certificates':'الشهادات الصادرة', 'finance':'الحركات المالية'
+  };
+  Map<String,dynamic> get _serverFilter => {
+    'kind':_reportKind,
+    'from':_reportFrom?.toIso8601String().substring(0,10),
+    'to':_reportTo?.toIso8601String().substring(0,10),
+    'circleId':int.tryParse(_circleFilter),
+    'studentIds':_filteredStudents.map((s)=>s.id).toList()
+  };
+  Future<void> _previewServerReport() async {
+    try { final report = await ApiService.previewReport(_serverFilter);
+      if (mounted) setState(()=>_serverReport=report);
+    } catch(e) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e'))); }
+  }
+  Future<void> _downloadReport(String format) async {
+    try { final url=await ApiService.createDownloadTicket(format:format,filter:_serverFilter);
+      if(!await launchUrl(url,mode:LaunchMode.externalApplication)) throw Exception('تعذر فتح التنزيل');
+    } catch(e) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e'))); }
+  }
+  Widget _serverReportPanel() => Card(
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),
+    child:Padding(padding:const EdgeInsets.all(16),child:Column(
+      crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      Text('تقارير السجلات الفعلية',style:AppTheme.cairoStyle(fontWeight:FontWeight.bold,fontSize:18)),
+      const SizedBox(height:10),
+      DropdownButtonFormField<String>(initialValue:_reportKind,isExpanded:true,
+        decoration:const InputDecoration(labelText:'نوع التقرير',border:OutlineInputBorder()),
+        items:_reports.entries.map((e)=>DropdownMenuItem(value:e.key,child:Text(e.value,overflow:TextOverflow.ellipsis))).toList(),
+        onChanged:(v)=>setState((){_reportKind=v??'all';_serverReport=null;})),
+      Wrap(spacing:8,runSpacing:8,children:[
+        OutlinedButton(onPressed:() async {final picked=await showDatePicker(context:context,initialDate:_reportFrom??DateTime.now(),firstDate:DateTime(2020),lastDate:DateTime(2035)); if(picked!=null)setState(()=>_reportFrom=picked);},child:Text('من: ${_reportFrom?.toIso8601String().substring(0,10)??"أول الشهر"}')),
+        OutlinedButton(onPressed:() async {final picked=await showDatePicker(context:context,initialDate:_reportTo??DateTime.now(),firstDate:DateTime(2020),lastDate:DateTime(2035)); if(picked!=null)setState(()=>_reportTo=picked);},child:Text('إلى: ${_reportTo?.toIso8601String().substring(0,10)??"اليوم"}')),
+        FilledButton.icon(onPressed:_previewServerReport,icon:const Icon(Icons.preview),label:const Text('معاينة')),
+        OutlinedButton.icon(onPressed:()=>_downloadReport('xlsx'),icon:const Icon(Icons.table_chart),label:const Text('Excel')),
+        OutlinedButton.icon(onPressed:()=>_downloadReport('pdf'),icon:const Icon(Icons.picture_as_pdf),label:const Text('PDF')),
+      ]),
+      if(_serverReport!=null) ...[
+        const SizedBox(height:12),Text((_serverReport!['period']??'').toString()),
+        SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(
+          columns:((_serverReport!['columns'] as List?)??[]).map((c)=>DataColumn(label:Text('$c'))).toList(),
+          rows:((_serverReport!['rows'] as List?)??[]).take(100).map((r)=>DataRow(cells:(r as List).map((v)=>DataCell(Text('$v'))).toList())).toList())),
+      ]
+    ])),
+  );
 
   @override
   void initState() {
@@ -170,6 +228,8 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _serverReportPanel(),
+                  const SizedBox(height: 16),
                   // Center Title Ribbon
                   Container(
                     width: double.infinity,
@@ -216,7 +276,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                             children: [
                               const Icon(Icons.tune, color: AppTheme.primary),
                               const SizedBox(width: 8),
-                              Text('لوحة الفلاتر المركّبة المتقدمة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              Expanded(child: Text('لوحة الفلاتر المركّبة المتقدمة', softWrap: true, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15))),
                             ],
                           ),
                           const Divider(height: 20),

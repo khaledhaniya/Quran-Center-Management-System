@@ -13,7 +13,8 @@ public enum AssessmentLevel
 public enum RecitationType
 {
     Memorization = 1, // حفظ جديد
-    Revision = 2       // مراجعة وتثبيت
+    Revision = 2,       // مراجعة صغرى
+    MajorRevision = 3   // مراجعة كبرى / سرد
 }
 
 public enum AttendanceStatus

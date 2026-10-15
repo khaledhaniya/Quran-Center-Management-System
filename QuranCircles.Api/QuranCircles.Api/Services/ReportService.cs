@@ -133,92 +133,26 @@ public class ReportService
 
     public async Task<List<Student>> GetSmartChildrenForParentAsync(User parentUser)
     {
-        if (parentUser == null) return new List<Student>();
-
-        // 1. Resolve national identity number of this user/teacher
-        var idNumbersToMatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (!string.IsNullOrWhiteSpace(parentUser.Username) && parentUser.Username.All(char.IsDigit) && parentUser.Username.Trim().Length >= 7)
-        {
-            idNumbersToMatch.Add(parentUser.Username.Trim());
-        }
-
-        Teacher? teacher = parentUser.Teacher;
-        if (teacher == null && parentUser.TeacherId.HasValue)
-        {
-            teacher = await _db.Teachers.FindAsync(parentUser.TeacherId.Value);
-        }
-        else if (teacher == null && (parentUser.Role == UserRole.Teacher || parentUser.Role == UserRole.Admin))
-        {
-            var uName = (parentUser.Username ?? "").Trim();
-            teacher = await _db.Teachers.FirstOrDefaultAsync(t =>
-                (!string.IsNullOrEmpty(t.IdentityNumber) && t.IdentityNumber == uName) ||
-                (!string.IsNullOrEmpty(t.FullName) && t.FullName == parentUser.FullName));
-        }
-
-        if (teacher != null && !string.IsNullOrWhiteSpace(teacher.IdentityNumber))
-        {
-            idNumbersToMatch.Add(teacher.IdentityNumber.Trim());
-        }
-
-        var query = _db.Students.Include(s => s.Circle).AsQueryable();
-        List<Student> matched = new();
-
-        // 2. Strict Match by National Identity Number
-        if (idNumbersToMatch.Count > 0)
-        {
-            matched = await query
-                .Where(s => s.ParentIdentityNumber != null && idNumbersToMatch.Contains(s.ParentIdentityNumber.Trim()))
-                .ToListAsync();
-
-            // Also include explicit ParentId links only if they don't have a contradicting ParentIdentityNumber
-            if (parentUser.ParentId.HasValue || parentUser.Role == UserRole.Parent)
-            {
-                int pId = parentUser.ParentId ?? parentUser.Id;
-                var directById = await query
-                    .Where(s => s.ParentId == pId || s.ParentId == parentUser.Id)
-                    .ToListAsync();
-
-                foreach (var d in directById)
-                {
-                    if (string.IsNullOrWhiteSpace(d.ParentIdentityNumber) || idNumbersToMatch.Contains(d.ParentIdentityNumber.Trim()))
-                    {
-                        if (!matched.Any(m => m.Id == d.Id))
-                        {
-                            matched.Add(d);
-                        }
-                    }
-                }
-            }
-        }
-        else if (parentUser.Role == UserRole.Parent)
-        {
-            int pId = parentUser.ParentId ?? parentUser.Id;
-            matched = await query
-                .Where(s => s.ParentId == pId || s.ParentId == parentUser.Id)
-                .ToListAsync();
-        }
-        else
-        {
-            // Teacher without National ID or no children registered with that ID
-            matched = new List<Student>();
-        }
-
-        return matched.GroupBy(s => s.Id).Select(g => g.First()).OrderBy(s => s.Id).ToList();
+        if (parentUser.Teacher == null && parentUser.TeacherId.HasValue)
+            parentUser.Teacher = await _db.Teachers.FindAsync(parentUser.TeacherId.Value);
+        return (await _db.Students.Include(s => s.Circle).AsNoTracking().ToListAsync())
+            .Where(s => ParentLinks.IsChild(parentUser, s)).OrderBy(s => s.Id).ToList();
     }
 
     public async Task<object> GetExecutiveDashboardAsync(DateOnly from, DateOnly to)
     {
         try
         {
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            var now = DateTime.Now;
+            var today = CenterClock.Today;
+            var now = CenterClock.Now;
 
             // 1. Core Counts
             var allStudents = await _db.Students.Include(s => s.Circle).AsNoTracking().ToListAsync();
             var allTeachers = await _db.Teachers.AsNoTracking().ToListAsync();
             var allCircles = await _db.Circles.Include(c => c.Teacher).AsNoTracking().ToListAsync();
-            var allParents = await _db.Users.Where(u => u.Role == UserRole.Parent).AsNoTracking().ToListAsync();
+            var users = await _db.Users.Include(u => u.Teacher).Where(u => u.Role != UserRole.Student).AsNoTracking().ToListAsync();
+            var allParents = users.Where(u => u.Role == UserRole.Parent || allStudents.Any(s => ParentLinks.IsChild(u, s))).ToList();
+            var schedules = await _db.CircleSchedules.AsNoTracking().ToListAsync();
 
             int totalStudents = allStudents.Count;
             int totalStudentsActive = allStudents.Count(s => s.IsActive);
@@ -228,23 +162,15 @@ public class ReportService
             int activeCircles = allCircles.Count(c => c.IsActive);
             var dashboardSettings = await _db.SystemSettings.AsNoTracking().FirstOrDefaultAsync();
             int maxCapPerCircle = Math.Max(1, dashboardSettings?.MaxStudentsPerCircle ?? 20);
-            int totalCapacity = activeCircles * maxCapPerCircle;
-            double capacityUtilization = totalCapacity > 0 ? Math.Round((double)totalStudentsActive / totalCapacity * 100, 1) : 0;
+            int totalCapacity = allCircles.Where(c => c.IsActive).Sum(c => schedules.FirstOrDefault(x => x.CircleId == c.Id)?.Capacity ?? maxCapPerCircle);
+            double capacityUtilization = totalCapacity > 0 ? Math.Round((double)allStudents.Count(s => s.IsActive && allCircles.Any(c => c.Id == s.CircleId && c.IsActive)) / totalCapacity * 100, 1) : 0;
 
             int totalTeachers = allTeachers.Count;
             int activeTeachers = allTeachers.Count(t => t.IsActive);
 
             // Parents linking audit
-            var studentParentIds = allStudents.Where(s => s.ParentId.HasValue).Select(s => s.ParentId!.Value).ToHashSet();
-            var studentParentIdNums = allStudents.Where(s => !string.IsNullOrWhiteSpace(s.ParentIdentityNumber)).Select(s => s.ParentIdentityNumber!.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var studentFamilyPhones = allStudents.Where(s => !string.IsNullOrWhiteSpace(s.FamilyContact)).Select(s => s.FamilyContact!.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
             int totalParentsCount = allParents.Count;
-            int linkedParentsCount = allParents.Count(p =>
-                (p.ParentId.HasValue && studentParentIds.Contains(p.ParentId.Value)) ||
-                studentParentIds.Contains(p.Id) ||
-                (!string.IsNullOrWhiteSpace(p.Username) && (studentParentIdNums.Contains(p.Username.Trim()) || studentFamilyPhones.Contains(p.Username.Trim())))
-            );
+            int linkedParentsCount = allParents.Count(p => p.IsActive && allStudents.Any(s => ParentLinks.IsChild(p, s)));
             int unlinkedParentsCount = Math.Max(0, totalParentsCount - linkedParentsCount);
             double parentLinkPercent = Percentage(linkedParentsCount, totalParentsCount);
 
@@ -260,11 +186,12 @@ public class ReportService
                 .AsNoTracking()
                 .ToListAsync();
 
-            int khatimunThisYear = examNominations.Count(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzStart == 1 && e.JuzEnd == 30 && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70)) && e.ExamDate.HasValue && e.ExamDate.Value.Year == currentYear);
-            int khatimunThisMonth = examNominations.Count(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzStart == 1 && e.JuzEnd == 30 && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70)) && e.ExamDate.HasValue && e.ExamDate.Value.Month == currentMonth && e.ExamDate.Value.Year == currentYear);
+            int khatimunThisYear = examNominations.Where(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzStart == 1 && e.JuzEnd == 30 && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70)) && e.ExamDate.HasValue && e.ExamDate.Value.Year == currentYear).Select(e => e.StudentId).Distinct().Count();
+            int khatimunThisMonth = examNominations.Where(e => e.Status == "Completed" && e.NominationType == "Quran" && (e.JuzStart == 1 && e.JuzEnd == 30 && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70)) && e.ExamDate.HasValue && e.ExamDate.Value.Month == currentMonth && e.ExamDate.Value.Year == currentYear).Select(e => e.StudentId).Distinct().Count();
 
             int huffazCount = await _db.HuffazMembers.CountAsync();
-            int huffazInIjaza = await _db.HuffazMembers.CountAsync(h => (h.Riwayah != null && (h.Riwayah.Contains("إجازة") || h.Riwayah.Contains("سند") || h.Riwayah.Contains("عشر"))) || (h.RevisionPlan != null && h.RevisionPlan.Contains("تثبيت")));
+            int huffazInIjaza = await _db.HuffazMembers.CountAsync(h => h.IsActive && h.Riwayah != null && (h.Riwayah.Contains("إجازة") || h.Riwayah.Contains("سند")));
+            int tathbeetCount = await _db.HuffazMembers.CountAsync(h => h.IsActive && h.RevisionPlan != null && h.RevisionPlan.Contains("تثبيت"));
 
             // 2. Real-Time Operations Pulse (اليوم الحالي)
             var todayAttendances = await _db.Attendances
@@ -277,7 +204,7 @@ public class ReportService
             int todayStudentsAbsent = todayAttendances.Count(a => a.Status == AttendanceStatus.Absent);
             int todayStudentsLate = todayAttendances.Count(a => a.Status == AttendanceStatus.Late);
             int todayTotalAtt = todayAttendances.Count;
-            double todayAttendanceRate = todayTotalAtt > 0 ? Math.Round((double)todayStudentsPresent / todayTotalAtt * 100, 1) : 0;
+            double todayAttendanceRate = todayTotalAtt > 0 ? Math.Round((double)(todayStudentsPresent + todayStudentsLate) / todayTotalAtt * 100, 1) : 0;
 
             var todaySessions = await _db.Sessions.Include(s => s.Student)
                 .Where(s => s.SessionDate == today)
@@ -286,18 +213,23 @@ public class ReportService
 
             int todaySessionsCount = todaySessions.Count;
             int todayVersesRecited = todaySessions.Where(s => s.Assessment != AssessmentLevel.DidNotRecite).Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
-            int todayPagesRecited = Math.Max(0, (int)Math.Round((double)todayVersesRecited / 15.0));
+            double todayPagesRecited = Math.Round(todaySessions.Sum(Pages), 2);
 
             // Teacher Presence & Circle Start Status (Implicit Detection)
-            var todayStartedCircleIds = todaySessions.Select(s => s.Student != null ? s.Student.CircleId : null).Where(c => c.HasValue).Select(c => c!.Value).ToHashSet();
-            foreach (var a in todayAttendances.Where(a => a.CircleId > 0))
-            {
-                todayStartedCircleIds.Add(a.CircleId);
-            }
-
+            var days = await _db.CircleDays.AsNoTracking().Where(d => d.Date == today).ToListAsync();
+            var todayStartedCircleIds = days.Where(d => d.OpenedAt.HasValue).Select(d => d.CircleId).ToHashSet();
             int todayCirclesStarted = allCircles.Count(c => c.IsActive && todayStartedCircleIds.Contains(c.Id));
-            int todayCirclesLateOrPending = Math.Max(0, activeCircles - todayCirclesStarted);
-            int todayTeachersPresent = allCircles.Where(c => todayStartedCircleIds.Contains(c.Id) && c.TeacherId.HasValue).Select(c => c.TeacherId!.Value).Distinct().Count();
+            var scheduledToday = schedules.Where(s => CircleOperations.ScheduledOn(s, today) && allCircles.Any(c => c.Id == s.CircleId && c.IsActive)).ToList();
+            int todayCirclesLateOrPending = scheduledToday.Count(s => !todayStartedCircleIds.Contains(s.CircleId) &&
+                TimeOnly.Parse(s.StartTime).ToTimeSpan().Add(TimeSpan.FromMinutes(15)) <= now.TimeOfDay &&
+                !days.Any(d => d.CircleId == s.CircleId && d.Status == "Suspended"));
+            var substituteIds = days.Where(d => d.OpenedAt.HasValue && d.Status == "Absent" && d.SubstituteUserId.HasValue)
+                .Select(d => d.SubstituteUserId!.Value).ToHashSet();
+            var presentTeacherIds = days.Where(d => d.OpenedAt.HasValue && d.Status != "Absent" && d.TeacherId.HasValue)
+                .Select(d => d.TeacherId!.Value).ToHashSet();
+            foreach (var substitute in users.Where(u => substituteIds.Contains(u.Id) && u.TeacherId.HasValue))
+                presentTeacherIds.Add(substitute.TeacherId!.Value);
+            int todayTeachersPresent = presentTeacherIds.Count;
 
             // 3. Range-Based Data (from - to)
             var rangeSessions = await _db.Sessions.Include(s => s.Student)
@@ -318,11 +250,11 @@ public class ReportService
             var circlePerformance = allCircles.Where(c => c.IsActive).Select(c =>
             {
                 var cAtts = rangeAttendances.Where(a => a.CircleId == c.Id).ToList();
-                var cSess = rangeSessions.Where(s => s.Student != null && s.Student.CircleId == c.Id).ToList();
-                int cPresent = cAtts.Count(a => a.Status == AttendanceStatus.Present);
+                var cSess = rangeSessions.Where(s => (s.RecordedCircleId ?? s.Student?.CircleId) == c.Id).ToList();
+                int cPresent = cAtts.Count(a => a.Status is AttendanceStatus.Present or AttendanceStatus.Late);
                 int cTotalAtt = cAtts.Count;
                 double rate = cTotalAtt > 0 ? Math.Round((double)cPresent / cTotalAtt * 100, 1) : 0;
-                int verses = cSess.Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
+                int verses = cSess.Where(s => s.Assessment != AssessmentLevel.DidNotRecite).Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
 
                 return new
                 {
@@ -341,10 +273,11 @@ public class ReportService
             var lowestPerformingCircles = circlePerformance.OrderBy(c => c.AttendanceRate).ThenBy(c => c.SessionsCount).Take(5).ToList();
 
             // Exam indicators
-            int totalExamsCompleted = examNominations.Count(e => e.Status == "Completed");
-            int passedExams = examNominations.Count(e => e.Status == "Completed" && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70));
+            var periodExams = examNominations.Where(e => e.ExamDate.HasValue && DateOnly.FromDateTime(e.ExamDate.Value) >= from && DateOnly.FromDateTime(e.ExamDate.Value) <= to).ToList();
+            int totalExamsCompleted = periodExams.Count(e => e.Status == "Completed" && e.Result != null);
+            int passedExams = periodExams.Count(e => e.Status == "Completed" && e.Result != null && e.Result.Grade >= (dashboardSettings?.PassingScoreThreshold ?? 70));
             double examPassRate = totalExamsCompleted > 0 ? Math.Round((double)passedExams / totalExamsCompleted * 100, 1) : 0;
-            int qualifiedStudentsForExam = allStudents.Count(s => s.IsActive && s.CompletedAjzaa != null && s.CompletedAjzaa.Length > 0);
+            int qualifiedStudentsForExam = examNominations.Where(e => e.Status is "Pending" or "Scheduled").Select(e => e.StudentId).Distinct().Count();
 
             // Early Warning Absences (3 consecutive unexcused or 10 in month)
             var studentAbsences = rangeAttendances
@@ -400,57 +333,59 @@ public class ReportService
             }
 
             // 5. Specialized Programs & Activities
-            int preacherYouthCount = await _db.TalentRecords.Select(t => t.StudentId).Distinct().CountAsync();
-            int preacherSpeechesCount = await _db.TalentRecords.CountAsync();
+            int preacherYouthCount = await _db.TalentRecords.Where(t => t.TalentType.Contains("واعظ") || t.TalentType.Contains("خطابة")).Select(t => t.StudentId).Distinct().CountAsync();
+            int preacherSpeechesCount = await _db.TalentRecords.Where(t => t.TalentType.Contains("الأصوات") || t.TalentType.Contains("تلاوة") || t.TalentType.Contains("أذان")).Select(t => t.StudentId).Distinct().CountAsync();
             var courseEnrollments = await _db.CourseEnrollments.AsNoTracking().ToListAsync();
-            int certsMonth = courseEnrollments.Count(e => e.CertificateCode != null && e.CertificateDate.HasValue && e.CertificateDate.Value.Month == currentMonth && e.CertificateDate.Value.Year == currentYear)
-                + examNominations.Count(e => e.Status == "Completed" && e.ExamDate.HasValue && e.ExamDate.Value.Month == currentMonth && e.ExamDate.Value.Year == currentYear);
-            int certsTotal = courseEnrollments.Count(e => !string.IsNullOrEmpty(e.CertificateCode)) + totalExamsCompleted;
+            int certsMonth = courseEnrollments.Count(e => !string.IsNullOrWhiteSpace(e.CertificateCode) && e.CertificateDate.HasValue && e.CertificateDate.Value.Month == currentMonth && e.CertificateDate.Value.Year == currentYear);
+            int certsTotal = courseEnrollments.Count(e => !string.IsNullOrWhiteSpace(e.CertificateCode));
 
             // 6. Quranic Flow & Cumulative Memorization
             int memorizationCount = rangeSessions.Count(s => s.RecitationType == RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
-            int revisionCount = rangeSessions.Count(s => s.RecitationType == RecitationType.Revision && s.Assessment != AssessmentLevel.DidNotRecite);
+            int revisionCount = rangeSessions.Count(s => s.RecitationType != RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
             double revisionRatio = memorizationCount > 0 ? Math.Round((double)revisionCount / memorizationCount, 2) : 0;
             double reviewPercent = Percentage(revisionCount, revisionCount + memorizationCount);
             double newPercent = Percentage(memorizationCount, revisionCount + memorizationCount);
             int rangeDays = Math.Max(1, to.DayNumber - from.DayNumber + 1);
             // Page counts are estimates (15 verses/page), not exact Mushaf page positions.
-            double dailyPagesEstimate = totalStudentsActive > 0 ? Math.Round(rangeTotalVerses / 15.0 / totalStudentsActive / rangeDays, 2) : 0;
+            double dailyPagesEstimate = totalStudentsActive > 0 ? Math.Round(rangeSessions.Where(s => s.RecitationType == RecitationType.Memorization).Sum(Pages) / totalStudentsActive / rangeDays, 2) : 0;
             double weeklyPagesEstimate = Math.Round(dailyPagesEstimate * 7, 2);
 
             int juz1to5 = allStudents.Count(s => {
-                int count = s.CompletedAjzaa != null ? s.CompletedAjzaa.Split(',', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+                int count = CompletedParts(s);
                 return count >= 1 && count <= 5;
             });
             int juz6to10 = allStudents.Count(s => {
-                int count = s.CompletedAjzaa != null ? s.CompletedAjzaa.Split(',', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+                int count = CompletedParts(s);
                 return count >= 6 && count <= 10;
             });
             int juz11to20 = allStudents.Count(s => {
-                int count = s.CompletedAjzaa != null ? s.CompletedAjzaa.Split(',', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+                int count = CompletedParts(s);
                 return count >= 11 && count <= 20;
             });
             int juz21to30 = allStudents.Count(s => {
-                int count = s.CompletedAjzaa != null ? s.CompletedAjzaa.Split(',', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+                int count = CompletedParts(s);
                 return count >= 21;
             });
 
             // Special follow-up (<70% on recent sessions)
-            var specialFollowUp = allStudents
-                .Where(s => s.IsActive && rangeSessions.Where(rs => rs.StudentId == s.Id)
-                    .OrderByDescending(rs => rs.SessionDate).Take(3).Count() == 3 &&
-                    rangeSessions.Where(rs => rs.StudentId == s.Id).OrderByDescending(rs => rs.SessionDate).Take(3)
-                        .All(rs => rs.Assessment is AssessmentLevel.Rejected or AssessmentLevel.Medium))
-                .Take(10)
-                .Select(s => new
-                {
-                    s.Id,
-                    s.FullName,
-                    CircleName = s.Circle?.Name ?? "غير مسند",
-                    Contact = s.FamilyContact ?? s.StudentMobile ?? "",
-                    Notes = "انخفاض درجات التسميع ويحتاج خطة علاجية"
-                })
-                .ToList();
+            var specialFollowUp = allStudents.Where(s => s.IsActive)
+                .Select(s => new { Student = s, Recent = rangeSessions.Where(rs => rs.StudentId == s.Id)
+                    .OrderByDescending(rs => rs.SessionDate).ThenByDescending(rs => rs.Id).Take(3).ToList() })
+                .Where(x => x.Recent.Count == 3 && x.Recent.All(rs => Score(rs) < 70))
+                .Select(x => new { x.Student.Id, x.Student.FullName, StudentName = x.Student.FullName,
+                    CircleName = x.Student.Circle?.Name ?? "غير مسند", Contact = x.Student.FamilyContact ?? "",
+                    RecentAvgGrade = Math.Round(x.Recent.Average(Score), 1), Notes = "ثلاث جلسات متتالية أقل من 70%" }).ToList();
+            var plans = await _db.CirclePlans.AsNoTracking().Where(p => p.StartsOn <= today && p.Completed < p.Target).ToListAsync();
+            var delayedPlans = plans.Select(p => new { p, Expected = Math.Min(1m, (decimal)(today.DayNumber - p.StartsOn.DayNumber + 1) / Math.Max(1, p.EndsOn.DayNumber - p.StartsOn.DayNumber + 1)) * p.Target })
+                .Where(x => x.p.Completed < x.Expected)
+                .Select(x => new { x.p.Id, x.p.CircleId, CircleName = allCircles.FirstOrDefault(c => c.Id == x.p.CircleId)?.Name ?? "", x.p.Title,
+                    CompletionPercentage = Math.Round(x.p.Completed / x.p.Target * 100, 1), ExpectedPercentage = Math.Round(x.Expected / x.p.Target * 100, 1) }).ToList();
+            var weekdays = new[] { "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت" };
+            var patterns = rangeAttendances.Where(a => a.Status == AttendanceStatus.Absent)
+                .GroupBy(a => new { a.StudentId, a.SessionDate.DayOfWeek })
+                .Where(g => g.Select(a => a.SessionDate).Distinct().Count() >= 3)
+                .Select(g => new { g.Key.StudentId, StudentName = allStudents.FirstOrDefault(s => s.Id == g.Key.StudentId)?.FullName ?? "",
+                    FrequentDay = weekdays[(int)g.Key.DayOfWeek], Count = g.Select(a => a.SessionDate).Distinct().Count() }).ToList();
 
             var assessmentBreakdown = rangeSessions
                 .GroupBy(s => s.Assessment)
@@ -461,6 +396,10 @@ public class ReportService
 
             return new
             {
+                schemaVersion = 2,
+                today = today.ToString("yyyy-MM-dd"),
+                generatedAt = DateTime.UtcNow,
+                pageCountsEstimated = rangeSessions.Any(s => s.Pages == null),
                 from = from.ToString("yyyy-MM-dd"),
                 to = to.ToString("yyyy-MM-dd"),
 
@@ -579,7 +518,7 @@ public class ReportService
                 },
                 specializedPrograms = new
                 {
-                    tathbeetCount = huffazCount,
+                    tathbeetCount,
                     ijazaCount = huffazInIjaza,
                     preacherYouthCount,
                     soundPathsCount = preacherSpeechesCount,
@@ -603,8 +542,8 @@ public class ReportService
                 earlyWarnings = new
                 {
                     needSpecialFollowup = specialFollowUp,
-                    delayedCircles = lowestPerformingCircles,
-                    patternAbsenceAlerts = consecutiveAbsenceAlerts.Take(5)
+                    delayedCircles = delayedPlans,
+                    patternAbsenceAlerts = patterns
                 }
             };
         }
@@ -614,6 +553,9 @@ public class ReportService
             throw new InvalidOperationException("تعذر تحميل إحصائيات المركز. يرجى إعادة المحاولة.", ex);
         }
     }
+    public static int CompletedParts(Student student) => (student.CompletedAjzaa ?? "").Split(',').Select(x => int.TryParse(x.Trim(), out var n) ? n : 0).Where(n => n >= 1 && n <= 30).Distinct().Count();
+    public static double Pages(RecitationSession s) => s.Assessment == AssessmentLevel.DidNotRecite ? 0 : s.Pages ?? Math.Max(0, s.ToVerse - s.FromVerse + 1) / 15.0;
+    public static double Score(RecitationSession s) => s.Score ?? s.Assessment switch { AssessmentLevel.Excellent => 95, AssessmentLevel.VeryGood => 85, AssessmentLevel.Good => 75, AssessmentLevel.Medium => 60, AssessmentLevel.Rejected => 40, _ => 0 };
     public static double Percentage(int count, int total) => total > 0 ? Math.Round(count * 100.0 / total, 1) : 0;
 
     public static bool HasCompletedQuran(Student student)

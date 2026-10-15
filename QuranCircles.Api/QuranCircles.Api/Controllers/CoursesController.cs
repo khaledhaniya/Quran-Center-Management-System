@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
 using QuranCircles.Api.Entities;
+using QuranCircles.Api.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -443,7 +444,8 @@ public class CoursesController : ControllerBase
     public async Task<IActionResult> GetMyCourses()
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
-        var currentUser = await _db.Users.FindAsync(currentUserId);
+        var currentUser = await _db.Users.Include(u => u.Teacher)
+            .FirstOrDefaultAsync(u => u.Id == currentUserId);
         if (currentUser == null) return Unauthorized();
 
         List<int> studentIds = new List<int>();
@@ -455,13 +457,9 @@ public class CoursesController : ControllerBase
         }
         else if (currentUser.Role == UserRole.Parent)
         {
-            if (currentUser.ParentId.HasValue)
-            {
-                studentIds = await _db.Students
-                    .Where(s => s.ParentId == currentUser.ParentId.Value)
-                    .Select(s => s.Id)
-                    .ToListAsync();
-            }
+            var children = await _db.Students.AsNoTracking().ToListAsync();
+            studentIds = children.Where(s => ParentLinks.IsChild(currentUser, s))
+                .Select(s => s.Id).ToList();
         }
         else
         {
@@ -470,7 +468,11 @@ public class CoursesController : ControllerBase
 
             if (currentUser.Role == UserRole.Teacher)
             {
+                var children = await _db.Students.AsNoTracking().ToListAsync();
+                var ownChildren = children.Where(s => ParentLinks.IsChild(currentUser, s))
+                    .Select(s => s.Id).ToList();
                 query = query.Where(e =>
+                    ownChildren.Contains(e.StudentId) ||
                     (e.Student != null && e.Student.Circle != null && e.Student.Circle.TeacherId == currentUser.TeacherId) ||
                     (e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
                     (e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))

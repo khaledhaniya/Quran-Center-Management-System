@@ -94,17 +94,6 @@ public class TeachersController : ControllerBase
         return Ok(new { Message = newStatus ? "تم تنشيط المعلم بنجاح." : "تم تعطيل المعلم بنجاح.", IsActive = newStatus });
     }
 
-    [HttpPost("import-excel")]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
-    public async Task<IActionResult> ImportFromExcel()
-    {
-        var (imported, updated, error) = await _svc.ImportExcelTeachersAsync();
-        if (error is not null) return BadRequest(new { error });
-
-        await AuditLogger.LogAsync(_db, HttpContext, "ImportExcelTeachers", $"استيراد وتحديث كادر المعلمين ({imported} جديد, {updated} محدث)");
-        return Ok(new { message = $"تم استيراد بيانات المعلمين بنجاح ({imported} جديد، {updated} تم تحديث بياناتهم).", imported, updated });
-    }
-
     [HttpGet("{id:int}/comprehensive-report")]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> GetTeacherComprehensiveReport(int id, [FromQuery] string? fromDate = null, [FromQuery] string? toDate = null)

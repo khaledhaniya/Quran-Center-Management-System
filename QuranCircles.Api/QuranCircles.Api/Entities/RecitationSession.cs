@@ -18,4 +18,9 @@ public class RecitationSession
     public string? Notes { get; set; }
 
     public bool ViaLottery { get; set; }
+    public int? RecordedCircleId { get; set; }
+    public int? RecordedByUserId { get; set; }
+    public double? Pages { get; set; }
+    public double? Score { get; set; }
+    public DateTime? RecordedAt { get; set; }
 }

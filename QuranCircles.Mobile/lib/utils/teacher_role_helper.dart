@@ -72,7 +72,7 @@ class TeacherRoleHelper {
       }
     }
 
-    if (t.contains('مركز البيان') || t.contains('أمير المركز') || t.contains('البيان')) {
+    if (t.contains('أمير المركز')) {
       addRole(const TeacherRoleItem(
         title: 'أمير المركز (المدير العام)',
         icon: Icons.military_tech,

@@ -52,6 +52,10 @@ public class QualityController : ControllerBase
                 .AsNoTracking()
                 .ToListAsync();
 
+            var exams = await _db.ExamNominations.Include(x => x.Result).AsNoTracking().ToListAsync();
+            var visits = await _db.QualityVisits.AsNoTracking().Where(v => !v.IsSubstituteModeActive).ToListAsync();
+            var circleDays = await _db.CircleDays.AsNoTracking().ToListAsync();
+            var today = CenterClock.Today;
             // Aggregate circle data
             var circleDataList = new List<object>();
 
@@ -60,7 +64,7 @@ public class QualityController : ControllerBase
             int allExcellenceCount = 0;
             int allTotalRecitations = sessions.Count;
             int allMemorizationCount = sessions.Count(s => s.RecitationType == RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
-            int allRevisionCount = sessions.Count(s => s.RecitationType == RecitationType.Revision && s.Assessment != AssessmentLevel.DidNotRecite);
+            int allRevisionCount = sessions.Count(s => s.RecitationType != RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
             int allDidNotReciteCount = sessions.Count(s => s.Assessment == AssessmentLevel.DidNotRecite);
             int allTotalVerses = sessions.Where(s => s.Assessment != AssessmentLevel.DidNotRecite).Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
 
@@ -69,10 +73,10 @@ public class QualityController : ControllerBase
                 var circleStudents = c.Students.Where(s => s.IsActive).ToList();
                 var studentIds = circleStudents.Select(s => s.Id).ToHashSet();
 
-                var cAttendances = attendances.Where(a => a.CircleId == c.Id || studentIds.Contains(a.StudentId)).ToList();
-                var cSessions = sessions.Where(s => studentIds.Contains(s.StudentId)).ToList();
+                var cAttendances = attendances.Where(a => a.CircleId == c.Id).ToList();
+                var cSessions = sessions.Where(s => s.RecordedCircleId == c.Id || (s.RecordedCircleId == null && studentIds.Contains(s.StudentId))).ToList();
 
-                int presentCount = cAttendances.Count(a => a.Status == AttendanceStatus.Present);
+                int presentCount = cAttendances.Count(a => (a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late));
                 int absentCount = cAttendances.Count(a => a.Status == AttendanceStatus.Absent);
                 int lateCount = cAttendances.Count(a => a.Status == AttendanceStatus.Late);
                 int totalAtt = cAttendances.Count;
@@ -83,13 +87,30 @@ public class QualityController : ControllerBase
                 int cExcellence = cSessions.Count(s => s.Assessment == AssessmentLevel.Excellent);
                 allExcellenceCount += cExcellence;
 
-                int attendanceRate = totalAtt > 0 ? (int)Math.Round((double)presentCount / totalAtt * 100) : 100;
+                int attendanceRate = totalAtt > 0 ? (int)Math.Round((double)presentCount / totalAtt * 100) : 0;
                 int memSessions = cSessions.Count(s => s.RecitationType == RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
-                int revSessions = cSessions.Count(s => s.RecitationType == RecitationType.Revision && s.Assessment != AssessmentLevel.DidNotRecite);
+                int revSessions = cSessions.Count(s => s.RecitationType != RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
                 int didNotReciteSessions = cSessions.Count(s => s.Assessment == AssessmentLevel.DidNotRecite);
                 int totalVerses = cSessions.Where(s => s.Assessment != AssessmentLevel.DidNotRecite).Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
 
-                string qualityScore = attendanceRate >= 90 ? "ممتاز ⭐⭐⭐" : (attendanceRate >= 80 ? "جيد جداً ⭐⭐" : "جيد ⭐");
+                var monthStart = new DateOnly(today.Year, today.Month, 1);
+                var monthDays = circleDays.Where(d => d.CircleId == c.Id && d.Date >= monthStart && d.Date <= today).ToList();
+                var monthAtt = cAttendances.Where(a => a.SessionDate >= monthStart && a.SessionDate <= today).ToList();
+                var monthExams = exams.Where(e => studentIds.Contains(e.StudentId) && e.Status == "Completed" && e.Result != null && e.ExamDate.HasValue && DateOnly.FromDateTime(e.ExamDate.Value) >= monthStart && DateOnly.FromDateTime(e.ExamDate.Value) <= today).ToList();
+                var monthVisits = visits.Where(v => v.CircleId == c.Id && v.VisitDate >= monthStart && v.VisitDate <= today).ToList();
+                double teacherRate = ReportService.Percentage(monthDays.Count(d => d.OpenedAt != null && d.Status != "Absent"), monthDays.Count(d => d.Status != "Suspended"));
+                double studentRate = ReportService.Percentage(monthAtt.Count(a => a.Status is AttendanceStatus.Present or AttendanceStatus.Late), monthAtt.Count);
+                double examRate = monthExams.Count > 0 ? monthExams.Average(e => e.Result!.Grade) : 0;
+                double visitRate = monthVisits.Count > 0 ? monthVisits.Average(v => v.OverallQualityScore) : 0;
+                bool ratingComplete = monthDays.Count > 0 && monthAtt.Count > 0 && monthExams.Count > 0 && monthVisits.Count > 0;
+                double? rating = ratingComplete ? Math.Round(teacherRate * .25 + studentRate * .25 + examRate * .30 + visitRate * .20, 1) : null;
+                string qualityScore = rating == null ? "بيانات التقييم غير مكتملة" : rating >= 90 ? "ممتاز" : rating >= 75 ? "جيد جداً" : "يحتاج متابعة";
+                var week1 = cSessions.Where(s => s.SessionDate > today.AddDays(-7) && s.SessionDate <= today).ToList();
+                var week2 = cSessions.Where(s => s.SessionDate > today.AddDays(-14) && s.SessionDate <= today.AddDays(-7)).ToList();
+                bool declineAlert = week1.Count > 0 && week2.Count > 0 && week1.Average(ReportService.Score) < 75 && week2.Average(ReportService.Score) < 75;
+                double newPages = cSessions.Where(s => s.RecitationType == RecitationType.Memorization).Sum(ReportService.Pages);
+                double reviewPages = cSessions.Where(s => s.RecitationType != RecitationType.Memorization).Sum(ReportService.Pages);
+                double? reviewToNewPercent = newPages > 0 ? Math.Round(reviewPages / newPages * 100, 1) : null;
 
                 // Breakdown of students in this circle
                 var studentBreakdown = circleStudents.Select(st =>
@@ -97,14 +118,14 @@ public class QualityController : ControllerBase
                     var stAtt = cAttendances.Where(a => a.StudentId == st.Id).ToList();
                     var stSess = cSessions.Where(s => s.StudentId == st.Id).ToList();
 
-                    int stPresent = stAtt.Count(a => a.Status == AttendanceStatus.Present);
+                    int stPresent = stAtt.Count(a => (a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late));
                     int stAbsent = stAtt.Count(a => a.Status == AttendanceStatus.Absent);
                     int stLate = stAtt.Count(a => a.Status == AttendanceStatus.Late);
                     int stTotalAtt = stAtt.Count;
-                    int stRate = stTotalAtt > 0 ? (int)Math.Round((double)stPresent / stTotalAtt * 100) : 100;
+                    int stRate = stTotalAtt > 0 ? (int)Math.Round((double)stPresent / stTotalAtt * 100) : 0;
 
                     int stMem = stSess.Count(s => s.RecitationType == RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
-                    int stRev = stSess.Count(s => s.RecitationType == RecitationType.Revision && s.Assessment != AssessmentLevel.DidNotRecite);
+                    int stRev = stSess.Count(s => s.RecitationType != RecitationType.Memorization && s.Assessment != AssessmentLevel.DidNotRecite);
                     int stDidNotRecite = stSess.Count(s => s.Assessment == AssessmentLevel.DidNotRecite);
                     int stVerses = stSess.Where(s => s.Assessment != AssessmentLevel.DidNotRecite).Sum(s => Math.Max(0, s.ToVerse - s.FromVerse + 1));
 
@@ -144,6 +165,10 @@ public class QualityController : ControllerBase
                     DidNotReciteSessions = didNotReciteSessions,
                     TotalVerses = totalVerses,
                     QualityScore = qualityScore,
+                    Rating = rating, RatingComplete = ratingComplete,
+                    RatingComponents = new { TeacherAttendance = teacherRate, StudentAttendance = studentRate, Exams = examRate, Visits = visitRate },
+                    DeclineAlert = declineAlert, ReviewToNewPercent = reviewToNewPercent,
+                    ReviewWarning = reviewToNewPercent.HasValue && reviewToNewPercent < 70,
                     Students = studentBreakdown
                 });
             }
@@ -155,15 +180,15 @@ public class QualityController : ControllerBase
                 var enrollments = crs.Enrollments.ToList();
                 var crsAtt = courseAttendances.Where(ca => ca.CourseId == crs.Id).ToList();
 
-                int crsPresent = crsAtt.Count(a => a.Status == AttendanceStatus.Present);
+                int crsPresent = crsAtt.Count(a => (a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late));
                 int crsTotalAtt = crsAtt.Count;
-                int crsRate = crsTotalAtt > 0 ? (int)Math.Round((double)crsPresent / crsTotalAtt * 100) : 100;
+                int crsRate = crsTotalAtt > 0 ? (int)Math.Round((double)crsPresent / crsTotalAtt * 100) : 0;
                 int passedCount = enrollments.Count(e => e.Status == "Passed" || e.Status == "Certified");
 
                 var enrolledStudents = enrollments.Select(e =>
                 {
                     var stAtt = crsAtt.Where(a => a.StudentId == e.StudentId).ToList();
-                    int stPresent = stAtt.Count(a => a.Status == AttendanceStatus.Present);
+                    int stPresent = stAtt.Count(a => (a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late));
                     int stAbsent = stAtt.Count(a => a.Status == AttendanceStatus.Absent);
 
                     return new
@@ -191,8 +216,8 @@ public class QualityController : ControllerBase
             }
 
             // Global rates
-            int avgAttendanceRate = allTotalAttCount > 0 ? (int)Math.Round((double)allPresentCount / allTotalAttCount * 100) : 95;
-            int excellenceRate = allTotalRecitations > 0 ? (int)Math.Round((double)allExcellenceCount / allTotalRecitations * 100) : 90;
+            int avgAttendanceRate = allTotalAttCount > 0 ? (int)Math.Round((double)allPresentCount / allTotalAttCount * 100) : 0;
+            int excellenceRate = allTotalRecitations > 0 ? (int)Math.Round((double)allExcellenceCount / allTotalRecitations * 100) : 0;
 
             return Ok(new
             {
@@ -217,25 +242,7 @@ public class QualityController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"[QualityController.GetOverview Warning] {ex.Message}");
-            return Ok(new
-            {
-                Stats = new
-                {
-                    TotalCircles = 0,
-                    TotalStudents = 0,
-                    TotalSessions = 0,
-                    MemorizationSessions = 0,
-                    RevisionSessions = 0,
-                    DidNotReciteSessions = 0,
-                    TotalVerses = 0,
-                    AvgAttendanceRate = 95,
-                    ExcellenceRate = 90,
-                    TotalCourses = 0,
-                    TotalCourseEnrollments = 0
-                },
-                Circles = new List<object>(),
-                Courses = new List<object>()
-            });
+            return StatusCode(503, new { error = "تعذر تحميل مؤشرات الجودة. أعد المحاولة." });
         }
     }
 
@@ -274,12 +281,26 @@ public class QualityController : ControllerBase
         var circle = await _db.Circles.FindAsync(dto.CircleId);
         if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
 
+        if (dto.PunctualityScore is < 0 or > 100 || dto.ClassManagementScore is < 0 or > 100 || dto.TajweedCorrectionScore is < 0 or > 100)
+            return BadRequest(new { error = "درجات الزيارة يجب أن تكون بين 0 و100." });
+        if (dto.IsSubstituteModeActive) return BadRequest(new { error = "التغطية تُفعّل من سجل غياب المعلم فقط." });
+        if (!string.IsNullOrWhiteSpace(dto.SpotCheckedStudentsJson))
+        {
+            try {
+                using var doc = System.Text.Json.JsonDocument.Parse(dto.SpotCheckedStudentsJson);
+                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array || doc.RootElement.GetArrayLength() > 3) return BadRequest();
+                var ids = await _db.Students.Where(s => s.CircleId == dto.CircleId && s.IsActive).Select(s => s.Id).ToListAsync();
+                foreach (var item in doc.RootElement.EnumerateArray())
+                    if (!item.TryGetProperty("studentId", out var id) || !ids.Contains(id.GetInt32()) ||
+                        !item.TryGetProperty("score", out var score) || score.GetDouble() < 0 || score.GetDouble() > 100) return BadRequest(new { error = "تحقق من طلاب العينة ودرجاتهم." });
+            } catch (System.Text.Json.JsonException) { return BadRequest(); }
+        }
         int overall = (int)Math.Round((dto.PunctualityScore * 0.25) + (dto.ClassManagementScore * 0.25) + (dto.TajweedCorrectionScore * 0.50));
 
         var visit = new QualityVisit
         {
             CircleId = dto.CircleId,
-            SupervisorName = !string.IsNullOrWhiteSpace(dto.SupervisorName) ? dto.SupervisorName.Trim() : "مشرف الجودة",
+            SupervisorName = FakeAuth.GetUsername(HttpContext) ?? "مشرف الجودة",
             VisitDate = dto.VisitDate ?? DateOnly.FromDateTime(DateTime.Today),
             PunctualityScore = Math.Clamp(dto.PunctualityScore, 0, 100),
             ClassManagementScore = Math.Clamp(dto.ClassManagementScore, 0, 100),
@@ -333,20 +354,16 @@ public class QualityController : ControllerBase
         var circle = await _db.Circles.Include(c => c.Teacher).FirstOrDefaultAsync(c => c.Id == dto.CircleId);
         if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
 
-        // Record a visit log or audit log
-        var visit = new QualityVisit
-        {
-            CircleId = dto.CircleId,
-            SupervisorName = dto.SupervisorName ?? "المشرف المناوب",
-            VisitDate = DateOnly.FromDateTime(DateTime.Today),
-            PunctualityScore = 100,
-            ClassManagementScore = 100,
-            TajweedCorrectionScore = 100,
-            OverallQualityScore = 100,
-            Notes = $"[وضع المعلم البديل]: تم تفعيل التغطية للحلقة نظراً لـ {dto.Reason ?? "غياب المحفظ الرسمي"}",
-            IsSubstituteModeActive = dto.Activate
-        };
-        _db.QualityVisits.Add(visit);
+        var today = CenterClock.Today;
+        var day = await _db.CircleDays.FirstOrDefaultAsync(d => d.CircleId == dto.CircleId && d.Date == today);
+        if (day == null || day.Status != "Absent") return BadRequest(new { error = "يلزم تسجيل المعلم الأصلي غائباً رسمياً قبل التغطية." });
+        var userId = FakeAuth.GetUserId(HttpContext)!.Value;
+        var substitute = await _db.Users.Include(u => u.Teacher).FirstOrDefaultAsync(u => u.Id == userId);
+        if (dto.Activate && (substitute?.Teacher?.IsActive != true || substitute.TeacherId == circle.TeacherId))
+            return BadRequest(new { error = "اختر مشرفاً نشطاً يختلف عن المعلم الأصلي لتفعيل التغطية." });
+        day.SubstituteUserId = dto.Activate ? userId : null;
+        day.UpdatedByUserId = userId;
+        _db.AuditLogs.Add(new AuditLog { Username = FakeAuth.GetUsername(HttpContext)!, Action = "SubstituteMode", Details = $"Circle {dto.CircleId}; Active {dto.Activate}; {dto.Reason}" });
         await _db.SaveChangesAsync();
 
         return Ok(new { success = true, isSubstituteModeActive = dto.Activate, message = dto.Activate ? "تم تفعيل وضع المعلم البديل للحلقة بنجاح." : "تم إلغاء وضع المعلم البديل." });

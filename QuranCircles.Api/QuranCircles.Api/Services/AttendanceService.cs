@@ -15,6 +15,9 @@ public class AttendanceService
         var student = await _db.Students.FindAsync(dto.StudentId);
         if (student is null) return (null, "الطالب غير موجود.");
 
+        if (!Enum.IsDefined(dto.Status)) return (null, "حالة حضور غير صالحة.");
+        if (!student.IsActive) return (null, "الطالب غير مفعّل.");
+        if (student.CircleId != dto.CircleId) return (null, "الطالب غير مسند لهذه الحلقة.");
         var circle = await _db.Circles.FindAsync(dto.CircleId);
         if (circle is null) return (null, "الحلقة غير موجودة.");
 

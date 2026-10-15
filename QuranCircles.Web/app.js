@@ -82,7 +82,7 @@ let cachedStudents = [];
 let cachedUsers = [];
 
 // Initialize Application
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     // Immediately apply cached center brand names so no stale flash occurs
     try {
         const cachedSettingsRaw = localStorage.getItem("system_settings_cache");
@@ -95,7 +95,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     } catch (_) {}
 
-    fetchAndApplySystemSettings(); // Immediately fetch & apply dynamic CMS settings to DOM
+    const slowHint = setTimeout(() => {
+        const hint = document.getElementById('loader-hint-msg');
+        if (hint) hint.textContent = 'انتظر قليلاً، الاتصال يستغرق وقتاً أطول من المعتاد. ننتظر استجابة الخادم.';
+    }, 5000);
+    await fetchAndApplySystemSettings();
+    if (getAuthStorage('token')) {
+        try {
+            const response = await fetch(`${API_BASE}/auth/me`, {headers:{Authorization:`Bearer ${getAuthStorage('token')}`},signal:AbortSignal.timeout(15000)});
+            if (response.status === 401) { sessionStorage.removeItem('token'); localStorage.removeItem('token'); sessionStorage.removeItem('role'); localStorage.removeItem('role'); }
+        } catch (_) { /* Preserve session during network interruptions. */ }
+    }
+    clearTimeout(slowHint);
     Object.keys(localStorage).filter(key => key.startsWith("user_pw_")).forEach(key => localStorage.removeItem(key));
     setupAuth();
     setupNavigation();
@@ -1258,13 +1269,6 @@ async function loadAdminDashboard() {
     const fromDateInput = document.getElementById("report-from-date");
     const toDateInput = document.getElementById("report-to-date");
 
-    if (fromDateInput && toDateInput && (!fromDateInput.value || !toDateInput.value)) {
-        const today = new Date();
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        fromDateInput.value = formatDateString(firstDayOfMonth);
-        toDateInput.value = formatDateString(today);
-    }
-
     if (fromDateInput && !fromDateInput.dataset.bound) {
         fromDateInput.dataset.bound = "true";
         fromDateInput.addEventListener("change", () => loadAdminDashboard());
@@ -1276,17 +1280,24 @@ async function loadAdminDashboard() {
 
     const fromDate = fromDateInput?.value || '';
     const toDate = toDateInput?.value || '';
+    const dateQuery = new URLSearchParams();
+    if (fromDate) dateQuery.set('from', fromDate);
+    if (toDate) dateQuery.set('to', toDate);
+    const suffix = dateQuery.size ? `?${dateQuery}` : '';
 
     try {
         const [execRes, dataRes, studentsRes, circlesRes, coursesRes] = await Promise.allSettled([
-            apiRequest(`/reports/executive-dashboard?from=${fromDate}&to=${toDate}`, "GET", null, 1, true),
-            apiRequest(`/reports/summary?from=${fromDate}&to=${toDate}`, "GET", null, 1, true),
+            apiRequest(`/reports/executive-dashboard${suffix}`, "GET", null, 1, true),
+            apiRequest(`/reports/summary${suffix}`, "GET", null, 1, true),
             apiRequest("/students", "GET", null, 1, true),
             apiRequest("/circles", "GET", null, 1, true),
             apiRequest("/courses", "GET", null, 1, true)
         ]);
 
+        if (execRes.status !== 'fulfilled' || !execRes.value?.kpi) throw new Error('تعذر تحميل المؤشرات. أعد المحاولة؛ لم تُستبدل البيانات بأرقام افتراضية.');
         const execData = execRes.status === 'fulfilled' && execRes.value ? execRes.value : {};
+        if (fromDateInput && !fromDateInput.value) fromDateInput.value = execData.from || '';
+        if (toDateInput && !toDateInput.value) toDateInput.value = execData.to || '';
         const data = dataRes.status === 'fulfilled' && dataRes.value ? dataRes.value : {};
         const students = studentsRes.status === 'fulfilled' && Array.isArray(studentsRes.value) ? studentsRes.value : [];
         const circles = circlesRes.status === 'fulfilled' && Array.isArray(circlesRes.value) ? circlesRes.value : [];
@@ -1310,8 +1321,8 @@ async function loadAdminDashboard() {
         setTxt("kpi-students-suspended", (kpi.suspendedStudents ?? students.filter(s => s.isActive === false).length).toLocaleString());
 
         setTxt("kpi-circles-active", `${kpi.activeCircles ?? circles.length} حلقة`);
-        setTxt("kpi-capacity-rate", `${kpi.circleCapacityUtilizationRate ?? 85}%`);
-        setTxt("kpi-teachers-total", (kpi.totalTeachers ?? 15).toLocaleString());
+        setTxt("kpi-capacity-rate", `${kpi.circleCapacityUtilizationRate ?? 0}%`);
+        setTxt("kpi-teachers-total", (kpi.totalTeachers ?? 0).toLocaleString());
 
         setTxt("kpi-parents-total", (kpi.totalParents ?? 0).toLocaleString());
         setTxt("kpi-parents-linked", (kpi.linkedParents ?? 0).toLocaleString());
@@ -1328,7 +1339,7 @@ async function loadAdminDashboard() {
         setTxt("pulse-unexcused-today", (pulse.unexcusedAbsentToday ?? 0).toLocaleString());
 
         setTxt("pulse-teacher-rate", `${pulse.teacherAttendanceRateToday ?? 0}%`);
-        setTxt("pulse-active-circles-today", (pulse.activeCirclesToday ?? circles.length).toLocaleString());
+        setTxt("pulse-active-circles-today", (pulse.activeCirclesToday ?? 0).toLocaleString());
         setTxt("pulse-delayed-circles-today", (pulse.pendingOrDelayedCirclesToday ?? 0).toLocaleString());
 
         setTxt("pulse-sessions-today", `${pulse.sessionsToday ?? 0} جلسة`);
@@ -6247,31 +6258,7 @@ async function showStudent360Modal(studentId) {
 
 // ------ Preview & Print Accredited Certificate ------
 function openAccreditedCertificatePreview(cert) {
-    const certCode = cert.certificateCode || `CERT-${cert.id || 1001}`;
-    const certDate = cert.certificateDate || cert.examDate || new Date().toISOString().substring(0, 10);
-    const isQuran = cert.nominationType === "Quran";
-    const courseOrJuzText = cert.formattedDetails || cert.courseName || (isQuran ? "أجزاء من القرآن الكريم" : "دورة أكاديمية معتمدة");
-    const teacherName = cert.teacherName || "شيخ ومعلم الحلقة";
-    const centerEmirName = cachedSystemSettings?.centerEmirName || "فضيلة الشيخ / علي حسن النبيه";
-    const centerEmirRole = cachedSystemSettings?.centerEmirRole || "رئيس ومشرف عام المركز";
-    const teacherRole = isQuran ? "المحفظ المشرف" : "معلم المساق";
-
-    const certId = `preview-cert-${cert.id || Math.floor(Math.random() * 10000)}`;
-    const certHtml = renderLuxuryCertificateHtml({
-        id: certId,
-        isQuran: isQuran,
-        studentName: cert.studentName || 'طالب المركز',
-        courseOrJuzText: courseOrJuzText,
-        grade: cert.grade || 100,
-        teacherRole: teacherRole,
-        teacherName: teacherName,
-        centerEmirRole: centerEmirRole,
-        centerEmirName: centerEmirName,
-        certCode: certCode,
-        certDate: certDate
-    });
-
-    printCertificate(certHtml, cert.studentName || 'طالب المركز');
+    return showUnifiedCertificate(cert.nominationType ? 'exam' : 'course', cert.id);
 }
 
 // ------ Working Print & PDF Export Engine with Animated Progress Bar ------
@@ -6354,7 +6341,7 @@ async function downloadStudent360Pdf(studentId) {
         updateProgress(75, "تضمين كشوفات الحضور والشهادات المعتمدة...");
 
         const centerTitle = cachedSystemSettings?.centerName || "مركز البيان لتعليم القرآن الكريم";
-        const centerEmirName = cachedSystemSettings?.centerEmirName || "فضيلة الشيخ / علي حسن النبيه";
+        const centerEmirName = cachedSystemSettings?.signatoryName || "إدارة المركز";
         const logoSrc = (typeof CENTER_LOGO_BASE64 !== "undefined" && CENTER_LOGO_BASE64) ? CENTER_LOGO_BASE64 : "assets/logo.png";
         const todayStr = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -10738,629 +10725,73 @@ async function loadCoursesList() {
 }
 
 // ==================== 2026 LUXURY ARABIC ACCREDITED CERTIFICATE GENERATOR ====================
-function renderLuxuryCertificateHtml(options) {
-    const {
-        id,
-        isQuran,
-        studentName,
-        courseOrJuzText,
-        grade,
-        teacherRole,
-        teacherName,
-        centerEmirRole,
-        centerEmirName,
-        certCode,
-        certDate
-    } = options;
-
-    const gradeNum = parseFloat(grade) || 0;
-    const gradeText = gradeNum >= 95 ? "ممتاز مرتفع" : (gradeNum >= 90 ? "ممتاز" : (gradeNum >= 80 ? "جيد جداً" : (gradeNum >= 70 ? "جيد" : "مقبول")));
-    const logoSrc = (typeof CENTER_LOGO_BASE64 !== "undefined" && CENTER_LOGO_BASE64) ? CENTER_LOGO_BASE64 : "assets/logo.png";
-    const centerTitle = cachedSystemSettings?.centerName || "مركز البيان لتعليم القرآن الكريم";
-
-    return `
-        <div class="premium-certificate" id="${id}">
-            <div class="cert-outer-border">
-                <div class="cert-corner cert-corner-tr"></div>
-                <div class="cert-corner cert-corner-tl"></div>
-                <div class="cert-corner cert-corner-br"></div>
-                <div class="cert-corner cert-corner-bl"></div>
-
-                <div class="cert-inner-border">
-                    <!-- Header -->
-                    <div class="cert-header">
-                        <div class="cert-header-right">
-                            <div class="cert-state">دَوْلَةُ فِلَسْطِين</div>
-                            <div class="cert-ministry">دَارُ القُرْآنِ الكَرِيمِ وَالسُّنَّةِ</div>
-                            <div class="cert-mosque">${escapeXml(centerTitle)}</div>
-                        </div>
-
-                        <div class="cert-header-center">
-                            <div class="cert-logo-container">
-                                <img src="${logoSrc}" alt="شعار المركز" class="cert-logo-img">
-                            </div>
-                            <div class="cert-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-                        </div>
-
-                        <div class="cert-header-left">
-                            <div class="cert-center-title">إِدَارَةُ الشُّؤُونِ التَّعْلِيمِيَّةِ وَالاخْتِبَارَاتِ</div>
-                            <div class="cert-dept">شَهَادَةُ اجْتِيَازٍ رَسْمِيَّةٌ مُعْتَمَدَةٌ</div>
-                            <div class="cert-serial-code">الرَّقْمُ المُعْتَمَدُ: <code>${certCode}</code></div>
-                            <div class="cert-date-text">تَارِيخُ الإِصْدَارِ: ${certDate}</div>
-                        </div>
-                    </div>
-
-                    <!-- Title Section -->
-                    <div class="cert-title-section">
-                        <div class="cert-title-badge">
-                            <i class="fa-solid fa-award"></i>
-                            <span>${isQuran ? "شَهَادَةُ اجْتِيَازِ اخْتِبَارِ القُرْآنِ الكَرِيمِ" : "شَهَادَةُ إِتْمَامِ دَوْرَةٍ عِلْمِيَّةٍ مُعْتَمَدَةٍ"}</span>
-                            <i class="fa-solid fa-award"></i>
-                        </div>
-                    </div>
-
-                    <!-- Body -->
-                    <div class="cert-body">
-                        <div class="cert-preamble">
-                            تَشْهَدُ إِدَارَةُ مَرْكَزِ البَيَانِ لِتَعْلِيمِ القُرْآنِ الكَرِيمِ بِأَنَّ الطَّالِبَ المُبَارَكَ:
-                        </div>
-                        <div class="cert-student-box">
-                            <div class="cert-student-name">${escapeXml(studentName)}</div>
-                        </div>
-                        <div class="cert-statement">
-                            ${isQuran ?
-                                `قَدِ اجْتَازَ بِتَوْفِيقِ اللَّهِ تَعَالَى وَبِنَجَاحٍ اخْتِبَارَ حِفْظِ وَتَسْمِيعِ كِتَابِ اللَّهِ الكَرِيمِ <strong>${courseOrJuzText}</strong>، وَذَلِكَ بَعْدَ عَرْضِهِ شَفَوِيّاً عَلَى اللِّجَانِ المُخْتَصَّةِ بِالمَرْكَزِ، سَائِلِينَ اللَّهَ أَنْ يَجْعَلَهُ مِنْ أَهْلِ القُرْآنِ وَخَاصَّتِهِ.` :
-                                `قَدْ أَكْمَلَ بِتَوْفِيقِ اللَّهِ تَعَالَى وَبِنَجَاحٍ كَافَّةَ مُتَطَلَّبَاتِ حُضُورِ وَاجْتِيَازِ <strong>${courseOrJuzText}</strong>، بِمَا يَتَضَمَّنُهُ المَنْهَجُ التَّأْهِيلِيُّ مِنْ تَطْبِيقَاتٍ وَاخْتِبَارَاتٍ مُعْتَمَدَةٍ، سَائِلِينَ المَوْلَى لَهُ دَوَامَ التَّوْفِيقِ وَالسَّدَادِ.`
-                            }
-                        </div>
-
-                        <div class="cert-grade-row">
-                            <div class="cert-grade-pill">
-                                <strong>التقدير العام:</strong> ${gradeText}
-                            </div>
-                            <div class="cert-grade-pill">
-                                <strong>الدرجة المستحقة:</strong> ${gradeNum}%
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer / Signatures -->
-                    <div class="cert-footer">
-                        <!-- Teacher Signature Box -->
-                        <div class="cert-signature-box">
-                            <div class="cert-signature-role">${teacherRole}</div>
-                            <div class="cert-signature-name">${escapeXml(teacherName || "شيخ ومعلم الحلقة")}</div>
-                            <div class="cert-signature-line"></div>
-                            <div class="cert-signature-note">التوقيع والاعتماد الأكاديمي</div>
-                        </div>
-
-                        <!-- Luxury Seal Box -->
-                        <div class="cert-seal-box">
-                            <div class="cert-luxury-stamp">
-                                <div class="cert-stamp-ring">
-                                    <div class="cert-stamp-star"><i class="fa-solid fa-star"></i></div>
-                                    <div class="cert-stamp-text">مُعْتَمَدٌ وَمُجَازٌ</div>
-                                    <div class="cert-stamp-center">مركز البيان</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Center Emir Signature Box -->
-                        <div class="cert-signature-box">
-                            <div class="cert-signature-role">${centerEmirRole}</div>
-                            <div class="cert-signature-name">${escapeXml(centerEmirName || "فضيلة الشيخ / علي حسن النبيه")}</div>
-                            <div class="cert-signature-line"></div>
-                            <div class="cert-signature-note">الختم والمصادقة الإدارية</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
+let portfolioCertificateUrls = [];
 async function loadPortfolio() {
+    const container = document.getElementById("certificates-container");
+    if (!container) return;
+    for (const url of portfolioCertificateUrls) URL.revokeObjectURL(url);
+    portfolioCertificateUrls = [];
+    container.innerHTML = '<div class="text-center p-5 w-100"><div class="spinner-border text-primary"></div><p>جارٍ تحميل الشهادات المعتمدة...</p></div>';
     try {
-        const isAcad = (currentRole === "Admin" || currentRole === "Developer" || currentRole === "Teacher" || currentRole === "ExamSupervisor");
-        const titleEl = document.getElementById("portfolio-title");
-        const descEl = document.getElementById("portfolio-desc");
-
-        if (isAcad) {
-            if (titleEl) titleEl.textContent = "السجل العام للشهادات الرقمية الصادرة";
-            if (descEl) descEl.textContent = "استعرض واطبع جميع الشهادات الرقمية المعتمدة الصادرة لطلاب المركز بعد اجتيازهم الدورات الأكاديمية أو اختبارات الأجزاء بنجاح.";
-        } else {
-            if (titleEl) titleEl.textContent = "ملف الإنجاز الرقمي الخاص بك";
-            if (descEl) descEl.textContent = "استعرض هنا جميع الشهادات الرقمية المعتمدة الصادرة باسمك فور اجتيازك لأي دورة أكاديمية أو تسميع أجزاء من القرآن الكريم بنجاح.";
-        }
-
-        const container = document.getElementById("certificates-container");
-        if (!container) return;
-        container.innerHTML = `
-            <div class="text-center p-5 w-100" style="grid-column: 1/-1;">
-                <div class="spinner-border text-primary" role="status"></div>
-                <div class="mt-2 text-muted">جاري تحميل السجل الرقمي للشهادات...</div>
-            </div>
-        `;
-
-        // Fetch both courses and exam nominations concurrently
-        const [enrollmentsRes, nominationsRes] = await Promise.allSettled([
-            apiRequest("/courses/my-courses"),
-            apiRequest("/exams/nominations")
+        const [courseResponse, examResponse] = await Promise.allSettled([
+            apiRequest("/courses/my-courses"), apiRequest("/exams/nominations")
         ]);
-
-        const enrollments = enrollmentsRes.status === "fulfilled" && Array.isArray(enrollmentsRes.value) ? enrollmentsRes.value : [];
-        const nominations = nominationsRes.status === "fulfilled" && Array.isArray(nominationsRes.value) ? nominationsRes.value : [];
-
-        const uniqueCertsMap = new Map();
-        const emirName = cachedSystemSettings?.signatoryName || "الشيخ / علي حسن النبيه";
-
-        // 1. Process Completed Exam Nominations (Quran + Courses)
-        nominations.forEach(n => {
-            if (n.status === "Completed" && n.result && (parseFloat(n.result.grade) >= 60)) {
-                const gradeVal = parseFloat(n.result.grade);
-                const certDate = n.result.examDate ? new Date(n.result.examDate).toLocaleDateString('ar-EG') : (n.examDate ? new Date(n.examDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG'));
-                const sName = (n.studentName || "طالب العلم").trim();
-                const sIdentifier = (n.studentId ? String(n.studentId) : sName.toLowerCase()).trim();
-
-                if (n.nominationType === "Quran") {
-                    const jStart = n.juzStart || 1;
-                    const jEnd = n.juzEnd || 1;
-                    const dedupKey = `quran_${sIdentifier}_${jStart}_${jEnd}`;
-                    const juzText = (jStart === jEnd) ? `للجزء (${jStart}) من القرآن الكريم` : `للأجزاء من (${jStart}) إلى (${jEnd}) من القرآن الكريم`;
-                    const cardTitle = (jStart === jEnd) ? `شهادة حفظ الجزء (${jStart})` : `شهادة حفظ الأجزاء (${jStart} - ${jEnd})`;
-                    const cYear = n.examDate ? new Date(n.examDate).getFullYear() : 2026;
-                    const certCode = `CERT-Q-${cYear}-${1000 + n.id}`;
-
-                    if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
-                        uniqueCertsMap.set(dedupKey, {
-                            id: `cert-quran-${n.id}`,
-                            isQuran: true,
-                            studentName: sName,
-                            courseOrJuzText: juzText,
-                            grade: gradeVal,
-                            teacherRole: "محفظ ومربي الحلقة",
-                            teacherName: n.teacherName || "شيخ ومعلم الحلقة",
-                            centerEmirRole: "أمير المركز / المشرف العام",
-                            centerEmirName: emirName,
-                            certCode: certCode,
-                            certDate: certDate,
-                            cardTitle: cardTitle
-                        });
-                    }
-                } else {
-                    // Course Exam Nomination
-                    const cTitle = (n.courseName || "الدورة العلمية التخصصية").trim();
-                    const cIdentifier = (n.courseId ? String(n.courseId) : cTitle.toLowerCase()).trim();
-                    const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
-
-                    // Check if an enrollment exists with an official certificate code
-                    const matchingEnrollment = enrollments.find(e =>
-                        (e.courseId && n.courseId && String(e.courseId) === String(n.courseId)) &&
-                        ((e.studentId && n.studentId && String(e.studentId) === String(n.studentId)) || (e.studentName && n.studentName && e.studentName === n.studentName))
-                    );
-                    const cYear = n.examDate ? new Date(n.examDate).getFullYear() : 2026;
-                    const certCode = matchingEnrollment?.certificateCode || `CERT-C-${cYear}-${1000 + n.id}`;
-
-                    if (!uniqueCertsMap.has(dedupKey) || uniqueCertsMap.get(dedupKey).grade <= gradeVal) {
-                        uniqueCertsMap.set(dedupKey, {
-                            id: `cert-exam-course-${n.id}`,
-                            isQuran: false,
-                            studentName: sName,
-                            courseOrJuzText: `مقرر الدورة العلمية التخصصية: (${cTitle})`,
-                            grade: gradeVal,
-                            teacherRole: "معلم ومحاضر الدورة",
-                            teacherName: n.teacherName || "معلم ومحاضر الدورة",
-                            centerEmirRole: "أمير المركز / المشرف العام",
-                            centerEmirName: emirName,
-                            certCode: certCode,
-                            certDate: certDate,
-                            cardTitle: cTitle
-                        });
-                    }
-                }
+        if (courseResponse.status !== "fulfilled" && examResponse.status !== "fulfilled")
+            throw new Error("تعذر تحميل سجل الشهادات.");
+        const courses = courseResponse.status === "fulfilled" && Array.isArray(courseResponse.value) ? courseResponse.value : [];
+        const exams = examResponse.status === "fulfilled" && Array.isArray(examResponse.value) ? examResponse.value : [];
+        const passing = Number(cachedSystemSettings?.passingScoreThreshold || 70);
+        const certificates = [];
+        for (const item of courses) {
+            if (item.certificateCode && ["Passed", "Certified"].includes(item.status) &&
+                Number(item.grade) >= passing) {
+                certificates.push({kind:"course", id:Number(item.id), title:item.courseName || "دورة معتمدة",
+                    student:item.studentName || "", code:item.certificateCode});
             }
-        });
-
-        // 2. Process Passed Course Enrollments (Direct Grading or Course completions)
-        enrollments.forEach(e => {
-            if ((e.status === "Passed" || e.status === "Certified") && (parseFloat(e.grade) >= 60)) {
-                const sName = (e.studentName || "طالب العلم").trim();
-                const sIdentifier = (e.studentId ? String(e.studentId) : sName.toLowerCase()).trim();
-                const cTitle = (e.courseName || "الدورة العلمية التخصصية").trim();
-                const cIdentifier = (e.courseId ? String(e.courseId) : cTitle.toLowerCase()).trim();
-                const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
-
-                const gradeVal = parseFloat(e.grade);
-                const certDate = e.certificateDate ? new Date(e.certificateDate).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
-                const cYear = e.certificateDate ? new Date(e.certificateDate).getFullYear() : 2026;
-                const certCode = e.certificateCode || `CERT-C-${cYear}-${1000 + e.id}`;
-
-                // Always prefer official enrollment record or higher grade
-                if (!uniqueCertsMap.has(dedupKey) || e.certificateCode || uniqueCertsMap.get(dedupKey).grade < gradeVal) {
-                    uniqueCertsMap.set(dedupKey, {
-                        id: `cert-course-${e.id}`,
-                        isQuran: false,
-                        studentName: sName,
-                        courseOrJuzText: `مقرر الدورة العلمية التخصصية: (${cTitle})`,
-                        grade: gradeVal,
-                        teacherRole: "معلم ومحاضر الدورة",
-                        teacherName: e.teacherName || "معلم ومحاضر الدورة",
-                        centerEmirRole: "أمير المركز / المشرف العام",
-                        centerEmirName: emirName,
-                        certCode: certCode,
-                        certDate: certDate,
-                        cardTitle: cTitle
-                    });
-                }
+        }
+        for (const item of exams) {
+            if (item.status === "Completed" && item.result && Number(item.result.grade) >= passing) {
+                certificates.push({kind:"exam", id:Number(item.id),
+                    title:item.nominationType === "Course" ? item.courseName || "اختبار دورة"
+                        : `${item.nominationType === "Combined" ? "اختبار السلاسل المجتمعة" : "اختبار القرآن الكريم"} • الأجزاء ${item.juzStart || "؟"} إلى ${item.juzEnd || "؟"}`,
+                    student:item.studentName || "", code:`EXAM-${item.id}`});
             }
-        });
-
-        // 3. Purge/Revoke any certificates if the student's latest result is Failed (< 60)
-        enrollments.forEach(e => {
-            if (e.status === "Failed" || (e.grade !== null && e.grade !== undefined && e.grade !== "" && parseFloat(e.grade) < 60)) {
-                const sName = (e.studentName || "").trim();
-                const sIdentifier = (e.studentId ? String(e.studentId) : sName.toLowerCase()).trim();
-                const cTitle = (e.courseName || "الدورة العلمية التخصصية").trim();
-                const cIdentifier = (e.courseId ? String(e.courseId) : cTitle.toLowerCase()).trim();
-                const dedupKey = `course_${sIdentifier}_${cIdentifier}`;
-                uniqueCertsMap.delete(dedupKey);
-            }
-        });
-
-        const allCertificates = Array.from(uniqueCertsMap.values());
-
-        container.innerHTML = "";
-
-        if (allCertificates.length === 0) {
-            container.innerHTML = `
-                <div class="card shadow-sm p-5 text-center text-muted" style="grid-column: 1/-1;">
-                    <i class="fa-solid fa-graduation-cap mb-3" style="font-size: 3.5rem; color: #c5a059;"></i>
-                    <h3 class="fw-bold text-dark">${isAcad ? 'لا توجد شهادات رقمية صادرة حالياً' : 'لا توجد شهادات رقمية صادرة باسمك حالياً'}</h3>
-                    <p class="mt-2">${isAcad ? 'لم يتم رصد أو اعتماد أي درجات اجتياز نهائية للاختبارات أو الدورات بعد.' : 'اجتز دورة أكاديمية أو اختباراً في أجزاء من القرآن الكريم بنجاح لتظهر شهادتك المعتمدة هنا فوراً.'}</p>
-                </div>
-            `;
+        }
+        container.replaceChildren();
+        if (!certificates.length) {
+            container.innerHTML = '<div class="operations-panel text-center w-100"><h3>لا توجد شهادات معتمدة بعد</h3><p>تظهر الشهادات بعد تسجيل نتيجة النجاح واعتمادها.</p></div>';
             return;
         }
-
-        allCertificates.forEach(cert => {
-            const card = document.createElement("div");
-            card.className = "certificate-card shadow-sm";
-
-            const certHtml = renderLuxuryCertificateHtml(cert);
-
-            card.innerHTML = `
-                <div class="certificate-preview-container">
-                    ${certHtml}
-                </div>
-                <div class="certificate-meta-info text-center p-3">
-                    <h4 class="fw-bold mb-1" style="color: #0d3b2e;">${escapeXml(cert.cardTitle)}</h4>
-                    <p class="text-muted small mb-3">
-                        <span class="badge bg-light text-dark border">الرقم المعتمد: <code>${cert.certCode}</code></span>
-                        <span class="mx-1">•</span>
-                        <span>التاريخ: ${cert.certDate}</span>
-                    </p>
-                    <button class="btn btn-primary w-100 fw-bold" onclick="printCertificate('${cert.id}', '${escapeXml(cert.studentName)}')">
-                        <i class="fa-solid fa-print"></i> طباعة وتحميل الشهادة PDF
-                    </button>
-                </div>
-            `;
+        for (const cert of certificates) {
+            const card = document.createElement("article");
+            card.className = "certificate-card shadow-sm unified-certificate-card";
+            card.innerHTML = `<div class="unified-certificate-image"><div class="spinner-border text-success" role="status"></div></div>
+                <div class="certificate-meta-info p-3"><h4>${escapeXml(cert.title)}</h4>
+                <p>${escapeXml(cert.student)} • ${escapeXml(cert.code)}</p>
+                <button type="button" class="btn btn-primary">معاينة وتنزيل PDF</button></div>`;
+            card.querySelector("button").addEventListener("click", () => showUnifiedCertificate(cert.kind, cert.id));
             container.appendChild(card);
-        });
-
-    } catch(e) {
-        console.error("Error loading portfolio certificates:", e);
-        const container = document.getElementById("certificates-container");
-        if (container) {
-            container.innerHTML = `
-                <div class="alert alert-danger text-center p-4 w-100" style="grid-column: 1/-1;">
-                    <i class="fa-solid fa-triangle-exclamation mb-2" style="font-size: 2rem;"></i>
-                    <p class="mb-0">حدث خطأ أثناء تحميل الشهادات الرقمية. يرجى إعادة المحاولة.</p>
-                </div>
-            `;
         }
+        for (let i = 0; i < certificates.length; i++) {
+            const cert = certificates[i];
+            const card = container.children[i];
+            const imageBox = card.querySelector(".unified-certificate-image");
+            try {
+                const url = await downloadCenterFile({certificateKind:cert.kind, certificateId:cert.id, format:"png"}, true);
+                portfolioCertificateUrls.push(url);
+                const img = document.createElement("img");
+                img.src = url;
+                img.alt = `شهادة ${cert.student}`;
+                imageBox.replaceChildren(img);
+            } catch {
+                imageBox.innerHTML = '<span class="text-muted">تعذرت المعاينة؛ يمكنك إعادة المحاولة من الزر أدناه.</span>';
+            }
+        }
+    } catch (error) {
+        container.innerHTML = `<div class="alert alert-danger w-100">${escapeXml(error.message)}</div>`;
     }
 }
 
-function printCertificate(elementOrHtml, studentName) {
-    let certHtml = "";
-    if (typeof elementOrHtml === "string" && (elementOrHtml.trim().startsWith("<") || elementOrHtml.includes("premium-certificate"))) {
-        certHtml = elementOrHtml;
-    } else {
-        const originalEl = document.getElementById(elementOrHtml);
-        if (!originalEl) return console.error("Certificate element not found:", elementOrHtml);
-        const certEl = originalEl.cloneNode(true);
-        certEl.style.display = "block";
-        certHtml = certEl.outerHTML;
-    }
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert("يرجى السماح بالنوافذ المنبثقة لطباعة وتحميل الشهادة.");
-        return;
-    }
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html dir="rtl" lang="ar">
-        <head>
-            <meta charset="utf-8">
-            <title>شهادة الطالب: ${escapeXml(studentName)}</title>
-            <link rel="preconnect" href="https://fonts.googleapis.com">
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-            <style>
-                @page {
-                    size: A4 landscape;
-                    margin: 0;
-                }
-                * {
-                    box-sizing: border-box;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                body {
-                    margin: 0;
-                    padding: 24px 0;
-                    background: #e2e8f0;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: flex-start;
-                    align-items: center;
-                    min-height: 100vh;
-                    font-family: 'Cairo', sans-serif;
-                    direction: rtl;
-                }
-                .premium-certificate {
-                    width: 297mm;
-                    height: 210mm;
-                    max-width: 297mm;
-                    max-height: 210mm;
-                    background: #ffffff;
-                    background-image:
-                        radial-gradient(circle at center, rgba(205, 162, 80, 0.05) 0%, transparent 70%),
-                        repeating-linear-gradient(45deg, rgba(205, 162, 80, 0.015) 0, rgba(205, 162, 80, 0.015) 1px, transparent 0, transparent 16px);
-                    box-sizing: border-box;
-                    padding: 12mm;
-                    position: relative;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-                    color: #1e293b;
-                    page-break-inside: avoid;
-                    page-break-after: avoid;
-                    overflow: hidden;
-                    letter-spacing: 0 !important;
-                }
-                .cert-outer-border {
-                    border: 3.5px solid #c5a059;
-                    outline: 1.5px solid rgba(13, 92, 58, 0.45);
-                    outline-offset: -6px;
-                    height: 100%;
-                    box-sizing: border-box;
-                    padding: 6mm;
-                    position: relative;
-                    background: #fdfdfb;
-                }
-                .cert-inner-border {
-                    border: 1.5px solid rgba(197, 160, 89, 0.6);
-                    height: 100%;
-                    box-sizing: border-box;
-                    padding: 8mm 12mm;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-between;
-                    position: relative;
-                    background: radial-gradient(circle at center, #ffffff 40%, #fbfaf6 100%);
-                }
-                .cert-corner {
-                    position: absolute;
-                    width: 32px;
-                    height: 32px;
-                    border: 3.5px solid #c5a059;
-                    pointer-events: none;
-                }
-                .cert-corner-tr { top: 4px; right: 4px; border-left: none; border-bottom: none; }
-                .cert-corner-tl { top: 4px; left: 4px; border-right: none; border-bottom: none; }
-                .cert-corner-br { bottom: 4px; right: 4px; border-left: none; border-top: none; }
-                .cert-corner-bl { bottom: 4px; left: 4px; border-right: none; border-top: none; }
-
-                .cert-header {
-                    display: grid;
-                    grid-template-columns: 1fr auto 1fr;
-                    align-items: center;
-                    gap: 16px;
-                    border-bottom: 2px solid rgba(197, 160, 89, 0.35);
-                    padding-bottom: 8px;
-                }
-                .cert-header-right { text-align: right; line-height: 1.35; }
-                .cert-state { font-size: 1.05rem; font-weight: 800; color: #0d5c3a; }
-                .cert-ministry { font-size: 0.82rem; color: #64748b; font-weight: 700; }
-                .cert-mosque { font-size: 0.95rem; font-weight: 800; color: #1e293b; }
-
-                .cert-header-center { text-align: center; display: flex; flex-direction: column; align-items: center; }
-                .cert-logo-container {
-                    width: 135px;
-                    height: 135px;
-                    border-radius: 50%;
-                    padding: 5px;
-                    background: #ffffff;
-                    border: 3px solid #c5a059;
-                    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.4);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .cert-logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
-                .cert-bismillah { font-size: 0.95rem; font-weight: 800; color: #c5a059; letter-spacing: 0 !important; margin-top: 5px; }
-
-                .cert-header-left { text-align: left; line-height: 1.35; }
-                .cert-center-title { font-size: 0.95rem; font-weight: 800; color: #0d5c3a; }
-                .cert-dept { font-size: 0.82rem; color: #64748b; font-weight: 700; }
-                .cert-serial-code { font-size: 0.82rem; color: #c5a059; font-weight: 700; }
-                .cert-serial-code code { background: rgba(197, 160, 89, 0.15); padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.90rem; }
-                .cert-date-text { font-size: 0.82rem; color: #64748b; font-weight: 700; margin-top: 3px; }
-
-                .cert-title-section { text-align: center; margin: 8px 0 6px; }
-                .cert-title-badge {
-                    display: inline-block;
-                    padding: 6px 36px;
-                    background: linear-gradient(135deg, #0d3b2e 0%, #15803d 50%, #0d3b2e 100%);
-                    color: #ffffff;
-                    border: 2px solid #c5a059;
-                    border-radius: 30px;
-                    font-size: 1.35rem;
-                    font-weight: 900;
-                    box-shadow: 0 4px 12px rgba(13, 92, 58, 0.3);
-                    letter-spacing: 0 !important;
-                }
-                .cert-title-badge i { color: #ffd700; font-size: 1.1rem; margin: 0 8px; }
-
-                .cert-body { text-align: center; margin: 4px 0; }
-                .cert-preamble { font-size: 1.05rem; color: #475569; font-weight: 700; margin-bottom: 6px; }
-                .cert-student-box {
-                    margin: 4px auto 8px;
-                    display: inline-block;
-                    padding: 4px 45px;
-                    background: rgba(205, 162, 80, 0.1);
-                    border-bottom: 3.5px solid #c5a059;
-                    border-radius: 8px 8px 0 0;
-                }
-                .cert-student-name { font-size: 2.1rem; font-weight: 900; color: #0d3b2e; letter-spacing: 0 !important; }
-                .cert-statement { font-size: 1.10rem; line-height: 1.7; color: #334155; max-width: 90%; margin: 0 auto; font-weight: 600; }
-                .cert-grade-row { display: flex; justify-content: center; gap: 24px; margin-top: 10px; }
-                .cert-grade-pill { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 4px 20px; font-size: 0.95rem; color: #1e293b; font-weight: 700; }
-
-                .cert-footer {
-                    display: grid;
-                    grid-template-columns: 1fr auto 1fr;
-                    align-items: flex-end;
-                    gap: 20px;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                    border-top: 1.5px solid rgba(197, 160, 89, 0.35);
-                }
-                .cert-signature-box { text-align: center; }
-                .cert-signature-role { font-size: 0.95rem; font-weight: 800; color: #64748b; margin-bottom: 4px; }
-                .cert-signature-name { font-size: 1.20rem; font-weight: 900; color: #0d3b2e; }
-                .cert-signature-line { width: 170px; height: 2px; background: #c5a059; margin: 6px auto; }
-                .cert-signature-note { font-size: 0.80rem; color: #94a3b8; font-weight: 600; }
-
-                .cert-seal-box { text-align: center; display: flex; flex-direction: column; align-items: center; }
-                .cert-luxury-stamp {
-                    width: 85px;
-                    height: 85px;
-                    background: radial-gradient(circle, #ffe28a 0%, #c5a059 70%, #9e782e 100%);
-                    border-radius: 50%;
-                    border: 3.5px double #ffffff;
-                    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.5);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #1e3328;
-                }
-                .cert-stamp-ring { text-align: center; line-height: 1.15; }
-                .cert-stamp-star { font-size: 1.0rem; color: #0d3b2e; }
-                .cert-stamp-text { font-size: 0.75rem; font-weight: 900; color: #0d3b2e; }
-                .cert-stamp-center { font-size: 0.70rem; font-weight: 800; color: #1e293b; }
-
-                .cert-action-bar {
-                    position: sticky;
-                    top: 0;
-                    z-index: 9999;
-                    width: 100%;
-                    margin: 0 0 20px 0;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background: #1e293b;
-                    color: #ffffff;
-                    padding: 12px 24px;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-                    border-bottom: 2px solid #c5a059;
-                }
-                .cert-btn {
-                    font-family: 'Cairo', sans-serif;
-                    font-size: 13.5px;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 8px 18px;
-                    cursor: pointer;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: all 0.2s;
-                }
-                .cert-btn-green { background: #0d5c3a; color: #ffffff; border: 1.5px solid #10b981; }
-                .cert-btn-green:hover { background: #117a4d; }
-                .cert-btn-dark { background: #475569; color: #ffffff; }
-                .cert-btn-dark:hover { background: #64748b; }
-                @media print {
-                    body {
-                        background: none !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                    }
-                    .cert-action-bar {
-                        display: none !important;
-                    }
-                    .premium-certificate {
-                        box-shadow: none !important;
-                        margin: 0 !important;
-                        width: 297mm !important;
-                        height: 210mm !important;
-                    }
-                }
-            </style>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-        </head>
-        <body>
-            <div class="cert-action-bar">
-                <span style="font-weight:bold; font-size:15px;"><i class="fa-solid fa-award text-warning me-2"></i>شهادة اجتياز معتمدة - ${escapeXml(studentName)}</span>
-                <div style="display:flex; gap:10px;">
-                    <button class="cert-btn cert-btn-green" onclick="downloadPdfNow()">
-                        <i class="fa-solid fa-file-pdf"></i> حفظ وتحميل بصيغة PDF 📥
-                    </button>
-                    <button class="cert-btn cert-btn-dark" onclick="window.print()">
-                        <i class="fa-solid fa-print"></i> طباعة 🖨️
-                    </button>
-                </div>
-            </div>
-            <div id="cert-root-wrapper">
-                ${certHtml}
-            </div>
-            <script>
-                async function downloadPdfNow() {
-                    const element = document.querySelector('.premium-certificate') || document.getElementById('cert-root-wrapper');
-                    try {
-                        const canvas = await html2canvas(element, {
-                            scale: 2.5,
-                            useCORS: true,
-                            allowTaint: true,
-                            backgroundColor: '#ffffff'
-                        });
-                        const imgData = canvas.toDataURL('image/jpeg', 0.98);
-                        const { jsPDF } = window.jspdf;
-                        const pdf = new jsPDF({
-                            orientation: 'landscape',
-                            unit: 'mm',
-                            format: 'a4'
-                        });
-                        pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
-                        pdf.save('شهادة_${escapeXml(studentName).replace(/\s+/g, '_')}.pdf');
-                    } catch(err) {
-                        window.print();
-                    }
-                }
-            </script>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-}
-
-// -------------------------------------------------------------
-// COMPREHENSIVE COURSES & STUDENTS EXPORT ENGINE (.xlsx & .xls)
-// Admin and Developer Roles Only
-// -------------------------------------------------------------
 async function showCoursesExportModal() {
     if (currentRole !== "Admin" && currentRole !== "Developer") {
         showAlert("عذراً، هذه الميزة مخصصة للمطور والإدارة فقط.", "warning");
@@ -14446,6 +13877,7 @@ function getJuzName(i) {
 }
 
 function exportDynamicReportToExcel(format) {
+    return exportUnifiedReport("xlsx");
     if (format === 'xls') {
         exportDynamicReportToExcelXls();
         return;
@@ -14464,6 +13896,7 @@ function exportDynamicReportToExcel(format) {
 }
 
 function exportDynamicReportToExcelXls() {
+    return exportUnifiedReport("xlsx");
     if (!currentDynamicFilteredStudents || currentDynamicFilteredStudents.length === 0) {
         showAlert("لا توجد بيانات طلاب لتصديرها إلى Excel!", "warning");
         return;
@@ -14641,6 +14074,7 @@ function exportDynamicReportToExcelXls() {
 }
 
 function exportDynamicReportToExcelXlsx() {
+    return exportUnifiedReport("xlsx");
     if (!currentDynamicFilteredStudents || currentDynamicFilteredStudents.length === 0) {
         showAlert("لا يوجد بيانات طلاب لتصديرها إلى Excel!", "warning");
         return;
@@ -14797,57 +14231,8 @@ function toggleCustomAgeInputs() {
 
 window.applySpecializedReportPreset = applySpecializedReportPreset;
 function applySpecializedReportPreset(presetKey) {
-    if (!cachedStudents) return;
-
-    // Reset base inputs first
-    const orphanEl = document.getElementById("dyn-filter-orphan");
-    const ageEl = document.getElementById("dyn-filter-age");
-    const quranEl = document.getElementById("dyn-filter-quran");
-    const healthEl = document.getElementById("dyn-filter-health");
-    const circleEl = document.getElementById("dyn-filter-circle");
-    const keywordEl = document.getElementById("dyn-filter-keyword");
-
-    if (orphanEl) orphanEl.value = "all";
-    if (ageEl) ageEl.value = "all";
-    if (quranEl) quranEl.value = "all";
-    if (healthEl) healthEl.value = "all";
-    if (circleEl) circleEl.value = "all";
-    if (keywordEl) keywordEl.value = "";
-
-    switch(presetKey) {
-        case "combined_chains":
-            // Filter students qualified or nominated for combined chains (سلاسل مجتمعة)
-            if (quranEl) quranEl.value = "10_plus_juz";
-            if (keywordEl) keywordEl.value = "سلسلة";
-            break;
-        case "sard_report":
-            if (keywordEl) keywordEl.value = "سرد";
-            break;
-        case "khatimun_ijaza":
-            if (quranEl) quranEl.value = "khatim";
-            break;
-        case "juz_path":
-            if (quranEl) quranEl.value = "3_5_juz";
-            break;
-        case "cumulative_absence":
-            if (keywordEl) keywordEl.value = "غياب";
-            break;
-        case "intensive_followup":
-            if (keywordEl) keywordEl.value = "متابعة";
-            break;
-        case "parent_governance":
-            if (keywordEl) keywordEl.value = "غير مربوط";
-            break;
-        case "whatsapp_directory":
-            // Shows all students with their contact numbers
-            break;
-        case "specialized_activities":
-            if (keywordEl) keywordEl.value = "الواعظ";
-            break;
-        default:
-            break;
-    }
     runDynamicFilter();
+    previewUnifiedReport();
 }
 
 function runDynamicFilter() {
@@ -15192,6 +14577,7 @@ function printDynamicReport() {
 }
 
 function exportDynamicReportToPdf() {
+    return exportUnifiedReport("pdf");
     printDynamicReport();
 }
 
@@ -16618,12 +16004,12 @@ function printTeacherRoster() {
 // 3. DYNAMIC SYSTEM SETTINGS CMS 2.0 (Resilient & Real-time Sync)
 // ==========================================
 const DEFAULT_SYSTEM_SETTINGS = {
-    centerName: "مركز البيان لتعليم القرآن الكريم وتدريس علومه",
-    mosqueName: "مسجد علي بن أبي طالب",
+    centerName: "منصة تعليم القرآن الكريم",
+    mosqueName: "",
     centerAddress: "فلسطين - غزة - المقر الرئيسي",
     supportPhone: "+970599000000",
     supportEmail: "info@albayan.quran",
-    welcomeMessage: "أهلاً وسهلاً بكم في منصة مركز البيان لتعليم القرآن الكريم والعلوم الشرعية",
+    welcomeMessage: "أهلاً وسهلاً بكم في منصة تعليم القرآن الكريم",
     passingScoreThreshold: 70,
     minAttendancePercentForExam: 75,
     maxStudentsPerCircle: 20,
@@ -16718,7 +16104,7 @@ async function fetchAndApplySystemSettings(silent = true) {
     // 2. Fetch fresh live settings from API with cross-browser cache-busting and seamless cloud failover
     try {
         const timestamp = Date.now();
-        const response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store" });
+        const response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
         if (response && response.ok) {
             const settings = await response.json();
             cachedSystemSettings = normalizeSettings(settings);
@@ -16829,7 +16215,9 @@ function checkMaintenanceBlock() {
     const isDev = currentUser && currentUser.role === "Developer";
     const existingOverlay = document.getElementById("maintenance-block-overlay");
 
-    if (isMaintenance && currentUser && !isDev) {
+    const developerLoginVisible = !getAuthStorage("token") &&
+        sessionStorage.getItem("maintenance_developer_login") === "true";
+    if (isMaintenance && !isDev && !developerLoginVisible) {
         if (!existingOverlay) {
             const overlay = document.createElement("div");
             overlay.id = "maintenance-block-overlay";
@@ -16842,6 +16230,9 @@ function checkMaintenanceBlock() {
                     <h3 class="fw-bold text-warning mb-3">النظام في وضع الصيانة والتحديث</h3>
                     <p class="fs-5 text-white mb-4" style="line-height:1.8;">النظام داخل وضع الصيانة والتحديث حالياً، يرجى التواصل مع المطور للمزيد من التفاصيل.</p>
                     <div>
+                        <button class="btn btn-warning px-4 py-2 rounded-pill fw-bold me-2" onclick="sessionStorage.setItem('maintenance_developer_login','true');checkMaintenanceBlock()">
+                            دخول المطور
+                        </button>
                         <button class="btn btn-outline-light px-4 py-2 rounded-pill fw-bold" onclick="handleLogout(false)">
                             <i class="fa-solid fa-right-from-bracket me-2"></i>تسجيل الخروج
                         </button>
@@ -18356,7 +17747,19 @@ function printSingleReceipt(id) {
     printWin.document.close();
 }
 
+function downloadFinancialReport(format) {
+    return downloadCenterFile({
+        filter: {
+            kind: "finance",
+            from: document.getElementById("finance-filter-start-date")?.value || null,
+            to: document.getElementById("finance-filter-end-date")?.value || null
+        },
+        format
+    }).catch(e => showAlert(e.message, "danger"));
+}
+
 function exportFinancialTransactionsToExcel(format) {
+    return downloadCenterFile({filter:{kind:"finance",from:document.getElementById("finance-filter-start-date")?.value || null,to:document.getElementById("finance-filter-end-date")?.value || null},format:"xlsx"});
     if (format === 'xls') {
         exportFinancialTransactionsToExcelXls();
         return;
@@ -18375,6 +17778,7 @@ function exportFinancialTransactionsToExcel(format) {
 }
 
 function exportFinancialTransactionsToExcelXls() {
+    return downloadFinancialReport("xlsx");
     if (!allFinancialTransactions || !allFinancialTransactions.length) {
         showAlert("لا توجد حركات مالية لتصديرها.", "warning");
         return;
@@ -18499,6 +17903,7 @@ function exportFinancialTransactionsToExcelXls() {
 }
 
 function exportFinancialTransactionsToExcelXlsx() {
+    return downloadFinancialReport("xlsx");
     if (!allFinancialTransactions || !allFinancialTransactions.length) {
         showAlert("لا توجد حركات مالية لتصديرها.", "warning");
         return;
@@ -18540,6 +17945,7 @@ function exportFinancialTransactionsToExcelXlsx() {
 }
 
 function printFinancialLedgerReport() {
+    return downloadFinancialReport("pdf");
     if (!allFinancialTransactions || !allFinancialTransactions.length) {
         showAlert("لا توجد حركات مالية لطباعتها.", "warning");
         return;
@@ -18997,10 +18403,8 @@ async function showQualitySpotCheckModal(circleId, circleName) {
                 <div class="d-flex align-items-center gap-2">
                     <label class="small fw-bold text-secondary mb-0">نتيجة الفحص الفوري:</label>
                     <select class="form-select form-select-sm spot-eval-select" data-st-id="${st.id}">
-                        <option value="ممتاز (متقن تماماً)">ممتاز (متقن تماماً ⭐⭐⭐)</option>
-                        <option value="جيد جداً (متقن مع تنبيهات يسيرة)">جيد جداً (متقن مع تنبيهات يسيرة ⭐⭐)</option>
-                        <option value="جيد (يحتاج مزيد تثبيت)">جيد (يحتاج مزيد تثبيت ⭐)</option>
-                        <option value="ضعيف (تثبيت متعثر)">ضعيف (تثبيت متعثر ⚠️)</option>
+                        <option value="">اختر درجة التقييم</option>
+                        ${Array.from({length:101},(_,i)=>`<option value="${i}">${i}%</option>`).join('')}
                     </select>
                 </div>
             </div>
@@ -19026,15 +18430,17 @@ async function showQualitySpotCheckModal(circleId, circleName) {
             showCancelButton: true,
             confirmButtonText: '<i class="fa-solid fa-clipboard-check me-1"></i> حفظ وتوثيق فحص العينات',
             cancelButtonText: 'إغلاق',
-            confirmButtonColor: '#0d5c3a'
+            confirmButtonColor: '#0d5c3a',
+            preConfirm: () => {
+                const scores = [...document.querySelectorAll('.spot-eval-select')].map(el => ({studentId:Number(el.dataset.stId),score:Number(el.value),selected:el.value!==''}));
+                if (scores.some(s=>!s.selected)) { Swal.showValidationMessage('سجل علامة لكل طالب في العينة.'); return false; }
+                return {scores:scores.map(({studentId,score})=>({studentId,score})),notes:document.getElementById('swal-spot-notes').value};
+            }
         });
 
         if (res.isConfirmed) {
-            const results = [];
-            document.querySelectorAll(".spot-eval-select").forEach(sel => {
-                results.push({ studentId: parseInt(sel.dataset.stId), eval: sel.value });
-            });
-            const notes = document.getElementById("swal-spot-notes")?.value || "";
+            const results = res.value.scores;
+            const notes = res.value.notes;
 
             await apiRequest("/quality/visits", "POST", {
                 circleId: circleId,
@@ -20625,7 +20031,7 @@ async function showAddEditTalentModal(talentId = null) {
     const todayStr = new Date().toISOString().split('T')[0];
 
     const htmlContent = `
-        <div class="text-start" style="direction: rtl;">
+        <div class="text-start talent-editor-form" style="direction: rtl;">
             <!-- Student & Talent Type -->
             <div class="row g-2 mb-3">
                 <div class="col-md-6">
@@ -20661,7 +20067,7 @@ async function showAddEditTalentModal(talentId = null) {
                     <button type="button" class="btn btn-sm btn-outline-secondary prep-tag-btn" data-val="تلقين وتدريب منزلي بمتابعة ولي الأمر">تدريب منزلي مع ولي الأمر</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary prep-tag-btn" data-val="مقرأة مسجدية متخصصة في المقامات والصوت">مقرأة الصوت والخشوع</button>
                 </div>
-                <input id="swal-talent-prep" class="form-control form-control-sm" placeholder="اكتب أو اختر طريقة التحضير..." value="${talent ? (talent.preparationMethod || '') : 'تدريب وإشراف مباشر مع الشيخ المحفظ'}">
+                <input id="swal-talent-prep" class="form-control form-control-sm" placeholder="اكتب أو اختر طريقة التحضير..." value="${talent ? (talent.preparationMethod || '') : ''}">
             </div>
 
             <!-- Speech Content / Outline (نص أو عناصر الخطبة) -->
@@ -20674,7 +20080,7 @@ async function showAddEditTalentModal(talentId = null) {
             <div class="row g-2 mb-3">
                 <div class="col-md-4">
                     <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i> المناسبة / المكان</label>
-                    <input id="swal-talent-occasion" class="form-control form-control-sm" placeholder="مثال: منبر الجمعة، بعد العصر..." value="${talent ? (talent.occasion || '') : 'منبر الجمعة التجريبي'}">
+                    <input id="swal-talent-occasion" class="form-control form-control-sm" placeholder="مثال: منبر الجمعة، بعد العصر..." value="${talent ? (talent.occasion || '') : ''}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-calendar-day text-success me-1"></i> تاريخ الإلقاء</label>
@@ -20720,7 +20126,7 @@ async function showAddEditTalentModal(talentId = null) {
             <div class="row g-2">
                 <div class="col-md-4">
                     <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-star text-warning me-1"></i> التقييم والدرجة</label>
-                    <input id="swal-talent-score" class="form-control form-control-sm" placeholder="مثال: ممتاز، 95%..." value="${talent ? (talent.evaluationScore || '') : 'ممتاز مرتفع'}">
+                    <input id="swal-talent-score" class="form-control form-control-sm" placeholder="مثال: ممتاز، 95%..." value="${talent ? (talent.evaluationScore || '') : ''}">
                 </div>
                 <div class="col-md-8">
                     <label class="form-label fw-bold small mb-1"><i class="fa-solid fa-comment-dots text-secondary me-1"></i> ملاحظات الأداء والفصاحة والخشوع</label>
@@ -20734,6 +20140,7 @@ async function showAddEditTalentModal(talentId = null) {
         title: talentId ? '✏️ تعديل مشاركة الفتى الواعظ' : '🎙️ إضافة مشاركة موهبة جديدة (الفتى الواعظ والأصوات الندية)',
         html: htmlContent,
         width: 'min(94vw, 760px)',
+        customClass: {popup: 'talent-editor-dialog'},
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتوثيق المشاركة',
         cancelButtonText: 'إلغاء',
