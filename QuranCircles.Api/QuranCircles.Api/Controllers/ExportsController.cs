@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using QuranCircles.Api.Data;
 using QuranCircles.Api.Entities;
 using QuranCircles.Api.Services;
-using QuestPDF.Fluent;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 
@@ -14,7 +13,7 @@ public class ExportsController(AppDbContext db) : ControllerBase
 {
     private record Ticket(int UserId, byte[] Bytes, string Type, string Name, DateTime Expires);
     private static readonly ConcurrentDictionary<string, Ticket> Tickets = new();
-    public record ExportRequest(ReportFilter? Filter, string Format = "pdf", string? CertificateKind = null, int? CertificateId = null);
+    public record ExportRequest(ReportFilter? Filter, string Format = "pdf", string? CertificateKind = null, int? CertificateId = null, bool Thumbnail = false);
 
     [HttpGet("catalog")]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
@@ -93,8 +92,7 @@ public class ExportsController(AppDbContext db) : ControllerBase
                 (student != null && ParentLinks.IsChild(user, student));
             if (!access) return Forbid();
             if (request.Format == "xlsx") return BadRequest();
-            var document = DocumentRenderer.Certificate(data);
-            bytes = request.Format == "png" ? document.GenerateImages().Single() : document.GeneratePdf();
+            bytes = CertificateArtifacts.Render(data, request.Format, request.Thumbnail);
             name = $"certificate-{request.CertificateKind}-{request.CertificateId}.{request.Format}";
         }
         else

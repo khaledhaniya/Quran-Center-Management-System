@@ -1350,17 +1350,18 @@ async function loadAdminDashboard() {
         setTxt("pulse-ajzaa-today", (pulse.ajzaaRecitedToday ?? 0).toLocaleString());
 
         // Module 3: Quality & Performance
+        const rankingRow = (c, i, low = false) => `<li class="dashboard-ranking-row${low ? ' is-low' : ''}"><span class="ranking-position">${i + 1}</span><span class="ranking-name">${escapeXml(c.circleName)}</span><span class="ranking-rate">${c.attendanceRate ?? 0}٪ حضور</span></li>`;
         const topCirclesEl = document.getElementById("quality-top-circles");
         if (topCirclesEl) {
             const list = quality.topCircles || [];
             topCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">لا توجد سجلات كافية</li>' :
-                list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-success bg-opacity-10 text-success">${c.attendanceRate ?? 0}% حضور</span></li>`).join('');
+                list.map((c, i) => rankingRow(c, i)).join('');
         }
         const lowestCirclesEl = document.getElementById("quality-lowest-circles");
         if (lowestCirclesEl) {
             const list = quality.lowestCircles || [];
             lowestCirclesEl.innerHTML = list.length === 0 ? '<li class="text-muted small">لا توجد سجلات كافية</li>' :
-                list.map((c, i) => `<li class="small mb-1 text-dark"><strong>${i+1}. ${escapeXml(c.circleName)}</strong> <span class="badge bg-danger bg-opacity-10 text-danger">${c.attendanceRate}% حضور</span></li>`).join('');
+                list.map((c, i) => rankingRow(c, i, true)).join('');
         }
         setTxt("quality-exams-count", (quality.completedExamsCount ?? 0).toLocaleString());
         setTxt("quality-exams-success-rate", `${quality.examSuccessRate ?? 0}%`);
@@ -10729,9 +10730,11 @@ async function loadCoursesList() {
 
 // ==================== 2026 LUXURY ARABIC ACCREDITED CERTIFICATE GENERATOR ====================
 let portfolioCertificateUrls = [];
+let portfolioLoadVersion = 0;
 async function loadPortfolio() {
     const container = document.getElementById("certificates-container");
     if (!container) return;
+    const loadVersion = ++portfolioLoadVersion;
     for (const url of portfolioCertificateUrls) URL.revokeObjectURL(url);
     portfolioCertificateUrls = [];
     container.innerHTML = '<div class="text-center p-5 w-100"><div class="spinner-border text-primary"></div><p>جارٍ تحميل الشهادات المعتمدة...</p></div>';
@@ -10739,6 +10742,7 @@ async function loadPortfolio() {
         const [courseResponse, examResponse] = await Promise.allSettled([
             apiRequest("/courses/my-courses"), apiRequest("/exams/nominations")
         ]);
+        if (loadVersion !== portfolioLoadVersion) return;
         if (courseResponse.status !== "fulfilled" && examResponse.status !== "fulfilled")
             throw new Error("تعذر تحميل سجل الشهادات.");
         const courses = courseResponse.status === "fulfilled" && Array.isArray(courseResponse.value) ? courseResponse.value : [];
@@ -10772,7 +10776,7 @@ async function loadPortfolio() {
                 <div class="certificate-meta-info p-3"><h4>${escapeXml(cert.title)}</h4>
                 <p>${escapeXml(cert.student)} • ${escapeXml(cert.code)}</p>
                 <button type="button" class="btn btn-primary">معاينة وتنزيل PDF</button></div>`;
-            card.querySelector("button").addEventListener("click", () => showUnifiedCertificate(cert.kind, cert.id));
+            card.querySelector("button").addEventListener("click", () => showUnifiedCertificate(cert.kind, cert.id, card.querySelector("img")?.src));
             card.dataset.certificateKind = cert.kind;
             card.dataset.certificateId = String(cert.id);
             container.appendChild(card);
@@ -10783,7 +10787,8 @@ async function loadPortfolio() {
             card.dataset.previewState = "loading";
             const imageBox = card.querySelector(".unified-certificate-image");
             try {
-                const url = await downloadCenterFile({certificateKind:card.dataset.certificateKind, certificateId:Number(card.dataset.certificateId), format:"png"}, true);
+                const url = await downloadCenterFile({certificateKind:card.dataset.certificateKind, certificateId:Number(card.dataset.certificateId), format:"png", thumbnail:true}, true);
+                if (loadVersion !== portfolioLoadVersion) { URL.revokeObjectURL(url); return; }
                 portfolioCertificateUrls.push(url);
                 const img = document.createElement("img");
                 img.src = url;
@@ -10798,17 +10803,14 @@ async function loadPortfolio() {
                 delete card.dataset.previewState;
             }
         };
-        if ("IntersectionObserver" in window) {
-            const observer = new IntersectionObserver(entries => {
-                for (const entry of entries) if (entry.isIntersecting) {
-                    observer.unobserve(entry.target);
-                    loadPreview(entry.target);
-                }
-            }, {rootMargin:"180px 0px"});
-            [...container.querySelectorAll(".unified-certificate-card")].forEach(card => observer.observe(card));
-        } else {
-            [...container.querySelectorAll(".unified-certificate-card")].slice(0, 2).forEach(loadPreview);
-        }
+        // Start every thumbnail now, with a small queue to keep the host responsive.
+        const cards = [...container.querySelectorAll(".unified-certificate-card")];
+        let nextCard = 0;
+        await Promise.all(Array.from({length:Math.min(3, cards.length)}, async () => {
+            while (nextCard < cards.length && loadVersion === portfolioLoadVersion) {
+                await loadPreview(cards[nextCard++]);
+            }
+        }));
     } catch (error) {
         container.innerHTML = `<div class="alert alert-danger w-100">${escapeXml(error.message)}</div>`;
     }

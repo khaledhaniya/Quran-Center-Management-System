@@ -264,13 +264,16 @@ public class ReportService
                     TeacherName = c.Teacher != null ? c.Teacher.FullName : "غير محدد",
                     StudentsCount = allStudents.Count(s => s.CircleId == c.Id && s.IsActive),
                     AttendanceRate = rate,
+                    AttendanceRecords = cTotalAtt,
                     SessionsCount = cSess.Count,
                     VersesRecited = verses
                 };
             }).ToList();
 
-            var topPerformingCircles = circlePerformance.OrderByDescending(c => c.AttendanceRate).ThenByDescending(c => c.VersesRecited).Take(5).ToList();
-            var lowestPerformingCircles = circlePerformance.OrderBy(c => c.AttendanceRate).ThenBy(c => c.SessionsCount).Take(5).ToList();
+            // No attendance records means unmeasured, not 0% attendance.
+            var measuredCircles = circlePerformance.Where(c => c.AttendanceRecords > 0).ToList();
+            var topPerformingCircles = measuredCircles.OrderByDescending(c => c.AttendanceRate).ThenByDescending(c => c.VersesRecited).Take(5).ToList();
+            var lowestPerformingCircles = measuredCircles.OrderBy(c => c.AttendanceRate).ThenBy(c => c.SessionsCount).Take(5).ToList();
 
             // Exam indicators
             var periodExams = examNominations.Where(e => e.ExamDate.HasValue && DateOnly.FromDateTime(e.ExamDate.Value) >= from && DateOnly.FromDateTime(e.ExamDate.Value) <= to).ToList();

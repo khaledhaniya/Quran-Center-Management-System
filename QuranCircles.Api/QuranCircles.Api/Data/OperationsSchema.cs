@@ -20,7 +20,9 @@ public static class OperationsSchema
             else if (db.Database.SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM pragma_table_info('Sessions') WHERE name = '{column}'").Single() == 0)
                 db.Database.ExecuteSqlRaw($"ALTER TABLE Sessions ADD COLUMN {column} {(type == "datetime2" ? "TEXT" : type == "float" ? "REAL" : "INTEGER")} NULL");
         }
-        var tables = new[] { "CirclePlans", "CircleSchedules", "CircleDays" };
+        // QualityVisits used to be created only by the SQLite-specific migration.
+        // SQL Server installations also need it before the quality overview is queried.
+        var tables = new[] { "CirclePlans", "CircleSchedules", "CircleDays", "QualityVisits" };
         var script = db.Database.GenerateCreateScript();
         foreach (var table in tables)
         {

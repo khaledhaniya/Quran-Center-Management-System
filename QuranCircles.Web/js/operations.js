@@ -96,24 +96,33 @@ async function recordTeacherAbsence() {
     const answer = await Swal.fire({title:'سبب غياب المعلم',input:'text',showCancelButton:true,confirmButtonText:'تسجيل الغياب'});
     if(answer.isConfirmed && answer.value?.trim()) { try { const today = await apiRequest('/operations/today'); await apiRequest(`/operations/days/${circleId}`,'POST',{date:today.date,status:'Absent',reason:answer.value}); showCenterOperations(); } catch(e){showAlert(e.message,'danger');} }
 }
-async function showUnifiedCertificate(kind, id) {
+async function showUnifiedCertificate(kind, id, initialPreviewUrl = null) {
     let previewUrl;
+    let closed = false;
     const request = {certificateKind:kind,certificateId:Number(id)};
+    Swal.fire({title:'شهادة الإنجاز',width:1050,showConfirmButton:false,showCloseButton:true,
+        html:`<div class="operations-actions certificate-preview-actions"><button class="btn btn-success" id="unified-cert-download">تنزيل PDF</button><button class="btn btn-outline-primary" id="unified-cert-print">عرض للطباعة</button></div>
+        <div id="unified-cert-loading" role="status" class="certificate-preview-status">${initialPreviewUrl ? 'جاري استكمال المعاينة…' : '<span class="spinner-border text-success"></span> لحظات وتظهر الشهادة…'}</div>
+        <img id="unified-cert-preview" ${initialPreviewUrl ? `src="${initialPreviewUrl}"` : ''} alt="شهادة الإنجاز" style="${initialPreviewUrl ? 'display:block' : 'display:none'};width:100%;max-height:65vh;object-fit:contain">`,
+        didClose:()=>{closed=true;if(previewUrl)URL.revokeObjectURL(previewUrl);},
+        didOpen:popup=>{
+            popup.querySelector('#unified-cert-download').onclick=()=>downloadCenterFile({...request,format:'pdf'}).catch(e=>showAlert(e.message,'danger'));
+            popup.querySelector('#unified-cert-print').onclick=async()=>{
+                const printWindow=window.open('','_blank');
+                if(!printWindow){showAlert('يرجى السماح بفتح نافذة الطباعة.','warning');return;}
+                try {const pdfUrl=await downloadCenterFile({...request,format:'pdf'},true);
+                    printWindow.location.href=pdfUrl;setTimeout(()=>URL.revokeObjectURL(pdfUrl),120000);
+                }catch(e){printWindow.close();showAlert(e.message,'danger');}
+            };
+        }});
+    const popup = Swal.getPopup();
     try {
-        Swal.fire({title:'جاري تجهيز الشهادة',html:'<p>لحظات ونفتح المعاينة…</p><div class="spinner-border text-success" role="status"></div>',showConfirmButton:false,showCloseButton:true,allowOutsideClick:false});
         previewUrl = await downloadCenterFile({...request,format:'png'},true);
-        Swal.update({title:'شهادة الإنجاز',width:1050,showConfirmButton:false,showCloseButton:true,allowOutsideClick:true,
-            html:`<div class="operations-actions"><button class="btn btn-success" id="unified-cert-download">تنزيل PDF</button><button class="btn btn-outline-primary" id="unified-cert-print">عرض للطباعة</button></div><img src="${previewUrl}" alt="معاينة الشهادة المطابقة لملف التنزيل" style="display:block;width:100%;max-height:65vh;object-fit:contain">`,
-        });
-        document.getElementById('unified-cert-download').onclick=()=>downloadCenterFile({...request,format:'pdf'}).catch(e=>showAlert(e.message,'danger'));
-        document.getElementById('unified-cert-print').onclick=async()=>{
-                    const printWindow=window.open('','_blank');
-                    if(!printWindow){showAlert('يرجى السماح بفتح نافذة الطباعة.','warning');return;}
-                    try {const pdfUrl=await downloadCenterFile({...request,format:'pdf'},true);
-                        printWindow.location.href=pdfUrl;setTimeout(()=>URL.revokeObjectURL(pdfUrl),120000);
-                    }catch(e){printWindow.close();showAlert(e.message,'danger');}
-        };
-    } catch(e) { showAlert(e.message,'danger'); }
-    finally { if(previewUrl) setTimeout(()=>URL.revokeObjectURL(previewUrl),120000); }
+        if(closed || Swal.getPopup() !== popup) { URL.revokeObjectURL(previewUrl); return; }
+        const img=popup.querySelector('#unified-cert-preview'); img.src=previewUrl; img.style.display='block';
+        popup.querySelector('#unified-cert-loading').hidden=true;
+    } catch(e) {
+        if(!closed && Swal.getPopup() === popup) popup.querySelector('#unified-cert-loading').textContent='تعذر استكمال المعاينة. يمكنك إعادة المحاولة أو تنزيل PDF.';
+    }
 }
 document.addEventListener('DOMContentLoaded',installOperationalTools);

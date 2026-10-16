@@ -1,0 +1,89 @@
+/* Dashboard components are self-contained: the app does not load Bootstrap. */
+#admin-dashboard-section { --dash-ink:#143d30; --dash-muted:#6e8178; --dash-line:#e0eae4; --dash-soft:#f4f8f5; container-type:inline-size; }
+#admin-dashboard-section .dashboard-main-title { font-size:clamp(1.25rem,2.2vw,1.8rem); line-height:1.6; }
+#admin-dashboard-section .dashboard-header-card { border:1px solid var(--dash-line); border-radius:24px; background:linear-gradient(130deg,#fff 35%,#edf7f0); box-shadow:0 8px 32px #153f3208; }
+#admin-dashboard-section .dashboard-module-container { border:1px solid var(--dash-line); border-radius:24px; padding:clamp(16px,2.2vw,26px); margin-bottom:24px; box-shadow:0 8px 30px #173c2c06; overflow:hidden; }
+#admin-dashboard-section .module-title-strip { display:flex; align-items:center!important; justify-content:space-between; gap:14px; padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid #edf2ee; }
+#admin-dashboard-section .module-title-strip h4 { display:flex; gap:12px; align-items:center; font-size:clamp(.98rem,1.5vw,1.15rem); line-height:1.65; font-weight:800; margin:0; color:var(--dash-ink); }
+#admin-dashboard-section .module-badge-num { flex:0 0 36px; width:36px; height:36px; border-radius:12px; background:#e9f3ed; color:#176344; font-size:.85rem; }
+#admin-dashboard-section .module-title-strip>.badge { background:#f0f6f2; color:#42735a; padding:7px 11px; border-radius:99px; font-size:.72rem; line-height:1.6; }
+#admin-dashboard-section .dashboard-module-container>.row { display:grid!important; grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr)); gap:18px!important; margin:0!important; }
+#admin-dashboard-section .dashboard-module-container>.row>div { min-width:0!important; width:auto!important; max-width:100%!important; padding:0!important; }
+#admin-dashboard-section .small { font-size:.82rem; line-height:1.8; }
+#admin-dashboard-section .kpi-grid-unified { grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr)); gap:16px; }
+#admin-dashboard-section .kpi-unified-card { position:relative; padding:22px 18px; border-radius:20px; background:#fff; border:1px solid var(--dash-line); box-shadow:0 5px 20px #163e2f06; }
+#admin-dashboard-section .kpi-unified-card::before { content:''; position:absolute; inset-inline:20px; top:0; height:3px; border-radius:0 0 4px 4px; background:var(--kpi-accent,#24835b); }
+#admin-dashboard-section .glass-blue { --kpi-accent:#477bc2; } #admin-dashboard-section .glass-amber { --kpi-accent:#c38a32; } #admin-dashboard-section .glass-gold { --kpi-accent:#a68a40; }
+#admin-dashboard-section .kpi-u-icon { width:45px; height:45px; border-radius:15px; background:#f2f7f4; box-shadow:none; }
+#admin-dashboard-section .kpi-u-content { min-width:0; }
+#admin-dashboard-section .kpi-u-value { font-size:2rem; font-variant-numeric:tabular-nums; line-height:1.4; }
+#admin-dashboard-section .kpi-u-value small { display:block; font-size:.75rem!important; font-weight:600; margin-top:3px; }
+#admin-dashboard-section .subtag { padding:5px 8px; font-size:.69rem; white-space:normal; background:#f7f9f7; line-height:1.65; }
+#admin-dashboard-section .pulse-card,#admin-dashboard-section .quality-card,#admin-dashboard-section .prog-card,#admin-dashboard-section .warning-box,
+#admin-dashboard-section .dashboard-flow-module>.row>div>div { height:100%; box-sizing:border-box; padding:20px!important; border:1px solid var(--dash-line)!important; border-radius:19px!important; background:#fff!important; box-shadow:0 4px 18px #153f3204; }
+#admin-dashboard-section .pulse-card { background:linear-gradient(145deg,#fff,#f5f9f6)!important; }
+#admin-dashboard-section .pulse-header { display:flex; align-items:center; gap:9px; flex-wrap:wrap; font-size:.85rem; line-height:1.7; color:#264737; padding-bottom:15px; }
+#admin-dashboard-section .pulse-header>i { display:grid; place-items:center; width:34px; height:34px; background:#e9f3ec; border-radius:11px; color:#237349; font-size:1rem!important; }
+#admin-dashboard-section .pulse-header>.badge { margin-inline-start:auto; padding:5px 10px; background:#e7f3eb; color:#1f7049; border-radius:99px; font-size:.75rem; }
+#admin-dashboard-section .pulse-body>.d-flex { display:grid!important; grid-template-columns:repeat(auto-fit,minmax(75px,1fr)); gap:8px; }
+#admin-dashboard-section .pulse-stat-box { background:#f1f7f3!important; padding:14px 8px; border:1px solid #e7eee9; border-radius:14px; text-align:center; line-height:1.7; }
+#admin-dashboard-section .pulse-stat-box strong { display:block; font-size:1.65rem!important; font-weight:800; color:#194f37; font-variant-numeric:tabular-nums; }
+#admin-dashboard-section .pulse-stat-box small { display:block; font-size:.71rem; color:#657a6c; font-weight:600; }
+#admin-dashboard-section .quality-card h6,#admin-dashboard-section .prog-card h6,#admin-dashboard-section .warning-box h6,
+#admin-dashboard-section .dashboard-flow-module h6 { display:flex; align-items:center; gap:8px; font-size:.86rem; font-weight:800; line-height:1.8; color:#214a37; margin:0 0 16px; }
+#admin-dashboard-section .quality-card>.row { display:grid!important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px!important; margin:0; }
+#admin-dashboard-section .quality-card>.row>div { min-width:0; width:auto; padding:13px; border:1px solid #e8eee8; border-radius:14px; background:#fafcfb; }
+#admin-dashboard-section .quality-card ul { list-style:none; padding:0; margin:10px 0 0; }
+#admin-dashboard-section .quality-card .text-danger { color:#a55f42; }
+.dashboard-ranking-row { display:grid; grid-template-columns:25px minmax(0,1fr) auto; align-items:center; gap:8px; padding:11px 0; border-bottom:1px solid #e7eee9; font-size:.78rem; line-height:1.8; }
+.dashboard-ranking-row:last-child { border-bottom:0; }
+.ranking-position { display:grid; place-items:center; width:25px; height:25px; background:#e8f2eb; color:#37724f; border-radius:8px; font-size:.7rem; font-weight:800; }
+.ranking-name { min-width:0; font-weight:700; color:#294936; overflow-wrap:break-word; }
+.ranking-rate { font-size:.7rem; color:#2b7450; background:#eaf4ed; padding:3px 6px; border-radius:7px; white-space:nowrap; }
+.dashboard-ranking-row.is-low .ranking-position,.dashboard-ranking-row.is-low .ranking-rate { background:#fcf0e8; color:#aa6846; }
+#admin-dashboard-section .quality-card>div.d-flex { display:grid!important; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px!important; }
+#admin-dashboard-section .quality-card>div.d-flex>div { text-align:center; border:1px solid #e4ece7; border-radius:13px; background:#f7faf8; padding:12px 6px; }
+#admin-dashboard-section .quality-card>div.d-flex strong { display:block; font-size:1.4rem!important; line-height:1.7; }
+#admin-dashboard-section .quality-card>div.d-flex span { display:block; font-size:.7rem; color:#728178; }
+#admin-dashboard-section .early-warning-ribbon { margin-top:16px; padding:13px!important; background:#fff7ef!important; border:1px solid #f2dfce!important; border-radius:13px!important; }
+#admin-dashboard-section .early-warning-ribbon>small { display:block; color:#995b33; font-size:.72rem; margin-bottom:8px; line-height:1.8; }
+#admin-dashboard-section .early-warning-ribbon>.d-flex { flex-wrap:wrap; gap:10px; font-size:.74rem; line-height:1.9; }
+#admin-dashboard-section .prog-card { background:linear-gradient(150deg,#fff,#f6faf7)!important; }
+#admin-dashboard-section .prog-card>.d-flex:first-child { display:flex; align-items:center; gap:10px; padding-bottom:16px; }
+#admin-dashboard-section .prog-card>.d-flex:first-child>i { display:grid; place-items:center; height:40px; width:40px; border-radius:13px; background:#edf5ef; color:#36724f; }
+#admin-dashboard-section .prog-card h6 { margin:0; font-size:.88rem; }
+#admin-dashboard-section .prog-card>.d-flex:last-child { display:flex; align-items:flex-start!important; gap:16px; flex-wrap:wrap; color:#667d6e; font-size:.77rem; }
+#admin-dashboard-section .prog-card>.d-flex:last-child>span { flex:1 1 100px; display:flex; flex-direction:column-reverse; gap:7px; }
+#admin-dashboard-section .prog-card strong { font-size:2rem!important; color:#1f5c3d!important; line-height:1.4; font-weight:800; }
+#admin-dashboard-section .prog-card button { align-self:flex-end; border:1px solid #d6e5d9; border-radius:11px; background:#edf5ef; color:#2e6341; padding:8px 12px; font-size:.73rem; }
+#admin-dashboard-section .dashboard-flow-module>.row>div>div>.mb-3>.d-flex { gap:14px; align-items:center; flex-wrap:wrap; padding:10px 0; border-bottom:1px solid #edf2ee; font-size:.82rem; }
+#admin-dashboard-section #flow-daily-pages,#admin-dashboard-section #flow-weekly-pages { padding:6px 10px; border-radius:10px; background:#edf5ef; color:#25623f; font-size:.8rem; white-space:normal; }
+#admin-dashboard-section .dashboard-flow-module hr { border:0; border-top:1px solid #e6eee7; margin:16px 0; }
+#admin-dashboard-section .dashboard-flow-module .progress { display:flex; overflow:hidden; border-radius:99px!important; background:#e6eee8!important; margin-top:10px; }
+#admin-dashboard-section .dashboard-flow-module .progress-bar { height:100%; min-height:8px; background:#388660; transition:width .3s ease; }
+#admin-dashboard-section #flow-review-bar { background:#b99a59; }
+#admin-dashboard-section #flow-ajzaa-stages-list { display:grid; gap:14px; }
+#admin-dashboard-section #flow-ajzaa-stages-list>.mb-2 { margin:0; padding:10px 12px; border:1px solid #e9eeea; border-radius:12px; }
+#admin-dashboard-section #flow-ajzaa-stages-list .small { gap:12px; font-size:.78rem; }
+#admin-dashboard-section .warning-box { border-top:3px solid #d7b789!important; background:linear-gradient(150deg,#fff,#fffcf6)!important; }
+#admin-dashboard-section .warning-sublist { max-height:240px!important; min-height:80px; overflow:auto; scrollbar-width:thin; font-size:.8rem; line-height:1.9; }
+#admin-dashboard-section .warning-sublist>span:only-child { display:block; border:1px dashed #dce7dc; border-radius:12px; padding:18px 12px; color:#70836e; background:#f9fcf8; font-size:.75rem; text-align:center; }
+#admin-dashboard-section .btn { line-height:1.7; font-size:.8rem; white-space:normal; }
+#admin-dashboard-section .quality-card .btn,#admin-dashboard-section .module-title-strip .btn { border-radius:12px; padding:8px 13px; border:1px solid #cfe2d5; background:#f2f8f4; color:#2f6c48; box-shadow:none; }
+.certificate-preview-status { color:#6b7e70; font-size:.85rem; text-align:center; padding:12px; }
+.certificate-preview-actions { justify-content:center; position:sticky; top:0; padding:10px; background:#fff; z-index:2; border-bottom:1px solid #e5ede7; }
+.unified-certificate-image.is-loading { position:relative; overflow:hidden; }
+.unified-certificate-image.is-loading::before { content:''; width:80%; height:78%; border:2px solid #d6c499; outline:1px solid #e7dcc4; outline-offset:5px; background:linear-gradient(110deg,#fbf9f0 25%,#fff 45%,#fbf9f0 65%); background-size:250% 100%; animation:certificate-shimmer 1.4s ease infinite; }
+.unified-certificate-image.is-loading::after { content:'جاري تجهيز صورة الشهادة…'; position:absolute; inset-inline:0; bottom:14px; font-size:.74rem; }
+@keyframes certificate-shimmer { to { background-position:-200% 0; } }
+@container (max-width:850px) { #admin-dashboard-section .quality-card>.row { grid-template-columns:1fr; } }
+@container (max-width:560px) {
+    #admin-dashboard-section .dashboard-module-container { padding:15px; border-radius:18px; }
+    #admin-dashboard-section .module-title-strip { align-items:flex-start!important; }
+    #admin-dashboard-section .module-title-strip>.badge { margin-inline-start:48px; }
+    #admin-dashboard-section .quality-card>div.d-flex { grid-template-columns:1fr; }
+    #admin-dashboard-section .quality-card>div.d-flex>div { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; }
+    #admin-dashboard-section .kpi-unified-card { padding:18px; }
+    #admin-dashboard-section .pulse-card,#admin-dashboard-section .quality-card,#admin-dashboard-section .prog-card,#admin-dashboard-section .warning-box { padding:15px!important; }
+}
+@media(prefers-reduced-motion:reduce) { .unified-certificate-image.is-loading::before { animation:none; } }

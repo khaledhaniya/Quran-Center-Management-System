@@ -24,6 +24,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   // Digital Portfolio & Certificates State
   List<Map<String, dynamic>> _portfolioItems = [];
   final Map<String, Future<Uint8List>> _certificatePreviews = {};
+  final Map<String, Uint8List> _readyCertificateThumbnails = {};
   bool _isLoadingPortfolio = false;
   String _portfolioCategory = 'all'; // 'all', 'courses', 'quran'
   String _portfolioSearchQuery = '';
@@ -67,9 +68,12 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   Future<void> _loadPortfolioData() async {
     setState(() => _isLoadingPortfolio = true);
     try {
-      final nominations = await ApiService.getNominations();
-      final myCourses = await ApiService.getMyCourses();
-      final settings = await ApiService.getSystemSettings();
+      final responses = await Future.wait<Object?>([
+        ApiService.getNominations(), ApiService.getMyCourses(), ApiService.getSystemSettings()
+      ]);
+      final nominations = responses[0] as List<ExamNomination>;
+      final myCourses = responses[1] as List<Map<String, dynamic>>;
+      final settings = responses[2] as Map<String, dynamic>?;
       final passing = (settings?['passingScoreThreshold'] as num?)?.toDouble() ?? 70;
 
       final List<Map<String, dynamic>> items = [];
@@ -124,9 +128,11 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
       if (mounted) {
         setState(() {
           _certificatePreviews.clear();
+          _readyCertificateThumbnails.clear();
           _portfolioItems = items;
           _isLoadingPortfolio = false;
         });
+        _preloadCertificateThumbnails(items);
       }
     } catch (_) {
       if (mounted) {
@@ -135,11 +141,24 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
     }
   }
 
-  Future<Uint8List> _certificatePreview(Map<String, dynamic> item) {
+  Future<void> _preloadCertificateThumbnails(List<Map<String, dynamic>> items) async {
+    var next = 0;
+    await Future.wait(List.generate(items.length < 3 ? items.length : 3, (_) async {
+      while (mounted && identical(_portfolioItems, items) && next < items.length) {
+        try { await _certificatePreview(items[next++]); } catch (_) { /* Cards show a retry message. */ }
+      }
+    }));
+  }
+
+  Future<Uint8List> _certificatePreview(Map<String, dynamic> item, {bool thumbnail = true}) {
     final kind = item['certificateKind'] as String;
     final id = item['id'] as int;
-    return _certificatePreviews.putIfAbsent('$kind:$id', () =>
-        ApiService.fetchCertificatePreview(certificateKind: kind, certificateId: id));
+    final portfolio = _portfolioItems;
+    return _certificatePreviews.putIfAbsent('$kind:$id:$thumbnail', () =>
+        ApiService.fetchCertificatePreview(certificateKind: kind, certificateId: id, thumbnail: thumbnail).then((bytes) {
+          if (thumbnail && identical(_portfolioItems, portfolio)) _readyCertificateThumbnails['$kind:$id'] = bytes;
+          return bytes;
+        }));
   }
 
   void _showAddEditCourseModal([Course? course]) {
@@ -1318,17 +1337,20 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                                   ),
                                   OutlinedButton.icon(
                                     icon: const Icon(Icons.visibility, size:15),label:const Text('معاينة الشهادة'),
-                                    onPressed:() async {
-                                      try {
-                                        final bytes=await _certificatePreview(item);
-                                        if(!mounted)return;
+                                    onPressed:() {
                                         showDialog(context:context,builder:(ctx)=>Dialog(child:ConstrainedBox(
                                           constraints:BoxConstraints(maxWidth:900,maxHeight:MediaQuery.sizeOf(ctx).height*.82),
                                           child:Column(mainAxisSize:MainAxisSize.min,children:[
-                                            Flexible(child:InteractiveViewer(child:Image.memory(bytes,fit:BoxFit.contain))),
+                                            Flexible(child:FutureBuilder<Uint8List>(
+                                              future:_certificatePreview(item, thumbnail:false),
+                                              initialData:_readyCertificateThumbnails['${item['certificateKind']}:${item['id']}'],
+                                              builder:(context, snapshot) {
+                                                if(snapshot.hasData) return InteractiveViewer(child:Image.memory(snapshot.data!,fit:BoxFit.contain));
+                                                if(snapshot.hasError) return const Padding(padding:EdgeInsets.all(24),child:Text('تعذر تحميل المعاينة. أعد المحاولة.'));
+                                                return const SizedBox(height:220,child:Center(child:CircularProgressIndicator()));
+                                              })),
                                             Padding(padding:const EdgeInsets.all(8),child:TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('إغلاق')))
                                           ]))));
-                                      }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
                                     },
                                   ),
                                   ElevatedButton.icon(

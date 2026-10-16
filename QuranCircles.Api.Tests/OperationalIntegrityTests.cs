@@ -1,5 +1,9 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
+using QuranCircles.Api.Controllers;
 using QuranCircles.Api.Data;
 using QuranCircles.Api.Entities;
 using QuranCircles.Api.Services;
@@ -19,9 +23,59 @@ public class OperationalIntegrityTests
         db.Database.ExecuteSqlRaw("DROP TABLE \"CircleDays\"");
         db.Database.ExecuteSqlRaw("DROP TABLE \"CircleSchedules\"");
         db.Database.ExecuteSqlRaw("DROP TABLE \"CirclePlans\"");
+        db.Database.ExecuteSqlRaw("DROP TABLE \"QualityVisits\"");
         OperationsSchema.Ensure(db);
         OperationsSchema.Ensure(db);
-        Assert.True(db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type='table' AND name IN ('CircleDays','CircleSchedules','CirclePlans')").Single() == 3);
+        Assert.Equal(4, db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type='table' AND name IN ('CircleDays','CircleSchedules','CirclePlans','QualityVisits')").Single());
+    }
+
+    [Fact]
+    public async Task ExistingCenterCanLoadQualityAfterMissingVisitsTableIsUpgraded()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:"); connection.Open();
+        using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options);
+        db.Database.EnsureCreated();
+        db.Circles.AddRange(new Circle { Id = 1, Name = "حلقة البيان", IsActive = true },
+            new Circle { Id = 2, Name = "حلقة دون رصد", IsActive = true });
+        db.Students.Add(new Student { Id = 1, FullName = "أحمد", CircleId = 1, IsActive = true });
+        db.Sessions.Add(new RecitationSession { StudentId = 1, RecordedCircleId = 1, SessionDate = CenterClock.Today,
+            SurahName = "الفاتحة", FromVerse = 1, ToVerse = 7, Assessment = AssessmentLevel.Excellent });
+        db.Attendances.Add(new Attendance { StudentId = 1, CircleId = 1, SessionDate = CenterClock.Today, Status = AttendanceStatus.Present });
+        await db.SaveChangesAsync();
+        db.Database.ExecuteSqlRaw("DROP TABLE \"QualityVisits\"");
+        OperationsSchema.Ensure(db);
+        OperationsSchema.Ensure(db);
+        db.QualityVisits.Add(new QualityVisit { CircleId = 1, SupervisorName = "المشرف", VisitDate = CenterClock.Today });
+        await db.SaveChangesAsync();
+
+        var controller = new QualityController(db, NullLogger<QualityController>.Instance) {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+        var result = Assert.IsType<OkObjectResult>(await controller.GetOverview());
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(result.Value);
+        Assert.Equal(1, json.GetProperty("Stats").GetProperty("TotalStudents").GetInt32());
+        Assert.Equal(1, json.GetProperty("Stats").GetProperty("TotalSessions").GetInt32());
+        Assert.Equal(100, json.GetProperty("Stats").GetProperty("AvgAttendanceRate").GetInt32());
+        Assert.Single(await db.QualityVisits.ToListAsync());
+        Assert.Equal("أحمد", (await db.Students.SingleAsync()).FullName);
+        var dashboard = System.Text.Json.JsonSerializer.SerializeToElement(
+            await new ReportService(db).GetExecutiveDashboardAsync(CenterClock.Today, CenterClock.Today));
+        var rankedCircles = dashboard.GetProperty("quality").GetProperty("lowestCircles");
+        Assert.Equal(1, rankedCircles.GetArrayLength());
+        Assert.Equal("حلقة البيان", rankedCircles[0].GetProperty("CircleName").GetString());
+    }
+
+    [Fact]
+    public void CertificateThumbnailsAreSmallerAndKeepTheFullDocumentAvailable()
+    {
+        var data = new CertificateData("مركز البيان", "أحمد", "إتمام جزء عم", "CERT-2", "2026-10-15", "ممتاز", "أمير المركز");
+        var thumbnail = CertificateArtifacts.Render(data, "png", true);
+        var preview = CertificateArtifacts.Render(data, "png");
+        var smallWidth = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(thumbnail.AsSpan(16, 4));
+        var fullWidth = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(preview.AsSpan(16, 4));
+        Assert.True(smallWidth < fullWidth);
+        Assert.True(thumbnail.Length < preview.Length);
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(CertificateArtifacts.Render(data, "pdf"), 0, 4));
     }
 
     [Fact]
