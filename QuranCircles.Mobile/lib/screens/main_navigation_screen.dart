@@ -29,6 +29,7 @@ import 'teacher_sessions_screen.dart';
 import 'teacher_circle_students_screen.dart';
 import 'teacher_comprehensive_report_screen.dart';
 import 'teacher_lottery_screen.dart';
+import 'teacher_operations_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -444,6 +445,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => const QualityManagementScreen()));
                 },
+              ),
+              ListTile(
+                leading: const Icon(Icons.punch_clock, color: AppTheme.primary),
+                title: Text('حضور المعلمين والبدلاء',style:AppTheme.cairoStyle(fontWeight:FontWeight.bold)),
+                onTap:(){Navigator.pop(context);Navigator.push(context,MaterialPageRoute(builder:(_)=>const TeacherOperationsScreen()));},
               ),
               ListTile(
                 leading: const Icon(Icons.notifications_active, color: AppTheme.primary),

@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/certificate_preview_dialog.dart';
 
 class Student360Screen extends StatefulWidget {
   final int? initialStudentId;
@@ -258,238 +259,20 @@ class _Student360ScreenState extends State<Student360Screen> {
     }
   }
 
-  void _exportStudentReportDialog() {
-    if (_profileData == null) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setProgressState) {
-            return FutureBuilder(
-              future: Future.delayed(const Duration(milliseconds: 1200)),
-              builder: (ctx, snapshot) {
-                final isReady = snapshot.connectionState == ConnectionState.done;
-                return AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  title: Row(
-                    children: [
-                      const Icon(Icons.picture_as_pdf, color: Colors.amber, size: 28),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          isReady ? 'تم تجهيز الملف الموحد بنجاح' : 'جاري توليد تقرير الملف الموحد PDF...',
-                          style: AppTheme.cairoStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                  content: isReady
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.green.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.check_circle, color: Colors.green, size: 24),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'تم تجميع السجل القرآني وخريطة الأجزاء وكشوفات الحضور والاختبارات والشهادات المعتمدة للطالب (${_profileData!['studentName'] ?? _selectedStudent?.fullName}).',
-                                      style: AppTheme.cairoStyle(fontSize: 12, color: Colors.green.shade900),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text('الرقم المرجعي: DOC-360-${_selectedStudent?.id ?? 0}', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey)),
-                            Text('الجهة المصدرة: مركز البيان لتعليم القرآن الكريم', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey)),
-                          ],
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 12),
-                            const LinearProgressIndicator(color: AppTheme.primary),
-                            const SizedBox(height: 16),
-                            Text('استخراج السجلات وتضمين الشهادات وخريطة الـ 30 جزءاً...', style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted)),
-                          ],
-                        ),
-                  actions: [
-                    if (isReady) ...[
-                      TextButton.icon(
-                        icon: const Icon(Icons.share, size: 18),
-                        label: const Text('مشاركة وتصدير'),
-                        onPressed: () {
-                          Navigator.pop(dialogCtx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم تصدير وحفظ التقرير الموحد للطالب بنجاح 📄✅'), backgroundColor: Colors.green),
-                          );
-                        },
-                      ),
-                    ],
-                    TextButton(
-                      child: Text(isReady ? 'إغلاق' : 'إلغاء'),
-                      onPressed: () => Navigator.pop(dialogCtx),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
-    );
+  Future<void> _exportStudentReportDialog() async {
+    if(_profileData==null)return;
+    final id=(_profileData!['studentId'] as num?)?.toInt()??_selectedStudent?.id??widget.initialStudentId;
+    if(id==null)return;
+    try {
+      final uri=await ApiService.createDownloadTicket(format:'pdf',filter:{'kind':'student_profile','studentIds':[id]});
+      if(!await launchUrl(uri,mode:LaunchMode.externalApplication))throw Exception('تعذر فتح الملف');
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
   }
 
   void _showAccreditedCertificateDialog(Map<String, dynamic> item) {
-    final stName = _profileData?['studentName'] ?? _selectedStudent?.fullName ?? 'طالب المركز';
-    final isQuran = item['nominationType'] == 'Quran';
-    final title = item['formattedDetails'] ?? (isQuran ? 'حفظ القرآن الكريم' : (item['courseName'] ?? 'دورة أكاديمية معتمدة'));
-    final gradeNum = (item['grade'] as num?)?.toDouble() ?? 100.0;
-    final gradeLabel = gradeNum >= 95 ? "ممتاز مرتفع" : (gradeNum >= 90 ? "ممتاز" : (gradeNum >= 80 ? "جيد جداً" : "جيد"));
-    final teacher = item['teacherName'] ?? _profileData?['teacherName'] ?? 'الشيخ المحفظ المعتمد';
-    final certCode = item['certificateCode'] ?? 'CERT-EX-${item['id'] ?? 1001}';
-    final certDate = item['certificateDate'] ?? item['examDate'] ?? '2026-09-17';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFD97706), width: 2)),
-        contentPadding: const EdgeInsets.all(20),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Certificate Header
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF0D5C3A), Color(0xFF15803D)]),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.workspace_premium, color: Color(0xFFFBBF24), size: 36),
-                    const SizedBox(height: 4),
-                    Text(
-                      'شَهَادَةُ اجْتِيَازِ وَتَفَوُّقٍ مُعْتَمَدَةٌ',
-                      style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      'دولة فلسطين - دار القرآن الكريم والسنة',
-                      style: AppTheme.cairoStyle(color: Colors.white70, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Text('تمنح إدارة مركز البيان هذه الشهادة للطالب المبارك:', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
-              const SizedBox(height: 6),
-              Text(
-                stName,
-                style: AppTheme.cairoStyle(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C3A)),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.amber.shade300),
-                ),
-                child: Text(
-                  'لاجتيازه بنجاح وتفوق اختبار: $title',
-                  style: AppTheme.cairoStyle(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF92400E)),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    children: [
-                      Text('الدرجة المستحقة', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
-                      Text('${gradeNum.toInt()}%', style: AppTheme.cairoStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
-                    ],
-                  ),
-                  Container(height: 30, width: 1, color: Colors.grey.shade300),
-                  Column(
-                    children: [
-                      Text('التقدير العام', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
-                      Text(gradeLabel, style: AppTheme.cairoStyle(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C3A))),
-                    ],
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('المحفظ المشرف:', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
-                      Text(teacher, style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('مدير المركز:', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey)),
-                      Text('الشيخ علي حسن النبيه', style: AppTheme.cairoStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('الرمز: $certCode', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.grey)),
-                  Text('التاريخ: $certDate', style: AppTheme.cairoStyle(fontSize: 10, color: Colors.grey)),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          ElevatedButton.icon(
-            icon: const Icon(Icons.picture_as_pdf, size: 16),
-            label: const Text('تحميل الشهادة (PDF) 📥'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D5C3A), foregroundColor: Colors.white),
-            onPressed: () async {
-              final examId = item['id'] ?? item['Id'] ?? 0;
-              if (examId > 0) {
-                final certUrl = Uri.parse('${ApiService.baseUrl}/exams/certificate/$examId/printable?download=pdf');
-                try {
-                  await launchUrl(certUrl, mode: LaunchMode.externalApplication);
-                } catch (_) {}
-              }
-            },
-          ),
-          TextButton(
-            child: const Text('إغلاق'),
-            onPressed: () => Navigator.pop(ctx),
-          ),
-        ],
-      ),
-    );
+    final kind = item['certificateKind']?.toString() ?? 'exam';
+    final id = (item['certificateId'] as num?)?.toInt() ?? (item['id'] as num).toInt();
+    showDialog(context:context,builder:(_)=>CertificatePreviewDialog(kind:kind,certificateId:id));
   }
 
   @override

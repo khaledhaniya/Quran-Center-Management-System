@@ -10,42 +10,8 @@ async function downloadCenterFile(request, preview = false) {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-function currentReportFilter(kind) {
-    return {
-        kind: kind || document.getElementById('dyn-report-preset-type')?.value || 'all',
-        from: document.getElementById('unified-report-from')?.value || null,
-        to: document.getElementById('unified-report-to')?.value || null,
-        circleId: Number(document.getElementById('dyn-filter-circle')?.value) || null,
-        absenceThreshold: Number(document.getElementById('unified-absence-threshold')?.value) || 3,
-        studentIds: typeof currentDynamicFilteredStudents !== 'undefined' ? currentDynamicFilteredStudents.map(s => s.id) : null
-    };
-}
-async function exportUnifiedReport(format = 'xlsx', kind) {
-    try { await downloadCenterFile({filter: currentReportFilter(kind), format}); }
-    catch (e) { showAlert(e.message, 'danger'); }
-}
-async function previewUnifiedReport() {
-    try {
-        const data = await apiRequest('/exports/preview', 'POST', currentReportFilter());
-        document.getElementById('unified-report-result').innerHTML = `<h4>${escapeXml(data.title)}</h4><p class="text-muted">${escapeXml(data.period)}</p>
-        <div class="table-responsive"><table class="table table-striped"><thead><tr>${data.columns.map(c => `<th>${escapeXml(c)}</th>`).join('')}</tr></thead>
-        <tbody>${data.rows.map(r => `<tr>${r.map(c => `<td>${escapeXml(c)}</td>`).join('')}</tr>`).join('') || '<tr><td>لا توجد سجلات مطابقة.</td></tr>'}</tbody></table></div>`;
-    } catch (e) { showAlert(e.message, 'danger'); }
-}
 function installOperationalTools() {
-    const reports = document.getElementById('dynamic-reports-section');
-    if (reports && !document.getElementById('unified-report-result')) {
-        const panel = document.createElement('div'); panel.className = 'operations-panel';
-        panel.innerHTML = `<h3>تقارير السجلات الفعلية</h3><p>اختر نوع التقرير من القائمة، ثم الفترة والحلقة. المعاينة وملفات التنزيل تستخدم السجلات نفسها.</p>
-        <div class="operations-fields"><label>من تاريخ<input type="date" id="unified-report-from" class="form-control"></label>
-        <label>إلى تاريخ<input type="date" id="unified-report-to" class="form-control"></label>
-        <label>حد الغياب<input type="number" min="1" value="3" id="unified-absence-threshold" class="form-control"></label></div>
-        <div class="operations-actions"><button class="btn btn-primary" onclick="previewUnifiedReport()">معاينة التقرير</button>
-        <button class="btn btn-success" onclick="exportUnifiedReport('xlsx')">تنزيل Excel</button><button class="btn btn-outline-danger" onclick="exportUnifiedReport('pdf')">تنزيل PDF</button></div><div id="unified-report-result" aria-live="polite"></div>`;
-        const reportsHeader = reports.querySelector('.section-header');
-        if (reportsHeader) reportsHeader.insertAdjacentElement('afterend', panel);
-        else reports.prepend(panel);
-    }
+    installReportCenter();
     const quality = document.getElementById('quality-management-section');
     if (quality && !document.getElementById('operations-open-button')) {
         const button = document.createElement('button'); button.id = 'operations-open-button';

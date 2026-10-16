@@ -71,17 +71,20 @@ public class StudentService
         )).ToList();
     }
 
-    public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search, bool onlyCircle = false)
+    public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search, bool onlyCircle = false, int? userId = null)
     {
+        var today = CenterClock.Today;
         var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
 
         if (onlyCircle)
         {
-            query = query.Where(s => s.Circle != null && s.Circle.TeacherId == teacherId);
+            query = query.Where(s => s.Circle != null && (s.Circle.TeacherId == teacherId || s.Circle.AssistantTeacherId == teacherId ||
+                (userId.HasValue && _db.CircleDays.Any(d => d.CircleId == s.CircleId && d.Date == today && d.Status == "Absent" && d.SubstituteUserId == userId))));
         }
         else
         {
-            query = query.Where(s => (s.Circle != null && s.Circle.TeacherId == teacherId)
+            query = query.Where(s => (s.Circle != null && (s.Circle.TeacherId == teacherId || s.Circle.AssistantTeacherId == teacherId ||
+                (userId.HasValue && _db.CircleDays.Any(d => d.CircleId == s.CircleId && d.Date == today && d.Status == "Absent" && d.SubstituteUserId == userId))))
                 || _db.CourseEnrollments.Any(ce => ce.StudentId == s.Id && ce.Course != null && ce.Course.TeacherId == teacherId));
         }
 
@@ -805,10 +808,11 @@ public class StudentService
             if (teacher != null) teacherName = teacher.FullName;
         }
 
+        var certificateSettings = await _db.SystemSettings.AsNoTracking().FirstOrDefaultAsync() ?? new SystemSettings();
         var passedCourses = await _db.CourseEnrollments
             .Include(ce => ce.Course)
                 .ThenInclude(c => c!.Teacher)
-            .Where(ce => ce.StudentId == s.Id && ce.Status == "Passed")
+            .Where(ce => ce.StudentId == s.Id && (ce.Status == "Passed" || ce.Status == "Certified") && ce.CertificateCode != null && ce.CertificateCode != "" && ce.Grade.HasValue && ce.Grade.Value >= certificateSettings.PassingScoreThreshold)
             .OrderByDescending(ce => ce.CertificateDate ?? ce.EnrollmentDate)
             .ToListAsync();
 
@@ -816,9 +820,10 @@ public class StudentService
 
         // Include Quran exams, and course exams ONLY if not already represented in passedCourses
         var examCerts = exams
-            .Where(e => e.NominationType == "Quran" || !e.CourseId.HasValue || !passedCourseIds.Contains(e.CourseId.Value))
+            .Where(e => e.Result != null && e.Result.Grade >= certificateSettings.PassingScoreThreshold)
+            .Where(e => e.NominationType != "Course" || !e.CourseId.HasValue || !passedCourseIds.Contains(e.CourseId.Value))
             .Select(e => {
-                var isQuran = e.NominationType == "Quran";
+                var isQuran = e.NominationType != "Course";
                 var exYear = e.ExamDate?.Year ?? DateTime.Today.Year;
                 var exMonth = e.ExamDate?.Month ?? DateTime.Today.Month;
                 var certCode = isQuran
@@ -827,6 +832,8 @@ public class StudentService
 
                 return new {
                     e.Id,
+                    CertificateKind = "exam",
+                    CertificateId = e.Id,
                     e.StudentId,
                     StudentName = s.FullName,
                     e.NominationType,
@@ -836,7 +843,7 @@ public class StudentService
                     JuzStart = e.JuzStart,
                     JuzEnd = e.JuzEnd,
                     FormattedDetails = isQuran ? (e.JuzStart == e.JuzEnd ? $"حفظ الجزء ({e.JuzStart})" : $"حفظ الأجزاء ({e.JuzStart} - {e.JuzEnd})") : (e.Course?.Name ?? "مساق ودورة شرعية"),
-                    Grade = e.Result?.Grade ?? 100.0,
+                    Grade = e.Result!.Grade,
                     ExamDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? e.NominationDate.ToString("yyyy-MM-dd"),
                     CertificateCode = certCode,
                     CertificateDate = e.ExamDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")
@@ -852,6 +859,8 @@ public class StudentService
 
             return new {
                 Id = 10000 + pc.Id,
+                CertificateKind = "course",
+                CertificateId = pc.Id,
                 pc.StudentId,
                 StudentName = s.FullName,
                 NominationType = "Course",
@@ -861,7 +870,7 @@ public class StudentService
                 JuzStart = (int?)null,
                 JuzEnd = (int?)null,
                 FormattedDetails = $"دورة: {pc.Course?.Name ?? "مساق معتمد"}",
-                Grade = pc.Grade.HasValue ? (double)pc.Grade.Value : 90.0,
+                Grade = (double)pc.Grade!.Value,
                 ExamDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? pc.EnrollmentDate.ToString("yyyy-MM-dd"),
                 CertificateCode = certCode,
                 CertificateDate = pc.CertificateDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd")

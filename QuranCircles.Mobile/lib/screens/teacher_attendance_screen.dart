@@ -31,19 +31,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     try {
-      final circles = await ApiService.getCircles();
+      final circles = await ApiService.getCircles(forceRefresh: true);
       final activeCircles = circles.where((c) => c.isActive).toList();
 
       // Filter by teacher if teacher role
       List<Circle> myCircles = activeCircles;
-      if (widget.currentUser.role == 'Teacher') {
-        myCircles = activeCircles.where((c) {
-          final tName = c.teacherName?.trim() ?? '';
-          final uName = widget.currentUser.fullName.trim();
-          return tName.isNotEmpty && (tName == uName || tName.contains(uName) || uName.contains(tName));
-        }).toList();
-        if (myCircles.isEmpty) myCircles = activeCircles;
-      }
+      // The API includes assigned circles and dated substitute coverage.
+
 
       // Check system settings for enrollment
       try {
@@ -81,7 +75,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final allStudents = await ApiService.getStudents();
+      final allStudents = await ApiService.getStudents(forceRefresh: true);
       final students = allStudents.where((s) => s.circleId == _selectedCircle!.id).toList();
 
       final Map<int, String> statusMap = {};

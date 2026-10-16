@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'teacher_operations_screen.dart';
 
 class CenterOperationsScreen extends StatefulWidget {
   const CenterOperationsScreen({super.key});
@@ -143,6 +144,7 @@ class _CenterOperationsScreenState extends State<CenterOperationsScreen> {
     floatingActionButton:canEdit?FloatingActionButton.extended(onPressed:addPlan,icon:const Icon(Icons.add),label:const Text('خطة جديدة')):null,
     body:loading?const Center(child:CircularProgressIndicator()):error!=null?Center(child:Text(error!)):
       ListView(padding:const EdgeInsets.fromLTRB(16,16,16,110),children:[
+        OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const TeacherOperationsScreen())),icon:const Icon(Icons.punch_clock),label:const Text('كشف حضور المعلمين والتغطية البديلة')),
         Text('الخطط المسجلة',style:AppTheme.cairoStyle(fontSize:20,fontWeight:FontWeight.bold)),
         if(plans.isEmpty)const ListTile(title:Text('لا توجد خطط مسجلة بعد.')),
         ...plans.map((raw){final p=raw as Map<String,dynamic>;return Card(child:ListTile(

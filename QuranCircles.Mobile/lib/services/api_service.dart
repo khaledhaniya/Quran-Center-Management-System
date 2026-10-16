@@ -16,6 +16,15 @@ class ApiService {
   static User? currentUser;
   static String? authToken;
 
+  static Future<dynamic> centerOperation(String path, {Map<String, dynamic>? body}) async {
+    final uri = Uri.parse('$baseUrl/operations/$path');
+    final response = body == null ? await httpClient.get(uri,headers:_headers())
+        : await httpClient.post(uri,headers:_headers(),body:jsonEncode(body));
+    final data = jsonDecode(response.body);
+    if(response.statusCode < 200 || response.statusCode >= 300) throw Exception(data is Map ? data['error'] ?? 'تعذر تنفيذ الطلب' : 'تعذر تنفيذ الطلب');
+    return data;
+  }
+
   static Future<Uri> createDownloadTicket({required String format, Map<String, dynamic>? filter,
       String? certificateKind, int? certificateId, bool thumbnail = false}) async {
     final response = await httpClient.post(Uri.parse('$baseUrl/exports/ticket'),

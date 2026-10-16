@@ -39,18 +39,12 @@ class _TeacherLotteryScreenState extends State<TeacherLotteryScreen> with Single
   Future<void> _loadCircles() async {
     setState(() => _isLoading = true);
     try {
-      final circles = await ApiService.getCircles();
+      final circles = await ApiService.getCircles(forceRefresh: true);
       final activeCircles = circles.where((c) => c.isActive).toList();
 
       List<Circle> myCircles = activeCircles;
-      if (widget.currentUser.role == 'Teacher') {
-        myCircles = activeCircles.where((c) {
-          final tName = c.teacherName?.trim() ?? '';
-          final uName = widget.currentUser.fullName.trim();
-          return tName.isNotEmpty && (tName == uName || tName.contains(uName) || uName.contains(tName));
-        }).toList();
-        if (myCircles.isEmpty) myCircles = activeCircles;
-      }
+      // The API includes assigned circles and dated substitute coverage.
+
 
       if (mounted) {
         setState(() {

@@ -20,13 +20,15 @@ public class CircleService
         return circles.Select(Map).ToList();
     }
 
-    public async Task<List<CircleDto>> GetAllForTeacherAsync(int teacherId)
+    public async Task<List<CircleDto>> GetAllForTeacherAsync(int teacherId, int? userId = null)
     {
+        var today = CenterClock.Today;
         var circles = await _db.Circles
             .Include(c => c.Teacher)
             .Include(c => c.AssistantTeacher)
             .Include(c => c.Students)
-            .Where(c => c.TeacherId == teacherId || c.AssistantTeacherId == teacherId)
+            .Where(c => c.TeacherId == teacherId || c.AssistantTeacherId == teacherId ||
+                (userId.HasValue && _db.CircleDays.Any(d => d.CircleId == c.Id && d.Date == today && d.Status == "Absent" && d.SubstituteUserId == userId)))
             .ToListAsync();
         return circles.Select(Map).ToList();
     }

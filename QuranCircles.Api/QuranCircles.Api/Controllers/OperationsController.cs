@@ -13,6 +13,43 @@ public class OperationsController(AppDbContext db) : ControllerBase
     [HttpGet("today")]
     public IActionResult Today() => Ok(new { date = CenterClock.Today.ToString("yyyy-MM-dd") });
 
+    [HttpGet("teacher-attendance")]
+    public async Task<IActionResult> TeacherAttendance([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] int? circleId)
+    {
+        try {
+            var service = new TeacherAttendanceService(db);
+            var rows = await service.BuildAsync(from ?? CenterClock.Today, to ?? CenterClock.Today, circleId);
+            if(!await service.CanManageAsync(HttpContext)) {
+                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == FakeAuth.GetUserId(HttpContext));
+                if(user?.TeacherId == null)return Forbid();
+                rows = rows.Where(r => r.TeacherId == user.TeacherId || r.SubstituteUserId == user.Id).ToList();
+            }
+            return Ok(rows);
+        }
+        catch (ArgumentException e) { return BadRequest(new { error = e.Message }); }
+    }
+
+    [HttpGet("substitutes")]
+    public async Task<IActionResult> Substitutes([FromQuery] int? circleId)
+    {
+        if (!await new TeacherAttendanceService(db).CanManageAsync(HttpContext)) return Forbid();
+        var original = await db.Circles.Where(c => c.Id == circleId).Select(c => c.TeacherId).FirstOrDefaultAsync();
+        return Ok(await db.Users.AsNoTracking().Where(u => u.IsActive && u.Teacher != null && u.Teacher.IsActive && u.TeacherId != original)
+            .OrderBy(u => u.FullName).Select(u => new { u.Id, u.FullName, u.TeacherId }).ToListAsync());
+    }
+
+    [HttpPost("coverage/{circleId:int}")]
+    public async Task<IActionResult> Coverage(int circleId, CoverageInput input)
+    {
+        var service = new TeacherAttendanceService(db);
+        if (!await service.CanManageAsync(HttpContext)) return Forbid();
+        try {
+            await service.AssignAsync(circleId, input.Date, input.SubstituteUserId, input.Reason, FakeAuth.GetUserId(HttpContext)!.Value, FakeAuth.GetUsername(HttpContext) ?? "");
+            return Ok(new { message = input.SubstituteUserId.HasValue ? "تم تسجيل غياب المعلم الأصلي وتكليف البديل لهذا اليوم." : "تم تسجيل الغياب دون تغطية بديلة." });
+        } catch (ArgumentException e) { return BadRequest(new { error = e.Message }); }
+    }
+    public record CoverageInput(DateOnly Date, int? SubstituteUserId, string Reason);
+
     [HttpGet("plans")]
     public async Task<IActionResult> Plans() => Ok(await db.CirclePlans.AsNoTracking().OrderByDescending(p => p.StartsOn).ToListAsync());
 

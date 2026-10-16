@@ -23,7 +23,10 @@ public class ExportsController(AppDbContext db) : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> Preview(ReportFilter filter)
     {
-        try { return Ok(await new OperationalReports(db).BuildAsync(filter)); }
+        try {
+            var report = await new OperationalReports(db).BuildAsync(filter);
+            return Ok(new { report.Title, report.Columns, Rows = report.Rows.Take(200), report.Period, TotalRows = report.Rows.Count });
+        }
         catch (ArgumentException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -98,8 +101,17 @@ public class ExportsController(AppDbContext db) : ControllerBase
         else
         {
             var filter = request.Filter ?? new ReportFilter();
+            bool profileAccess = false;
+            if(filter.Kind == "student_profile") {
+                if(filter.StudentIds?.Length != 1)return BadRequest();
+                var target = await db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == filter.StudentIds[0]);
+                profileAccess = target != null && (user.StudentId == target.Id || ParentLinks.IsChild(user, target) ||
+                    user.Teacher?.IsActive == true && await db.Circles.AnyAsync(c => c.Id == target.CircleId && (c.TeacherId == user.TeacherId || c.AssistantTeacherId == user.TeacherId)));
+            }
             if (user.Role is not (UserRole.Admin or UserRole.Developer) &&
-                !(filter.Kind == "finance" && user.Teacher?.IsActive == true && (user.Teacher.TaskRole ?? "").Contains("الملف المالي"))) return Forbid();
+                !profileAccess &&
+                !(filter.Kind == "finance" && user.Teacher?.IsActive == true && (user.Teacher.TaskRole ?? "").Contains("الملف المالي")) &&
+                !(filter.Kind is "teacher_discipline" or "course_roster" or "circle_roster" && await new TeacherAttendanceService(db).CanManageAsync(HttpContext))) return Forbid();
             if (request.Format == "png") return BadRequest();
             ReportTable report;
             try { report = await new OperationalReports(db).BuildAsync(filter); }

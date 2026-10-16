@@ -4016,8 +4016,8 @@ async function loadAdminStudents(search = "") {
     }
 
     try {
-        const students = await apiRequest(`/students?search=${search}`);
-        cachedStudents = students;
+        const students = await apiRequest(`/students?search=${encodeURIComponent(search)}`);
+        if (!search.trim()) cachedStudents = students;
 
         if (tbody) tbody.innerHTML = "";
 
@@ -5747,7 +5747,7 @@ async function showStudent360Modal(studentId) {
         const planTypeDisplay = planTypeMap[rawPlanType] || rawPlanType;
 
         const completedAjzaaStr = (data && data.completedAjzaa) || sInfo.completedAjzaa || '';
-        const completedAjzaaArr = completedAjzaaStr ? completedAjzaaStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 30) : [];
+        const completedAjzaaArr = [...new Set(String(completedAjzaaStr).split(/[،,\s]+/).map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 30))];
         const completedCount = completedAjzaaArr.length;
         const completedPercent = Math.min(100, Math.round((completedCount / (targetAjzaa || 30)) * 100));
 
@@ -6142,6 +6142,8 @@ async function showStudent360Modal(studentId) {
 
                                 const certJson = JSON.stringify({
                                     id: c.id,
+                                    certificateKind: c.certificateKind,
+                                    certificateId: c.certificateId,
                                     studentName: studentName,
                                     nominationType: c.nominationType,
                                     courseName: c.courseName,
@@ -6262,418 +6264,13 @@ async function showStudent360Modal(studentId) {
 
 // ------ Preview & Print Accredited Certificate ------
 function openAccreditedCertificatePreview(cert) {
-    return showUnifiedCertificate(cert.nominationType ? 'exam' : 'course', cert.id);
+    return showUnifiedCertificate(cert.certificateKind || (cert.nominationType ? 'exam' : 'course'), cert.certificateId || cert.id);
 }
 
 // ------ Working Print & PDF Export Engine with Animated Progress Bar ------
 async function downloadStudent360Pdf(studentId) {
-    // 1. Create and show animated progress overlay
-    const overlay = document.createElement("div");
-    overlay.className = "pdf-export-overlay";
-    overlay.id = "pdf-export-active-overlay";
-    overlay.innerHTML = `
-        <div class="pdf-export-modal">
-            <div class="pdf-export-icon">
-                <i class="fa-solid fa-file-pdf"></i>
-            </div>
-            <h4 class="fw-bold text-success mb-2">جاري تجهيز وتوليد ملف PDF</h4>
-            <p class="text-muted small mb-3" id="pdf-export-step-text">استخراج بيانات الطالب وسجلاته القرآنية المعتمدة...</p>
-            <div class="progress mb-2 rounded-pill shadow-xs" style="height: 12px; background: #e2e8f0;">
-                <div id="pdf-export-bar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 25%;"></div>
-            </div>
-            <small class="text-muted fw-bold" id="pdf-export-percent">25%</small>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const updateProgress = (pct, text) => {
-        const bar = document.getElementById("pdf-export-bar");
-        const pctEl = document.getElementById("pdf-export-percent");
-        const txtEl = document.getElementById("pdf-export-step-text");
-        if (bar) bar.style.width = pct + "%";
-        if (pctEl) pctEl.textContent = pct + "%";
-        if (txtEl) txtEl.textContent = text;
-    };
-
-    try {
-        await new Promise(r => setTimeout(r, 200));
-        updateProgress(45, "تجميع خريطة إتقان الـ 30 جزءاً وسجل التسميع اليومي...");
-
-        let data = null;
-        try {
-            data = await apiRequest(`/students/${studentId}/360`);
-        } catch (e) {
-            data = await apiRequest(`/students/${studentId}`);
-        }
-
-        const sInfo = (data && data.studentInfo) ? data.studentInfo : data;
-        const studentName = (data && data.studentName) || sInfo.fullName || sInfo.studentName || 'طالب المركز';
-        const circleName = (data && data.circleName) || sInfo.circleName || 'غير مسند لحلقة';
-        const teacherName = (data && data.teacherName) || sInfo.teacherName || 'غير مسند لمعلم';
-        const phone = (data && data.familyContact) || sInfo.familyContact || sInfo.studentMobile || sInfo.studentWhatsapp || '-';
-        const studentIdNum = sInfo.studentIdentityNumber || (data && data.studentIdentityNumber) || `#${studentId}`;
-        const prevMemorization = (data && data.previousQuranMemorization) || sInfo.previousQuranMemorization || 'مبتدئ';
-        const targetAjzaa = (data && data.targetAjzaa) || (data && data.targetAjzaaCount) || sInfo.targetAjzaaCount || 30;
-        const completedAjzaaStr = (data && data.completedAjzaa) || sInfo.completedAjzaa || '';
-        const completedAjzaaArr = completedAjzaaStr ? completedAjzaaStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 30) : [];
-        const completedCount = completedAjzaaArr.length;
-        const completedPercent = Math.min(100, Math.round((completedCount / (targetAjzaa || 30)) * 100));
-
-        const sessions = (data && (data.sessions || data.recentSessions)) || [];
-        const rawCompletedExams = (data && (data.completedExams || data.exams)) || [];
-        const completedExams = [];
-        const seenExamKeys = new Set();
-        rawCompletedExams.forEach(e => {
-            const isQuran = e.nominationType === "Quran";
-            const dedupKey = isQuran
-                ? `quran_${e.juzStart || 1}_${e.juzEnd || 1}`
-                : `course_${e.courseId || e.courseName || e.formattedDetails}`;
-            if (!seenExamKeys.has(dedupKey)) {
-                seenExamKeys.add(dedupKey);
-                completedExams.push(e);
-            }
-        });
-        const talents = (data && data.talents) || [];
-
-        const presentCount = (data && data.presentDays !== undefined) ? data.presentDays : attendances.filter(a => a.status === 'Present' || a.status === 0 || a.statusText === 'حاضر').length;
-        const absentCount = (data && data.absentDays !== undefined) ? data.absentDays : attendances.filter(a => a.status === 'Absent' || a.status === 1 || a.statusText === 'غائب').length;
-        const lateCount = (data && data.lateDays !== undefined) ? data.lateDays : attendances.filter(a => a.status === 'Late' || a.status === 2 || a.statusText === 'متأخر').length;
-        const totalAtt = presentCount + absentCount + lateCount;
-        const attRate = totalAtt > 0 ? Math.round((presentCount / totalAtt) * 100) : 100;
-
-        await new Promise(r => setTimeout(r, 250));
-        updateProgress(75, "تضمين كشوفات الحضور والشهادات المعتمدة...");
-
-        const centerTitle = cachedSystemSettings?.centerName || "مركز البيان لتعليم القرآن الكريم";
-        const centerEmirName = cachedSystemSettings?.signatoryName || "إدارة المركز";
-        const logoSrc = (typeof CENTER_LOGO_BASE64 !== "undefined" && CENTER_LOGO_BASE64) ? CENTER_LOGO_BASE64 : "assets/logo.png";
-        const todayStr = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-
-        await new Promise(r => setTimeout(r, 200));
-        updateProgress(100, "جاهز! فتح مستند PDF والطباعة...");
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            alert("يرجى السماح بالنوافذ المنبثقة (Popups) لتوليد وطباعة ملف PDF.");
-            return;
-        }
-
-        const printableHtml = `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="ar">
-            <head>
-                <meta charset="utf-8">
-                <title>الملف الموحد الشامل - ${escapeXml(studentName)}</title>
-                <link rel="preconnect" href="https://fonts.googleapis.com">
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-                <style>
-                    @page {
-                        size: A4 portrait;
-                        margin: 10mm;
-                    }
-                    * {
-                        box-sizing: border-box;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    body {
-                        font-family: 'Cairo', sans-serif;
-                        direction: rtl;
-                        margin: 0;
-                        padding: 10px;
-                        color: #1e293b;
-                        background: #ffffff;
-                    }
-                    .report-header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        border-bottom: 2.5px solid #0d5c3a;
-                        padding-bottom: 12px;
-                        margin-bottom: 14px;
-                    }
-                    .header-logo img {
-                        height: 60px;
-                    }
-                    .header-text h3 {
-                        margin: 0 0 4px 0;
-                        color: #0d5c3a;
-                        font-weight: 800;
-                        font-size: 1.15rem;
-                    }
-                    .header-text p {
-                        margin: 0;
-                        font-size: 0.78rem;
-                        color: #64748b;
-                    }
-                    .student-card {
-                        background: #f8fafc;
-                        border: 1px solid #cbd5e1;
-                        border-radius: 10px;
-                        padding: 12px 16px;
-                        margin-bottom: 14px;
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 8px;
-                        font-size: 0.85rem;
-                    }
-                    .student-card .field {
-                        display: flex;
-                        gap: 6px;
-                    }
-                    .student-card .field span {
-                        color: #64748b;
-                    }
-                    .student-card .field strong {
-                        color: #0f172a;
-                    }
-                    .kpi-row {
-                        display: grid;
-                        grid-template-columns: repeat(4, 1fr);
-                        gap: 10px;
-                        margin-bottom: 14px;
-                    }
-                    .kpi-box {
-                        background: #f1f5f9;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        padding: 8px;
-                        text-align: center;
-                    }
-                    .kpi-box .num {
-                        font-size: 1.25rem;
-                        font-weight: 800;
-                        color: #0d5c3a;
-                    }
-                    .kpi-box .lbl {
-                        font-size: 0.72rem;
-                        color: #475569;
-                        font-weight: 600;
-                    }
-                    .section-title {
-                        font-size: 0.95rem;
-                        font-weight: 800;
-                        color: #0d5c3a;
-                        border-right: 4px solid #d97706;
-                        padding-right: 8px;
-                        margin: 12px 0 8px 0;
-                    }
-                    .juz-grid {
-                        display: grid;
-                        grid-template-columns: repeat(10, 1fr);
-                        gap: 4px;
-                        margin-bottom: 14px;
-                    }
-                    .juz-item {
-                        border: 1px solid #cbd5e1;
-                        border-radius: 6px;
-                        padding: 4px 2px;
-                        text-align: center;
-                        font-size: 0.65rem;
-                        font-weight: 700;
-                    }
-                    .juz-item.done {
-                        background: #d1fae5;
-                        border-color: #10b981;
-                        color: #065f46;
-                    }
-                    .juz-item.pending {
-                        background: #f8fafc;
-                        color: #94a3b8;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        font-size: 0.78rem;
-                        margin-bottom: 12px;
-                    }
-                    th {
-                        background: #f1f5f9;
-                        border: 1px solid #cbd5e1;
-                        padding: 6px;
-                        text-align: right;
-                        color: #1e293b;
-                        font-weight: 700;
-                    }
-                    td {
-                        border: 1px solid #e2e8f0;
-                        padding: 5px 6px;
-                    }
-                    .signatures-row {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-top: 24px;
-                        padding-top: 14px;
-                        border-top: 1px dashed #cbd5e1;
-                        text-align: center;
-                    }
-                    .signature-box {
-                        width: 28%;
-                    }
-                    .signature-line {
-                        height: 35px;
-                    }
-                    .signature-title {
-                        font-weight: 700;
-                        font-size: 0.8rem;
-                        color: #334155;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="report-header">
-                    <div class="header-text">
-                        <p>دولة فلسطين - دار القرآن الكريم والسنة</p>
-                        <h3>${escapeXml(centerTitle)}</h3>
-                        <p>تقرير الإنجاز القرآني الشامل الموحد (360°)</p>
-                    </div>
-                    <div class="header-logo">
-                        <img src="${logoSrc}" alt="شعار المركز">
-                    </div>
-                    <div style="text-align: left; font-size: 0.75rem; color: #64748b;">
-                        <div>تاريخ الإصدار: <b>${todayStr}</b></div>
-                        <div>الرقم المرجعي: <b>DOC-360-${studentId}</b></div>
-                    </div>
-                </div>
-
-                <div class="student-card">
-                    <div class="field"><span>اسم الطالب:</span> <strong>${escapeXml(studentName)}</strong></div>
-                    <div class="field"><span>رقم الهوية:</span> <strong>${escapeXml(studentIdNum)}</strong></div>
-                    <div class="field"><span>رقم التواصل:</span> <strong>${escapeXml(phone)}</strong></div>
-                    <div class="field"><span>الحلقة القرآنية:</span> <strong>${escapeXml(circleName)}</strong></div>
-                    <div class="field"><span>الشيخ المحفظ:</span> <strong>${escapeXml(teacherName)}</strong></div>
-                    <div class="field"><span>المحفوظ السابق:</span> <strong>${escapeXml(prevMemorization)}</strong></div>
-                </div>
-
-                <div class="kpi-row">
-                    <div class="kpi-box">
-                        <div class="num">${completedCount} / ${targetAjzaa}</div>
-                        <div class="lbl">الأجزاء المتقنة (${completedPercent}%)</div>
-                    </div>
-                    <div class="kpi-box">
-                        <div class="num">${sessions.length}</div>
-                        <div class="lbl">جلسات التسميع المباشرة</div>
-                    </div>
-                    <div class="kpi-box">
-                        <div class="num">${attendanceRate}%</div>
-                        <div class="lbl">نسبة الحضور (${presentCount} يوم)</div>
-                    </div>
-                    <div class="kpi-box">
-                        <div class="num">${completedExams.length}</div>
-                        <div class="lbl">الشهادات والاختبارات المجتازة</div>
-                    </div>
-                </div>
-
-                <div class="section-title"><i class="fa-solid fa-cubes-stacked me-1"></i> خريطة إتقان وتثبيت أجزاء المصحف الشريف (30 جزءاً):</div>
-                <div class="juz-grid">
-                    ${Array.from({ length: 30 }, (_, i) => i + 1).map(num => {
-                        const isDone = completedAjzaaArr.includes(num);
-                        return `
-                            <div class="juz-item ${isDone ? 'done' : 'pending'}">
-                                <div>جزء ${num}</div>
-                                <div>${isDone ? '✓ متقن' : '-'}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-
-                <div class="section-title"><i class="fa-solid fa-award me-1"></i> سجل الشهادات والاختبارات المعتمدة:</div>
-                ${completedExams.length === 0 ? `
-                    <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 12px;">لا توجد اختبارات معتمدة مسجلة حالياً.</p>
-                ` : `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>تاريخ الاختبار</th>
-                                <th>المقرر / الجزء / الدورة</th>
-                                <th>المعلم المشرف</th>
-                                <th>الدرجة والتقدير</th>
-                                <th>الرقم المعتمد</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${completedExams.slice(0, 5).map(e => `
-                                <tr>
-                                    <td>${e.examDate || '-'}</td>
-                                    <td><strong>${escapeXml(e.formattedDetails || e.courseName || 'اختبار قرآني')}</strong></td>
-                                    <td>${escapeXml(e.teacherName || teacherName)}</td>
-                                    <td><strong>${e.grade || e.score || 100}%</strong></td>
-                                    <td><code>${e.certificateCode || `CERT-${e.id}`}</code></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `}
-
-                <div class="section-title"><i class="fa-solid fa-microphone me-1"></i> آخر جلسات التسميع المباشر:</div>
-                ${sessions.length === 0 ? `
-                    <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 12px;">لا توجد جلسات تسميع مسجلة حالياً.</p>
-                ` : `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>التاريخ</th>
-                                <th>السورة الكريمة</th>
-                                <th>من آية</th>
-                                <th>إلى آية</th>
-                                <th>التقييم</th>
-                                <th>ملاحظات المحفظ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sessions.slice(0, 6).map(s => `
-                                <tr>
-                                    <td>${s.sessionDate}</td>
-                                    <td><strong>سورة ${escapeXml(s.surahName)}</strong></td>
-                                    <td>${s.fromVerse}</td>
-                                    <td>${s.toVerse}</td>
-                                    <td>${s.assessmentText || s.assessment}</td>
-                                    <td>${escapeXml(s.notes || '-')}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `}
-
-                <div class="signatures-row">
-                    <div class="signature-box">
-                        <div class="signature-title">الشيخ المحفظ</div>
-                        <div class="signature-line"></div>
-                        <small style="color:#64748b;">${escapeXml(teacherName)}</small>
-                    </div>
-                    <div class="signature-box">
-                        <div class="signature-title">مشرف الاختبارات والجودة</div>
-                        <div class="signature-line"></div>
-                        <small style="color:#64748b;">إدارة الشؤون التعليمية</small>
-                    </div>
-                    <div class="signature-box">
-                        <div class="signature-title">مدير المركز</div>
-                        <div class="signature-line"></div>
-                        <small style="color:#64748b;">${escapeXml(centerEmirName)}</small>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        printWindow.document.write(printableHtml);
-        printWindow.document.close();
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 600);
-
-    } catch (err) {
-        console.error("PDF Export error:", err);
-        showAlert("تعذر توليد ملف PDF: " + (err.message || err), "danger");
-    } finally {
-        setTimeout(() => {
-            const el = document.getElementById("pdf-export-active-overlay");
-            if (el) el.remove();
-        }, 700);
-    }
+    try { await downloadCenterFile({format:'pdf',filter:{kind:'student_profile',studentIds:[Number(studentId)]}}); }
+    catch(e){showAlert(e.message,'danger');}
 }
 
 // ----------------- MODALS & FORMS MANAGER -----------------
@@ -14202,21 +13799,23 @@ function exportDynamicReportToExcelXlsx() {
 // DYNAMIC SMART REPORTS & MULTI-CRITERIA FILTER ENGINE
 // ==========================================================================
 let currentDynamicFilteredStudents = [];
+let reportStudents = [];
 
 async function loadDynamicReportsScreen() {
     try {
-        if (!cachedStudents || cachedStudents.length === 0) {
-            cachedStudents = await apiRequest("/students");
-        }
-
-        if (!cachedCircles || cachedCircles.length === 0) {
-            cachedCircles = await apiRequest("/circles");
-        }
+        const [students, circles, courses, clock] = await Promise.all([apiRequest("/students"), apiRequest("/circles"), apiRequest("/courses").catch(()=>[]), apiRequest("/operations/today")]);
+        reportStudents = students;
+        const reportCircle = document.getElementById('unified-report-circle');
+        if(reportCircle){const selected=reportCircle.value;reportCircle.innerHTML='<option value="">كل الحلقات</option>'+circles.map(c=>`<option value="${c.id}">${escapeXml(c.name)}</option>`).join('');reportCircle.value=selected;}
+        const reportCourse=document.getElementById('unified-report-course');
+        if(reportCourse){const selected=reportCourse.value;reportCourse.innerHTML='<option value="">كل الدورات</option>'+courses.map(c=>`<option value="${c.id}">${escapeXml(c.name)}</option>`).join('');reportCourse.value=selected;}
+        const from=document.getElementById('unified-report-from'),to=document.getElementById('unified-report-to');
+        if(from&&!from.value)from.value=clock.date.slice(0,7)+'-01';if(to&&!to.value)to.value=clock.date;
 
         const circleSelect = document.getElementById("dyn-filter-circle");
         if (circleSelect) {
             circleSelect.innerHTML = `<option value="all">كافة الحلقات والمراكز</option>`;
-            cachedCircles.forEach(c => {
+            circles.forEach(c => {
                 circleSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
             });
         }
@@ -14260,7 +13859,7 @@ function applySpecializedReportPreset(presetKey) {
 }
 
 function runDynamicFilter() {
-    if (!cachedStudents) return;
+    if (!reportStudents) return;
 
     const orphanOpt = document.getElementById("dyn-filter-orphan") ? document.getElementById("dyn-filter-orphan").value : "all";
     const ageOpt = document.getElementById("dyn-filter-age") ? document.getElementById("dyn-filter-age").value : "all";
@@ -14272,7 +13871,7 @@ function runDynamicFilter() {
     const minAgeInput = parseInt(document.getElementById("dyn-min-age")?.value) || 0;
     const maxAgeInput = parseInt(document.getElementById("dyn-max-age")?.value) || 99;
 
-    let results = cachedStudents.filter(s => {
+    let results = reportStudents.filter(s => {
         const age = calculateStudentAge(s.dateOfBirth);
 
         // 1. Orphan / Social Status Filter
@@ -14329,7 +13928,7 @@ function runDynamicFilter() {
     const orphanEl = document.getElementById("dyn-stat-orphans");
     const tagEl = document.getElementById("dyn-report-tag");
 
-    const totalStudents = cachedStudents.length || 1;
+    const totalStudents = reportStudents.length || 1;
     const count = results.length;
     const perc = ((count / totalStudents) * 100).toFixed(1);
 
@@ -18262,7 +17861,7 @@ async function loadQualityManagementScreen() {
                     return `
                         <tr>
                             <td class="text-center font-monospace">${idx + 1}</td>
-                            <td><strong class="text-primary"><i class="fa-solid fa-mosque me-1 text-success"></i> ${c.name}</strong></td>
+                            <td><button class="quality-students-link" onclick="showQualityStudents('circle',${c.id})">${escapeXml(c.name)}<small>عرض الطلاب (${c.studentCount})</small></button></td>
                             <td>${c.teacherName || '<span class="text-muted">-</span>'}</td>
                             <td class="text-center"><span class="badge bg-light text-dark border px-2 py-1 font-monospace">${c.studentCount} طالب</span></td>
                             <td class="text-center font-monospace text-success fw-bold">${c.memorizationSessions || 0}</td>
@@ -18297,7 +17896,7 @@ async function loadQualityManagementScreen() {
                     return `
                         <tr>
                             <td class="text-center font-monospace">${idx + 1}</td>
-                            <td><strong class="text-success"><i class="fa-solid fa-book-open-reader me-1"></i> ${crs.name}</strong></td>
+                            <td><button class="quality-students-link" onclick="showQualityStudents('course',${crs.id})">${escapeXml(crs.name)}<small>عرض المسجلين (${crs.enrolledCount||0})</small></button></td>
                             <td>${crs.teacherName || '<span class="text-muted">-</span>'}</td>
                             <td class="text-center"><span class="badge bg-light text-dark border px-2 py-1 font-monospace">${crs.enrolledCount || 0} طالب</span></td>
                             <td class="text-center"><span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1 font-monospace">${crs.passedCount || 0} مجاز</span></td>
@@ -18513,60 +18112,7 @@ async function showQualitySpotCheckModal(circleId, circleName) {
 
 window.showSubstituteModeModal = showSubstituteModeModal;
 async function showSubstituteModeModal(circleId, circleName) {
-    const html = `
-        <div class="text-start" dir="rtl">
-            <div class="alert alert-warning py-2.5 px-3 small mb-3">
-                <i class="fa-solid fa-triangle-exclamation me-1"></i> يتيح <strong>وضع المعلم البديل</strong> تكليف محفظ أو مشرف بتغطية الحلقة رسمياً في حال غياب أو إجازة الشيخ الأساسي دون التأثير على التسميع اليومي للطلاب.
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-bold small"><i class="fa-solid fa-user-shield text-primary me-1"></i> اسم الشيخ / المشرف البديل *</label>
-                <input id="swal-sub-supervisor" class="form-control" value="${escapeXml(getAuthStorage("fullName") || '')}" placeholder="اكتب اسم الشيخ البديل...">
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-bold small"><i class="fa-solid fa-circle-question text-secondary me-1"></i> سبب التغطية البديلة</label>
-                <input id="swal-sub-reason" class="form-control" placeholder="مثال: إجازة مرضية، ظرف طارئ، سفر...">
-            </div>
-            <div class="form-check form-switch p-3 bg-light rounded-3 border">
-                <input class="form-check-input ms-2" type="checkbox" id="swal-sub-toggle" checked style="cursor: pointer; width: 44px; height: 22px;">
-                <label class="form-check-label fw-bold small text-dark" for="swal-sub-toggle">
-                    تفعيل التغطية البديلة فوراً للحلقة
-                </label>
-            </div>
-        </div>
-    `;
-
-    const res = await Swal.fire({
-        title: `🔄 وضع المعلم البديل - ${escapeXml(circleName)}`,
-        html: html,
-        width: 'min(94vw, 560px)',
-        showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> تأكيد التغطية البديلة',
-        cancelButtonText: 'إلغاء',
-        confirmButtonColor: '#2563eb',
-        preConfirm: () => {
-            const supervisorName = document.getElementById("swal-sub-supervisor").value.trim();
-            if (!supervisorName) {
-                Swal.showValidationMessage("يرجى إدخال اسم الشيخ أو المشرف البديل.");
-                return false;
-            }
-            return {
-                circleId,
-                supervisorName,
-                reason: document.getElementById("swal-sub-reason").value.trim() || "غياب الشيخ الرسمي",
-                activate: document.getElementById("swal-sub-toggle").checked
-            };
-        }
-    });
-
-    if (res.isConfirmed) {
-        try {
-            const out = await apiRequest("/quality/substitute-mode", "POST", res.value);
-            showAlert(out.message || "تم تحديث وضع المعلم البديل بنجاح!", "success");
-            loadQualityManagementScreen();
-        } catch(err) {
-            showAlert("فشل تحديث وضع المعلم البديل: " + (err.message || err), "danger");
-        }
-    }
+    return showTeacherCoverage(circleId, circleName);
 }
 
 // تصدير تقرير الجودة والرقابة الشامل (صفحات الحلقات في xls و xlsx)

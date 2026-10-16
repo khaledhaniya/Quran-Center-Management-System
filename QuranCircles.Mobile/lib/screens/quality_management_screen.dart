@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'center_operations_screen.dart';
+import 'teacher_operations_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -76,6 +77,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
+            IconButton(icon:const Icon(Icons.punch_clock),tooltip:'حضور المعلمين والبدلاء',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const TeacherOperationsScreen()))),
             IconButton(icon: const Icon(Icons.calendar_month),tooltip:'خطط الحلقات وحضور المعلمين',
               onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CenterOperationsScreen()))),
             IconButton(
@@ -871,98 +873,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
   }
 
   void _showSubstituteModeDialog(Map<String, dynamic> circle) {
-    final circleId = circle['id'] as int;
-    final circleName = circle['name'] ?? 'الحلقة';
-    final subTeacherCtrl = TextEditingController();
-    final reasonCtrl = TextEditingController(text: 'غياب الشيخ الأساسي');
-    bool isActive = true;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.person_pin, color: Color(0xFF2563EB)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('وضع المعلم البديل - $circleName', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('اسم الشيخ أو المشرف البديل:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: subTeacherCtrl,
-                decoration: InputDecoration(
-                  hintText: 'اكتب اسم الشيخ البديل...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-                style: AppTheme.cairoStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              Text('سبب التغطية البديلة:', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: reasonCtrl,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-                style: AppTheme.cairoStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('تفعيل التغطية البديلة للحلقة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                value: isActive,
-                onChanged: (v) => setDialogState(() => isActive = v),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-              onPressed: () async {
-                final subName = subTeacherCtrl.text.trim();
-                if (subName.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('يرجى إدخال اسم الشيخ البديل')),
-                  );
-                  return;
-                }
-                Navigator.pop(ctx);
-                try {
-                  final res = await ApiService.toggleSubstituteMode(
-                    circleId: circleId,
-                    supervisorName: subName,
-                    reason: reasonCtrl.text.trim(),
-                    activate: isActive,
-                  );
-                  if (!mounted || !context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(res['message'] ?? 'تم تحديث وضع المعلم البديل'), backgroundColor: Colors.green),
-                  );
-                  _fetchQualityOverview();
-                } catch (e) {
-                  if (!mounted || !context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('فشل العملية: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text('تأكيد التكليف'),
-            ),
-          ],
-        ),
-      ),
-    );
+    Navigator.push(context,MaterialPageRoute(builder:(_)=>TeacherOperationsScreen(circleId:circle['id'] as int)));
   }
+
 }

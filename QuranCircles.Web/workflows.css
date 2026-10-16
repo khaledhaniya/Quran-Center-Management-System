@@ -1,0 +1,59 @@
+/* Bounded dialogs and report components; independent of Bootstrap utilities. */
+.talent-editor-dialog { display:flex!important; flex-direction:column; width:min(900px,calc(100vw - 24px))!important; max-height:calc(100dvh - 24px)!important; overflow:hidden!important; padding:0!important; background:#f7faf8!important; }
+.talent-editor-dialog .swal2-title { flex:none; text-align:start; margin:0; padding:20px 24px!important; border-bottom:1px solid #dce8df; background:linear-gradient(120deg,#edf6f0,#fff); font-size:clamp(1rem,2.5vw,1.3rem); }
+.talent-editor-dialog .swal2-html-container { flex:1 1 auto; min-height:0; overflow-y:auto!important; overflow-x:hidden!important; margin:0!important; padding:20px 24px; text-align:start!important; max-height:none!important; }
+.talent-editor-dialog .swal2-actions { flex:none; margin:0!important; padding:14px 20px; border-top:1px solid #dce8df; background:#fff; gap:10px; display:flex; flex-wrap:wrap; }
+.talent-editor-dialog .swal2-actions button { margin:0!important; border-radius:12px!important; padding:11px 18px!important; font-size:.9rem; }
+.talent-editor-form>.row { display:grid!important; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:16px!important; margin:0 0 18px!important; }
+.talent-editor-form>.row>div { min-width:0!important; width:auto!important; max-width:100%!important; flex:initial!important; padding:0!important; }
+.talent-editor-form>div { margin-bottom:18px; min-width:0; }
+.talent-editor-form label { display:block; font-size:.82rem; font-weight:700; color:#284c39; line-height:1.8; margin-bottom:7px; }
+.talent-editor-form input,.talent-editor-form select,.talent-editor-form textarea { display:block; width:100%!important; min-width:0!important; box-sizing:border-box; font:inherit; font-size:.86rem; padding:11px 13px; border:1px solid #d3e1d8; border-radius:12px; background:#fff; line-height:1.7; }
+.talent-editor-form input[type=file] { display:none; }
+.talent-editor-form .p-3 { padding:18px!important; border:1px solid #dce8df!important; border-radius:17px!important; background:#fff!important; }
+.talent-editor-form .d-flex { flex-wrap:wrap!important; gap:9px; }
+.talent-editor-form .prep-tag-btn { padding:8px 12px; border-radius:10px; background:#f1f7f3; border:1px solid #d8e5dc; color:#386149; font-size:.75rem; line-height:1.7; }
+.talent-editor-form .prep-tag-btn:focus { background:#dcefe2; border-color:#4b9870; }
+.talent-editor-form .input-group { display:flex; gap:8px; min-width:0; }
+.talent-editor-form .input-group input { width:0!important; flex:1 1 0; }
+.student-360-container .progress { display:flex; overflow:hidden; border-radius:99px; }
+.student-360-container .progress-bar { display:block; height:100%; min-height:10px; background:#e4bd62; border-radius:99px; transition:width .25s ease; }
+.student-360-container .row { margin-inline:0!important; }
+.swal2-container { z-index:20000!important; }
+.reports-studio { padding:clamp(16px,3vw,28px); border:1px solid #dae7df; border-radius:22px; background:#fff; box-shadow:0 8px 28px #173c2b08; margin:20px 0; }
+.reports-intro { display:flex; align-items:flex-start; gap:14px; padding-bottom:18px; border-bottom:1px solid #e7eee9; }
+.reports-step { display:grid; place-items:center; flex:0 0 42px; height:42px; border-radius:14px; background:#e7f2eb; color:#276d45; font-weight:800; }
+.reports-intro h3 { margin:0 0 6px; font-size:1.15rem; color:#245237; }
+.reports-intro p { margin:0; font-size:.85rem; line-height:1.9; color:#728477; }
+.reports-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); gap:16px; margin:20px 0; text-align:start; }
+.reports-fields [hidden],.reports-advanced [hidden],.reports-advanced .d-none { display:none!important; }
+.reports-fields label,.teacher-coverage-form label { display:flex; flex-direction:column; gap:8px; color:#365644; font-size:.82rem; font-weight:700; min-width:0; }
+.reports-fields input,.reports-fields select,.teacher-coverage-form input,.teacher-coverage-form textarea,.teacher-coverage-form select { width:100%; min-width:0; box-sizing:border-box; border:1px solid #d4e2d9; padding:11px 12px; border-radius:12px; background:#fff; font:inherit; line-height:1.7; color:#233e2f; }
+.reports-description { padding:13px 16px; background:#f0f7f2; border:1px solid #dceadf; border-radius:13px; color:#4f705b; font-size:.84rem; line-height:1.9; white-space:normal; }
+.reports-filter-choice { display:flex; gap:10px; align-items:center; font-size:.83rem; color:#576d5e; }
+.reports-filter-choice input { accent-color:#23734a; width:18px; height:18px; }
+.reports-empty { display:grid; justify-items:center; gap:10px; text-align:center; padding:28px 16px; background:#fafcfb; border:1px dashed #dbe6df; border-radius:16px; color:#849689; }
+.reports-empty i { font-size:1.8rem; color:#9bb9a5; }
+.reports-empty h4 { margin:0; color:#4d6f59; font-size:1rem; }
+.reports-empty p { margin:0; font-size:.84rem; }
+.reports-advanced { margin:20px 0; border:1px solid #dce7df; border-radius:18px; background:#f8fbf9; padding:18px; }
+.reports-advanced>summary { cursor:pointer; color:#345b41; font-weight:800; line-height:1.8; }
+.reports-advanced>summary span { display:block; font-weight:400; font-size:.78rem; color:#7b8e7e; margin-top:4px; }
+.reports-advanced[open]>summary { margin-bottom:20px; }
+.reports-result-heading { margin:20px 0 12px; }
+.reports-result-heading h4 { color:#245239; margin:0 0 6px; }
+.reports-result-heading p,.reports-error { color:#6a7f70; font-size:.85rem; line-height:1.9; }
+.reports-error { color:#a04c38; padding:14px; background:#fff4ee; border-radius:12px; }
+#dynamic-reports-section .card-header { height:auto!important; min-height:0!important; padding:16px!important; align-items:flex-start!important; }
+#dynamic-reports-section .card-header>div { white-space:normal!important; line-height:1.8; }
+#dynamic-reports-section .card { min-height:0; height:auto; }
+#dynamic-reports-section .card-body>.row { display:grid!important; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); margin:0!important; gap:16px!important; }
+#dynamic-reports-section .card-body>.row>div { width:auto!important; min-width:0!important; max-width:100%!important; }
+.teacher-coverage-form { display:grid; gap:16px; text-align:start; }
+.teacher-state { display:inline-block; padding:5px 9px; border-radius:8px; background:#eef5f0; color:#286440; font-size:.78rem; white-space:nowrap; }
+.teacher-state.state-Absent { background:#fff0e7; color:#a85832; }
+.teacher-state.state-LatePending,.teacher-state.state-Late { background:#fff7df; color:#967326; }
+.teacher-state.state-Unscheduled { background:#f0f3f1; color:#7b897f; }
+.quality-students-link { border:0; background:#f0f7f3; color:#236b45; padding:9px 13px; border-radius:10px; font:inherit; font-weight:700; cursor:pointer; text-align:start; }
+.quality-students-link small { display:block; color:#728d7c; font-weight:400; font-size:.72rem; margin-top:4px; }
+@media(max-width:600px){.talent-editor-dialog .swal2-title{padding:16px!important;}.talent-editor-dialog .swal2-html-container{padding:16px!important;}.talent-editor-dialog .swal2-actions button{flex:1 1 140px;}.reports-filter-choice{align-items:flex-start;line-height:1.8;}}

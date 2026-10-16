@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="styles.css?v=20261015_2">
     <link rel="stylesheet" href="operations.css?v=20261015_2">
     <link rel="stylesheet" href="dashboard.css?v=20261015_2">
+    <link rel="stylesheet" href="workflows.css?v=20261015_3">
 </head>
 <body>
     <!-- Islamic Initial Loading Screen Curtain (Prevents stale login flash on refresh/slow network) -->
@@ -1096,10 +1097,8 @@
                             </div>
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <button class="btn btn-success fw-bold shadow-sm" onclick="exportDynamicReportToExcelXls()"><i class="fa-solid fa-file-excel me-1"></i> تنزيل Excel منسق (.xls)</button>
-                            <button class="btn btn-primary fw-bold shadow-sm" onclick="exportDynamicReportToExcelXlsx()"><i class="fa-solid fa-table-cells me-1"></i> تنزيل Excel حديث (.xlsx)</button>
-                            <button class="btn btn-danger fw-bold shadow-sm" onclick="printDynamicReport()"><i class="fa-solid fa-file-pdf me-1"></i> طباعة / PDF</button>
-                            <button class="btn btn-outline-secondary fw-bold" onclick="resetDynamicReportFilters()"><i class="fa-solid fa-rotate-left me-1"></i> إعادة ضبط الفلاتر</button>
+                            <button class="btn btn-success fw-bold shadow-sm" onclick="exportUnifiedReport('xlsx')"><i class="fa-solid fa-file-excel me-1"></i> تنزيل Excel</button>
+                            <button class="btn btn-danger fw-bold shadow-sm" onclick="exportUnifiedReport('pdf')"><i class="fa-solid fa-file-pdf me-1"></i> تنزيل PDF</button>
                         </div>
                     </div>
 
@@ -2858,7 +2857,10 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
     <script src="js/quran-exam-engine.js?v=20260920_v5_confirm_and_manual_fix"></script>
-    <script src="app.js?v=20261015_2"></script>
-    <script src="js/operations.js?v=20261015_2"></script>
+    <script src="app.js?v=20261015_3"></script>
+    <script src="js/operations.js?v=20261015_3"></script>
+    <script src="js/report-center.js?v=20261015_3"></script>
+    <script src="js/teacher-operations.js?v=20261015_3"></script>
 </body>
 </html>
+

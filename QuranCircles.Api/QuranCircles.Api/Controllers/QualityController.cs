@@ -354,22 +354,14 @@ public class QualityController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
     public async Task<IActionResult> ToggleSubstituteMode([FromBody] SubstituteModeDto dto)
     {
-        var circle = await _db.Circles.Include(c => c.Teacher).FirstOrDefaultAsync(c => c.Id == dto.CircleId);
-        if (circle == null) return NotFound(new { error = "الحلقة غير موجودة." });
-
-        var today = CenterClock.Today;
-        var day = await _db.CircleDays.FirstOrDefaultAsync(d => d.CircleId == dto.CircleId && d.Date == today);
-        if (day == null || day.Status != "Absent") return BadRequest(new { error = "يلزم تسجيل المعلم الأصلي غائباً رسمياً قبل التغطية." });
-        var userId = FakeAuth.GetUserId(HttpContext)!.Value;
-        var substitute = await _db.Users.Include(u => u.Teacher).FirstOrDefaultAsync(u => u.Id == userId);
-        if (dto.Activate && (substitute?.Teacher?.IsActive != true || substitute.TeacherId == circle.TeacherId))
-            return BadRequest(new { error = "اختر مشرفاً نشطاً يختلف عن المعلم الأصلي لتفعيل التغطية." });
-        day.SubstituteUserId = dto.Activate ? userId : null;
-        day.UpdatedByUserId = userId;
-        _db.AuditLogs.Add(new AuditLog { Username = FakeAuth.GetUsername(HttpContext)!, Action = "SubstituteMode", Details = $"Circle {dto.CircleId}; Active {dto.Activate}; {dto.Reason}" });
-        await _db.SaveChangesAsync();
-
-        return Ok(new { success = true, isSubstituteModeActive = dto.Activate, message = dto.Activate ? "تم تفعيل وضع المعلم البديل للحلقة بنجاح." : "تم إلغاء وضع المعلم البديل." });
+        var service = new TeacherAttendanceService(_db);
+        if (!await service.CanManageAsync(HttpContext)) return Forbid();
+        try {
+            var actor = FakeAuth.GetUserId(HttpContext)!.Value;
+            await service.AssignAsync(dto.CircleId, dto.Date ?? CenterClock.Today, dto.Activate ? dto.SubstituteUserId ?? actor : null,
+                dto.Reason ?? "غياب المعلم الأصلي", actor, FakeAuth.GetUsername(HttpContext) ?? "");
+            return Ok(new { success = true, isSubstituteModeActive = dto.Activate, message = "تم تحديث تكليف البديل في كشف حضور المعلمين." });
+        } catch (ArgumentException e) { return BadRequest(new { error = e.Message }); }
     }
 }
 
@@ -385,5 +377,5 @@ public record CreateQualityVisitDto(
     bool IsSubstituteModeActive
 );
 
-public record SubstituteModeDto(int CircleId, string? SupervisorName, string? Reason, bool Activate);
+public record SubstituteModeDto(int CircleId, string? SupervisorName, string? Reason, bool Activate, int? SubstituteUserId = null, DateOnly? Date = null);
 

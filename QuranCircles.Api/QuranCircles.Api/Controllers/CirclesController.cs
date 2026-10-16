@@ -33,7 +33,7 @@ public class CirclesController : ControllerBase
                 var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
                 if (t != null) teacherId = t.Id;
             }
-            return Ok(await _svc.GetAllForTeacherAsync(teacherId));
+            return Ok(await _svc.GetAllForTeacherAsync(teacherId, currentUserId));
         }
         return Ok(await _svc.GetAllAsync());
     }

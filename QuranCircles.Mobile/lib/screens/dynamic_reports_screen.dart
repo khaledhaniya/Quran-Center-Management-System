@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
@@ -17,6 +18,15 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
   Map<String,dynamic>? _serverReport;
   DateTime? _reportFrom;
   DateTime? _reportTo;
+  List<Course> _reportCourses = [];
+  String _reportCircle = 'all';
+  int? _reportCourse;
+  bool _useStudentFilters = false;
+  bool _showStudentFilters = false;
+  bool _reportBusy = false;
+  String? _reportError;
+  int _absenceThreshold = 3;
+  final _reportSearch = TextEditingController();
   List<Student> _allStudents = [];
   List<Circle> _circles = [];
   List<Student> _filteredStudents = [];
@@ -33,6 +43,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
   double _maxAgeInput = 18;
 
   static const _reports = <String,String>{
+    'course_roster':'طلاب الدورات والرقابة الأكاديمية', 'circle_roster':'طلاب الحلقات والمتابعة القرآنية',
     'all':'دليل الطلاب والحلقات', 'combined_chains':'السلاسل المجتمعة',
     'sard_report':'الحفظ والمراجعة والسرد', 'khatimun_ijaza':'الخاتمون والإجازة',
     'juz_path':'مسار أجزاء الحفظ', 'cumulative_absence':'الغياب التراكمي',
@@ -46,13 +57,20 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
     'kind':_reportKind,
     'from':_reportFrom?.toIso8601String().substring(0,10),
     'to':_reportTo?.toIso8601String().substring(0,10),
-    'circleId':int.tryParse(_circleFilter),
-    'studentIds':_filteredStudents.map((s)=>s.id).toList()
+    'circleId':int.tryParse(_reportCircle),
+    'courseId':_reportKind=='course_roster'?_reportCourse:null,
+    'search':_reportSearch.text.trim(), 'absenceThreshold':_absenceThreshold,
+    'studentIds':_useStudentFilters?_filteredStudents.map((s)=>s.id).toList():null
   };
   Future<void> _previewServerReport() async {
-    try { final report = await ApiService.previewReport(_serverFilter);
-      if (mounted) setState(()=>_serverReport=report);
-    } catch(e) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e'))); }
+    if(_reportBusy)return;
+    final filter = _serverFilter;
+    final signature = jsonEncode(filter);
+    setState((){_reportBusy=true;_reportError=null;});
+    try { final report = await ApiService.previewReport(filter);
+      if (mounted && signature == jsonEncode(_serverFilter)) setState(()=>_serverReport=report);
+    } catch(e) { if(mounted && signature == jsonEncode(_serverFilter)) setState(()=>_reportError='$e'); }
+    finally {if(mounted)setState(()=>_reportBusy=false);}
   }
   Future<void> _downloadReport(String format) async {
     try { final url=await ApiService.createDownloadTicket(format:format,filter:_serverFilter);
@@ -60,30 +78,53 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
     } catch(e) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e'))); }
   }
   Widget _serverReportPanel() => Card(
-    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),
-    child:Padding(padding:const EdgeInsets.all(16),child:Column(
-      crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-      Text('تقارير السجلات الفعلية',style:AppTheme.cairoStyle(fontWeight:FontWeight.bold,fontSize:18)),
-      const SizedBox(height:10),
-      DropdownButtonFormField<String>(initialValue:_reportKind,isExpanded:true,
-        decoration:const InputDecoration(labelText:'نوع التقرير',border:OutlineInputBorder()),
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20),side:const BorderSide(color:Color(0xFFDCE9DF))),
+    child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      Text('ما التقرير الذي تريد استخراجه؟',style:AppTheme.cairoStyle(fontWeight:FontWeight.bold,fontSize:19,color:AppTheme.primary)),
+      const SizedBox(height:8),Text('حدد نوع التقرير ونطاقه، ثم اعرض النتائج أو نزّل الملف نفسه بصيغة Excel أو PDF.',style:AppTheme.cairoStyle(fontSize:12,height:1.8,color:AppTheme.textMuted)),
+      const SizedBox(height:18),
+      DropdownButtonFormField<String>(initialValue:_reportKind,isExpanded:true,decoration:const InputDecoration(labelText:'نوع التقرير',border:OutlineInputBorder()),
         items:_reports.entries.map((e)=>DropdownMenuItem(value:e.key,child:Text(e.value,overflow:TextOverflow.ellipsis))).toList(),
-        onChanged:(v)=>setState((){_reportKind=v??'all';_serverReport=null;})),
+        onChanged:(v)=>setState((){_reportKind=v??'all';_serverReport=null;if(['finance','teacher_discipline'].contains(_reportKind))_useStudentFilters=false;})),
+      Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text(
+        _reportKind=='course_roster'?'كل طالب مسجل في الدورة، ومعلمه ونتيجته وحضوره وغيابه خلال الفترة.':
+        _reportKind=='circle_roster'?'طلاب كل حلقة، وأجزاؤهم المكتملة والحفظ والمراجعة والحضور خلال الفترة.':
+        _reportKind=='teacher_discipline'?'المعلم الأصلي والبديل والموعد المقرر وبدء الحلقة الفعلي والتأخير والغياب.':
+        'تُستخرج النتائج من السجلات المسجلة في المركز وفق الفترة والنطاق المختارين. دليل الطلاب يعرض بياناتهم الحالية.',style:AppTheme.cairoStyle(fontSize:12,height:1.8,color:AppTheme.textMuted))),
+      DropdownButtonFormField<String>(initialValue:_reportCircle,isExpanded:true,decoration:const InputDecoration(labelText:'الحلقة',border:OutlineInputBorder()),
+        items:[const DropdownMenuItem(value:'all',child:Text('كل الحلقات')),..._circles.map((c)=>DropdownMenuItem(value:'${c.id}',child:Text(c.name,overflow:TextOverflow.ellipsis)))],
+        onChanged:(v)=>setState((){_reportCircle=v??'all';_serverReport=null;})),
+      if(_reportKind=='course_roster') ...[
+        const SizedBox(height:14),DropdownButtonFormField<int?>(initialValue:_reportCourse,isExpanded:true,decoration:const InputDecoration(labelText:'الدورة',border:OutlineInputBorder()),
+          items:[const DropdownMenuItem<int?>(value:null,child:Text('كل الدورات')),..._reportCourses.map((c)=>DropdownMenuItem<int?>(value:c.id,child:Text(c.name,overflow:TextOverflow.ellipsis)))],
+          onChanged:(v)=>setState((){_reportCourse=v;_serverReport=null;})),
+      ],
+      const SizedBox(height:14),TextField(controller:_reportSearch,onChanged:(_)=>setState(()=>_serverReport=null),decoration:const InputDecoration(labelText:'بحث داخل التقرير',hintText:'اسم الطالب أو هويته',border:OutlineInputBorder())),
+      if(_reportKind=='cumulative_absence')Padding(padding:const EdgeInsets.only(top:14),child:TextFormField(initialValue:'3',keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'أقل عدد أيام غياب دون عذر',border:OutlineInputBorder()),onChanged:(v)=>setState(()=>_absenceThreshold=int.tryParse(v)??3))),
+      const SizedBox(height:12),Wrap(spacing:8,runSpacing:8,children:[
+        OutlinedButton(onPressed:()async{final picked=await showDatePicker(context:context,initialDate:_reportFrom??DateTime.now(),firstDate:DateTime(2020),lastDate:DateTime.now().add(const Duration(days:1)));if(picked!=null)setState((){_reportFrom=picked;_serverReport=null;});},child:Text('من: ${_reportFrom?.toIso8601String().substring(0,10)??"أول الشهر"}')),
+        OutlinedButton(onPressed:()async{final picked=await showDatePicker(context:context,initialDate:_reportTo??DateTime.now(),firstDate:DateTime(2020),lastDate:DateTime.now().add(const Duration(days:1)));if(picked!=null)setState((){_reportTo=picked;_serverReport=null;});},child:Text('إلى: ${_reportTo?.toIso8601String().substring(0,10)??"اليوم"}')),
+      ]),
+      if(!['finance','teacher_discipline'].contains(_reportKind))CheckboxListTile(contentPadding:EdgeInsets.zero,title:const Text('تطبيق فلاتر بيانات الطلاب الإضافية'),subtitle:const Text('العمر والحفظ والحالة الصحية والاجتماعية • اختياري'),value:_useStudentFilters,onChanged:(v)=>setState((){_useStudentFilters=v??false;_showStudentFilters=_useStudentFilters;_serverReport=null;})),
       Wrap(spacing:8,runSpacing:8,children:[
-        OutlinedButton(onPressed:() async {final picked=await showDatePicker(context:context,initialDate:_reportFrom??DateTime.now(),firstDate:DateTime(2020),lastDate:DateTime(2035)); if(picked!=null)setState(()=>_reportFrom=picked);},child:Text('من: ${_reportFrom?.toIso8601String().substring(0,10)??"أول الشهر"}')),
-        OutlinedButton(onPressed:() async {final picked=await showDatePicker(context:context,initialDate:_reportTo??DateTime.now(),firstDate:DateTime(2020),lastDate:DateTime(2035)); if(picked!=null)setState(()=>_reportTo=picked);},child:Text('إلى: ${_reportTo?.toIso8601String().substring(0,10)??"اليوم"}')),
-        FilledButton.icon(onPressed:_previewServerReport,icon:const Icon(Icons.preview),label:const Text('معاينة')),
+        FilledButton.icon(onPressed:_reportBusy?null:_previewServerReport,icon:const Icon(Icons.preview),label:Text(_reportBusy?'جاري الاستخراج…':'عرض النتائج')),
         OutlinedButton.icon(onPressed:()=>_downloadReport('xlsx'),icon:const Icon(Icons.table_chart),label:const Text('Excel')),
         OutlinedButton.icon(onPressed:()=>_downloadReport('pdf'),icon:const Icon(Icons.picture_as_pdf),label:const Text('PDF')),
       ]),
+      if(_reportError!=null)Padding(padding:const EdgeInsets.all(12),child:Text(_reportError!,style:const TextStyle(color:Colors.deepOrange))),
       if(_serverReport!=null) ...[
-        const SizedBox(height:12),Text((_serverReport!['period']??'').toString()),
-        SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(
+        const SizedBox(height:18),Text((_serverReport!['period']??'').toString()),
+        if((_serverReport!['totalRows']??0)>200)const Text('تُعرض أول 200 نتيجة للمعاينة، والتنزيل يشمل جميع النتائج.'),
+        if((_serverReport!['rows'] as List? ?? []).isEmpty)const Padding(padding:EdgeInsets.all(16),child:Text('لا توجد نتائج مطابقة؛ جرّب تغيير الفترة أو الحلقة.'))
+        else SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(
           columns:((_serverReport!['columns'] as List?)??[]).map((c)=>DataColumn(label:Text('$c'))).toList(),
-          rows:((_serverReport!['rows'] as List?)??[]).take(100).map((r)=>DataRow(cells:(r as List).map((v)=>DataCell(Text('$v'))).toList())).toList())),
-      ]
+          rows:((_serverReport!['rows'] as List?)??[]).map((r)=>DataRow(cells:(r as List).map((v)=>DataCell(Text('$v'))).toList())).toList())),
+      ] else if(!_reportBusy)const Padding(padding:EdgeInsets.only(top:18),child:Text('اختر التقرير ثم اضغط «عرض النتائج».')),
     ])),
   );
+
+  @override
+  void dispose(){_reportSearch.dispose();super.dispose();}
 
   @override
   void initState() {
@@ -94,15 +135,20 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final students = await ApiService.getStudents();
-      final circles = await ApiService.getCircles();
+      final results=await Future.wait<Object?>([ApiService.getStudents(forceRefresh:true),ApiService.getCircles(),ApiService.getCourses(),ApiService.centerOperation('today')]);
+      final students=results[0] as List<Student>,circles=results[1] as List<Circle>;
+      final today=DateTime.parse((results[3] as Map)['date']);
+      if(!mounted)return;
       setState(() {
         _allStudents = students;
         _circles = circles;
+        _reportCourses = results[2] as List<Course>;
+        _reportFrom ??= DateTime(today.year,today.month,1);_reportTo ??= today;
         _isLoading = false;
       });
       _applyFilters();
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +256,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'مُولد التقارير والفلترة الديناميكية',
+          'مركز التقارير',
           style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
@@ -229,6 +275,8 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _serverReportPanel(),
+                  TextButton.icon(onPressed:()=>setState(()=>_showStudentFilters=!_showStudentFilters),icon:const Icon(Icons.tune),label:Text(_showStudentFilters?'إخفاء فلاتر الطلاب الإضافية':'عرض فلاتر الطلاب الإضافية')),
+                  if(_showStudentFilters) ...[
                   const SizedBox(height: 16),
                   // Center Title Ribbon
                   Container(
@@ -567,6 +615,7 @@ class _DynamicReportsScreenState extends State<DynamicReportsScreen> {
                         );
                       },
                     ),
+                  ],
                 ],
               ),
             ),

@@ -113,9 +113,11 @@ class _PreacherYouthScreenState extends State<PreacherYouthScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * .92),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

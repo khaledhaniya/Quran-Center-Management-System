@@ -79,7 +79,7 @@ public class StudentsController : ControllerBase
                 var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
                 if (t != null) teacherId = t.Id;
             }
-            return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search, onlyCircle == true));
+            return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search, onlyCircle == true, currentUserId));
         }
         return Ok(await _svc.GetAllAsync(search));
     }
@@ -110,7 +110,9 @@ public class StudentsController : ControllerBase
                 if (teacherObj != null) tId = teacherObj.Id;
             }
 
-            bool isHisStudent = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == tId || (c.Teacher != null && c.Teacher.FullName == currentUser.FullName)));
+            var today = CenterClock.Today;
+            bool isHisStudent = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == tId || c.AssistantTeacherId == tId ||
+                _db.CircleDays.Any(d => d.CircleId == c.Id && d.Date == today && d.Status == "Absent" && d.SubstituteUserId == currentUserId)));
 
             var taskRole = teacherObj?.TaskRole ?? "";
             bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
@@ -355,6 +357,7 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> CompleteJuz(int id, [FromBody] CompleteJuzDto dto)
     {
+        if(dto.JuzNumber < 1 || dto.JuzNumber > 30) return BadRequest(new { error = "رقم الجزء يجب أن يكون بين 1 و30." });
         var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
