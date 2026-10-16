@@ -5758,7 +5758,7 @@ async function showStudent360Modal(studentId) {
         const allCertificates = [];
         const seenCertKeys = new Set();
         rawCertificates.forEach(c => {
-            const isQuran = c.nominationType === "Quran";
+            const isQuran = c.nominationType !== "Course";
             const dedupKey = isQuran
                 ? `quran_${c.juzStart || 1}_${c.juzEnd || 1}`
                 : `course_${c.courseId || c.courseName || c.formattedDetails}`;
@@ -6132,7 +6132,7 @@ async function showStudent360Modal(studentId) {
                     ` : `
                         <div class="student-360-certs-grid">
                             ${allCertificates.map(c => {
-                                const isQuran = c.nominationType === "Quran";
+                                const isQuran = c.nominationType !== "Course";
                                 const courseTitle = c.formattedDetails || c.courseName || (isQuran ? `حفظ القرآن الكريم` : `دورة علمية`);
                                 const certTeacher = c.teacherName || teacherName || "معلم معتمد";
                                 const gradeNum = parseFloat(c.grade || c.score || 100);

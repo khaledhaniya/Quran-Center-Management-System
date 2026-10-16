@@ -83,7 +83,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
             Text('الموعد: ${r['scheduledStart']??'غير محدد'} • البدء: ${r['openedAt']??'لم تبدأ'}'),
             if((r['substituteName']??'').toString().isNotEmpty)Text('المعلم البديل: ${r['substituteName']}',style:AppTheme.cairoStyle(color:AppTheme.primary,fontWeight:FontWeight.bold)),
             if((r['reason']??'').toString().isNotEmpty)Text(r['reason'].toString()),
-            if(r['substituteUserId']==ApiService.currentUser?.id)Wrap(spacing:8,children:[TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>TeacherSessionsScreen(currentUser:ApiService.currentUser!))),child:const Text('��� �������')),TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>TeacherAttendanceScreen(currentUser:ApiService.currentUser!))),child:const Text('����� ������'))]),
+            if(r['substituteUserId']==ApiService.currentUser?.id)Wrap(spacing:8,children:[TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>TeacherSessionsScreen(currentUser:ApiService.currentUser!))),child:const Text('رصد التسميع')),TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>TeacherAttendanceScreen(currentUser:ApiService.currentUser!))),child:const Text('تحضير الطلاب'))]),
             if(canEdit)TextButton.icon(onPressed:()=>coverage(r),icon:const Icon(Icons.person_add_alt),label:const Text('تسجيل غياب / تكليف بديل')),
           ])));}))),
     ])));

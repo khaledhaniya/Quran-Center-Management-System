@@ -70,6 +70,28 @@ public class TeacherCoverageAndReportsTests
     }
 
     [Fact]
+    public async Task StudentProfileUsesRealCertificateIdsAndDoesNotPassFailedExams()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        using var db = Open(connection);
+        db.SystemSettings.Add(new SystemSettings {PassingScoreThreshold=70});
+        db.Students.Add(new Student {Id=1,FullName="أحمد",CompletedAjzaa="1,1,2",TargetAjzaaCount=5});
+        db.Courses.Add(new Course {Id=1,Name="التجويد"});
+        db.CourseEnrollments.AddRange(new CourseEnrollment {Id=42,StudentId=1,CourseId=1,Status="Passed",Grade=95,CertificateCode="CERT-42"},
+            new CourseEnrollment {Id=43,StudentId=1,CourseId=1,Status="Passed",Grade=30,CertificateCode="CERT-43"});
+        db.ExamNominations.Add(new ExamNomination {Id=1,StudentId=1,Status="Completed",JuzStart=3,JuzEnd=3,Result=new ExamResult {Grade=40}});
+        await db.SaveChangesAsync();
+        var (profile,error)=await new StudentService(db,new PasswordHasher()).GetStudentProgressByIdAsync(1);
+        Assert.Null(error);
+        var json=System.Text.Json.JsonSerializer.SerializeToElement(profile);
+        var certificate=Assert.Single(json.GetProperty("CompletedExams").EnumerateArray());
+        Assert.Equal("course",certificate.GetProperty("CertificateKind").GetString());
+        Assert.Equal(42,certificate.GetProperty("CertificateId").GetInt32());
+        Assert.Equal("Completed",json.GetProperty("JuzStatus").GetProperty("1").GetString());
+        Assert.Equal("NotStarted",json.GetProperty("JuzStatus").GetProperty("3").GetString());
+    }
+
+    [Fact]
     public async Task ReportScopeIsExplicitAndAcademicReportListsActualEnrollments()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");

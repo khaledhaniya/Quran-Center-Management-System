@@ -1005,7 +1005,7 @@ class _Student360ScreenState extends State<Student360Screen> {
                               itemCount: completedExams.length,
                               itemBuilder: (ctx, i) {
                                 final item = completedExams[i];
-                                final isQuran = item['nominationType'] == 'Quran';
+                                final isQuran = item['nominationType'] != 'Course';
                                 final title = item['formattedDetails'] ?? (isQuran ? 'أجزاء قرآن كريم' : (item['courseName'] ?? 'مساق ودورة'));
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 8),

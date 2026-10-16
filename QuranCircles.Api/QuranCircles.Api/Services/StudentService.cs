@@ -901,20 +901,23 @@ public class StudentService
             t.PerformanceNotes
         }).ToList();
 
-        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
-        int passingScore = settings.PassingScoreThreshold > 0 ? settings.PassingScoreThreshold : 70;
-
+        int passingScore = certificateSettings.PassingScoreThreshold > 0 ? certificateSettings.PassingScoreThreshold : 70;
+        var pendingQuranExams = await _db.ExamNominations.AsNoTracking()
+            .Where(e => e.StudentId == s.Id && (e.NominationType == "Quran" || e.NominationType == "Combined") && (e.Status == "Pending" || e.Status == "Scheduled"))
+            .OrderByDescending(e => e.Id).ToListAsync();
+        var recordedParts = (s.CompletedAjzaa ?? "").Split(',', '،', ' ')
+            .Select(x => int.TryParse(x, out var n) ? n : 0).Where(n => n >= 1 && n <= 30).ToHashSet();
         var juzStatus = new Dictionary<int, string>();
         for (int i = 1; i <= 30; i++)
         {
-            var passedExam = exams.FirstOrDefault(e => e.NominationType == "Quran" && i >= e.JuzStart && i <= e.JuzEnd && (e.Status == "Completed" || e.Result?.Grade >= passingScore));
-            if (passedExam != null)
+            var passedExam = exams.FirstOrDefault(e => e.NominationType != "Course" && i >= e.JuzStart && i <= e.JuzEnd && e.Result != null && e.Result.Grade >= passingScore);
+            if (recordedParts.Contains(i) || passedExam != null)
             {
                 juzStatus[i] = "Completed";
             }
             else
             {
-                var pendingExam = await _db.ExamNominations.FirstOrDefaultAsync(e => e.StudentId == s.Id && e.NominationType == "Quran" && i >= e.JuzStart && i <= e.JuzEnd);
+                var pendingExam = pendingQuranExams.FirstOrDefault(e => i >= e.JuzStart && i <= e.JuzEnd);
                 if (pendingExam != null)
                 {
                     juzStatus[i] = pendingExam.Status == "Scheduled" ? "Scheduled" : "Pending";
