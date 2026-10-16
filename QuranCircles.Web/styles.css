@@ -803,6 +803,10 @@ button, input, select, textarea {
     padding: 30px;
     overflow-y: auto;
     height: calc(100vh - 65px);
+    height: calc(100dvh - 65px);
+    min-height: 0;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Content Sections */

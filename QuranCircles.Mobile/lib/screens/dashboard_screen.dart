@@ -1360,60 +1360,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final khatimunYear = _kpi['khatimunCountYear'] ?? 0;
     final khatimunMonth = _kpi['khatimunCountMonth'] ?? 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildModuleHeader('1. بطاقات المؤشرات الرقمية السريعة (KPIs)', Icons.dashboard_customize, const Color(0xFF0D5C3A)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDetailedKpiCard(
-                title: 'إجمالي الطلاب',
-                value: '$_execTotalStudents',
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth < 560
+          ? constraints.maxWidth
+          : (constraints.maxWidth - 10) / 2;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildModuleHeader('1. بطاقات المؤشرات الرقمية السريعة (KPIs)', Icons.dashboard_customize, const Color(0xFF0D5C3A)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              SizedBox(width: width, child: _buildDetailedKpiCard(
+                title: 'إجمالي الطلاب', value: '$_execTotalStudents',
                 subtitle: 'نشطين: $activeStudents | معلقين: $suspendedStudents',
-                icon: Icons.people_alt,
-                color: const Color(0xFF0D5C3A),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildDetailedKpiCard(
-                title: 'الحلقات والمحفظين',
-                value: '${_kpi['activeCircles'] ?? 0} حلقة فعالة',
+                icon: Icons.people_alt, color: const Color(0xFF0D5C3A),
+              )),
+              SizedBox(width: width, child: _buildDetailedKpiCard(
+                title: 'الحلقات والمحفظين', value: '${_kpi['activeCircles'] ?? 0} حلقة فعالة',
                 subtitle: 'المحفظون: $_execTotalTeachers | الإشغال: $capacityRate%',
-                icon: Icons.groups,
-                color: const Color(0xFF2563EB),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDetailedKpiCard(
-                title: 'أولياء الأمور',
-                value: '${_kpi['totalParents'] ?? 0}',
+                icon: Icons.groups, color: const Color(0xFF2563EB),
+              )),
+              SizedBox(width: width, child: _buildDetailedKpiCard(
+                title: 'أولياء الأمور', value: '${_kpi['totalParents'] ?? 0}',
                 subtitle: 'مربوطين: $linkedParents ($parentLinkRate%) | غير مكتمل: $unlinkedParents',
-                icon: Icons.family_restroom,
-                color: const Color(0xFFD97706),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildDetailedKpiCard(
-                title: 'الخاتمون للقرآن',
-                value: '$khatimunYear خاتماً',
+                icon: Icons.family_restroom, color: const Color(0xFFD97706),
+              )),
+              SizedBox(width: width, child: _buildDetailedKpiCard(
+                title: 'الخاتمون للقرآن', value: '$khatimunYear خاتماً',
                 subtitle: 'هذا الشهر: $khatimunMonth | الإجمالي: ${_kpi['khatimunTotal'] ?? khatimunYear}',
-                icon: Icons.workspace_premium,
-                color: const Color(0xFF059669),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+                icon: Icons.workspace_premium, color: const Color(0xFF059669),
+              )),
+            ],
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildModule2OperationsPulse() {

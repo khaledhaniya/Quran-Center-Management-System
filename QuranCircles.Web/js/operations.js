@@ -42,7 +42,9 @@ function installOperationalTools() {
         <label>حد الغياب<input type="number" min="1" value="3" id="unified-absence-threshold" class="form-control"></label></div>
         <div class="operations-actions"><button class="btn btn-primary" onclick="previewUnifiedReport()">معاينة التقرير</button>
         <button class="btn btn-success" onclick="exportUnifiedReport('xlsx')">تنزيل Excel</button><button class="btn btn-outline-danger" onclick="exportUnifiedReport('pdf')">تنزيل PDF</button></div><div id="unified-report-result" aria-live="polite"></div>`;
-        reports.prepend(panel);
+        const reportsHeader = reports.querySelector('.section-header');
+        if (reportsHeader) reportsHeader.insertAdjacentElement('afterend', panel);
+        else reports.prepend(panel);
     }
     const quality = document.getElementById('quality-management-section');
     if (quality && !document.getElementById('operations-open-button')) {
@@ -96,21 +98,22 @@ async function recordTeacherAbsence() {
 }
 async function showUnifiedCertificate(kind, id) {
     let previewUrl;
+    const request = {certificateKind:kind,certificateId:Number(id)};
     try {
-        previewUrl = await downloadCenterFile({certificateKind:kind,certificateId:Number(id),format:'png'},true);
-        await Swal.fire({title:'شهادة الإنجاز',width:1050,showConfirmButton:false,showCloseButton:true,
+        Swal.fire({title:'جاري تجهيز الشهادة',html:'<p>لحظات ونفتح المعاينة…</p><div class="spinner-border text-success" role="status"></div>',showConfirmButton:false,showCloseButton:true,allowOutsideClick:false});
+        previewUrl = await downloadCenterFile({...request,format:'png'},true);
+        Swal.update({title:'شهادة الإنجاز',width:1050,showConfirmButton:false,showCloseButton:true,allowOutsideClick:true,
             html:`<div class="operations-actions"><button class="btn btn-success" id="unified-cert-download">تنزيل PDF</button><button class="btn btn-outline-primary" id="unified-cert-print">عرض للطباعة</button></div><img src="${previewUrl}" alt="معاينة الشهادة المطابقة لملف التنزيل" style="display:block;width:100%;max-height:65vh;object-fit:contain">`,
-            didOpen:()=>{
-                document.getElementById('unified-cert-download').onclick=()=>downloadCenterFile({certificateKind:kind,certificateId:Number(id),format:'pdf'}).catch(e=>showAlert(e.message,'danger'));
-                document.getElementById('unified-cert-print').onclick=async()=>{
+        });
+        document.getElementById('unified-cert-download').onclick=()=>downloadCenterFile({...request,format:'pdf'}).catch(e=>showAlert(e.message,'danger'));
+        document.getElementById('unified-cert-print').onclick=async()=>{
                     const printWindow=window.open('','_blank');
                     if(!printWindow){showAlert('يرجى السماح بفتح نافذة الطباعة.','warning');return;}
-                    try {const pdfUrl=await downloadCenterFile({certificateKind:kind,certificateId:Number(id),format:'pdf'},true);
+                    try {const pdfUrl=await downloadCenterFile({...request,format:'pdf'},true);
                         printWindow.location.href=pdfUrl;setTimeout(()=>URL.revokeObjectURL(pdfUrl),120000);
                     }catch(e){printWindow.close();showAlert(e.message,'danger');}
-                };
-            }});
+        };
     } catch(e) { showAlert(e.message,'danger'); }
-    finally { if(previewUrl) URL.revokeObjectURL(previewUrl); }
+    finally { if(previewUrl) setTimeout(()=>URL.revokeObjectURL(previewUrl),120000); }
 }
 document.addEventListener('DOMContentLoaded',installOperationalTools);

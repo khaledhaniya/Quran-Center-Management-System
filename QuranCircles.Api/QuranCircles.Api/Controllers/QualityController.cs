@@ -11,10 +11,12 @@ namespace QuranCircles.Api.Controllers;
 public class QualityController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ILogger<QualityController> _logger;
 
-    public QualityController(AppDbContext db)
+    public QualityController(AppDbContext db, ILogger<QualityController> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     [HttpGet("overview")]
@@ -226,6 +228,7 @@ public class QualityController : ControllerBase
                     TotalCircles = circles.Count,
                     TotalStudents = circles.Sum(c => c.Students.Count(s => s.IsActive)),
                     TotalSessions = allTotalRecitations,
+                    TotalAttendanceRecords = allTotalAttCount,
                     MemorizationSessions = allMemorizationCount,
                     RevisionSessions = allRevisionCount,
                     DidNotReciteSessions = allDidNotReciteCount,
@@ -241,7 +244,7 @@ public class QualityController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[QualityController.GetOverview Warning] {ex.Message}");
+            _logger.LogError(ex, "Failed to load quality overview for user {UserId}", User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
             return StatusCode(503, new { error = "تعذر تحميل مؤشرات الجودة. أعد المحاولة." });
         }
     }

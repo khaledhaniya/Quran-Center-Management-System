@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -38,31 +39,57 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   int _pendingRequestsCount = 0;
   String _centerName = 'مركز البيان لتعليم القرآن';
   String _mosqueName = 'مسجد علي بن أبي طالب';
   bool _isMaintenanceMode = false;
+  Timer? _settingsRefreshTimer;
+  bool _settingsRequestInFlight = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchPendingRequestsCount();
     _loadSystemSettings();
+    _settingsRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadSystemSettings());
   }
 
   void _loadSystemSettings() async {
+    if (_settingsRequestInFlight) return;
+    _settingsRequestInFlight = true;
     try {
       final s = await ApiService.getSystemSettings();
       if (s != null && mounted) {
-        setState(() {
-          _centerName = s['centerName'] ?? s['CenterName'] ?? _centerName;
-          _mosqueName = s['mosqueName'] ?? s['MosqueName'] ?? _mosqueName;
-          _isMaintenanceMode = s['maintenanceMode'] == true || s['MaintenanceMode'] == true;
-        });
+        final nextCenter = s['centerName'] ?? s['CenterName'] ?? _centerName;
+        final nextMosque = s['mosqueName'] ?? s['MosqueName'] ?? _mosqueName;
+        final nextMaintenance = s['maintenanceMode'] == true || s['MaintenanceMode'] == true;
+        if (nextCenter != _centerName || nextMosque != _mosqueName || nextMaintenance != _isMaintenanceMode) {
+          setState(() {
+            _centerName = nextCenter;
+            _mosqueName = nextMosque;
+            _isMaintenanceMode = nextMaintenance;
+          });
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _settingsRequestInFlight = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadSystemSettings();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _settingsRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchPendingRequestsCount() async {

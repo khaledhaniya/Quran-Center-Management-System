@@ -167,6 +167,8 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
     final memSessions = stats['memorizationSessions'] ?? 0;
     final revSessions = stats['revisionSessions'] ?? 0;
     final didNotRecite = stats['didNotReciteSessions'] ?? 0;
+    final hasCircles = (stats['totalCircles'] ?? 0) > 0;
+    final hasActivity = hasCircles && (totalSessions > 0 || (stats['totalAttendanceRecords'] ?? 0) > 0);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -176,6 +178,17 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
       ),
       child: Column(
         children: [
+          if (!hasActivity)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFFFF8E8), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF0D99B))),
+              child: Text(hasCircles
+                  ? 'الحلقات موجودة، لكن لا توجد سجلات حضور أو تسميع بعد؛ لذلك تظهر مؤشرات النشاط صفراً إلى أن يبدأ الرصد.'
+                  : 'لا توجد حلقات مسجلة في قاعدة البيانات حالياً؛ أضف الحلقات أولاً لتظهر بيانات الجودة والمتابعة.',
+                style: AppTheme.cairoStyle(fontSize: 11, color: const Color(0xFF70561C), height: 1.6)),
+            ),
           Row(
             children: [
               Expanded(
@@ -217,8 +230,10 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Wrap(
+              alignment: WrapAlignment.spaceAround,
+              spacing: 10,
+              runSpacing: 4,
               children: [
                 _buildSubMetricText('حفظ جديد: $memSessions', Colors.green[700]!),
                 _buildSubMetricText('مراجعة: $revSessions', Colors.amber[900]!),
@@ -624,7 +639,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('1. الحضور والانضباط (30%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('1. التزام المعلم بالوقت (25%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           Text('${punctuality.toInt()}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue[800]!)),
                         ],
                       ),
@@ -639,7 +654,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('2. إدارة الحلقة والسمت (30%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('2. إدارة الحلقة والتفاعل (25%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           Text('${classMgmt.toInt()}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green[800]!)),
                         ],
                       ),
@@ -654,7 +669,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('3. تصحيح التلاوة والتجويد (40%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text('3. تصحيح التلاوة والتجويد (50%):', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           Text('${tajweed.toInt()}%', style: AppTheme.cairoStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber[900]!)),
                         ],
                       ),

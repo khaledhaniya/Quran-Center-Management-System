@@ -80,7 +80,7 @@ public static class DocumentRenderer
                 if (File.Exists(logo)) col.Item().AlignCenter().Height(110).Image(logo).FitArea();
                 col.Item().AlignCenter().Text(data.Center).FontSize(21);
                 col.Item().AlignCenter().Text("شهادة إنجاز وتقدير").FontSize(34).FontColor("#9D752F");
-                col.Item().AlignCenter().Text("تشهد إدارة المركز بأن الطالب / الطالبة").FontSize(17);
+                col.Item().AlignCenter().Text("تشهد إدارة المركز بأن الطالب").FontSize(17);
                 col.Item().AlignCenter().Text(data.Student).FontSize(30);
                 col.Item().AlignCenter().Text($"قد أتم بنجاح: {data.Course}").FontSize(20);
                 col.Item().AlignCenter().Text($"النتيجة: {data.Grade}    •    التاريخ: {data.Date}").FontSize(15);

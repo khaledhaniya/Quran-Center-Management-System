@@ -1283,8 +1283,8 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                               const SizedBox(height: 12),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: AspectRatio(
-                                  aspectRatio: 297 / 210,
+                                child: SizedBox(
+                                  height: 180,
                                   child: FutureBuilder<Uint8List>(
                                     future: _certificatePreview(item),
                                     builder: (context, snapshot) {

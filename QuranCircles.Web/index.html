@@ -155,7 +155,7 @@
                         </a>
                         <a href="#dynamic-reports" class="nav-item" id="btn-dynamic-reports">
                             <i class="fa-solid fa-chart-line text-success"></i>
-                            <span>مُولد التقارير والفلترة الذكية</span>
+                            <span>التقارير والسجلات الفعلية</span>
                         </a>
                         <a href="#financial-management" class="nav-item" id="btn-admin-financial">
                             <i class="fa-solid fa-wallet text-warning"></i>
@@ -1090,7 +1090,7 @@
                         <div class="d-flex align-items-center gap-3">
                             <img src="assets/logo.png" alt="شعار المركز" style="width: 65px; height: 65px; object-fit: contain;">
                             <div>
-                                <h2 class="fw-bold mb-1 text-success"><i class="fa-solid fa-filter text-primary me-2"></i> مُولد التقارير والفلترة الديناميكية المتقدمة</h2>
+                                <h2 class="fw-bold mb-1 text-success"><i class="fa-solid fa-filter text-primary me-2"></i> التقارير والسجلات الفعلية</h2>
                                 <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-mosque text-success me-1"></i> <span class="dynamic-center-name">مركز البيان لتعليم القرآن</span> - <span class="dynamic-mosque-name">مسجد علي بن أبي طالب</span></h6>
                             </div>
                         </div>
@@ -2457,23 +2457,15 @@
                         </div>
                     </div>
 
-                    <!-- Balanced Quality Criteria Banner -->
-                    <div class="p-3 mb-4 rounded-3 text-white shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-3" style="background: linear-gradient(135deg, #064e3b, #0d5c3a);">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="rounded-circle bg-warning bg-opacity-20 text-warning p-2.5 fs-4 d-flex align-items-center justify-content-center">
-                                <i class="fa-solid fa-scale-balanced"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-1 fw-bold text-warning">معايير التقييم الرقابي المتوازن (100%):</h6>
-                                <p class="small text-white-50 mb-0">30% انضباط وحضور المحفظ والطلاب • 40% إتقان التسميع والاختبارات • 20% مراجعة السرد القديم • 10% السلوك والسمت القرآني</p>
-                            </div>
+                    <div class="quality-method-banner mb-4" role="note">
+                        <span class="quality-method-icon"><i class="fa-solid fa-scale-balanced"></i></span>
+                        <div class="quality-method-copy">
+                            <h6>كيف يُحتسب تقييم الحلقة؟</h6>
+                            <p>يُعرض التقييم عند اكتمال بيانات الفترة: 25٪ انتظام المعلم، 25٪ حضور الطلاب، 30٪ نتائج الاختبارات، و20٪ الزيارات الرقابية. عند نقص أي بند ستظهر عبارة «بيانات التقييم غير مكتملة» بدلاً من درجة تقديرية.</p>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-warning text-dark fw-bold px-3 py-2">
-                                <i class="fa-solid fa-shield-halved me-1"></i> معيار جودة التثبيت: 88%
-                            </span>
-                        </div>
+                        <span class="quality-method-total">100٪ من بيانات موثقة</span>
                     </div>
+                    <div id="quality-data-status" class="quality-data-status mb-3" role="status" hidden></div>
 
                     <!-- Quality KPIs -->
                     <div class="kpi-grid kpi-grid-4 mb-4">
@@ -2489,8 +2481,8 @@
                             <div class="kpi-icon-box"><i class="fa-solid fa-circle-check"></i></div>
                             <div class="kpi-details">
                                 <h3 id="quality-stat-active-circles">0</h3>
-                                <p>حلقات ملتزمة بالجدول</p>
-                                <span class="badge bg-info bg-opacity-10 text-info fw-bold" style="font-size: 0.72rem;">خطة التسميع</span>
+                                <p>إجمالي الحلقات المسجلة</p>
+                                <span class="badge bg-info bg-opacity-10 text-info fw-bold" style="font-size: 0.72rem;">حسب قاعدة البيانات</span>
                             </div>
                         </div>
                         <div class="glass-kpi color-5">
@@ -2506,7 +2498,7 @@
                             <div class="kpi-details">
                                 <h3 id="quality-stat-avg-attendance">0%</h3>
                                 <p>معدل الانضباط والالتزام</p>
-                                <span class="badge bg-success bg-opacity-10 text-success fw-bold" style="font-size: 0.72rem;">حضور المشايخ</span>
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold" style="font-size: 0.72rem;">حضور الطلاب</span>
                             </div>
                         </div>
                     </div>

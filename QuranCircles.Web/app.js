@@ -100,6 +100,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (hint) hint.textContent = 'انتظر قليلاً، الاتصال يستغرق وقتاً أطول من المعتاد. ننتظر استجابة الخادم.';
     }, 5000);
     await fetchAndApplySystemSettings();
+    window.setInterval(() => {
+        if (document.visibilityState === "visible") fetchAndApplySystemSettings(true);
+    }, 30000);
     if (getAuthStorage('token')) {
         try {
             const response = await fetch(`${API_BASE}/auth/me`, {headers:{Authorization:`Bearer ${getAuthStorage('token')}`},signal:AbortSignal.timeout(15000)});
@@ -10765,27 +10768,46 @@ async function loadPortfolio() {
         for (const cert of certificates) {
             const card = document.createElement("article");
             card.className = "certificate-card shadow-sm unified-certificate-card";
-            card.innerHTML = `<div class="unified-certificate-image"><div class="spinner-border text-success" role="status"></div></div>
+            card.innerHTML = `<div class="unified-certificate-image is-loading" aria-label="معاينة الشهادة عند ظهور البطاقة"></div>
                 <div class="certificate-meta-info p-3"><h4>${escapeXml(cert.title)}</h4>
                 <p>${escapeXml(cert.student)} • ${escapeXml(cert.code)}</p>
                 <button type="button" class="btn btn-primary">معاينة وتنزيل PDF</button></div>`;
             card.querySelector("button").addEventListener("click", () => showUnifiedCertificate(cert.kind, cert.id));
+            card.dataset.certificateKind = cert.kind;
+            card.dataset.certificateId = String(cert.id);
             container.appendChild(card);
         }
-        for (let i = 0; i < certificates.length; i++) {
-            const cert = certificates[i];
-            const card = container.children[i];
+
+        const loadPreview = async card => {
+            if (card.dataset.previewState) return;
+            card.dataset.previewState = "loading";
             const imageBox = card.querySelector(".unified-certificate-image");
             try {
-                const url = await downloadCenterFile({certificateKind:cert.kind, certificateId:cert.id, format:"png"}, true);
+                const url = await downloadCenterFile({certificateKind:card.dataset.certificateKind, certificateId:Number(card.dataset.certificateId), format:"png"}, true);
                 portfolioCertificateUrls.push(url);
                 const img = document.createElement("img");
                 img.src = url;
-                img.alt = `شهادة ${cert.student}`;
+                img.alt = `معاينة شهادة ${card.querySelector(".certificate-meta-info h4")?.textContent || "الإنجاز"}`;
                 imageBox.replaceChildren(img);
+                imageBox.classList.remove("is-loading");
+                card.dataset.previewState = "loaded";
             } catch {
-                imageBox.innerHTML = '<span class="text-muted">تعذرت المعاينة؛ يمكنك إعادة المحاولة من الزر أدناه.</span>';
+                imageBox.textContent = "تعذرت المعاينة؛ يمكنك فتح الشهادة من الزر أدناه.";
+                imageBox.classList.remove("is-loading");
+                imageBox.classList.add("is-error");
+                delete card.dataset.previewState;
             }
+        };
+        if ("IntersectionObserver" in window) {
+            const observer = new IntersectionObserver(entries => {
+                for (const entry of entries) if (entry.isIntersecting) {
+                    observer.unobserve(entry.target);
+                    loadPreview(entry.target);
+                }
+            }, {rootMargin:"180px 0px"});
+            [...container.querySelectorAll(".unified-certificate-card")].forEach(card => observer.observe(card));
+        } else {
+            [...container.querySelectorAll(".unified-certificate-card")].slice(0, 2).forEach(loadPreview);
         }
     } catch (error) {
         container.innerHTML = `<div class="alert alert-danger w-100">${escapeXml(error.message)}</div>`;
@@ -16188,6 +16210,7 @@ function applySystemSettingsToUI(rawSettings) {
     document.querySelectorAll(".parent-edit-profile-btn, .btn-request-profile-edit").forEach(el => {
         el.style.display = window.SYS_ALLOW_PROFILE_REQUESTS ? "inline-flex" : "none";
     });
+    if (typeof checkMaintenanceBlock === "function") checkMaintenanceBlock();
 }
 
 function livePreviewSettings() {
@@ -16248,11 +16271,21 @@ function checkMaintenanceBlock() {
     const devToggle = document.getElementById("dev-maintenance-toggle");
     if (devToggle) {
         devToggle.checked = isMaintenance;
+        devToggle.disabled = false;
+    }
+    const statusLabel = document.getElementById("dev-maintenance-status-label");
+    if (statusLabel) {
+        statusLabel.textContent = isMaintenance ? "مفعّل (الدخول للمطور فقط)" : "معطّل (المنظومة متاحة)";
+        statusLabel.className = isMaintenance
+            ? "badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-50 px-2 py-1"
+            : "badge bg-success bg-opacity-20 text-success border border-success border-opacity-50 px-2 py-1";
     }
 }
 
 window.toggleMaintenanceMode = toggleMaintenanceMode;
 async function toggleMaintenanceMode(isEnabled) {
+    const toggle = document.getElementById("dev-maintenance-toggle");
+    if (toggle) toggle.disabled = true;
     try {
         await apiRequest("/settings", "PUT", { maintenanceMode: isEnabled }, 0, true);
         if (cachedSystemSettings) {
@@ -16263,6 +16296,9 @@ async function toggleMaintenanceMode(isEnabled) {
         showAlert(isEnabled ? "⚠️ تم تفعيل وضع الصيانة لكافة مستخدمي المنظومة عدا المطور." : "✅ تم إلغاء وضع الصيانة واستئناف عمل المنظومة لكافة المستخدمين.", "success");
     } catch(err) {
         showAlert("فشل تحديث وضع الصيانة: " + (err.message || err), "danger");
+    } finally {
+        if (toggle) toggle.disabled = false;
+        checkMaintenanceBlock();
     }
 }
 
@@ -18192,6 +18228,15 @@ async function loadQualityManagementScreen() {
         const stats = data.stats || {};
         const circles = data.circles || [];
         const courses = data.courses || [];
+        const dataStatus = document.getElementById("quality-data-status");
+        if (dataStatus) {
+            const hasCircles = Number(stats.totalCircles || 0) > 0;
+            const hasRecords = Number(stats.totalSessions || 0) > 0 || Number(stats.totalAttendanceRecords || 0) > 0;
+            dataStatus.hidden = hasCircles && hasRecords;
+            dataStatus.textContent = hasCircles
+                ? "الحلقات موجودة، لكن لا توجد سجلات حضور أو تسميع بعد؛ لذلك تظهر مؤشرات النشاط صفراً إلى أن يبدأ الرصد."
+                : "لا توجد حلقات مسجلة في قاعدة البيانات حالياً؛ أضف الحلقات أولاً لتظهر بيانات الجودة والمتابعة.";
+        }
 
         // Update KPIs
         const elExcellence = document.getElementById("quality-stat-excellence-rate");
@@ -18264,6 +18309,8 @@ async function loadQualityManagementScreen() {
 
     } catch(err) {
         console.error("Failed to load quality management screen:", err);
+        const dataStatus = document.getElementById("quality-data-status");
+        if (dataStatus) { dataStatus.hidden = false; dataStatus.textContent = "تعذر الاتصال ببيانات الجودة. تحقق من اتصال الخادم ثم حدّث الصفحة."; }
         if (tbodyCircles) tbodyCircles.innerHTML = '<tr><td colspan="11" class="text-center text-danger p-4">تعذر تحميل بيانات الجودة. يرجى المحاولة لاحقاً.</td></tr>';
         if (tbodyCourses) tbodyCourses.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">تعذر تحميل بيانات الدورات العلمية.</td></tr>';
     }

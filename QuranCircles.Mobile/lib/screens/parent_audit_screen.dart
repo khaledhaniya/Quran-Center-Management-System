@@ -24,6 +24,12 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
     _loadAudit();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadAudit() async {
     setState(() => _isLoading = true);
     try {
@@ -286,8 +292,9 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
     }
   }
 
-  Widget _buildStatCard(String title, String val, IconData icon, Color color) {
-    return Expanded(
+  Widget _buildStatCard(String title, String val, IconData icon, Color color, double width) {
+    return SizedBox(
+      width: width,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
@@ -361,23 +368,26 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadAudit,
-              child: CustomScrollView(
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: CustomScrollView(
                 slivers: [
                   // KPI Stats Ribbon
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-                      child: Row(
-                        children: [
-                          _buildStatCard('أولياء الأمور', totalParents.toString(), Icons.family_restroom, AppTheme.primary),
-                          const SizedBox(width: 8),
-                          _buildStatCard('متعدد الأبناء', multiChildCount.toString(), Icons.groups, Colors.blue),
-                          const SizedBox(width: 8),
-                          _buildStatCard('إجمالي الأبناء', totalChildren.toString(), Icons.school, Colors.teal),
-                          const SizedBox(width: 8),
-                          _buildStatCard('الأيتام', orphanCount.toString(), Icons.volunteer_activism, Colors.amber.shade800),
-                        ],
-                      ),
+                      child: LayoutBuilder(builder: (context, constraints) {
+                        final gap = 8.0;
+                        final width = constraints.maxWidth < 560
+                            ? (constraints.maxWidth - gap) / 2
+                            : (constraints.maxWidth - gap * 3) / 4;
+                        return Wrap(spacing: gap, runSpacing: gap, children: [
+                          _buildStatCard('أولياء الأمور', totalParents.toString(), Icons.family_restroom, AppTheme.primary, width),
+                          _buildStatCard('متعدد الأبناء', multiChildCount.toString(), Icons.groups, Colors.blue, width),
+                          _buildStatCard('إجمالي الأبناء', totalChildren.toString(), Icons.school, Colors.teal, width),
+                          _buildStatCard('الأيتام', orphanCount.toString(), Icons.volunteer_activism, Colors.amber.shade800, width),
+                        ]);
+                      }),
                     ),
                   ),
 
@@ -674,6 +684,7 @@ class _ParentAuditScreenState extends State<ParentAuditScreen> {
                       ),
                     ),
                 ],
+                ),
               ),
             ),
     );
