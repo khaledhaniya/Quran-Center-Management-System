@@ -18,12 +18,16 @@ public class SessionsController : ControllerBase
 
     [HttpGet("student/{studentId:int}")]
     public async Task<IActionResult> GetByStudent(int studentId)
-        => Ok(await _svc.GetByStudentAsync(studentId));
+    {
+        if (!await new StudentReadAccess(_db).CanReadAsync(HttpContext, studentId)) return Forbid();
+        return Ok(await _svc.GetByStudentAsync(studentId));
+    }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id)
     {
         var s = await _svc.GetByIdAsync(id);
+        if (s != null && !await new StudentReadAccess(_db).CanReadAsync(HttpContext, s.StudentId)) return Forbid();
         return s is null ? NotFound(new { error = "الجلسة غير موجودة." }) : Ok(s);
     }
 

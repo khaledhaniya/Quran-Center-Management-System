@@ -41,6 +41,7 @@ public class StudentsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.Parent, UserRole.Student)]
     public async Task<IActionResult> Get(int id)
     {
+        if (!await new StudentReadAccess(_db).CanReadAsync(HttpContext, id)) return Forbid();
         var s = await _svc.GetFullStudentByIdAsync(id);
         if (s == null) return NotFound(new { error = "الطالب غير موجود." });
         return Ok(s);
@@ -96,47 +97,7 @@ public class StudentsController : ControllerBase
         var student = await _svc.GetByIdAsync(id);
         if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
-        if (currentUser.Role == UserRole.Teacher)
-        {
-            int tId = currentUser.TeacherId ?? 0;
-            Teacher? teacherObj = null;
-            if (tId > 0)
-            {
-                teacherObj = await _db.Teachers.FindAsync(tId);
-            }
-            if (teacherObj == null)
-            {
-                teacherObj = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
-                if (teacherObj != null) tId = teacherObj.Id;
-            }
-
-            var today = CenterClock.Today;
-            bool isHisStudent = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == tId || c.AssistantTeacherId == tId ||
-                _db.CircleDays.Any(d => d.CircleId == c.Id && d.Date == today && d.Status == "Absent" && d.SubstituteUserId == currentUserId)));
-
-            var taskRole = teacherObj?.TaskRole ?? "";
-            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
-
-            if (!isHisStudent && !isSupervisorOrAdmin)
-            {
-                return Forbid();
-            }
-        }
-        else if (currentUser.Role == UserRole.Parent)
-        {
-            int pId = currentUser.ParentId ?? currentUser.Id;
-            if (student.ParentId != pId)
-            {
-                return Forbid();
-            }
-        }
-        else if (currentUser.Role == UserRole.Student)
-        {
-            if (student.Id != currentUser.StudentId)
-            {
-                return Forbid();
-            }
-        }
+        if (!await new StudentReadAccess(_db).CanReadAsync(HttpContext, id)) return Forbid();
 
         var (progress, error) = await _svc.GetStudentProgressByIdAsync(id);
         if (error is not null) return BadRequest(new { error });

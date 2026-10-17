@@ -6,7 +6,7 @@ using System.Globalization;
 namespace QuranCircles.Api.Services;
 
 public record ReportFilter(string Kind = "all", DateOnly? From = null, DateOnly? To = null, int? CircleId = null,
-    string? Search = null, int AbsenceThreshold = 3, int[]? StudentIds = null, int? CourseId = null);
+    string? Search = null, int AbsenceThreshold = 3, int[]? StudentIds = null, int? CourseId = null, int? TeacherId = null, string? Status = null);
 
 public class OperationalReports(AppDbContext db)
 {
@@ -118,7 +118,7 @@ public class OperationalReports(AppDbContext db)
                     .Select(e => new[] { Name(e.StudentId), e.Course?.Name ?? "", e.CertificateCode!, e.CertificateDate.ToString()!, e.Grade?.ToString() ?? "" }).ToList(); break;
             case "teacher_discipline":
                 columns = ["الحلقة", "المعلم الأصلي", "التاريخ", "الحالة", "بداية مقررة", "بداية فعلية", "التأخير بالدقائق", "المعلم البديل", "سبب الغياب أو الإجازة"];
-                rows = (await new TeacherAttendanceService(db).BuildAsync(from, to, filter.CircleId)).Select(d => new[] {
+                rows = TeacherAttendanceService.Filter(await new TeacherAttendanceService(db).BuildAsync(from, to, filter.CircleId), filter.TeacherId, filter.Status, filter.Search).Select(d => new[] {
                     d.CircleName, d.TeacherName, d.Date.ToString("yyyy-MM-dd"), d.StatusText + (d.IsAutomatic ? " • رصد تلقائي" : ""), d.ScheduledStart ?? "غير محدد", d.OpenedAt ?? "لم تبدأ",
                     d.LateMinutes?.ToString() ?? "", d.SubstituteName, d.Reason }).ToList(); break;
             case "circle_scorecard":

@@ -23,6 +23,29 @@ public class UsersController : ControllerBase
         _hasher = hasher;
     }
 
+    [HttpPost("{id:int}/reset-password")]
+    [RequireRole(UserRole.Developer)]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("password-reset")]
+    public async Task<IActionResult> ResetPassword(int id, ResetPasswordInput input)
+    {
+        Response.Headers.CacheControl = "no-store, private";
+        var actor = await _db.Users.FirstOrDefaultAsync(u => u.Id == FakeAuth.GetUserId(HttpContext));
+        if (actor?.Role != UserRole.Developer || !actor.IsActive) return Forbid();
+        if (actor.Id == id) return BadRequest(new { error = "استخدم تغيير كلمة المرور لحسابك الشخصي." });
+        bool verified;
+        try { verified = _hasher.VerifyPassword(actor.PasswordHash, input.CurrentPassword ?? ""); } catch { verified = false; }
+        if (!verified) return BadRequest(new { error = "كلمة مرور المطور الحالية غير صحيحة." });
+        var target = await _db.Users.FindAsync(id);
+        if (target == null) return NotFound();
+        var password = PasswordHasher.GenerateTemporaryPassword();
+        target.PasswordHash = _hasher.HashPassword(password);
+        target.PlainPassword = "";
+        await _db.SaveChangesAsync();
+        await AuditLogger.LogAsync(_db, HttpContext, "ResetUserPassword", $"إعادة تعيين كلمة مرور الحساب #{target.Id} ({target.Username}) بواسطة المطور؛ أُلغيت جلسات الحساب السابقة.");
+        return Ok(new { password, message = "تظهر كلمة المرور الجديدة في هذه الاستجابة فقط. سلّمها للمستخدم ليغيّرها من حسابه." });
+    }
+    public record ResetPasswordInput(string CurrentPassword);
+
     [HttpGet]
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> GetAll()
@@ -212,7 +235,9 @@ public class UsersController : ControllerBase
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { error = "المستخدم غير موجود." });
 
-        if ((user.Role == UserRole.Developer || dto.Role == nameof(UserRole.Developer)) && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
+        if (!Enum.TryParse<UserRole>(dto.Role, out var roleVal) || !Enum.IsDefined(roleVal))
+            return BadRequest(new { error = "نوع الحساب غير صالح." });
+        if ((user.Role == UserRole.Developer || roleVal == UserRole.Developer) && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
             return StatusCode(403, new { error = "تعديل حساب المطور متاح للمطور فقط." });
 
         if (string.IsNullOrWhiteSpace(dto.Username))
@@ -230,10 +255,7 @@ public class UsersController : ControllerBase
         if (dto.StudentId.HasValue) user.StudentId = dto.StudentId.Value > 0 ? dto.StudentId.Value : null;
         if (dto.ParentId.HasValue) user.ParentId = dto.ParentId.Value > 0 ? dto.ParentId.Value : null;
 
-        if (Enum.TryParse<UserRole>(dto.Role, out var roleVal))
-        {
-            user.Role = roleVal;
-        }
+        user.Role = roleVal;
 
         if (dto.IsActive.HasValue)
         {
@@ -339,6 +361,8 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { error = "المستخدم غير موجود." });
+        if (user.Role == UserRole.Developer && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
+            return StatusCode(403, new { error = "تغيير حالة حساب المطور متاح للمطور فقط." });
 
         user.IsActive = !user.IsActive;
         await _db.SaveChangesAsync();

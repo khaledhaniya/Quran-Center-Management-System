@@ -151,6 +151,10 @@ else
 builder.Services.AddMemoryCache();
 builder.Services.AddRateLimiter(options => {
     options.RejectionStatusCode = 429;
+    options.AddPolicy("password-reset", context => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions {
+            PermitLimit = 10, Window = TimeSpan.FromMinutes(10), QueueLimit = 0, AutoReplenishment = true
+        }));
     options.AddPolicy("login", context => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions {
             PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
@@ -229,6 +233,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context => {
 }));
 
 app.UseCors("EnterpriseCors");
+app.Use(QuranCircles.Api.Services.WebRequestPolicy.Apply);
 app.UseResponseCompression();
 
 // Database Initialization with WAL Mode Concurrency Tuning
@@ -295,9 +300,7 @@ try
             ContentTypeProvider = contentTypeProvider,
             OnPrepareResponse = ctx =>
             {
-                ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-                ctx.Context.Response.Headers["Pragma"] = "no-cache";
-                ctx.Context.Response.Headers["Expires"] = "0";
+                ctx.Context.Response.Headers.CacheControl = QuranCircles.Api.Services.WebRequestPolicy.StaticCache(ctx.Context.Request);
             }
         });
     }
@@ -330,7 +333,8 @@ try
         {
             FileProvider = mobileProvider,
             RequestPath = "/mobile",
-            ContentTypeProvider = contentTypeProvider
+            ContentTypeProvider = contentTypeProvider,
+            OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = QuranCircles.Api.Services.WebRequestPolicy.StaticCache(ctx.Context.Request)
         });
         app.MapGet("/mobile", () => Results.Redirect("/mobile/index.html"));
     }
@@ -343,7 +347,6 @@ app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
-    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
     var path = context.Request.Path.Value ?? "";
@@ -421,9 +424,9 @@ app.MapGet("/healthz", async (AppDbContext db) =>
             ? Results.Ok(new { status = "healthy", database = "connected", timestamp = DateTime.UtcNow })
             : Results.Json(new { status = "degraded", database = "unreachable" }, statusCode: 503);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
-        return Results.Json(new { status = "unhealthy", error = ex.Message }, statusCode: 500);
+        return Results.Json(new { status = "unhealthy" }, statusCode: 503);
     }
 });
 

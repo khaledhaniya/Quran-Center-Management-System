@@ -150,6 +150,15 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
     });
   }
 
+  Future<void> _resetUserPassword(User user) async {
+    final controller=TextEditingController();
+    final password=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(title:const Text('إعادة تعيين كلمة المرور'),content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('تُلغي العملية جلسات الحساب السابقة. أدخل كلمة مرور المطور للتأكيد.'),TextField(controller:controller,obscureText:true,autofillHints:const [AutofillHints.password],decoration:const InputDecoration(labelText:'كلمة مرور المطور'))]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('إلغاء')),FilledButton(onPressed:()=>Navigator.pop(ctx,controller.text),child:const Text('تعيين كلمة جديدة'))]));
+    controller.dispose();if(password==null||password.isEmpty)return;
+    try{final generated=await ApiService.resetUserPassword(user.id,password);if(!mounted)return;
+      await showDialog(context:context,barrierDismissible:false,builder:(ctx)=>AlertDialog(title:const Text('كلمة المرور الجديدة'),content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('تظهر مرة واحدة. سلّمها للمستخدم ليغيّرها من حسابه.'),const SizedBox(height:18),SelectableText(generated,textDirection:TextDirection.ltr)]),actions:[TextButton(onPressed:(){Clipboard.setData(ClipboardData(text:generated));},child:const Text('نسخ')),FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('حفظت الكلمة وإغلاق'))]));
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
+  }
+
   void _copyPassword(String password, String userName) {
     Clipboard.setData(ClipboardData(text: password));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1080,10 +1089,10 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                                 ),
                                                 IconButton(
                                                   icon: const Icon(Icons.copy, size: 15, color: Colors.grey),
-                                                  tooltip: 'تعيين كلمة مرور جديدة من تعديل الحساب',
+                                                  tooltip: 'إعادة تعيين كلمة المرور بأمان',
                                                   constraints: const BoxConstraints(),
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  onPressed: null,
+                                                  onPressed: () => _resetUserPassword(u),
                                                 ),
                                               ],
                                             ),

@@ -216,7 +216,12 @@ public class AuthController : ControllerBase
 
     [HttpGet("me")]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.Student, UserRole.Parent, UserRole.ExamSupervisor)]
-    public IActionResult Me() => Ok(new { userId = FakeAuth.GetUserId(HttpContext), role = FakeAuth.GetRole(HttpContext)?.ToString() });
+    public async Task<IActionResult> Me()
+    {
+        var user = await _db.Users.Include(u => u.Teacher).AsNoTracking().SingleAsync(u => u.Id == FakeAuth.GetUserId(HttpContext));
+        return Ok(new { userId = user.Id, user.Username, user.FullName, role = user.Role.ToString(), user.TeacherId, user.StudentId, user.ParentId,
+            taskRole = user.Teacher?.IsActive == true ? user.Teacher.TaskRole : "" });
+    }
 
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
@@ -233,7 +238,7 @@ public class AuthController : ControllerBase
             return NotFound(new { error = "المستخدم غير موجود أو حسابه معطل." });
 
         var currentRole = FakeAuth.GetRole(HttpContext);
-        bool isPrivileged = currentRole == UserRole.Developer || currentRole == UserRole.Admin;
+        bool isPrivileged = false; // Changing one's own password always requires the current password.
 
         if (!isPrivileged || !string.IsNullOrWhiteSpace(dto.CurrentPassword))
         {

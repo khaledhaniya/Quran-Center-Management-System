@@ -14,7 +14,7 @@ public class OperationsController(AppDbContext db) : ControllerBase
     public IActionResult Today() => Ok(new { date = CenterClock.Today.ToString("yyyy-MM-dd") });
 
     [HttpGet("teacher-attendance")]
-    public async Task<IActionResult> TeacherAttendance([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] int? circleId)
+    public async Task<IActionResult> TeacherAttendance([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] int? circleId, [FromQuery] int? teacherId = null, [FromQuery] string? status = null, [FromQuery] string? search = null)
     {
         try {
             var service = new TeacherAttendanceService(db);
@@ -24,7 +24,7 @@ public class OperationsController(AppDbContext db) : ControllerBase
                 if(user?.TeacherId == null)return Forbid();
                 rows = rows.Where(r => r.TeacherId == user.TeacherId || r.SubstituteUserId == user.Id).ToList();
             }
-            return Ok(rows);
+            return Ok(TeacherAttendanceService.Filter(rows, teacherId, status, search));
         }
         catch (ArgumentException e) { return BadRequest(new { error = e.Message }); }
     }

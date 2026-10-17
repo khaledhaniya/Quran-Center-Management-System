@@ -10,6 +10,12 @@ public record TeacherAttendanceRow(int CircleId, string CircleName, DateOnly Dat
 
 public class TeacherAttendanceService(AppDbContext db)
 {
+    public static IEnumerable<TeacherAttendanceRow> Filter(IEnumerable<TeacherAttendanceRow> rows, int? teacherId, string? status, string? search) =>
+        rows.Where(r => (!teacherId.HasValue || r.TeacherId == teacherId) &&
+            (string.IsNullOrWhiteSpace(status) || r.Status == status) &&
+            (string.IsNullOrWhiteSpace(search) || r.TeacherName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                r.CircleName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || r.SubstituteName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)));
+
     public async Task<bool> CanManageAsync(HttpContext context)
     {
         if (FakeAuth.GetRole(context) is UserRole.Admin or UserRole.Developer) return true;

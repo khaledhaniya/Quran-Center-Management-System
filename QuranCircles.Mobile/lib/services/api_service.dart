@@ -16,6 +16,13 @@ class ApiService {
   static User? currentUser;
   static String? authToken;
 
+  static Future<String> resetUserPassword(int userId,String currentPassword) async {
+    final response=await httpClient.post(Uri.parse('$baseUrl/users/$userId/reset-password'),headers:_headers(),body:jsonEncode({'currentPassword':currentPassword}));
+    final data=jsonDecode(response.body);
+    if(response.statusCode!=200)throw Exception(data['error']??'تعذر إعادة تعيين كلمة المرور');
+    return data['password'].toString();
+  }
+
   static Future<dynamic> centerOperation(String path, {Map<String, dynamic>? body}) async {
     final uri = Uri.parse('$baseUrl/operations/$path');
     final response = body == null ? await httpClient.get(uri,headers:_headers())
@@ -123,7 +130,7 @@ class ApiService {
         await AuthStorage.remove(baseUrl);
         return null;
       }
-      final user = User.fromJson(json['user'] ?? json);
+      var user = User.fromJson(json['user'] ?? json);
       if (user.id <= 0) return null;
       currentUser = user;
       authToken = token;
@@ -134,6 +141,9 @@ class ApiService {
         if (response.statusCode == 401 || response.statusCode == 403) {
           await logout();
           return null;
+        }
+        if(response.statusCode==200){final verified=jsonDecode(response.body) as Map<String,dynamic>;
+          user=User.fromJson({...((json['user']??json) as Map<String,dynamic>),...verified,'id':verified['userId']});currentUser=user;
         }
       } catch (_) {/* Valid cached session supports offline work. */}
       OfflineCache.configure(server: baseUrl, userId: user.id);

@@ -99,16 +99,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hint = document.getElementById('loader-hint-msg');
         if (hint) hint.textContent = 'انتظر قليلاً، الاتصال يستغرق وقتاً أطول من المعتاد. ننتظر استجابة الخادم.';
     }, 5000);
-    await fetchAndApplySystemSettings();
+    const settingsStartup = fetchAndApplySystemSettings();
     window.setInterval(() => {
         if (document.visibilityState === "visible") fetchAndApplySystemSettings(true);
     }, 30000);
     if (getAuthStorage('token')) {
         try {
             const response = await fetch(`${API_BASE}/auth/me`, {headers:{Authorization:`Bearer ${getAuthStorage('token')}`},signal:AbortSignal.timeout(15000)});
-            if (response.status === 401) { sessionStorage.removeItem('token'); localStorage.removeItem('token'); sessionStorage.removeItem('role'); localStorage.removeItem('role'); }
+            if (response.status === 401 || response.status === 403) { sessionStorage.removeItem('token'); localStorage.removeItem('token'); sessionStorage.removeItem('role'); localStorage.removeItem('role'); }
+            else if(response.ok){const user=await response.json();['role','userId','username','fullName','teacherId','studentId','parentId','taskRole'].forEach(key=>{if(user[key]!==undefined)setAuthStorage(key,user[key]??'');});}
         } catch (_) { /* Preserve session during network interruptions. */ }
     }
+    await settingsStartup;
     clearTimeout(slowHint);
     Object.keys(localStorage).filter(key => key.startsWith("user_pw_")).forEach(key => localStorage.removeItem(key));
     setupAuth();
@@ -1018,6 +1020,11 @@ function handleRouting() {
         document.getElementById("btn-admin-dashboard")?.classList.add("active");
         document.getElementById("admin-dashboard-section")?.classList.remove("hidden");
         loadAdminDashboard();
+    }
+    else if (hash === "#teacher-register" && (isAdminOrDev || currentRole === "Teacher")) {
+        document.getElementById("btn-teacher-register")?.classList.add("active");
+        document.getElementById("teacher-register-section")?.classList.remove("hidden");
+        loadTeacherRegisterPage();
     }
     else if (hash === "#profile-requests" && isAdminOrDev) {
         const btnAdmin = document.getElementById("btn-profile-requests");
@@ -9085,6 +9092,7 @@ function renderUsersTableRows(usersList) {
                         ${teacherIdForRole ? `
                             <button class="btn btn-dev-action btn-outline-success btn-manage-roles-user" data-tid="${teacherIdForRole}" title="تعديل الصلاحيات والمهام"><i class="fa-solid fa-user-shield"></i></button>
                         ` : ''}
+                        <button class="btn btn-dev-action btn-outline-warning" onclick="resetDeveloperUserPassword(${u.id})" title="إعادة تعيين كلمة المرور بأمان"><i class="fa-solid fa-key"></i></button>
                         <button class="btn btn-dev-action btn-outline-primary btn-edit-user" data-id="${u.id}" title="تعديل بيانات الحساب"><i class="fa-solid fa-user-pen"></i></button>
                         <button class="btn btn-dev-action btn-outline-danger btn-delete-user" data-id="${u.id}" title="حذف الحساب"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
@@ -9137,6 +9145,7 @@ function renderUsersTableRows(usersList) {
                     ${teacherIdForRole ? `
                         <button class="btn btn-outline-success btn-sm btn-manage-roles-user" data-tid="${teacherIdForRole}" title="الصلاحيات"><i class="fa-solid fa-user-shield me-1"></i> الصلاحيات</button>
                     ` : ''}
+                    <button class="btn btn-outline-warning btn-sm" onclick="resetDeveloperUserPassword(${u.id})"><i class="fa-solid fa-key me-1"></i> تعيين كلمة جديدة</button>
                     <button class="btn btn-outline-primary btn-sm btn-edit-user" data-id="${u.id}"><i class="fa-solid fa-user-pen me-1"></i> تعديل</button>
                     <button class="btn btn-outline-danger btn-sm btn-delete-user" data-id="${u.id}"><i class="fa-solid fa-trash-can me-1"></i> حذف</button>
                 </div>
@@ -15708,7 +15717,15 @@ function normalizeSettings(s) {
     };
 }
 
-async function fetchAndApplySystemSettings(silent = true) {
+let settingsFetchInFlight=null;
+let settingsFetchedAt=0;
+async function fetchAndApplySystemSettings(silent = true, force = false) {
+    if(settingsFetchInFlight)return settingsFetchInFlight;
+    if(!force && cachedSystemSettings && Date.now()-settingsFetchedAt<20000){applySystemSettingsToUI(cachedSystemSettings);return;}
+    settingsFetchInFlight=refreshSystemSettings(silent);
+    try{await settingsFetchInFlight;}finally{settingsFetchInFlight=null;}
+}
+async function refreshSystemSettings(silent = true) {
     // 1. Instant load from localStorage or default to prevent flicker
     try {
         const localSaved = localStorage.getItem("system_settings_cache");
@@ -15726,11 +15743,11 @@ async function fetchAndApplySystemSettings(silent = true) {
 
     // 2. Fetch fresh live settings from API with cross-browser cache-busting and seamless cloud failover
     try {
-        const timestamp = Date.now();
-        const response = await fetch(`${API_BASE}/settings?t=${timestamp}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+        const response = await fetch(`${API_BASE}/settings`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
         if (response && response.ok) {
             const settings = await response.json();
             cachedSystemSettings = normalizeSettings(settings);
+            settingsFetchedAt=Date.now();
             localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
             applySystemSettingsToUI(cachedSystemSettings);
         }
@@ -19936,3 +19953,13 @@ async function deleteTalentRecord(id, title) {
 
 
 
+
+async function resetDeveloperUserPassword(id){
+    if(currentRole!=='Developer')return;
+    const prompt=await Swal.fire({title:'إعادة تعيين كلمة المرور',text:'تُلغي هذه العملية جلسات الحساب السابقة. أدخل كلمة مرور حساب المطور للتأكيد.',input:'password',inputAttributes:{autocomplete:'current-password'},showCancelButton:true,confirmButtonText:'تعيين كلمة جديدة',cancelButtonText:'إلغاء',inputValidator:value=>value?'':'أدخل كلمة مرور المطور.'});
+    if(!prompt.isConfirmed)return;
+    try{
+        const result=await apiRequest(`/users/${id}/reset-password`,'POST',{currentPassword:prompt.value},0,true);
+        await Swal.fire({title:'كلمة المرور الجديدة',text:'احفظها وسلّمها لصاحب الحساب ليغيّرها. لن تظهر مجدداً بعد إغلاق هذه النافذة.',input:'text',inputValue:result.password,inputAttributes:{readonly:'readonly',autocomplete:'off',dir:'ltr'},confirmButtonText:'حفظت الكلمة وإغلاق',allowOutsideClick:false});
+    }catch(e){showAlert(e.message,'danger');}
+}

@@ -29,5 +29,8 @@ public class AttendanceController : ControllerBase
     // عرض حضور طالب
     [HttpGet("student/{studentId:int}")]
     public async Task<IActionResult> GetByStudent(int studentId)
-        => Ok(await _svc.GetByStudentAsync(studentId));
+    {
+        if (!await new StudentReadAccess(_db).CanReadAsync(HttpContext, studentId)) return Forbid();
+        return Ok(await _svc.GetByStudentAsync(studentId));
+    }
 }
