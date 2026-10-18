@@ -60,7 +60,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         final teacherId = widget.currentUser.teacherId ?? widget.currentUser.id;
         final circles = await ApiService.getCircles();
         final teacherCircleIds = circles
-            .where((c) => c.teacherId == teacherId)
+            .where((c) => c.teacherId == teacherId || c.assistantTeacherId == teacherId)
             .map((c) => c.id)
             .toSet();
 
@@ -73,7 +73,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
     if (!mounted) return;
 
-    String nominationType = 'Quran';
+    String nominationType = quranStudents.isEmpty && courses.isNotEmpty ? 'Course' : 'Quran';
     String juzSelectionMode = 'Single'; // 'Single' or 'Range'
     Student? selectedQuranStudent = quranStudents.isNotEmpty ? quranStudents.first : null;
     Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
@@ -127,9 +127,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     initialValue: nominationType,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'مسار الاختبار *'),
-                    items: const [
-                      DropdownMenuItem(value: 'Quran', child: Text('حفظ واختبار قرآن كريم (أجزاء)', overflow: TextOverflow.ellipsis, maxLines: 1)),
-                      DropdownMenuItem(value: 'Course', child: Text('اختبار مساق / دورة شرعية', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                    items: [
+                      if(!isTeacher || quranStudents.isNotEmpty || courses.isEmpty) const DropdownMenuItem(value: 'Quran', child: Text('حفظ واختبار قرآن كريم (أجزاء)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                      if(!isTeacher || courses.isNotEmpty) const DropdownMenuItem(value: 'Course', child: Text('اختبار مساق / دورة شرعية', overflow: TextOverflow.ellipsis, maxLines: 1)),
                     ],
                     onChanged: (val) {
                       if (val != null) {

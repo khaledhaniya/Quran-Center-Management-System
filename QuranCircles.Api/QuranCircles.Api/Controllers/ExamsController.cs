@@ -37,9 +37,11 @@ public class ExamsController : ControllerBase
 
         if (currentUser.Role == UserRole.Teacher)
         {
+            if (!currentUser.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive))
+                return Forbid();
             if ((dto.NominationType == "Quran" || dto.NominationType == "Combined"))
             {
-                if (student.Circle == null || student.Circle.TeacherId != currentUser.TeacherId)
+                if (student.Circle?.IsActive != true || (student.Circle.TeacherId != currentUser.TeacherId && student.Circle.AssistantTeacherId != currentUser.TeacherId))
                 {
                     return BadRequest(new { Message = "لا يمكنك ترشيح طالب من غير حلقتك لاختبار الأجزاء." });
                 }
@@ -55,7 +57,7 @@ public class ExamsController : ControllerBase
                 {
                     return BadRequest(new { Message = "الدورة غير موجودة." });
                 }
-                if (course.TeacherId != currentUser.TeacherId)
+                if (!course.IsActive || course.TeacherId != currentUser.TeacherId)
                 {
                     return BadRequest(new { Message = "أنت لست معلم هذه الدورة، لا يمكنك ترشيح الطلاب لها." });
                 }
@@ -180,7 +182,9 @@ public class ExamsController : ControllerBase
 
         if (currentUser.Role == UserRole.Teacher)
         {
-            if (!student.CircleId.HasValue || !await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && c.TeacherId == currentUser.TeacherId))
+            var ownsCircle = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == currentUser.TeacherId || c.AssistantTeacherId == currentUser.TeacherId));
+            var ownsCourse = await _db.CourseEnrollments.AnyAsync(e => e.StudentId == studentId && e.Course != null && e.Course.TeacherId == currentUser.TeacherId);
+            if (!ownsCircle && !ownsCourse)
             {
                 return Forbid();
             }
@@ -252,15 +256,11 @@ public class ExamsController : ControllerBase
         }
         else if (currentUser.Role == UserRole.Teacher)
         {
-            var children = await _db.Students.AsNoTracking().ToListAsync();
-            var ownChildren = children.Where(s => ParentLinks.IsChild(currentUser, s))
-                .Select(s => s.Id).ToList();
             query = query.Where(n =>
-                ownChildren.Contains(n.StudentId) ||
-                (n.Student != null && n.Student.Circle != null && n.Student.Circle.TeacherId == currentUser.TeacherId) ||
-                (n.Course != null && n.Course.TeacherId == currentUser.TeacherId) ||
-                (n.Course != null && (n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value))) ||
-                n.TeacherId == currentUser.TeacherId
+                ((n.NominationType == "Quran" || n.NominationType == "Combined") && n.Student != null && n.Student.Circle != null &&
+                    (n.Student.Circle.TeacherId == currentUser.TeacherId || n.Student.Circle.AssistantTeacherId == currentUser.TeacherId)) ||
+                (n.NominationType == "Course" && n.Course != null && n.Course.TeacherId == currentUser.TeacherId) ||
+                (n.Course != null && (n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
             );
         }
         else if (currentUser.Role == UserRole.Student)
@@ -281,8 +281,7 @@ public class ExamsController : ControllerBase
         {
             bool canManage = isGeneralSupervisor || (n.Course != null && (
                 n.Course.ExamSupervisorId == currentUser.Id ||
-                (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value) ||
-                (n.Course.TeacherId == currentUser.TeacherId && (n.Course.ExamSupervisorId == null || n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+                (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value)
             ));
 
             string resolvedTeacherName = "";
@@ -356,8 +355,7 @@ public class ExamsController : ControllerBase
         {
             bool isCourseSupervisor = nomination.Course != null && (
                 nomination.Course.ExamSupervisorId == currentUser.Id ||
-                (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value) ||
-                (nomination.Course.TeacherId == currentUser.TeacherId && (nomination.Course.ExamSupervisorId == null || nomination.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+                (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value)
             );
 
             if (!isCourseSupervisor)
@@ -432,8 +430,7 @@ public class ExamsController : ControllerBase
         {
             bool isCourseSupervisor = nomination.Course != null && (
                 nomination.Course.ExamSupervisorId == currentUser.Id ||
-                (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value) ||
-                (nomination.Course.TeacherId == currentUser.TeacherId && (nomination.Course.ExamSupervisorId == null || nomination.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+                (currentUser.TeacherId.HasValue && nomination.Course.ExamSupervisorId == currentUser.TeacherId.Value)
             );
 
             if (!isCourseSupervisor)

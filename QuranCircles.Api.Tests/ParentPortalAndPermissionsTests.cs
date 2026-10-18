@@ -40,6 +40,42 @@ public class ParentPortalAndPermissionsTests
         user.Teacher!.IsActive=false;Assert.Empty(TeacherPermissions.For(user.Teacher));
     }
     [Fact]
+    public async Task ActualCourseAndAssistantAssignmentsGrantScopedTeacherToolsWithoutJobText()
+    {
+        using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);
+        var courseTeacher=new Teacher {Id=1,FullName="معلم الدورة",TaskRole="غير مكلف"};
+        var assistant=new Teacher {Id=2,FullName="مساعد الحلقة",TaskRole="غير مكلف"};
+        var otherTeacher=new Teacher {Id=3,FullName="معلم آخر",TaskRole="غير مكلف"};
+        db.Teachers.AddRange(courseTeacher,assistant,otherTeacher);
+        var courseUser=new User {Id=1,Username="course",FullName="معلم الدورة",Role=UserRole.Teacher,TeacherId=1};
+        var assistantUser=new User {Id=2,Username="assistant",FullName="مساعد الحلقة",Role=UserRole.Teacher,TeacherId=2};
+        db.Users.AddRange(courseUser,assistantUser);
+        db.Circles.Add(new Circle {Id=1,Name="حلقة البيان",AssistantTeacherId=2});
+        db.Courses.Add(new Course {Id=1,Name="التجويد",TeacherId=1});
+        db.Courses.Add(new Course {Id=2,Name="دورة أخرى",TeacherId=3});
+        db.Students.AddRange(new Student {Id=1,FullName="طالب الحلقة",CircleId=1},new Student {Id=2,FullName="طالب الدورة"},new Student {Id=3,FullName="طالب آخر"});
+        db.CourseEnrollments.Add(new CourseEnrollment {CourseId=1,StudentId=2});
+        db.CourseEnrollments.Add(new CourseEnrollment {CourseId=2,StudentId=3});
+        await db.SaveChangesAsync();
+
+        Assert.Equal(["courses","exams"],(await TeacherPermissions.EffectiveForAsync(db,courseUser)).Order().ToArray());
+        Assert.Equal(["circles","exams"],(await TeacherPermissions.EffectiveForAsync(db,assistantUser)).Order().ToArray());
+        var context=new DefaultHttpContext();context.Items["QuranCenter.VerifiedUser"]=assistantUser;
+        var exams=new ExamsController(db){ControllerContext=new ControllerContext {HttpContext=context}};
+        Assert.IsType<OkObjectResult>(await exams.Nominate(new() {StudentId=1,NominationType="Quran",JuzStart=1,JuzEnd=1}));
+        Assert.IsType<BadRequestObjectResult>(await exams.Nominate(new() {StudentId=3,NominationType="Quran",JuzStart=1,JuzEnd=1}));
+        context.Items["QuranCenter.VerifiedUser"]=courseUser;
+        Assert.IsType<OkObjectResult>(await exams.Nominate(new() {StudentId=2,NominationType="Course",CourseId=1}));
+        Assert.IsType<BadRequestObjectResult>(await exams.Nominate(new() {StudentId=3,NominationType="Course",CourseId=1}));
+        var list=Assert.IsType<OkObjectResult>(await exams.GetNominations());
+        Assert.Single(Assert.IsAssignableFrom<System.Collections.IEnumerable>(list.Value).Cast<object>());
+        var courses=new CoursesController(db){ControllerContext=new ControllerContext {HttpContext=context}};
+        Assert.IsType<ForbidResult>(await courses.GetEnrollments(2));
+        db.Courses.Single(x=>x.Id==1).TeacherId=null;
+        await db.SaveChangesAsync();
+        Assert.Empty(await TeacherPermissions.EffectiveForAsync(db,courseUser));
+    }
+    [Fact]
     public async Task ParentChangeRequestsAreLimitedToTheirChildrenAndRecordTheVerifiedIdentity()
     {
         using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);

@@ -23,6 +23,19 @@ public static class TeacherPermissions
         return result.ToArray();
     }
     public static string[] For(Teacher? teacher)=>teacher?.IsActive==true?FromTasks(teacher.TaskRole):[];
+    public static async Task<string[]> EffectiveForAsync(AppDbContext db, User user)
+    {
+        if (user.TeacherId is not int teacherId) return [];
+        var teacher = user.Teacher ?? await db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teacherId);
+        if (teacher?.IsActive != true) return [];
+        var result = new HashSet<string>(FromTasks(teacher.TaskRole));
+        var hasCircle = await db.Circles.AsNoTracking().AnyAsync(c => c.IsActive && (c.TeacherId == teacherId || c.AssistantTeacherId == teacherId));
+        var hasCourse = await db.Courses.AsNoTracking().AnyAsync(c => c.IsActive && c.TeacherId == teacherId);
+        if (hasCircle) result.Add("circles");
+        if (hasCourse) result.Add("courses");
+        if (hasCircle || hasCourse) result.Add("exams");
+        return result.ToArray();
+    }
     public static async Task ResolveLinkAsync(AppDbContext db, User user)
     {
         if(user.TeacherId.HasValue||user.Role==UserRole.Student||string.IsNullOrWhiteSpace(user.Username))return;

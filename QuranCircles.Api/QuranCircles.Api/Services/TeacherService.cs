@@ -193,17 +193,6 @@ public class TeacherService
             // Editing the teacher's job description must never elevate privileges.
         }
 
-        // If teacher is stripped of circle roles (e.g. empty or without حلقة / مساعد), unassign from circles
-        if (!TeacherPermissions.FromTasks(t.TaskRole).Contains("circles"))
-        {
-            var circlesToUnlink = await _db.Circles.Where(c => c.TeacherId == id || c.AssistantTeacherId == id).ToListAsync();
-            foreach (var c in circlesToUnlink)
-            {
-                if (c.TeacherId == id) c.TeacherId = null;
-                if (c.AssistantTeacherId == id) c.AssistantTeacherId = null;
-            }
-        }
-
         // RE-LINK STUDENTS to Teacher if IdentityNumber exists
         if (!string.IsNullOrWhiteSpace(t.IdentityNumber))
         {

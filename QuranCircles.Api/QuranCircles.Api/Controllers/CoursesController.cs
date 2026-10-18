@@ -542,7 +542,9 @@ public class CoursesController : ControllerBase
 
         if (currentUser.Role == UserRole.Teacher)
         {
-            if (!student.CircleId.HasValue || !await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && c.TeacherId == currentUser.TeacherId))
+            var ownsCircle = student.CircleId.HasValue && await _db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == currentUser.TeacherId || c.AssistantTeacherId == currentUser.TeacherId));
+            var ownsCourse = await _db.CourseEnrollments.AnyAsync(e => e.StudentId == studentId && e.Course != null && e.Course.TeacherId == currentUser.TeacherId);
+            if (!ownsCircle && !ownsCourse)
             {
                 return Forbid();
             }
@@ -573,6 +575,10 @@ public class CoursesController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> GetEnrollments(int id)
     {
+        var currentUser = await _db.Users.FindAsync(FakeAuth.GetUserId(HttpContext));
+        if (currentUser == null) return Unauthorized();
+        if (currentUser.Role == UserRole.Teacher && !await _db.Courses.AnyAsync(c => c.Id == id && c.TeacherId == currentUser.TeacherId))
+            return Forbid();
         var enrollments = await _db.CourseEnrollments
             .Include(e => e.Student)
             .ThenInclude(s => s!.Circle)
@@ -622,13 +628,7 @@ public class CoursesController : ControllerBase
                 (currentUser.TeacherId.HasValue && enrollment.Course.ExamSupervisorId == currentUser.TeacherId.Value)
             );
 
-            bool isCircleTeacher = false;
-            if (enrollment.Student?.CircleId.HasValue == true)
-            {
-                isCircleTeacher = await _db.Circles.AnyAsync(c => c.Id == enrollment.Student.CircleId.Value && c.TeacherId == currentUser.TeacherId);
-            }
-
-            if (!isExamSpecialist && !isCourseTeacher && !isCourseSupervisor && !isCircleTeacher)
+            if (!isExamSpecialist && !isCourseTeacher && !isCourseSupervisor)
             {
                 return Forbid();
             }

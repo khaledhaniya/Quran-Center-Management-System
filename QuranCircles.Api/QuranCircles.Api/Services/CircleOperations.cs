@@ -21,8 +21,7 @@ public class CircleOperations(AppDbContext db)
             return day.SubstituteUserId == userId && user.Teacher?.IsActive == true &&
                 user.TeacherId != circle.TeacherId;
         if (FakeAuth.GetRole(context) is UserRole.Admin or UserRole.Developer) return true;
-        var tasks = user.Teacher?.TaskRole ?? "";
-        if (TeacherPermissions.For(user.Teacher).Contains("circles") &&
+        if (user.Teacher?.IsActive == true && circle.IsActive &&
             (circle.TeacherId == user.TeacherId || circle.AssistantTeacherId == user.TeacherId)) return true;
         return false;
     }

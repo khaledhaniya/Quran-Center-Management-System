@@ -125,6 +125,7 @@ public class AuthController : ControllerBase
             return StatusCode(503, new { error = "النظام في وضع الصيانة والتحديث حالياً، ومتاح للمطور فقط.", maintenance = true });
 
         await TeacherPermissions.ResolveLinkAsync(_db,user);
+        var effectivePermissions = await TeacherPermissions.EffectiveForAsync(_db,user);
         var token = _tokenSvc.GenerateToken(user);
 
         // Find reference ID based on role
@@ -208,7 +209,7 @@ public class AuthController : ControllerBase
             username = user.Username,
             fullName = user.FullName,
             taskRole,
-            permissions = TeacherPermissions.For(user.Teacher),
+            permissions = effectivePermissions,
             mosqueName,
             qualification,
             hasChildren,
@@ -222,9 +223,10 @@ public class AuthController : ControllerBase
     {
         var user = await _db.Users.Include(u => u.Teacher).SingleAsync(u => u.Id == FakeAuth.GetUserId(HttpContext));
         await TeacherPermissions.ResolveLinkAsync(_db,user);
+        var effectivePermissions = await TeacherPermissions.EffectiveForAsync(_db,user);
         var children = user.Role == UserRole.Student ? new List<Student>() : await _reportSvc.GetSmartChildrenForParentAsync(user);
         return Ok(new { userId = user.Id, user.Username, user.FullName, role = user.Role.ToString(), user.TeacherId, user.StudentId, user.ParentId,
-            taskRole = user.Teacher?.IsActive == true ? user.Teacher.TaskRole : "", permissions = TeacherPermissions.For(user.Teacher),
+            taskRole = user.Teacher?.IsActive == true ? user.Teacher.TaskRole : "", permissions = effectivePermissions,
             hasChildren = children.Count > 0, childrenCount = children.Count });
     }
 

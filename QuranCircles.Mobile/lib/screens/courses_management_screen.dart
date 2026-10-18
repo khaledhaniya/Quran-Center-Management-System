@@ -44,7 +44,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
     try {
       final coursesList = await ApiService.getCourses();
       final teachersList = await ApiService.getTeachers();
-      final usersList = await ApiService.getUsers();
+      final usersList = _isAdminOrDev ? await ApiService.getUsers() : <User>[];
       final studentsList = await ApiService.getStudents();
       final circlesList = await ApiService.getCircles();
 

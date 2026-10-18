@@ -27,6 +27,16 @@ void main(){
     expect(User.permissionsFromTasks('غير مكلف'),isEmpty);
     expect(User.permissionsFromTasks('محفّظ حلقة + مشرف اختبارات'),containsAll(['circles','exams']));
   });
+  test('Server assignments enable courses and exams even without task text',(){
+    final courseTeacher=User.fromJson({'userId':12,'username':'course','fullName':'معلم الدورة','role':'Teacher','teacherId':5,'taskRole':'غير مكلف','permissions':['courses','exams']});
+    expect(courseTeacher.isCourseTeacher,isTrue);
+    expect(courseTeacher.isExamSupervisor,isTrue);
+    expect(courseTeacher.isHalaqahTeacher,isFalse);
+    final assistant=User.fromJson({'userId':13,'username':'assistant','fullName':'مساعد الحلقة','role':'Teacher','teacherId':6,'taskRole':'غير مكلف','permissions':['circles','exams']});
+    expect(assistant.isHalaqahTeacher,isTrue);
+    expect(assistant.isExamSupervisor,isTrue);
+    expect(assistant.isCourseTeacher,isFalse);
+  });
   testWidgets('Parent portal uses server figures and keeps the small-screen page usable',(tester)async{
     tester.view.physicalSize=const Size(390,844);tester.view.devicePixelRatio=1;
     addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);

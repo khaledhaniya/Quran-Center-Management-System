@@ -608,7 +608,11 @@ function teacherPermissionsFromTasks(tasks){
 function teacherDefaultRoute(){
     return Object.entries({circles:'#teacher-attendance',exams:'#exams',courses:'#courses',finance:'#financial-management',quality:'#quality-management',memorization:'#memorization-forum',talents:'#preacher-youth',leadership:'#announcements'}).find(([permission])=>teacherCan(permission))?.[1]||'#teacher-empty-state';
 }
-function teacherCan(permission){return teacherPermissionsFromTasks(getAuthStorage('taskRole')).includes(permission);}
+function teacherPermissions(){
+    try{const value=JSON.parse(getAuthStorage('permissions')||'null');if(Array.isArray(value))return value;}catch(_){}
+    return teacherPermissionsFromTasks(getAuthStorage('taskRole'));
+}
+function teacherCan(permission){return teacherPermissions().includes(permission);}
 let sessionRefreshPromise=null;
 async function refreshSessionPermissions(){
     if(!authToken)return;if(sessionRefreshPromise)return sessionRefreshPromise;
@@ -616,7 +620,7 @@ async function refreshSessionPermissions(){
         const response=await fetch(`${API_BASE}/auth/me`,{headers:{Authorization:`Bearer ${authToken}`},cache:'no-store',signal:AbortSignal.timeout(10000)});
         if(response.status===401||response.status===403){handleLogout();return;}
         if(!response.ok)return;const user=await response.json();
-        const changed=user.role!==currentRole || (user.taskRole||'')!==(getAuthStorage('taskRole')||'') || String(user.childrenCount||0)!==getAuthStorage('childrenCount');
+        const changed=user.role!==currentRole || (user.taskRole||'')!==(getAuthStorage('taskRole')||'') || String(user.childrenCount||0)!==getAuthStorage('childrenCount') || JSON.stringify(user.permissions||[])!==JSON.stringify(teacherPermissions());
         ['role','userId','username','fullName','teacherId','studentId','parentId','taskRole','hasChildren','childrenCount'].forEach(k=>{if(user[k]!==undefined)setAuthStorage(k,user[k]??'');});
         setAuthStorage('permissions',JSON.stringify(user.permissions||teacherPermissionsFromTasks(user.taskRole)));
         if(changed){currentRole=user.role;updateSidebarMenu();handleRouting();const label=document.getElementById('profile-display-role');if(label)label.textContent=getRoleArabicName(currentRole);}
@@ -693,7 +697,11 @@ function getRoleArabicName(role) {
             }
             return "مدير المركز العام";
         case "Teacher":
-            return getTeacherRolesText(taskRole);
+            const roles=getTeacherRolesText(taskRole);
+            const labels=roles==='غير مكلف'?[]:[roles];
+            if(teacherCan('circles')&&!teacherPermissionsFromTasks(taskRole).includes('circles'))labels.push('معلم الحلقة المسندة');
+            if(teacherCan('courses')&&!teacherPermissionsFromTasks(taskRole).includes('courses'))labels.push('معلم الدورات المسندة');
+            return labels.join(' | ')||'غير مكلف';
         case "Student": return "طالب حلقة تحفيظ";
         case "Parent": return "ولي أمر طالب";
         case "ExamSupervisor": return "مشرف ومقوّم اختبارات";
@@ -734,7 +742,7 @@ function updateSidebarMenu() {
         if (teacherEl) teacherEl.classList.remove("hidden");
 
         const taskRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = !teacherPermissionsFromTasks(taskRole).length;
+        const isNoTask = !teacherPermissions().length;
         const hasCircle = teacherCan('circles');
 
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
@@ -989,7 +997,7 @@ function handleRouting() {
         hash = defaultHash;
     }
     if (hash === "#settings" || hash === "#control-panel" || hash === "#system") hash = "#system-settings";
-    if(currentRole==='Teacher' && hash==='#teacher-empty-state' && teacherPermissionsFromTasks(getAuthStorage('taskRole')).length){
+    if(currentRole==='Teacher' && hash==='#teacher-empty-state' && teacherPermissions().length){
         hash=teacherDefaultRoute();history.replaceState(null,'',hash);
     }
 
@@ -998,8 +1006,7 @@ function handleRouting() {
     document.querySelectorAll(".content-section").forEach(sec => sec.classList.add("hidden"));
 
     // If teacher has no assigned tasks or circles, allow announcements or lock view to empty state
-    const tRoleForRouting = (getAuthStorage("taskRole") || "").trim();
-    const isTeacherWithoutTask = currentRole === "Teacher" && !teacherPermissionsFromTasks(tRoleForRouting).length;
+    const isTeacherWithoutTask = currentRole === "Teacher" && !teacherPermissions().length;
     if (isTeacherWithoutTask) {
         if (hash === "#announcements") {
             document.getElementById("btn-announcements")?.classList.add("active");
@@ -11572,14 +11579,17 @@ function renderExamsTable(list, filterType, isAdmin, isSupervisor) {
 
 function showNominateModal() {
     openModal("ترشيح طالب لاختبار شفوي");
+    const canQuran=currentRole!=="Teacher"||teacherCan('circles');
+    const canCourse=currentRole!=="Teacher"||teacherCan('courses');
+    const initialType=!canQuran&&canCourse?'Course':'Quran';
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="nominate-form">
             <div class="form-group">
                 <label for="nominate-type-select">نوع الاختبار:</label>
                 <select id="nominate-type-select" class="form-control" required onchange="onNominateTypeChange(this.value)">
-                    <option value="Quran">حفظ قرآن كريم (أجزاء)</option>
-                    <option value="Course">دورة تعليمي (دورة)</option>
+                    ${canQuran||!canCourse?'<option value="Quran">حفظ قرآن كريم (أجزاء)</option>':''}
+                    ${canCourse?'<option value="Course">دورة تعليمية</option>':''}
                 </select>
             </div>
 
@@ -11649,9 +11659,12 @@ function showNominateModal() {
             opt.textContent = c.name;
             courseSelect.appendChild(opt);
         });
+        if(initialType==='Course')updateNominateStudentsList();
     });
 
-    // Populate students list for default type (Quran)
+    document.getElementById('nominate-type-select').value=initialType;
+    toggleNominateFields(initialType);
+    // Populate students only from the chosen assigned circle or course.
     updateNominateStudentsList();
 
     document.getElementById("nominate-form").addEventListener("submit", async (e) => {
@@ -11719,7 +11732,6 @@ async function updateNominateStudentsList() {
 
     try {
         if (type === "Quran") {
-            const curUser = (typeof getCurrentUser === "function") ? getCurrentUser() : { teacherId: 0, fullName: "" };
             const students = await apiRequest("/students?onlyCircle=true");
             studentSelect.innerHTML = '<option value="">-- اختر طالب من الحلقة --</option>';
 
@@ -11729,7 +11741,6 @@ async function updateNominateStudentsList() {
                 if (s.isActive === false) return false;
                 if (!s.circleId) return false;
                 if (s.circleName && (s.circleName.includes("غير مسند") || s.circleName.includes("بدون حلقة"))) return false;
-                if (currentRole === "Teacher" && curUser?.teacherId && s.teacherId && s.teacherId != curUser.teacherId) return false;
                 return true;
             });
 

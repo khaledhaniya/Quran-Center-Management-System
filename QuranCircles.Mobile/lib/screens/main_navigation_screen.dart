@@ -79,7 +79,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
         }
       }
       final latest=await ApiService.refreshSessionProfile();
-      if(mounted&&latest!=null&&('${latest.role}|${latest.taskRole}|${latest.childrenCount}'!='${_currentUser.role}|${_currentUser.taskRole}|${_currentUser.childrenCount}')){
+      if(mounted&&latest!=null&&('${latest.role}|${latest.taskRole}|${latest.childrenCount}|${latest.effectivePermissions.join(',')}'!='${_currentUser.role}|${_currentUser.taskRole}|${_currentUser.childrenCount}|${_currentUser.effectivePermissions.join(',')}')){
         ApiService.invalidateCache();setState((){_currentUser=latest;_currentIndex=0;});
       }
     } catch (_) {
@@ -126,7 +126,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
 
     // 1. Dashboard is common to all
     screens.add(role=='Parent'?const ParentPortalScreen(embedded:true):DashboardScreen(
-      key:ValueKey('${_currentUser.id}|${_currentUser.taskRole}|${_currentUser.childrenCount}'),
+      key:ValueKey('${_currentUser.id}|${_currentUser.taskRole}|${_currentUser.effectivePermissions.join(',')}|${_currentUser.childrenCount}'),
       currentUser: _currentUser,
       onNavigateTab: (index) => setState(() => _currentIndex = index),
     ));

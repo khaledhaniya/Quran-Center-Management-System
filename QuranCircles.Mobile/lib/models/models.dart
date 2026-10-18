@@ -12,6 +12,7 @@ class User {
   final int childrenCount;
 
   final String? taskRole;
+  final List<String>? permissions;
 
   User({
     required this.id,
@@ -26,6 +27,7 @@ class User {
     this.hasChildren = false,
     this.childrenCount = 0,
     this.taskRole,
+    this.permissions,
   });
 
   static List<String> permissionsFromTasks(String? tasks) {
@@ -33,13 +35,14 @@ class User {
     const words={'circles':['حلقة','حلقات','محفظ','معلم قران'],'courses':['دورة','دورات','مساق','مساقات','course'],'exams':['اختبار','امتحان','لجنة'],'finance':['المالي','الصندوق','المحافظ'],'quality':['الجودة','رقابة'],'memorization':['التحفيظ','الحفاظ'],'talents':['الواعظ','الندية'],'leadership':['مركز البيان','امير المركز','المدير العام']};
     return words.entries.where((entry)=>entry.value.any(text.contains)).map((entry)=>entry.key).toList();
   }
-  bool get isHalaqahTeacher => role=='Teacher' && permissionsFromTasks(taskRole).contains('circles');
-  bool get isQualitySupervisor => permissionsFromTasks(taskRole).contains('quality');
-  bool get isMemorizationSupervisor => permissionsFromTasks(taskRole).contains('memorization');
-  bool get isPreacherSupervisor => permissionsFromTasks(taskRole).contains('talents');
-  bool get isFinancialSupervisor => permissionsFromTasks(taskRole).contains('finance');
-  bool get isCourseTeacher => permissionsFromTasks(taskRole).contains('courses');
-  bool get isExamSupervisor => permissionsFromTasks(taskRole).contains('exams');
+  List<String> get effectivePermissions => permissions ?? permissionsFromTasks(taskRole);
+  bool get isHalaqahTeacher => role=='Teacher' && effectivePermissions.contains('circles');
+  bool get isQualitySupervisor => effectivePermissions.contains('quality');
+  bool get isMemorizationSupervisor => effectivePermissions.contains('memorization');
+  bool get isPreacherSupervisor => effectivePermissions.contains('talents');
+  bool get isFinancialSupervisor => effectivePermissions.contains('finance');
+  bool get isCourseTeacher => effectivePermissions.contains('courses');
+  bool get isExamSupervisor => effectivePermissions.contains('exams');
 
   factory User.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'] ?? json['userId'];
@@ -112,6 +115,7 @@ class User {
       hasChildren: parsedHasChildren,
       childrenCount: parsedChildrenCount,
       taskRole: json['taskRole']?.toString(),
+      permissions: json['permissions'] is List ? (json['permissions'] as List).map((p)=>p.toString()).toList() : null,
     );
   }
 }

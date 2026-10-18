@@ -118,7 +118,9 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
                 _ => null
             };
             if (grants != null)
-                isAllowed = grants.Any(TeacherPermissions.For(task).Contains);
+                isAllowed = grants.Any(TeacherPermissions.For(task).Contains) ||
+                    (grants.Contains("courses") && task?.IsActive == true &&
+                     db.Courses.Any(c => c.IsActive && c.TeacherId == task.Id));
         }
 
         if (!isAllowed)

@@ -816,7 +816,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ═══ Inspiring Islamic Quran Teacher Dashboard ═══
   Widget _buildTeacherDashboard() {
-    final hasNoTasks = User.permissionsFromTasks(widget.currentUser.taskRole).isEmpty;
+    final hasNoTasks = widget.currentUser.effectivePermissions.isEmpty;
 
     if (hasNoTasks) {
       return Container(
