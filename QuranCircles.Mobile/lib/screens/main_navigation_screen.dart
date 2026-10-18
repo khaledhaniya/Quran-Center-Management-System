@@ -732,7 +732,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
         index: _currentIndex < screens.length ? _currentIndex : 0,
         children: screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: items.length<2?null:BottomNavigationBar(
         currentIndex: _currentIndex < items.length ? _currentIndex : 0,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppTheme.primary,

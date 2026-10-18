@@ -5,9 +5,20 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:quran_circles_mobile/models/models.dart';
 import 'package:quran_circles_mobile/screens/parent_portal_screen.dart';
+import 'package:quran_circles_mobile/screens/main_navigation_screen.dart';
 import 'package:quran_circles_mobile/services/api_service.dart';
 
 void main(){
+  testWidgets('A teacher with no tasks can open the home page without a single-item navigation crash',(tester)async{
+    final previous=ApiService.httpClient;final previousUser=ApiService.currentUser;final previousToken=ApiService.authToken;
+    final teacher=User(id:1,username:'teacher',fullName:'المعلم',role:'Teacher',isActive:true,taskRole:'');
+    ApiService.currentUser=teacher;ApiService.authToken=null;ApiService.invalidateCache();
+    ApiService.httpClient=MockClient((r)async=>http.Response(jsonEncode(r.url.path.endsWith('/settings')?{'centerName':'مركز البيان','maintenanceMode':false}:[]),200,headers:{'content-type':'application/json; charset=utf-8'}));
+    addTearDown((){ApiService.httpClient.close();ApiService.httpClient=previous;ApiService.currentUser=previousUser;ApiService.authToken=previousToken;ApiService.invalidateCache();});
+    await tester.pumpWidget(MaterialApp(home:MainNavigationScreen(currentUser:teacher)));await tester.pumpAndSettle();
+    expect(find.byType(BottomNavigationBar),findsNothing);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   test('Course permissions never imply Quran-circle permissions',(){
     for(final task in ['معلم دورات','معلم دورة','مشرف المساقات الشرعية','معلم الدَّورات']){
       final user=User(id:1,username:'teacher',fullName:'المعلم',role:'Teacher',isActive:true,taskRole:task);
