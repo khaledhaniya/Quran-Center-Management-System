@@ -9,14 +9,18 @@ import 'package:quran_circles_mobile/screens/main_navigation_screen.dart';
 import 'package:quran_circles_mobile/services/api_service.dart';
 
 void main(){
-  testWidgets('A teacher with no tasks can open the home page without a single-item navigation crash',(tester)async{
+  testWidgets('A teacher with no tasks can open the standalone achievement portfolio',(tester)async{
     final previous=ApiService.httpClient;final previousUser=ApiService.currentUser;final previousToken=ApiService.authToken;
     final teacher=User(id:1,username:'teacher',fullName:'المعلم',role:'Teacher',isActive:true,taskRole:'');
     ApiService.currentUser=teacher;ApiService.authToken=null;ApiService.invalidateCache();
     ApiService.httpClient=MockClient((r)async=>http.Response(jsonEncode(r.url.path.endsWith('/settings')?{'centerName':'مركز البيان','maintenanceMode':false}:[]),200,headers:{'content-type':'application/json; charset=utf-8'}));
     addTearDown((){ApiService.httpClient.close();ApiService.httpClient=previous;ApiService.currentUser=previousUser;ApiService.authToken=previousToken;ApiService.invalidateCache();});
     await tester.pumpWidget(MaterialApp(home:MainNavigationScreen(currentUser:teacher)));await tester.pumpAndSettle();
-    expect(find.byType(BottomNavigationBar),findsNothing);expect(tester.takeException(),isNull);
+    expect(find.byType(BottomNavigationBar),findsOneWidget);
+    expect(find.text('الإنجاز والشهادات'),findsWidgets);
+    await tester.tap(find.text('الإنجاز والشهادات'));await tester.pumpAndSettle();
+    expect(find.text('ملف الإنجاز والشهادات الرقمية'),findsOneWidget);
+    expect(tester.takeException(),isNull);
     await tester.pumpWidget(const SizedBox());
   });
   test('Course permissions never imply Quran-circle permissions',(){
