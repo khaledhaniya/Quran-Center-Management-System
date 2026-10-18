@@ -135,8 +135,7 @@ public class ReportService
     {
         if (parentUser.Teacher == null && parentUser.TeacherId.HasValue)
             parentUser.Teacher = await _db.Teachers.FindAsync(parentUser.TeacherId.Value);
-        return (await _db.Students.Include(s => s.Circle).AsNoTracking().ToListAsync())
-            .Where(s => ParentLinks.IsChild(parentUser, s)).OrderBy(s => s.Id).ToList();
+        return await ParentLinks.ChildrenQuery(_db,parentUser).Include(s=>s.Circle).AsNoTracking().OrderBy(s=>s.Id).ToListAsync();
     }
 
     public async Task<object> GetExecutiveDashboardAsync(DateOnly from, DateOnly to)

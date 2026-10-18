@@ -21,7 +21,7 @@ public class TeacherAttendanceService(AppDbContext db)
         if (FakeAuth.GetRole(context) is UserRole.Admin or UserRole.Developer) return true;
         var user = await db.Users.Include(u => u.Teacher).AsNoTracking().FirstOrDefaultAsync(u => u.Id == FakeAuth.GetUserId(context));
         var tasks = user?.Teacher?.TaskRole ?? "";
-        return user?.Teacher?.IsActive == true && (tasks.Contains("الجودة") || tasks.Contains("الرقابة"));
+        return TeacherPermissions.For(user?.Teacher).Contains("quality");
     }
 
     public async Task<List<TeacherAttendanceRow>> BuildAsync(DateOnly from, DateOnly to, int? circleId = null, DateTime? localNow = null)

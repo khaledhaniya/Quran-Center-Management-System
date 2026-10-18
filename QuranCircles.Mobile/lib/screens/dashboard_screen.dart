@@ -24,6 +24,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalStudents = 0;
   int _totalTeachers = 0;
   int _totalCircles = 0;
+  int _assignedCoursesCount=0;
   int _pendingExams = 0;
   int _scheduledExams = 0;
   int _completedExams = 0;
@@ -99,6 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       _dashboardError = null;
       final role = widget.currentUser.role;
+      if(role=='Teacher'&&widget.currentUser.isCourseTeacher){final courses=await ApiService.getCourses();_assignedCoursesCount=courses.where((c)=>c.isActive).length;}
       var students = await ApiService.getStudents();
       var teachers = await ApiService.getTeachers();
       var circles = await ApiService.getCircles();
@@ -814,7 +816,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ═══ Inspiring Islamic Quran Teacher Dashboard ═══
   Widget _buildTeacherDashboard() {
-    final hasNoTasks = _totalCircles == 0 && !widget.currentUser.isHalaqahTeacher && !widget.currentUser.isCourseTeacher;
+    final hasNoTasks = User.permissionsFromTasks(widget.currentUser.taskRole).isEmpty;
 
     if (hasNoTasks) {
       return Container(
@@ -960,7 +962,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: _buildStatCard(
                 title: 'المساقات والدورات',
-                count: '${widget.currentUser.isCourseTeacher ? 1 : 0}',
+                count: '$_assignedCoursesCount',
                 icon: Icons.school_rounded,
                 color: const Color(0xFF2563EB),
               ),

@@ -21,6 +21,16 @@ public class ParentController : ControllerBase
         _db = db;
     }
 
+    [HttpGet("portal")]
+    [RequireRole(UserRole.Parent, UserRole.Teacher, UserRole.Admin, UserRole.Developer)]
+    public async Task<IActionResult> Portal([FromQuery] DateOnly? from, [FromQuery] DateOnly? to)
+    {
+        var user=await _db.Users.Include(u=>u.Teacher).SingleOrDefaultAsync(u=>u.Id==FakeAuth.GetUserId(HttpContext));
+        if(user==null)return Unauthorized();
+        try{return Ok(await new ParentPortalService(_db).BuildAsync(user,from,to));}
+        catch(ArgumentException e){return BadRequest(new {error=e.Message});}
+    }
+
     [HttpGet("children")]
     [RequireRole(UserRole.Parent, UserRole.Teacher, UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> Children()
@@ -173,27 +183,6 @@ public class ParentController : ControllerBase
             details = t.Details.Distinct().ToList(),
             summaryText = string.Join(" • ", t.Details.Distinct())
         }).ToList();
-
-        // Admin or Dev fallback for testing preview
-        if (result.Count == 0 && (user.Role == UserRole.Admin || user.Role == UserRole.Developer))
-        {
-            var fallbackTeachers = await _db.Teachers.Where(t => t.IsActive).Take(5).ToListAsync();
-            result = fallbackTeachers.Select(t => new
-            {
-                id = t.Id,
-                fullName = t.FullName,
-                phone = t.Contact ?? t.WhatsappNumber,
-                category = "Both",
-                categoryLabel = "معلم المركز (معاينة تجريبية)",
-                isQuranTeacher = true,
-                isCourseTeacher = true,
-                childrenNames = new List<string> { "طالب تجريبي" },
-                circles = new List<string> { "حلقة الفجر" },
-                courses = new List<string> { "دورة التجويد" },
-                details = new List<string> { $"معلم بالمركز (معاينة الإدارة: {t.FullName})" },
-                summaryText = $"معلم بالمركز (معاينة الإدارة)"
-            }).ToList();
-        }
 
         return Ok(result);
     }

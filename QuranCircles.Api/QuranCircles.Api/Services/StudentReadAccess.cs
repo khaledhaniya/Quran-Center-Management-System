@@ -18,7 +18,8 @@ public class StudentReadAccess(AppDbContext db)
         if (user.StudentId == studentId || ParentLinks.IsChild(user, student)) return true;
         if (user.Teacher?.IsActive != true) return false;
         var tasks = user.Teacher.TaskRole ?? "";
-        if (tasks.Contains("الجودة") || tasks.Contains("التحفيظ") || tasks.Contains("منتدى الحفاظ")) return true;
+        var permissions=TeacherPermissions.For(user.Teacher);
+        if (permissions.Contains("quality") || permissions.Contains("memorization")) return true;
         var today = CenterClock.Today;
         return await db.Circles.AnyAsync(c => c.Id == student.CircleId &&
             (c.TeacherId == user.TeacherId || c.AssistantTeacherId == user.TeacherId ||

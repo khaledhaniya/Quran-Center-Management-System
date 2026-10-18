@@ -16,6 +16,23 @@ class ApiService {
   static User? currentUser;
   static String? authToken;
 
+  static Future<User?> refreshSessionProfile() async {
+    if(authToken==null)return currentUser;
+    final response=await httpClient.get(Uri.parse('$baseUrl/auth/me'),headers:_headers()).timeout(const Duration(seconds:10));
+    if(response.statusCode==401||response.statusCode==403){await logout();throw Exception('انتهت جلسة الدخول');}
+    if(response.statusCode!=200)return currentUser;
+    final data=jsonDecode(response.body) as Map<String,dynamic>;
+    final user=User.fromJson({...data,'id':data['userId']});currentUser=user;
+    await AuthStorage.save(baseUrl,jsonEncode({'token':authToken,'user':{...data,'id':data['userId']}}));
+    return user;
+  }
+  static Future<Map<String,dynamic>> getParentPortal({String? from,String? to}) async {
+    final uri=Uri.parse('$baseUrl/parent/portal').replace(queryParameters:{if(from!=null&&from.isNotEmpty)'from':from,if(to!=null&&to.isNotEmpty)'to':to});
+    final response=await httpClient.get(uri,headers:_headers());final data=jsonDecode(response.body);
+    if(response.statusCode!=200)throw Exception(data['error']??'تعذر تحميل متابعة الأبناء');
+    return Map<String,dynamic>.from(data);
+  }
+
   static Future<String> resetUserPassword(int userId,String currentPassword) async {
     final response=await httpClient.post(Uri.parse('$baseUrl/users/$userId/reset-password'),headers:_headers(),body:jsonEncode({'currentPassword':currentPassword}));
     final data=jsonDecode(response.body);

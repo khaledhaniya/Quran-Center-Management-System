@@ -22,7 +22,7 @@ public class CircleOperations(AppDbContext db)
                 user.TeacherId != circle.TeacherId;
         if (FakeAuth.GetRole(context) is UserRole.Admin or UserRole.Developer) return true;
         var tasks = user.Teacher?.TaskRole ?? "";
-        if (user.Teacher?.IsActive == true && (tasks.Contains("حلقة") || tasks.Contains("محفّظ")) &&
+        if (TeacherPermissions.For(user.Teacher).Contains("circles") &&
             (circle.TeacherId == user.TeacherId || circle.AssistantTeacherId == user.TeacherId)) return true;
         return false;
     }

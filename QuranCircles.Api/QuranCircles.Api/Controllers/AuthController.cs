@@ -124,6 +124,7 @@ public class AuthController : ControllerBase
             && user.Role != UserRole.Developer)
             return StatusCode(503, new { error = "النظام في وضع الصيانة والتحديث حالياً، ومتاح للمطور فقط.", maintenance = true });
 
+        await TeacherPermissions.ResolveLinkAsync(_db,user);
         var token = _tokenSvc.GenerateToken(user);
 
         // Find reference ID based on role
@@ -207,6 +208,7 @@ public class AuthController : ControllerBase
             username = user.Username,
             fullName = user.FullName,
             taskRole,
+            permissions = TeacherPermissions.For(user.Teacher),
             mosqueName,
             qualification,
             hasChildren,
@@ -218,9 +220,12 @@ public class AuthController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.Student, UserRole.Parent, UserRole.ExamSupervisor)]
     public async Task<IActionResult> Me()
     {
-        var user = await _db.Users.Include(u => u.Teacher).AsNoTracking().SingleAsync(u => u.Id == FakeAuth.GetUserId(HttpContext));
+        var user = await _db.Users.Include(u => u.Teacher).SingleAsync(u => u.Id == FakeAuth.GetUserId(HttpContext));
+        await TeacherPermissions.ResolveLinkAsync(_db,user);
+        var children = user.Role == UserRole.Student ? new List<Student>() : await _reportSvc.GetSmartChildrenForParentAsync(user);
         return Ok(new { userId = user.Id, user.Username, user.FullName, role = user.Role.ToString(), user.TeacherId, user.StudentId, user.ParentId,
-            taskRole = user.Teacher?.IsActive == true ? user.Teacher.TaskRole : "" });
+            taskRole = user.Teacher?.IsActive == true ? user.Teacher.TaskRole : "", permissions = TeacherPermissions.For(user.Teacher),
+            hasChildren = children.Count > 0, childrenCount = children.Count });
     }
 
     [HttpPost("change-password")]

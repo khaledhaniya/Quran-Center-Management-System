@@ -100,8 +100,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (hint) hint.textContent = 'انتظر قليلاً، الاتصال يستغرق وقتاً أطول من المعتاد. ننتظر استجابة الخادم.';
     }, 5000);
     const settingsStartup = fetchAndApplySystemSettings();
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshSessionPermissions();});
     window.setInterval(() => {
-        if (document.visibilityState === "visible") fetchAndApplySystemSettings(true);
+        if (document.visibilityState === "visible") {fetchAndApplySystemSettings(true);refreshSessionPermissions();}
     }, 30000);
     if (getAuthStorage('token')) {
         try {
@@ -194,19 +195,18 @@ function matchArabicSearch(target, query) {
 
 // ----------------- High-Grade Security & Authentication Management -----------------
 function getAuthStorage(key) {
-    return sessionStorage.getItem(key) || localStorage.getItem(key);
+    return sessionStorage.getItem(key) ?? localStorage.getItem(key);
 }
 
 function setAuthStorage(key, value, rememberMe) {
-    if (rememberMe) {
-        localStorage.setItem(key, value);
-    } else {
-        sessionStorage.setItem(key, value);
-    }
+    const remember=rememberMe ?? (!!localStorage.getItem('token') && !sessionStorage.getItem('token'));
+    const target=remember?localStorage:sessionStorage;
+    const other=remember?sessionStorage:localStorage;
+    target.setItem(key,value??'');other.removeItem(key);
 }
 
 function clearAllAuthStorage() {
-    ['token', 'role', 'userId', 'teacherId', 'studentId', 'parentId', 'fullName', 'username', 'loginTime', 'taskRole', 'mosqueName', 'qualification', 'hasChildren', 'childrenCount'].forEach(k => {
+    ['token', 'role', 'userId', 'teacherId', 'studentId', 'parentId', 'fullName', 'username', 'loginTime', 'taskRole', 'permissions', 'mosqueName', 'qualification', 'hasChildren', 'childrenCount'].forEach(k => {
         sessionStorage.removeItem(k);
         localStorage.removeItem(k);
     });
@@ -542,6 +542,7 @@ async function handleLogin(e) {
         setAuthStorage("fullName", data.fullName, rememberMe);
         setAuthStorage("username", data.username, rememberMe);
         setAuthStorage("taskRole", data.taskRole || "", rememberMe);
+        setAuthStorage("permissions", JSON.stringify(data.permissions ?? teacherPermissionsFromTasks(data.taskRole)), rememberMe);
         setAuthStorage("mosqueName", data.mosqueName || "", rememberMe);
         setAuthStorage("qualification", data.qualification || "", rememberMe);
         setAuthStorage("hasChildren", data.hasChildren ? "true" : "false", rememberMe);
@@ -600,6 +601,28 @@ function handleLogout(isSilent = false) {
 }
 
 // Helper: Format multi-role badges for teachers based on their assigned tasks and permissions
+function teacherPermissionsFromTasks(tasks){
+    const text=String(tasks||'').replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').toLowerCase();
+    return Object.entries({circles:['حلقة','حلقات','محفظ','معلم قران'],courses:['دورة','دورات','مساق','مساقات','course'],exams:['اختبار','امتحان','لجنة'],finance:['المالي','الصندوق','المحافظ'],quality:['الجودة','رقابة'],memorization:['التحفيظ','الحفاظ'],talents:['الواعظ','الندية'],leadership:['مركز البيان','امير المركز','المدير العام']}).filter(([,words])=>words.some(w=>text.includes(w))).map(([key])=>key);
+}
+function teacherDefaultRoute(){
+    return Object.entries({circles:'#teacher-attendance',exams:'#exams',courses:'#courses',finance:'#financial-management',quality:'#quality-management',memorization:'#memorization-forum',talents:'#preacher-youth',leadership:'#announcements'}).find(([permission])=>teacherCan(permission))?.[1]||'#teacher-empty-state';
+}
+function teacherCan(permission){return teacherPermissionsFromTasks(getAuthStorage('taskRole')).includes(permission);}
+let sessionRefreshPromise=null;
+async function refreshSessionPermissions(){
+    if(!authToken)return;if(sessionRefreshPromise)return sessionRefreshPromise;
+    sessionRefreshPromise=(async()=>{try{
+        const response=await fetch(`${API_BASE}/auth/me`,{headers:{Authorization:`Bearer ${authToken}`},cache:'no-store',signal:AbortSignal.timeout(10000)});
+        if(response.status===401||response.status===403){handleLogout();return;}
+        if(!response.ok)return;const user=await response.json();
+        const changed=user.role!==currentRole || (user.taskRole||'')!==(getAuthStorage('taskRole')||'') || String(user.childrenCount||0)!==getAuthStorage('childrenCount');
+        ['role','userId','username','fullName','teacherId','studentId','parentId','taskRole','hasChildren','childrenCount'].forEach(k=>{if(user[k]!==undefined)setAuthStorage(k,user[k]??'');});
+        setAuthStorage('permissions',JSON.stringify(user.permissions||teacherPermissionsFromTasks(user.taskRole)));
+        if(changed){currentRole=user.role;updateSidebarMenu();handleRouting();const label=document.getElementById('profile-display-role');if(label)label.textContent=getRoleArabicName(currentRole);}
+    }catch(_){}finally{sessionRefreshPromise=null;}})();return sessionRefreshPromise;
+}
+
 function getTeacherRolesList(taskRole) {
     if (!taskRole || typeof taskRole !== "string" || !taskRole.trim()) {
         return [{ title: "غير مكلف", badgeClass: "bg-secondary bg-opacity-10 text-secondary border border-secondary", icon: "fa-user-clock", color: "text-secondary" }];
@@ -634,7 +657,7 @@ function getTeacherRolesList(taskRole) {
     if (t.includes("الملف المالي") || t.includes("المالي")) {
         roles.push({ title: "المسؤول المالي ومسؤول المحافظ", badgeClass: "bg-success bg-opacity-10 text-success border border-success", icon: "fa-wallet", color: "text-success" });
     }
-    if (t.includes("معلم دورات") || (t.includes("الدورات") && !t.includes("حلقة"))) {
+    if (teacherPermissionsFromTasks(t).includes("courses")) {
         roles.push({ title: "معلم الدورات العلمية والتجويد", badgeClass: "bg-secondary bg-opacity-10 text-secondary border border-secondary", icon: "fa-graduation-cap", color: "text-secondary" });
     }
 
@@ -679,6 +702,9 @@ function getRoleArabicName(role) {
 }
 
 function updateSidebarMenu() {
+    const admin = ['Admin','Developer'].includes(currentRole);
+    const teacher = currentRole === 'Teacher';
+    ['btn-courses','btn-exams'].forEach((id,index)=>document.getElementById(id)?.classList.toggle('hidden',!(admin || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (teacher && teacherCan(index===0?'courses':'exams')))));
     // Strictly gate notification bell to Admin and Developer only
     const bellContainer = document.getElementById("notification-bell-container");
     if (bellContainer) {
@@ -708,8 +734,8 @@ function updateSidebarMenu() {
         if (teacherEl) teacherEl.classList.remove("hidden");
 
         const taskRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = !taskRole || taskRole === "بدون تكليف" || taskRole === "غير مكلف" || taskRole === "معلق" || taskRole === "بدون مهام" || taskRole === "لا يوجد" || taskRole === "لا يوجد تكليف" || taskRole === "-" || taskRole === "";
-        const hasCircle = !isNoTask && (taskRole.includes("حلقة") || taskRole.includes("مساعد"));
+        const isNoTask = !teacherPermissionsFromTasks(taskRole).length;
+        const hasCircle = teacherCan('circles');
 
         const circleTools = document.getElementById("teacher-circle-tools-wrapper");
         if (circleTools) {
@@ -718,16 +744,16 @@ function updateSidebarMenu() {
 
         // Toggle dynamic task links
         const taskFinance = document.querySelectorAll(".teacher-task-finance");
-        taskFinance.forEach(el => el.classList.toggle("hidden", !taskRole.includes("الملف المالي")));
+        taskFinance.forEach(el => el.classList.toggle("hidden", !teacherCan("finance")));
 
         const taskQuality = document.querySelectorAll(".teacher-task-quality");
-        taskQuality.forEach(el => el.classList.toggle("hidden", !taskRole.includes("الجودة")));
+        taskQuality.forEach(el => el.classList.toggle("hidden", !teacherCan("quality")));
 
         const taskMemorization = document.querySelectorAll(".teacher-task-memorization");
-        taskMemorization.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("التحفيظ") || taskRole.includes("منتدى الحفاظ"))));
+        taskMemorization.forEach(el => el.classList.toggle("hidden", !teacherCan("memorization")));
 
         const taskPreacher = document.querySelectorAll(".teacher-task-preacher");
-        taskPreacher.forEach(el => el.classList.toggle("hidden", !(taskRole.includes("الفتى الواعظ") || taskRole.includes("الأصوات الندية"))));
+        taskPreacher.forEach(el => el.classList.toggle("hidden", !teacherCan("talents")));
 
         // Dual Role: Sheikh / Teacher who is also a parent of students in the center
         const hasChildren = getAuthStorage("hasChildren") === "true" || parseInt(getAuthStorage("childrenCount") || "0") > 0;
@@ -755,8 +781,8 @@ function updateSidebarMenu() {
                 if (btnCourses) btnCourses.classList.add("hidden");
                 if (btnExams) btnExams.classList.add("hidden");
             } else {
-                const hasCourses = taskRole.includes("الدورات") || taskRole.includes("دورة");
-                const hasExams = taskRole.includes("اختبار") || taskRole.includes("مشرف اختبار");
+                const hasCourses = teacherCan('courses');
+                const hasExams = teacherCan('exams');
                 if (btnComp) btnComp.classList.remove("hidden");
                 if (btnCourses) btnCourses.classList.toggle("hidden", !hasCourses);
                 if (btnExams) btnExams.classList.toggle("hidden", !hasExams);
@@ -952,28 +978,7 @@ function handleRouting() {
 
     let defaultHash = "#admin-dashboard";
     if (currentRole === "Teacher") {
-        const tRole = (getAuthStorage("taskRole") || "").trim();
-        const isNoTask = tRole === "بدون تكليف" || tRole === "غير مكلف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
-
-        if (isNoTask) {
-            defaultHash = "#teacher-empty-state";
-        } else if (tRole.includes("اختبار") && !tRole.includes("حلقة")) {
-            defaultHash = "#exams";
-        } else if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) {
-            defaultHash = "#financial-management";
-        } else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) {
-            defaultHash = "#quality-management";
-        } else if ((tRole.includes("التحفيظ") || tRole.includes("منتدى الحفاظ")) && !tRole.includes("حلقة")) {
-            defaultHash = "#memorization-forum";
-        } else if (tRole.includes("الدورات") && !tRole.includes("حلقة")) {
-            defaultHash = "#courses";
-        } else if ((tRole.includes("الفتى الواعظ") || tRole.includes("الأصوات الندية")) && !tRole.includes("حلقة")) {
-            defaultHash = "#preacher-youth";
-        } else if (tRole.includes("حلقة") || tRole.includes("مساعد")) {
-            defaultHash = "#teacher-attendance";
-        } else {
-            defaultHash = "#teacher-empty-state";
-        }
+        defaultHash=teacherDefaultRoute();
     }
     else if (currentRole === "Parent") defaultHash = "#parent-progress";
     else if (currentRole === "Student") defaultHash = "#student-progress";
@@ -984,6 +989,9 @@ function handleRouting() {
         hash = defaultHash;
     }
     if (hash === "#settings" || hash === "#control-panel" || hash === "#system") hash = "#system-settings";
+    if(currentRole==='Teacher' && hash==='#teacher-empty-state' && teacherPermissionsFromTasks(getAuthStorage('taskRole')).length){
+        hash=teacherDefaultRoute();history.replaceState(null,'',hash);
+    }
 
     // Deactivate all links & sections
     document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
@@ -991,7 +999,7 @@ function handleRouting() {
 
     // If teacher has no assigned tasks or circles, allow announcements or lock view to empty state
     const tRoleForRouting = (getAuthStorage("taskRole") || "").trim();
-    const isTeacherWithoutTask = currentRole === "Teacher" && (tRoleForRouting === "بدون تكليف" || tRoleForRouting === "غير مكلف" || tRoleForRouting === "معلق" || tRoleForRouting === "بدون مهام" || tRoleForRouting === "-" || tRoleForRouting === "");
+    const isTeacherWithoutTask = currentRole === "Teacher" && !teacherPermissionsFromTasks(tRoleForRouting).length;
     if (isTeacherWithoutTask) {
         if (hash === "#announcements") {
             document.getElementById("btn-announcements")?.classList.add("active");
@@ -1069,51 +1077,51 @@ function handleRouting() {
         if (sec) sec.classList.remove("hidden");
         loadDynamicReportsScreen();
     }
-    else if (hash === "#financial-management" && (isAdminOrDev || (currentRole === "Teacher" && (getAuthStorage("taskRole") || "").includes("الملف المالي")))) {
+    else if (hash === "#financial-management" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("finance")))) {
         document.getElementById("btn-admin-financial")?.classList.add("active");
         document.getElementById("btn-teacher-financial")?.classList.add("active");
         document.getElementById("financial-management-section")?.classList.remove("hidden");
         loadFinancialManagementScreen();
     }
-    else if (hash === "#quality-management" && (isAdminOrDev || (currentRole === "Teacher" && (getAuthStorage("taskRole") || "").includes("الجودة")))) {
+    else if (hash === "#quality-management" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("quality")))) {
         document.getElementById("btn-admin-quality")?.classList.add("active");
         document.getElementById("btn-teacher-quality")?.classList.add("active");
         document.getElementById("quality-management-section")?.classList.remove("hidden");
         loadQualityManagementScreen();
     }
-    else if (hash === "#memorization-forum" && (isAdminOrDev || (currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("التحفيظ") || (getAuthStorage("taskRole") || "").includes("منتدى الحفاظ"))))) {
+    else if (hash === "#memorization-forum" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("memorization")))) {
         document.getElementById("btn-admin-memorization")?.classList.add("active");
         document.getElementById("btn-teacher-memorization")?.classList.add("active");
         document.getElementById("memorization-forum-section")?.classList.remove("hidden");
         loadMemorizationForumScreen();
     }
-    else if (hash === "#preacher-youth" && (isAdminOrDev || (currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("الفتى الواعظ") || (getAuthStorage("taskRole") || "").includes("الأصوات الندية"))))) {
+    else if (hash === "#preacher-youth" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("talents")))) {
         document.getElementById("btn-admin-preacher")?.classList.add("active");
         document.getElementById("btn-teacher-preacher")?.classList.add("active");
         document.getElementById("preacher-youth-section")?.classList.remove("hidden");
         loadPreacherYouthScreen();
     }
-    else if (hash === "#teacher-attendance" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
+    else if (hash === "#teacher-attendance" && currentRole === "Teacher" && teacherCan("circles")) {
         document.getElementById("btn-teacher-attendance")?.classList.add("active");
         document.getElementById("teacher-attendance-section")?.classList.remove("hidden");
         loadTeacherAttendanceSetup();
     }
-    else if (hash === "#teacher-sessions" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
+    else if (hash === "#teacher-sessions" && currentRole === "Teacher" && teacherCan("circles")) {
         document.getElementById("btn-teacher-sessions")?.classList.add("active");
         document.getElementById("teacher-sessions-section")?.classList.remove("hidden");
         loadTeacherSessionsSetup();
     }
-    else if (hash === "#teacher-students" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
+    else if (hash === "#teacher-students" && currentRole === "Teacher" && teacherCan("circles")) {
         document.getElementById("btn-teacher-students")?.classList.add("active");
         document.getElementById("teacher-students-section")?.classList.remove("hidden");
         loadTeacherStudentsSetup();
     }
-    else if (hash === "#teacher-comprehensive-report" && (isAdminOrDev || (currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))))) {
+    else if (hash === "#teacher-comprehensive-report" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("circles")))) {
         document.getElementById("btn-teacher-comprehensive-report")?.classList.add("active");
         document.getElementById("teacher-comprehensive-report-section")?.classList.remove("hidden");
         loadTeacherComprehensiveReport();
     }
-    else if (hash === "#teacher-lottery" && currentRole === "Teacher" && ((getAuthStorage("taskRole") || "").includes("حلقة") || (getAuthStorage("taskRole") || "").includes("مساعد"))) {
+    else if (hash === "#teacher-lottery" && currentRole === "Teacher" && teacherCan("circles")) {
         document.getElementById("btn-teacher-lottery")?.classList.add("active");
         document.getElementById("teacher-lottery-section")?.classList.remove("hidden");
         loadTeacherLotterySetup();
@@ -1154,12 +1162,12 @@ function handleRouting() {
             window.location.hash = defaultHash;
         }
     }
-    else if (hash === "#courses") {
+    else if (hash === "#courses" && (isAdminOrDev || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (currentRole === "Teacher" && teacherCan("courses")))) {
         document.getElementById("btn-courses")?.classList.add("active");
         document.getElementById("courses-section")?.classList.remove("hidden");
         loadCourses();
     }
-    else if (hash === "#exams") {
+    else if (hash === "#exams" && (isAdminOrDev || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (currentRole === "Teacher" && teacherCan("exams")))) {
         document.getElementById("btn-exams")?.classList.add("active");
         document.getElementById("exams-section")?.classList.remove("hidden");
         loadExams();
@@ -1174,17 +1182,7 @@ function handleRouting() {
         if (isAdminOrDev) {
             window.location.hash = "#admin-dashboard";
         } else if (currentRole === "Teacher") {
-            const tRole = (getAuthStorage("taskRole") || "").trim();
-            const isNoTask = tRole === "بدون تكليف" || tRole === "غير مكلف" || tRole === "معلق" || tRole === "بدون مهام" || tRole === "-" || tRole === "";
-            if (isNoTask) window.location.hash = "#teacher-empty-state";
-            else if (tRole.includes("اختبار") && !tRole.includes("حلقة")) window.location.hash = "#exams";
-            else if (tRole.includes("الملف المالي") && !tRole.includes("حلقة")) window.location.hash = "#financial-management";
-            else if (tRole.includes("الجودة") && !tRole.includes("حلقة")) window.location.hash = "#quality-management";
-            else if ((tRole.includes("التحفيظ") || tRole.includes("منتدى الحفاظ")) && !tRole.includes("حلقة")) window.location.hash = "#memorization-forum";
-            else if (tRole.includes("الدورات") && !tRole.includes("حلقة")) window.location.hash = "#courses";
-            else if ((tRole.includes("الفتى الواعظ") || tRole.includes("الأصوات الندية")) && !tRole.includes("حلقة")) window.location.hash = "#preacher-youth";
-            else if (tRole.includes("حلقة") || tRole.includes("مساعد")) window.location.hash = "#teacher-attendance";
-            else window.location.hash = "#teacher-empty-state";
+            window.location.hash = teacherDefaultRoute();
         } else if (currentRole === "Parent") {
             window.location.hash = "#parent-progress";
         } else if (currentRole === "Student") {
@@ -3488,11 +3486,11 @@ async function manageTeacherRoles(teacherId) {
         { id: "role-fin", name: "المسؤول المالي والمحافظ", val: "الملف المالي", icon: "fa-wallet", color: "text-success", desc: "إدارة كشوفات المحافظ البنكية، المكافآت، وتصدير إكسل مالي" },
         { id: "role-courses", name: "معلم الدورات العلمية والتجويد", val: "معلم دورات", icon: "fa-award", color: "text-secondary", desc: "إدارة دورات التجويد، رصد العلامات وإصدار الشهادات" },
         { id: "role-assistant", name: "مساعد حلقة قرآنية", val: "مساعد حلقة", icon: "fa-handshake-angle", color: "text-info", desc: "مشاركة نفس الحلقة مع المحفظ بنفس الصلاحيات التامة" },
-        { id: "role-emir", name: "أمير المركز (الإدارة العامة)", val: "مركز البيان", icon: "fa-crown", color: "text-warning", desc: "صلاحيات الإدارة الكاملة للتقارير والإعدادات والمنظومة" }
+        { id: "role-emir", name: "أمير المركز (الإدارة العامة)", val: "مركز البيان", icon: "fa-crown", color: "text-warning", desc: "وصف مهام أمير المركز؛ صلاحيات المدير تُحدد من نوع الحساب في إدارة حسابات النظام" }
     ];
 
     const rolesCardsHtml = rolesList.map(r => {
-        const isChecked = currentTask.includes(r.val) || (r.val === "مركز البيان" && currentTask.includes("البيان"));
+        const isChecked = currentTask.includes(r.val) || (r.id === "role-courses" && teacherPermissionsFromTasks(currentTask).includes("courses")) || (r.id === "role-exam" && teacherPermissionsFromTasks(currentTask).includes("exams")) || (r.val === "مركز البيان" && currentTask.includes("البيان"));
         return `
             <div class="col-md-6 mb-2">
                 <div class="role-card-item border rounded-3 p-3 h-100 ${isChecked ? 'role-card-active' : ''}" data-val="${r.val}" style="cursor: pointer; transition: all 0.2s ease; background: ${isChecked ? '#f0fdf4' : '#ffffff'}; border-color: ${isChecked ? '#22c55e' : '#e2e8f0'} !important;">
@@ -3620,6 +3618,7 @@ async function manageTeacherRoles(teacherId) {
             await apiRequest(`/teachers/${teacher.id}`, 'PUT', payload);
             showAlert(`تم تحديث وحفظ مهام وصلاحيات الشيخ (${teacher.fullName}) بنجاح! 🎉`, "success");
             await loadAdminTeachers();
+            await refreshSessionPermissions();
         } catch(err) {
             showAlert(err.message || "حدث خطأ أثناء حفظ الصلاحيات", "danger");
         }
@@ -5431,275 +5430,8 @@ async function drawLottery() {
 // ----------------- Parent: Children Progress & Unified 360 -----------------
 let parentChildrenCache = [];
 
-async function loadParentProgress() {
-    const parentId = parseInt(currentUserId);
+async function loadParentProgress(){return loadParentPortal();}
 
-    try {
-        const children = await apiRequest("/parent/children");
-        parentChildrenCache = children || [];
-
-        const container = document.getElementById("parent-children-container");
-        container.innerHTML = "";
-
-        if (!children || children.length === 0) {
-            container.innerHTML = `
-                <div class="card shadow-sm p-5 text-center text-muted">
-                    <i class="fa-solid fa-child-reaching mb-3" style="font-size: 3rem; color: var(--primary-color);"></i>
-                    <h3>لا يوجد أبناء مضافون باسمك في قاعدة البيانات حالياً.</h3>
-                    <p>يقوم إدارة المركز أو المطور بربط الإخوة والأبناء باسمك من خلال شاشة إدارة الطلاب.</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Multi-child switcher header
-        let filterHeaderHtml = '';
-        if (children.length > 1) {
-            filterHeaderHtml = `
-                <div class="card p-3 p-md-4 mb-4 shadow-sm border-0 rounded-4" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-right: 5px solid #0d5c3a !important; box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;">
-                    <div class="d-flex flex-column gap-3">
-                        <div>
-                            <h5 class="fw-bold mb-1 text-success d-flex align-items-center gap-2" style="font-size: 1.05rem;">
-                                <i class="fa-solid fa-people-roof text-warning"></i> أجهزة ومتابعة عائلة ولي الأمر (${children.length} أبناء مسجلين)
-                            </h5>
-                            <p class="text-muted small mb-0" style="font-size: 0.8rem;">يمكنك التبديل بين أبنائك لمتابعة الجلسات والحضور والغياب بشكل تفصيلي.</p>
-                        </div>
-                        <div class="parent-child-filter-scroll-wrapper" id="parent-child-filter-chips">
-                            <button class="btn btn-sm btn-success rounded-pill px-3 py-2 fw-bold parent-filter-chip active flex-shrink-0" data-id="all" style="font-size: 0.8rem;">
-                                <i class="fa-solid fa-users me-1"></i> جميع الأبناء (${children.length})
-                            </button>
-                            ${children.map(c => `
-                                <button class="btn btn-sm btn-outline-success rounded-pill px-3 py-2 fw-bold parent-filter-chip flex-shrink-0" data-id="${c.studentId}" style="font-size: 0.8rem;">
-                                    <i class="fa-solid fa-user-graduate me-1"></i> ${c.studentName}
-                                </button>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        const cardsGrid = document.createElement("div");
-        cardsGrid.id = "parent-children-cards-list";
-
-        children.forEach(c => {
-            const card = document.createElement("div");
-            card.className = "child-card parent-child-item-card";
-            card.dataset.studentId = c.studentId;
-
-            let recentSessionsHtml = '';
-            if (!c.recentSessions || c.recentSessions.length === 0) {
-                recentSessionsHtml = `<p class="text-muted text-center p-4">لا يوجد جلسات تسميع مسجلة مؤخراً لهذا الابن.</p>`;
-            } else {
-                recentSessionsHtml = `
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>التاريخ</th>
-                                    <th>السورة والآيات</th>
-                                    <th>التقييم</th>
-                                    <th>ملاحظات المحفظ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${c.recentSessions.map(s => `
-                                    <tr>
-                                        <td>${s.sessionDate}</td>
-                                        <td><strong>سورة ${s.surahName}</strong> (${s.fromVerse} - ${s.toVerse})</td>
-                                        <td><span class="badge ${getAssessmentBadgeClass(s.assessment)}">${s.assessmentText}</span></td>
-                                        <td><span class="text-muted small">${s.notes || '-'}</span></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            card.innerHTML = `
-                <div class="child-card-header p-3 p-md-4">
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3">
-                        <div class="child-meta">
-                            <h3 class="mb-1 fw-bold text-white d-flex align-items-center gap-2" style="font-size: 1.15rem;">
-                                <i class="fa-solid fa-user-graduate text-warning"></i> ${c.studentName}
-                            </h3>
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="badge bg-white bg-opacity-15 text-white fw-semibold px-3 py-1 rounded-pill border border-white border-opacity-25" style="font-size: 0.78rem;">
-                                    <i class="fa-solid fa-mosque me-1 text-warning"></i> الحلقة: ${c.circleName || 'غير منسب لحلقة حالياً'}
-                                </span>
-                                ${(c.isTalented || (c.talents && c.talents.length > 0)) ? `
-                                    <span class="badge bg-danger text-white fw-bold px-3 py-1 rounded-pill shadow-xs" style="font-size: 0.78rem;">
-                                        <i class="fa-solid fa-microphone me-1"></i> الفتى الواعظ والأصوات الندية (${(c.talents || []).length})
-                                    </span>
-                                ` : ''}
-                            </div>
-                        </div>
-
-                        <div class="child-quick-stats-grid">
-                            <div class="child-stat-box">
-                                <i class="fa-solid fa-book-quran icon"></i>
-                                <div class="stat-content">
-                                    <span class="stat-val">${c.totalSessions}</span>
-                                    <span class="stat-lbl">الجلسات</span>
-                                </div>
-                            </div>
-                            <div class="child-stat-box stat-absence">
-                                <i class="fa-solid fa-user-xmark icon"></i>
-                                <div class="stat-content">
-                                    <span class="stat-val">${c.absenceCount}</span>
-                                    <span class="stat-lbl">الغياب</span>
-                                </div>
-                            </div>
-                            <div class="child-stat-box stat-late">
-                                <i class="fa-solid fa-clock-rotate-left icon"></i>
-                                <div class="stat-content">
-                                    <span class="stat-val">${c.lateCount}</span>
-                                    <span class="stat-lbl">التأخير</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-3 pt-3 border-top border-white border-opacity-20 d-flex justify-content-end">
-                        <button class="btn btn-warning btn-sm fw-bold shadow-sm rounded-3 px-3 py-2 btn-open-child-360 w-100 w-md-auto" data-id="${c.studentId}" style="font-size: 0.82rem;">
-                            <i class="fa-solid fa-id-card me-1"></i> عرض الملف الموحد الشامل (360°)
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body p-3 p-md-4">
-                    <!-- Talents Section for Parent -->
-                    ${(c.talents && c.talents.length > 0) ? `
-                        <div class="p-3 mb-4 rounded-3 border" style="background: #fff8f8; border-color: #fca5a5 !important;">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-danger mb-0 d-flex align-items-center gap-2" style="font-size: 1rem;">
-                                    <i class="fa-solid fa-microphone"></i> مشاركات الفتى الواعظ والأصوات الندية (${c.talents.length})
-                                </h6>
-                                <span class="badge bg-danger">موهبة متميزة 🎙️</span>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>مسار الموهبة</th>
-                                            <th>عنوان الخطبة / التلاوة</th>
-                                            <th>المناسبة والتاريخ</th>
-                                            <th>طريقة التحضير</th>
-                                            <th>التقييم والملاحظات</th>
-                                            <th>الفيديو / تنزيل</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${c.talents.map(t => `
-                                            <tr>
-                                                <td><span class="badge bg-danger bg-opacity-10 text-danger border border-danger">${t.talentType}</span></td>
-                                                <td>
-                                                    <strong class="text-dark d-block">${t.title}</strong>
-                                                    ${t.speechContent ? `<div class="small text-muted mt-1" style="max-width:240px; line-height: 1.3;"><i class="fa-solid fa-quote-right text-danger me-1"></i> ${escapeXml(t.speechContent.substring(0, 80))}${t.speechContent.length > 80 ? '...' : ''}</div>` : ''}
-                                                </td>
-                                                <td>
-                                                    <span class="small fw-bold">${t.occasion || '-'}</span><br>
-                                                    <small class="text-muted font-monospace"><i class="fa-solid fa-calendar-day me-1"></i> ${t.eventDate || '-'}</small>
-                                                </td>
-                                                <td><span class="small text-muted">${t.preparationMethod || '-'}</span></td>
-                                                <td>
-                                                    ${t.evaluationScore ? `<span class="badge bg-warning text-dark fw-bold mb-1">${t.evaluationScore}</span>` : '-'}
-                                                    ${t.performanceNotes ? `<div class="small text-muted" style="max-width:180px;">${t.performanceNotes}</div>` : ''}
-                                                </td>
-                                                <td>
-                                                    ${t.mediaUrl ? `
-                                                        <div class="d-flex gap-1 align-items-center">
-                                                            <button class="btn btn-sm btn-outline-danger px-2 py-1" onclick="showMediaViewerModal('${t.mediaUrl}', '${t.mediaType || 'video'}', '${escapeXml(t.title)}')">
-                                                                <i class="fa-solid ${t.mediaType === 'audio' ? 'fa-headphones' : 'fa-play'} me-1"></i> ${t.mediaType === 'audio' ? 'استماع' : 'مشاهدة'}
-                                                            </button>
-                                                            <a href="${t.mediaUrl}" download target="_blank" class="btn btn-sm btn-light border text-danger px-2 py-1" title="تنزيل الفيديو أو المرفق لجهازك">
-                                                                <i class="fa-solid fa-download"></i>
-                                                            </a>
-                                                        </div>
-                                                    ` : '<span class="text-muted small">بدون مرفق</span>'}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    <h5 class="fw-bold mb-3 text-success d-flex align-items-center gap-2" style="font-size: 1rem;">
-                        <i class="fa-solid fa-calendar-days"></i> آخر جلسات الحفظ والتسميع
-                    </h5>
-                    ${recentSessionsHtml}
-                </div>
-            `;
-            cardsGrid.appendChild(card);
-        });
-
-        let sheikhBannerHtml = '';
-        if (currentRole === "Teacher") {
-            sheikhBannerHtml = `
-                <div class="card p-3 p-md-4 mb-4 shadow-sm border-0 rounded-4" style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border-right: 5px solid #10b981 !important;">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="rounded-circle bg-success text-white p-2.5 d-flex align-items-center justify-content-center shadow-xs" style="width: 46px; height: 46px;">
-                                <i class="fa-solid fa-graduation-cap fs-5"></i>
-                            </div>
-                            <div>
-                                <h5 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
-                                    فضيلة الشيخ المحفظ / ${escapeXml(getAuthStorage("fullName") || "المعلّم")}
-                                    <span class="badge bg-success bg-opacity-15 text-success border border-success fw-semibold px-2.5 py-1" style="font-size: 0.75rem;">ولي أمر ومعلم</span>
-                                </h5>
-                                <p class="text-muted small mb-0">أنت تتصفح الآن لوحة متابعة مستوى أبنائك الكرام في المركز القرآني. صفحتك وحلقاتك القرآنية تعمل بكامل صلاحياتها المعتادة.</p>
-                            </div>
-                        </div>
-                        <a href="#teacher-attendance" class="btn btn-success rounded-pill px-4 py-2 shadow-xs d-inline-flex align-items-center gap-2 fw-bold" style="font-size: 0.88rem;">
-                            <i class="fa-solid fa-arrow-right"></i> العودة لحلقاتي القرآنية
-                        </a>
-                    </div>
-                </div>
-            `;
-        }
-
-        container.innerHTML = sheikhBannerHtml + filterHeaderHtml;
-        container.appendChild(cardsGrid);
-
-        // Bind Filter Chips
-        document.querySelectorAll(".parent-filter-chip").forEach(chip => {
-            chip.addEventListener("click", (e) => {
-                const btn = e.target.closest("button");
-                const filterId = btn.dataset.id;
-
-                document.querySelectorAll(".parent-filter-chip").forEach(b => {
-                    b.classList.remove("active", "btn-primary");
-                    b.classList.add("btn-outline-primary");
-                });
-                btn.classList.add("active", "btn-primary");
-                btn.classList.remove("btn-outline-primary");
-
-                document.querySelectorAll(".parent-child-item-card").forEach(item => {
-                    if (filterId === "all" || item.dataset.studentId === filterId) {
-                        item.style.display = "block";
-                    } else {
-                        item.style.display = "none";
-                    }
-                });
-            });
-        });
-
-        // Bind 360 buttons
-        document.querySelectorAll(".btn-open-child-360").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-                const stId = e.target.closest("button").dataset.id;
-                showStudent360Modal(stId);
-            });
-        });
-
-    } catch(e) {
-        console.error(e);
-    }
-}
-
-// ------ Show Student 360 Modal (Executive Unified Student Portfolio) ------
 async function showStudent360Modal(studentId) {
     openModal("الملف الموحد الشامل للطالب (360°)", true);
     const content = document.getElementById("modal-body-content");
@@ -10219,6 +9951,7 @@ async function loadCourses() {
 
     // Default tab switcher visibility
     if (isAcad) {
+        document.getElementById("tab-btn-courses-list").style.display = "";
         switchCourseTab("list");
     } else {
         // Parents/Students view portfolio directly

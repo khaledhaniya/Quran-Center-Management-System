@@ -173,7 +173,10 @@ public class TeacherService
         if (dto.MemorizedAjzaa != null) t.MemorizedAjzaa = dto.MemorizedAjzaa.Trim();
         if (dto.StudentsCountTarget != null) t.StudentsCountTarget = dto.StudentsCountTarget.Trim();
 
-        var u = await _db.Users.FirstOrDefaultAsync(x => x.TeacherId == id);
+        var linkedUsers = await _db.Users.Where(x => x.TeacherId == id ||
+            (x.TeacherId == null && x.Role != UserRole.Student && t.IdentityNumber != null && t.IdentityNumber != "" && x.Username == t.IdentityNumber)).ToListAsync();
+        foreach(var linked in linkedUsers) linked.TeacherId = id;
+        var u = linkedUsers.FirstOrDefault();
         if (u != null)
         {
             u.FullName = t.FullName;
@@ -191,7 +194,7 @@ public class TeacherService
         }
 
         // If teacher is stripped of circle roles (e.g. empty or without حلقة / مساعد), unassign from circles
-        if (t.TaskRole == null || (!t.TaskRole.Contains("حلقة") && !t.TaskRole.Contains("مساعد")))
+        if (!TeacherPermissions.FromTasks(t.TaskRole).Contains("circles"))
         {
             var circlesToUnlink = await _db.Circles.Where(c => c.TeacherId == id || c.AssistantTeacherId == id).ToListAsync();
             foreach (var c in circlesToUnlink)

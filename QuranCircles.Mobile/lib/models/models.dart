@@ -28,42 +28,18 @@ class User {
     this.taskRole,
   });
 
-  bool get isHalaqahTeacher {
-    if (role != 'Teacher') return false;
-    final tr = (taskRole ?? '').trim();
-    if (tr.isEmpty) return true;
-    return tr.contains('معلم') || tr.contains('محفظ') || tr.contains('مساعد') || tr.contains('حلقة');
+  static List<String> permissionsFromTasks(String? tasks) {
+    final text=(tasks??'').replaceAll(RegExp(r'[\u064b-\u065f\u0670\u0640]'),'').replaceAll(RegExp('[أإآ]'),'ا').toLowerCase();
+    const words={'circles':['حلقة','حلقات','محفظ','معلم قران'],'courses':['دورة','دورات','مساق','مساقات','course'],'exams':['اختبار','امتحان','لجنة'],'finance':['المالي','الصندوق','المحافظ'],'quality':['الجودة','رقابة'],'memorization':['التحفيظ','الحفاظ'],'talents':['الواعظ','الندية'],'leadership':['مركز البيان','امير المركز','المدير العام']};
+    return words.entries.where((entry)=>entry.value.any(text.contains)).map((entry)=>entry.key).toList();
   }
-
-  bool get isQualitySupervisor {
-    final tr = (taskRole ?? '').trim();
-    return tr.contains('الجودة') || tr.contains('رقابة');
-  }
-
-  bool get isMemorizationSupervisor {
-    final tr = (taskRole ?? '').trim();
-    return tr.contains('التحفيظ') || tr.contains('الحفاظ');
-  }
-
-  bool get isPreacherSupervisor {
-    final tr = (taskRole ?? '').trim();
-    return tr.contains('الفتى الواعظ') || tr.contains('الأصوات');
-  }
-
-  bool get isFinancialSupervisor {
-    final tr = (taskRole ?? '').trim();
-    return tr.contains('المالي') || tr.contains('الصندوق') || tr.contains('المحافظ');
-  }
-
-  bool get isCourseTeacher {
-    final tr = (taskRole ?? '').trim();
-    return tr.contains('دورات') || tr.contains('الدورات');
-  }
-
-  bool get isExamSupervisor {
-    final tr = (taskRole ?? '').trim();
-    return tr.contains('اختبار') || tr.contains('لجنة');
-  }
+  bool get isHalaqahTeacher => role=='Teacher' && permissionsFromTasks(taskRole).contains('circles');
+  bool get isQualitySupervisor => permissionsFromTasks(taskRole).contains('quality');
+  bool get isMemorizationSupervisor => permissionsFromTasks(taskRole).contains('memorization');
+  bool get isPreacherSupervisor => permissionsFromTasks(taskRole).contains('talents');
+  bool get isFinancialSupervisor => permissionsFromTasks(taskRole).contains('finance');
+  bool get isCourseTeacher => permissionsFromTasks(taskRole).contains('courses');
+  bool get isExamSupervisor => permissionsFromTasks(taskRole).contains('exams');
 
   factory User.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'] ?? json['userId'];

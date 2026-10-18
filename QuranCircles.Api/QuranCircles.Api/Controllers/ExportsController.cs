@@ -110,7 +110,7 @@ public class ExportsController(AppDbContext db) : ControllerBase
             }
             if (user.Role is not (UserRole.Admin or UserRole.Developer) &&
                 !profileAccess &&
-                !(filter.Kind == "finance" && user.Teacher?.IsActive == true && (user.Teacher.TaskRole ?? "").Contains("الملف المالي")) &&
+                !(filter.Kind == "finance" && TeacherPermissions.For(user.Teacher).Contains("finance")) &&
                 !(filter.Kind is "teacher_discipline" or "course_roster" or "circle_roster" && await new TeacherAttendanceService(db).CanManageAsync(HttpContext))) return Forbid();
             if (request.Format == "png") return BadRequest();
             ReportTable report;

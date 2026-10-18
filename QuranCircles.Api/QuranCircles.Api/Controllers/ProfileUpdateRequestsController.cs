@@ -31,13 +31,19 @@ public class ProfileUpdateRequestsController : ControllerBase
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         if (!currentUserId.HasValue) return Unauthorized();
+        var user=await _db.Users.Include(u=>u.Teacher).SingleOrDefaultAsync(u=>u.Id==currentUserId);
+        if(user==null)return Unauthorized();
+        var target=dto.StudentId.HasValue?await _db.Students.FindAsync(dto.StudentId.Value):null;
+        if(dto.StudentId.HasValue&&target==null)return NotFound();
+        if(target!=null&&user.Role is not (UserRole.Admin or UserRole.Developer)&&user.StudentId!=target.Id&&!ParentLinks.IsChild(user,target))return Forbid();
+        if(dto.Changes==null||dto.Changes.Count==0||dto.Changes.Count>50||dto.Changes.Any(c=>c.Key.Length>64||(c.Value?.Length??0)>4000))return BadRequest(new {error="تحقق من البيانات المطلوب تعديلها."});
 
         var req = new ProfileUpdateRequest
         {
             UserId = currentUserId.Value,
             StudentId = dto.StudentId,
-            RequestedByRole = dto.RequestedByRole,
-            RequestedByName = dto.RequestedByName,
+            RequestedByRole = target!=null&&ParentLinks.IsChild(user,target)?"Parent":user.Role.ToString(),
+            RequestedByName = user.FullName,
             ChangesJson = JsonSerializer.Serialize(dto.Changes),
             Status = "Pending",
             RequestDate = DateTime.UtcNow

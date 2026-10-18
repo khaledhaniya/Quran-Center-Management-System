@@ -86,7 +86,7 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
                         var user = db.Users.Include(u => u.Teacher).FirstOrDefault(u => u.Id == userId.Value);
                         if (user != null)
                         {
-                            if (_allowed.Contains(UserRole.Parent) && (user.Role == UserRole.Parent || (user.Role != UserRole.Student && (user.ParentId.HasValue || db.Students.Any(s => s.ParentId == user.Id)))))
+                            if (_allowed.Contains(UserRole.Parent) && (user.Role == UserRole.Parent || (user.Role != UserRole.Student && ParentLinks.ChildrenQuery(db,user).Any())))
                             {
                                 isAllowed = true;
                             }
@@ -110,14 +110,15 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
             var path = context.HttpContext.Request.Path.Value?.ToLowerInvariant() ?? "";
             string[]? grants = path switch
             {
-                var p when p.StartsWith("/api/quality") => ["الجودة"],
-                var p when p.StartsWith("/api/finance") => ["الملف المالي"],
-                var p when p.StartsWith("/api/talents") => ["الفتى الواعظ", "الأصوات الندية"],
-                var p when p.StartsWith("/api/huffaz") => ["التحفيظ", "منتدى الحفاظ"],
+                var p when p.StartsWith("/api/quality") => ["quality"],
+                var p when p.StartsWith("/api/finance") => ["finance"],
+                var p when p.StartsWith("/api/talents") => ["talents"],
+                var p when p.StartsWith("/api/huffaz") => ["memorization"],
+                var p when p.StartsWith("/api/courses") && role.Value == UserRole.Teacher && !HttpMethods.IsGet(context.HttpContext.Request.Method) => ["courses"],
                 _ => null
             };
             if (grants != null)
-                isAllowed = task?.IsActive == true && grants.Any(g => (task.TaskRole ?? "").Contains(g));
+                isAllowed = grants.Any(TeacherPermissions.For(task).Contains);
         }
 
         if (!isAllowed)

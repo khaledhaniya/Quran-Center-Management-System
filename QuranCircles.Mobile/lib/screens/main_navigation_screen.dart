@@ -30,6 +30,7 @@ import 'teacher_circle_students_screen.dart';
 import 'teacher_comprehensive_report_screen.dart';
 import 'teacher_lottery_screen.dart';
 import 'teacher_operations_screen.dart';
+import 'parent_portal_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -41,6 +42,7 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> with WidgetsBindingObserver {
+  late User _currentUser;
   int _currentIndex = 0;
   int _pendingRequestsCount = 0;
   String _centerName = 'مركز البيان لتعليم القرآن';
@@ -52,6 +54,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
   @override
   void initState() {
     super.initState();
+    _currentUser=widget.currentUser;
     WidgetsBinding.instance.addObserver(this);
     _fetchPendingRequestsCount();
     _loadSystemSettings();
@@ -75,6 +78,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           });
         }
       }
+      final latest=await ApiService.refreshSessionProfile();
+      if(mounted&&latest!=null&&('${latest.role}|${latest.taskRole}|${latest.childrenCount}'!='${_currentUser.role}|${_currentUser.taskRole}|${_currentUser.childrenCount}')){
+        ApiService.invalidateCache();setState((){_currentUser=latest;_currentIndex=0;});
+      }
     } catch (_) {
     } finally {
       _settingsRequestInFlight = false;
@@ -94,7 +101,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
   }
 
   Future<void> _fetchPendingRequestsCount() async {
-    final role = widget.currentUser.role;
+    final role = _currentUser.role;
     if (role == 'Admin' || role == 'Developer') {
       try {
         final list = await ApiService.getProfileUpdateRequests();
@@ -108,7 +115,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
 
   @override
   Widget build(BuildContext context) {
-    final role = widget.currentUser.role;
+    final role = _currentUser.role;
     final isDev = role == 'Developer';
     final isAdmin = role == 'Admin' || isDev;
     final isTeacher = role == 'Teacher';
@@ -118,8 +125,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
     final List<BottomNavigationBarItem> items = [];
 
     // 1. Dashboard is common to all
-    screens.add(DashboardScreen(
-      currentUser: widget.currentUser,
+    screens.add(role=='Parent'?const ParentPortalScreen(embedded:true):DashboardScreen(
+      key:ValueKey('${_currentUser.id}|${_currentUser.taskRole}|${_currentUser.childrenCount}'),
+      currentUser: _currentUser,
       onNavigateTab: (index) => setState(() => _currentIndex = index),
     ));
     items.add(const BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'الرئيسية'));
@@ -141,7 +149,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
       screens.add(const CoursesManagementScreen());
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.school), label: 'المساقات'));
 
-      screens.add(ExamsScreen(currentUser: widget.currentUser));
+      screens.add(ExamsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الاختبارات'));
 
       if (isDev) {
@@ -149,47 +157,47 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: 'المطور'));
       }
     } else if (isTeacher) {
-      if (widget.currentUser.isHalaqahTeacher) {
-        screens.add(TeacherAttendanceScreen(currentUser: widget.currentUser));
+      if (_currentUser.isHalaqahTeacher) {
+        screens.add(TeacherAttendanceScreen(currentUser: _currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.playlist_add_check), label: 'حضور الحلقة'));
 
-        screens.add(TeacherSessionsScreen(currentUser: widget.currentUser));
+        screens.add(TeacherSessionsScreen(currentUser: _currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: 'سجل التسميع'));
 
-        screens.add(TeacherComprehensiveReportScreen(currentUser: widget.currentUser));
+        screens.add(TeacherComprehensiveReportScreen(currentUser: _currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.table_chart), label: 'كشف المتابعة'));
       }
 
-      if (widget.currentUser.isCourseTeacher) {
-        screens.add(CourseAttendanceScreen(currentUser: widget.currentUser));
+      if (_currentUser.isCourseTeacher) {
+        screens.add(CourseAttendanceScreen(currentUser: _currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.school), label: 'تحضير المساق'));
 
         screens.add(const CoursesManagementScreen());
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الدورات'));
       }
 
-      if (widget.currentUser.isExamSupervisor) {
-        screens.add(ExamsScreen(currentUser: widget.currentUser));
+      if (_currentUser.isExamSupervisor) {
+        screens.add(ExamsScreen(currentUser: _currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الترشيحات'));
       }
     } else if (isSupervisor) {
-      screens.add(ExamsScreen(currentUser: widget.currentUser));
+      screens.add(ExamsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الاختبارات'));
 
       screens.add(const CertificatesScreen());
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.workspace_premium), label: 'الشهادات'));
 
-      screens.add(AnnouncementsScreen(currentUser: widget.currentUser));
+      screens.add(AnnouncementsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
     } else {
       // Student / Parent
-      screens.add(const Student360Screen());
+      screens.add(role=='Parent'?const Student360Screen(isParentView:true):const Student360Screen());
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.person_pin), label: 'الملف 360°'));
 
       screens.add(const CertificatesScreen());
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.workspace_premium), label: 'الشهادات'));
 
-      screens.add(AnnouncementsScreen(currentUser: widget.currentUser));
+      screens.add(AnnouncementsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
     }
 
@@ -350,17 +358,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
             UserAccountsDrawerHeader(
               decoration: const BoxDecoration(color: AppTheme.primary),
               accountName: Text(
-                widget.currentUser.fullName,
+                _currentUser.fullName,
                 style: AppTheme.cairoStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               accountEmail: Text(
-                'مركز البيان - مسجد علي بن أبي طالب | ${widget.currentUser.role}',
+                'مركز البيان - مسجد علي بن أبي طالب | ${_currentUser.role}',
                 style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.accentLight),
               ),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: AppTheme.accent,
                 child: Text(
-                  widget.currentUser.fullName.isNotEmpty ? widget.currentUser.fullName[0] : 'م',
+                  _currentUser.fullName.isNotEmpty ? _currentUser.fullName[0] : 'م',
                   style: AppTheme.cairoStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -375,7 +383,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
               },
             ),
 
-            if (widget.currentUser.role == 'Parent' || (widget.currentUser.hasChildren && widget.currentUser.childrenCount > 0)) ...[
+            if (_currentUser.role == 'Parent' || (_currentUser.hasChildren && _currentUser.childrenCount > 0)) ...[
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
@@ -397,7 +405,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                     'سجل الحضور والتسميع والتقييم الشامل 360°',
                     style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700),
                   ),
-                  trailing: widget.currentUser.childrenCount > 0
+                  trailing: _currentUser.childrenCount > 0
                       ? Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -405,14 +413,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${widget.currentUser.childrenCount} ${widget.currentUser.childrenCount == 1 ? "ابن" : "أبناء"}',
+                            '${_currentUser.childrenCount} ${_currentUser.childrenCount == 1 ? "ابن" : "أبناء"}',
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         )
                       : null,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => const Student360Screen(isParentView: true)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => const ParentPortalScreen()));
                   },
                 ),
               ),
@@ -541,7 +549,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
             ],
 
             if (isTeacher) ...[
-              if (widget.currentUser.isHalaqahTeacher) ...[
+              if (_currentUser.isHalaqahTeacher) ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Text('أدوات الحلقة القرآنية', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
@@ -552,7 +560,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   subtitle: Text('رصد حضور وغياب طلاب الحلقة مع التاريخ', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherAttendanceScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherAttendanceScreen(currentUser: _currentUser)));
                   },
                 ),
                 ListTile(
@@ -561,7 +569,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   subtitle: Text('توثيق الحفظ الجديد والمراجعة وتثبيت الآيات', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherSessionsScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherSessionsScreen(currentUser: _currentUser)));
                   },
                 ),
                 ListTile(
@@ -570,7 +578,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   subtitle: Text('استعراض طلاب الحلقة، وتنسيب الطلاب الجدد', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherCircleStudentsScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherCircleStudentsScreen(currentUser: _currentUser)));
                   },
                 ),
                 ListTile(
@@ -579,7 +587,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   subtitle: Text('المصفوفة اليومية على الشاشة وتصدير PDF / Excel', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherComprehensiveReportScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherComprehensiveReportScreen(currentUser: _currentUser)));
                   },
                 ),
                 ListTile(
@@ -588,27 +596,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   subtitle: Text('اختيار الطالب التالي للتسميع واستبعاد الغائبين', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherLotteryScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => TeacherLotteryScreen(currentUser: _currentUser)));
                   },
                 ),
                 const Divider(),
               ],
-              if (widget.currentUser.isCourseTeacher) ...[
+              if (_currentUser.isCourseTeacher) ...[
                 ListTile(
                   leading: const Icon(Icons.school, color: AppTheme.primary),
                   title: Text('تحضير طلاب المساقات والدورات', style: AppTheme.cairoStyle()),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => CourseAttendanceScreen(currentUser: widget.currentUser)));
+                    Navigator.push(context, MaterialPageRoute(builder: (ctx) => CourseAttendanceScreen(currentUser: _currentUser)));
                   },
                 ),
               ],
-              if (widget.currentUser.isCourseTeacher || widget.currentUser.isExamSupervisor) ...[
+              if (_currentUser.isCourseTeacher || _currentUser.isExamSupervisor) ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Text('البرامج والمسارات المكلّف بها', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
-                if (widget.currentUser.isCourseTeacher)
+                if (_currentUser.isCourseTeacher)
                   ListTile(
                     leading: const Icon(Icons.menu_book, color: AppTheme.primary),
                     title: Text('الدورات والمسارات التدريبية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
@@ -618,19 +626,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                       Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CoursesManagementScreen()));
                     },
                   ),
-                if (widget.currentUser.isExamSupervisor)
+                if (_currentUser.isExamSupervisor)
                   ListTile(
                     leading: const Icon(Icons.assignment, color: AppTheme.primary),
                     title: Text('إدارة الاختبارات والترشيحات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('ترشيح الطلاب لاختبارات القرآن والأجزاء والتجويد', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
+                      Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: _currentUser)));
                     },
                   ),
                 const Divider(),
               ],
-              if (widget.currentUser.isFinancialSupervisor)
+              if (_currentUser.isFinancialSupervisor)
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet, color: Color(0xFF10B981)),
                   title: Text('سجل الصندوق والمالية والتبرعات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
@@ -640,7 +648,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => const FinancialManagementScreen()));
                   },
                 ),
-              if (widget.currentUser.isQualitySupervisor)
+              if (_currentUser.isQualitySupervisor)
                 ListTile(
                   leading: const Icon(Icons.verified_user, color: Color(0xFF0D5C3A)),
                   title: Text('ملف الجودة والرقابة والتوجيه', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
@@ -650,7 +658,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => const QualityManagementScreen()));
                   },
                 ),
-              if (widget.currentUser.isMemorizationSupervisor)
+              if (_currentUser.isMemorizationSupervisor)
                 ListTile(
                   leading: const Icon(Icons.auto_stories, color: Color(0xFFD97706)),
                   title: Text('شؤون التحفيظ ومنتدى الحفاظ', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
@@ -660,7 +668,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => const MemorizationForumScreen()));
                   },
                 ),
-              if (widget.currentUser.isPreacherSupervisor)
+              if (_currentUser.isPreacherSupervisor)
                 ListTile(
                   leading: const Icon(Icons.record_voice_over, color: Color(0xFF0D9488)),
                   title: Text('برنامج الفتى الواعظ والأصوات الندية', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade800)),
@@ -678,7 +686,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                 title: Text('إدارة الاختبارات والترشيحات', style: AppTheme.cairoStyle()),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: widget.currentUser)));
+                  Navigator.push(context, MaterialPageRoute(builder: (ctx) => ExamsScreen(currentUser: _currentUser)));
                 },
               ),
 
@@ -696,7 +704,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
               title: Text('نشرات وإعلانات المركز', style: AppTheme.cairoStyle()),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (ctx) => AnnouncementsScreen(currentUser: widget.currentUser)));
+                Navigator.push(context, MaterialPageRoute(builder: (ctx) => AnnouncementsScreen(currentUser: _currentUser)));
               },
             ),
 
@@ -754,7 +762,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           ],
         ),
         content: Text(
-          'هل تريد تسجيل الخروج من حساب (${widget.currentUser.fullName})؟\nسيتطلب الدخول مجدداً كتابة كلمة المرور.',
+          'هل تريد تسجيل الخروج من حساب (${_currentUser.fullName})؟\nسيتطلب الدخول مجدداً كتابة كلمة المرور.',
           style: AppTheme.cairoStyle(fontSize: 13),
         ),
         actions: [
