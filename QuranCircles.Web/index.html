@@ -278,6 +278,10 @@
                             <i class="fa-solid fa-book-bookmark"></i>
                             <span>الدورات والمسارات</span>
                         </a>
+                        <a href="#portfolio" class="nav-item" id="btn-portfolio">
+                            <i class="fa-solid fa-award"></i>
+                            <span>ملف الإنجاز والشهادات الرقمية</span>
+                        </a>
                         <a href="#exams" class="nav-item" id="btn-exams">
                             <i class="fa-solid fa-file-signature"></i>
                             <span>إدارة الاختبارات والترشيحات</span>
@@ -1943,19 +1947,11 @@
                     </div>
                 </section>
 
-                <!-- SECTION: Courses & Portfolio -->
+                <!-- SECTION: Courses -->
                 <section id="courses-section" class="content-section hidden">
                     <div class="section-header">
-                        <h2><i class="fa-solid fa-book-bookmark"></i> الدورات التعليمية وملف الإنجاز الرقمي</h2>
+                        <h2><i class="fa-solid fa-book-bookmark"></i> الدورات والمسارات التعليمية</h2>
                     </div>
-
-                    <!-- Tabs switcher -->
-                    <div class="tab-control-bar" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                        <button class="btn btn-outline-primary active-tab-btn" id="tab-btn-courses-list" onclick="switchCourseTab('list')"><i class="fa-solid fa-list-check"></i> الدورات الأكاديمية</button>
-                        <button class="btn btn-outline-primary" id="tab-btn-portfolio" onclick="switchCourseTab('portfolio')"><i class="fa-solid fa-award"></i> ملف الإنجاز والشهادات الرقمية</button>
-                    </div>
-
-                    <!-- TAB 1: Courses List & Management -->
                     <div id="course-tab-list-view">
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <h4 class="fw-bold text-success m-0" style="font-size: 1.15rem;"><i class="fa-solid fa-graduation-cap text-warning"></i> المساقات والدورات الأكاديمية</h4>
@@ -1976,15 +1972,21 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: Portfolio / Certificates View -->
-                    <div id="course-tab-portfolio-view" class="hidden">
+                </section>
+
+                <!-- SECTION: Achievement portfolio and digital certificates -->
+                <section id="portfolio-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-award"></i> ملف الإنجاز والشهادات الرقمية</h2>
+                    </div>
+                    <div id="course-tab-portfolio-view">
                         <div class="card shadow-sm p-4 mb-4 text-center" style="background: rgba(255,255,255,0.03);">
                             <i class="fa-solid fa-award text-warning mb-2" style="font-size: 2.5rem;"></i>
-                            <h3 id="portfolio-title" style="font-weight: 700; color: var(--primary-color);">ملف الإنجاز الرقمي الخاص بك</h3>
-                            <p id="portfolio-desc" style="font-size: 0.95rem; color: var(--text-muted); max-width: 600px; margin: 0 auto;">استعرض هنا جميع الشهادات الرقمية المعتمدة الصادرة باسمك فور اجتيازك لأي دورة أكاديمية أو تسميع أجزاء من القرآن الكريم بنجاح.</p>
+                            <h3 id="portfolio-title" style="font-weight: 700; color: var(--primary-color);">إنجازات طلاب المركز</h3>
+                            <p id="portfolio-desc" style="font-size: 0.95rem; color: var(--text-muted); max-width: 600px; margin: 0 auto;">تظهر الشهادات المعتمدة بحسب الطلاب المرتبطين بحسابك وصلاحياتك.</p>
                         </div>
 
-                        <div class="certificates-grid" id="certificates-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px;">
+                        <div class="certificates-grid" id="certificates-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 20px;">
                             <!-- Certificates loaded here -->
                             <div class="card shadow-sm p-5 text-center text-muted" style="grid-column: 1/-1;">
                                 <i class="fa-solid fa-graduation-cap mb-3" style="font-size: 3rem;"></i>
@@ -2858,7 +2860,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script defer src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
     <script defer src="js/quran-exam-engine.js?v=20260920_v5_confirm_and_manual_fix"></script>
-    <script defer src="app.js?v=20261017_3"></script>
+    <script defer src="app.js?v=20261017_4"></script>
     <script defer src="js/operations.js?v=20261017_2"></script>
     <script defer src="js/report-center.js?v=20261017_2"></script>
     <script defer src="js/parent-portal.js?v=20261017_2"></script>

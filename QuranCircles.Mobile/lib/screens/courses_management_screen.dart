@@ -7,7 +7,9 @@ import '../theme/app_theme.dart';
 import 'course_attendance_screen.dart';
 
 class CoursesManagementScreen extends StatefulWidget {
-  const CoursesManagementScreen({super.key});
+  const CoursesManagementScreen({super.key, this.portfolioOnly = false});
+
+  final bool portfolioOnly;
 
   @override
   State<CoursesManagementScreen> createState() => _CoursesManagementScreenState();
@@ -35,8 +37,11 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
-    _loadPortfolioData();
+    if (widget.portfolioOnly) {
+      _loadPortfolioData();
+    } else {
+      _loadData();
+    }
   }
 
   void _loadData() async {
@@ -782,23 +787,12 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
   Widget build(BuildContext context) {
     final currentUser = ApiService.currentUser ?? User(id: 0, username: 'guest', fullName: 'زائر', role: 'Student', isActive: true);
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
-          title: Text('المساقات وملف الإنجاز الرقمي', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-          bottom: TabBar(
-            indicatorColor: Colors.white,
-            indicatorWeight: 3,
-            labelStyle: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            unselectedLabelStyle: AppTheme.cairoStyle(fontSize: 12),
-            tabs: const [
-              Tab(icon: Icon(Icons.school), text: 'مسارات الدورات'),
-              Tab(icon: Icon(Icons.workspace_premium), text: 'ملف الإنجاز والشهادات'),
-            ],
-          ),
+          title: Text(widget.portfolioOnly ? 'ملف الإنجاز والشهادات الرقمية' : 'الدورات والمسارات',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
         ),
-        floatingActionButton: _isAdminOrDev
+        floatingActionButton: !widget.portfolioOnly && _isAdminOrDev
             ? FloatingActionButton.extended(
                 backgroundColor: AppTheme.primary,
                 onPressed: () => _showAddEditCourseModal(),
@@ -806,13 +800,7 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                 label: Text('إضافة دورة أكاديمية', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               )
             : null,
-        body: TabBarView(
-          children: [
-            _buildCoursesList(currentUser),
-            _buildPortfolioTab(),
-          ],
-        ),
-      ),
+        body: widget.portfolioOnly ? _buildPortfolioTab() : _buildCoursesList(currentUser),
     );
   }
 

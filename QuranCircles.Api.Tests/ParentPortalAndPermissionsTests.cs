@@ -76,6 +76,57 @@ public class ParentPortalAndPermissionsTests
         Assert.Empty(await TeacherPermissions.EffectiveForAsync(db,courseUser));
     }
     [Fact]
+    public async Task PortfolioSourcesRespectCircleCourseAndParentLinks()
+    {
+        using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);
+        db.Teachers.AddRange(new Teacher {Id=1,FullName="مساعد الحلقة"},
+            new Teacher {Id=2,FullName="معلم الدورة"},new Teacher {Id=3,FullName="معلم آخر"});
+        var assistant=new User {Id=11,Username="assistant",Role=UserRole.Teacher,TeacherId=1};
+        var courseTeacher=new User {Id=12,Username="course",Role=UserRole.Teacher,TeacherId=2};
+        var parent=new User {Id=13,Username="parent",Role=UserRole.Parent};
+        var admin=new User {Id=14,Username="admin",Role=UserRole.Admin};
+        var supervisor=new User {Id=15,Username="supervisor",Role=UserRole.ExamSupervisor};
+        db.Users.AddRange(assistant,courseTeacher,parent,admin,supervisor);
+        db.Circles.Add(new Circle {Id=1,Name="حلقة",AssistantTeacherId=1});
+        db.Courses.AddRange(new Course {Id=1,Name="دورة المعلم",TeacherId=2,ExamSupervisorId=15},
+            new Course {Id=2,Name="دورة أخرى",TeacherId=3});
+        db.Students.AddRange(new Student {Id=1,FullName="طالب الحلقة",CircleId=1},
+            new Student {Id=2,FullName="طالب الدورة"},new Student {Id=3,FullName="طالب آخر"},
+            new Student {Id=4,FullName="ابن ولي الأمر",ParentId=13},
+            new Student {Id=5,FullName="ابن المعلم",ParentId=11});
+        foreach(var (id,studentId,courseId) in new[]{(1,1,2),(2,2,1),(3,3,2),(4,4,2),(5,5,2)})
+        {
+            db.CourseEnrollments.Add(new CourseEnrollment {Id=id,StudentId=studentId,CourseId=courseId,Status="Passed",Grade=90,CertificateCode=$"C-{id}"});
+            db.ExamNominations.Add(new ExamNomination {Id=id,StudentId=studentId,NominationType="Course",CourseId=courseId,Status="Completed"});
+        }
+        await db.SaveChangesAsync();
+
+        async Task<int[]> CourseStudentIds(User user)
+        {
+            var context=new DefaultHttpContext();context.Items["QuranCenter.VerifiedUser"]=user;
+            var result=Assert.IsType<OkObjectResult>(await new CoursesController(db){ControllerContext=new ControllerContext{HttpContext=context}}.GetMyCourses());
+            return JsonSerializer.SerializeToElement(result.Value).EnumerateArray()
+                .Select(x=>x.GetProperty("StudentId").GetInt32()).Order().ToArray();
+        }
+        async Task<int[]> ExamStudentIds(User user)
+        {
+            var context=new DefaultHttpContext();context.Items["QuranCenter.VerifiedUser"]=user;
+            var result=Assert.IsType<OkObjectResult>(await new ExamsController(db){ControllerContext=new ControllerContext{HttpContext=context}}.GetNominations());
+            return JsonSerializer.SerializeToElement(result.Value).EnumerateArray()
+                .Select(x=>x.GetProperty("StudentId").GetInt32()).Order().ToArray();
+        }
+        Assert.Equal(new[]{1,5},await CourseStudentIds(assistant));
+        Assert.Equal(new[]{2},await CourseStudentIds(courseTeacher));
+        Assert.Equal(new[]{4},await CourseStudentIds(parent));
+        Assert.Equal(new[]{2},await CourseStudentIds(supervisor));
+        Assert.Equal(new[]{1,2,3,4,5},await CourseStudentIds(admin));
+        Assert.Equal(new[]{1,5},await ExamStudentIds(assistant));
+        Assert.Equal(new[]{2},await ExamStudentIds(courseTeacher));
+        Assert.Equal(new[]{4},await ExamStudentIds(parent));
+        Assert.Equal(new[]{1,2,3,4,5},await ExamStudentIds(supervisor));
+        Assert.Equal(new[]{1,2,3,4,5},await ExamStudentIds(admin));
+    }
+    [Fact]
     public async Task ParentChangeRequestsAreLimitedToTheirChildrenAndRecordTheVerifiedIdentity()
     {
         using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);

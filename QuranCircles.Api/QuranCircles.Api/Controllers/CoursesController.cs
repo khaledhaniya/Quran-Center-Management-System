@@ -468,15 +468,20 @@ public class CoursesController : ControllerBase
 
             if (currentUser.Role == UserRole.Teacher)
             {
-                var children = await _db.Students.AsNoTracking().ToListAsync();
-                var ownChildren = children.Where(s => ParentLinks.IsChild(currentUser, s))
-                    .Select(s => s.Id).ToList();
+                // A teacher can also be a parent; keep those certificates visible in one portfolio.
+                var ownChildrenIds = await ParentLinks.ChildrenQuery(_db, currentUser)
+                    .Select(s => s.Id).ToListAsync();
                 query = query.Where(e =>
-                    ownChildren.Contains(e.StudentId) ||
-                    (e.Student != null && e.Student.Circle != null && e.Student.Circle.TeacherId == currentUser.TeacherId) ||
+                    ownChildrenIds.Contains(e.StudentId) ||
+                    (e.Student != null && e.Student.Circle != null &&
+                        (e.Student.Circle.TeacherId == currentUser.TeacherId || e.Student.Circle.AssistantTeacherId == currentUser.TeacherId)) ||
                     (e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
                     (e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
                 );
+            }
+            else if (currentUser.Role == UserRole.ExamSupervisor)
+            {
+                query = query.Where(e => e.Course != null && e.Course.ExamSupervisorId == currentUser.Id);
             }
 
             var allEnrollments = await query

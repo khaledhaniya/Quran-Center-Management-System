@@ -42,7 +42,7 @@ public class ExportsController(AppDbContext db) : ControllerBase
         {
             var settings = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync() ?? new SystemSettings();
             if (!settings.EnableCertificates) return BadRequest(new { error = "إصدار الشهادات معطل." });
-            CertificateData data; int studentId; int? teacherId;
+            CertificateData data; int studentId; int? teacherId; int? courseSupervisorId = null;
             string instructorTitle;
             if (request.CertificateKind == "course")
             {
@@ -51,6 +51,7 @@ public class ExportsController(AppDbContext db) : ControllerBase
                     item.Status is not ("Passed" or "Certified") ||
                     !item.Grade.HasValue || item.Grade.Value < settings.PassingScoreThreshold) return NotFound();
                 studentId = item.StudentId; teacherId = item.Course?.TeacherId;
+                courseSupervisorId = item.Course?.ExamSupervisorId;
                 instructorTitle = "معلم الدورة";
                 data = new CertificateData(settings.CenterName ?? "", item.Student!.FullName, item.Course!.Name, item.CertificateCode,
                     item.CertificateDate?.ToString("yyyy-MM-dd") ?? "", item.Grade?.ToString("0.##") ?? "ناجح", settings.SignatoryName ?? "إدارة المركز");
@@ -89,8 +90,9 @@ public class ExportsController(AppDbContext db) : ControllerBase
             };
             var student = await db.Students.FindAsync(studentId);
             var circleTeacherAccess = user.TeacherId.HasValue && student?.CircleId.HasValue == true &&
-                await db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && c.TeacherId == user.TeacherId.Value);
+                await db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == user.TeacherId.Value || c.AssistantTeacherId == user.TeacherId.Value));
             bool access = user.Role is UserRole.Admin or UserRole.Developer || user.StudentId == studentId ||
+                (user.Role == UserRole.ExamSupervisor && (request.CertificateKind == "exam" || courseSupervisorId == user.Id)) ||
                 (user.TeacherId.HasValue && user.TeacherId == teacherId) || circleTeacherAccess ||
                 (student != null && ParentLinks.IsChild(user, student));
             if (!access) return Forbid();

@@ -819,6 +819,8 @@ function updateSidebarMenu() {
         const studentEl = document.querySelector(".student-links");
         if (studentEl) studentEl.classList.remove("hidden");
         if (sharedEl) sharedEl.classList.remove("hidden");
+    } else if (currentRole === "ExamSupervisor") {
+        if (sharedEl) sharedEl.classList.remove("hidden");
     }
 
     // Strict Role-based access control for Competitions Leaderboard: Teachers, Admins, Developers ONLY
@@ -1021,6 +1023,12 @@ function handleRouting() {
             loadParentProgress();
             return;
         }
+        if (hash === "#portfolio") {
+            document.getElementById("btn-portfolio")?.classList.add("active");
+            document.getElementById("portfolio-section")?.classList.remove("hidden");
+            loadPortfolio();
+            return;
+        }
         const sec = document.getElementById("teacher-empty-state-section");
         if (sec) sec.classList.remove("hidden");
         const nameEl = document.getElementById("teacher-empty-state-name");
@@ -1168,6 +1176,11 @@ function handleRouting() {
         } else {
             window.location.hash = defaultHash;
         }
+    }
+    else if (hash === "#portfolio") {
+        document.getElementById("btn-portfolio")?.classList.add("active");
+        document.getElementById("portfolio-section")?.classList.remove("hidden");
+        loadPortfolio();
     }
     else if (hash === "#courses" && (isAdminOrDev || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (currentRole === "Teacher" && teacherCan("courses")))) {
         document.getElementById("btn-courses")?.classList.add("active");
@@ -9916,35 +9929,7 @@ async function loadCompetitions() {
 }
 
 // 4. COURSES TRACKS & PORTFOLIO
-let currentCourseTab = "list";
-
-function switchCourseTab(tab) {
-    currentCourseTab = tab;
-
-    const tabList = document.getElementById("tab-btn-courses-list");
-    const tabPort = document.getElementById("tab-btn-portfolio");
-    const listView = document.getElementById("course-tab-list-view");
-    const portView = document.getElementById("course-tab-portfolio-view");
-
-    tabList.classList.remove("active-tab-btn");
-    tabPort.classList.remove("active-tab-btn");
-    listView.classList.add("hidden");
-    portView.classList.add("hidden");
-
-    if (tab === "list") {
-        tabList.classList.add("active-tab-btn");
-        listView.classList.remove("hidden");
-        loadCoursesList();
-    } else {
-        tabPort.classList.add("active-tab-btn");
-        portView.classList.remove("hidden");
-        loadPortfolio();
-    }
-}
-
 async function loadCourses() {
-    // Role based view scoping
-    const isAcad = (currentRole === "Admin" || currentRole === "Developer" || currentRole === "Teacher");
     const addBtn = document.getElementById("btn-create-course-modal");
     const exportBtn = document.getElementById("btn-export-courses-report");
 
@@ -9956,15 +9941,7 @@ async function loadCourses() {
         if (exportBtn) exportBtn.style.display = "none";
     }
 
-    // Default tab switcher visibility
-    if (isAcad) {
-        document.getElementById("tab-btn-courses-list").style.display = "";
-        switchCourseTab("list");
-    } else {
-        // Parents/Students view portfolio directly
-        document.getElementById("tab-btn-courses-list").style.display = "none";
-        switchCourseTab("portfolio");
-    }
+    await loadCoursesList();
 }
 
 async function loadCoursesList() {
@@ -10080,6 +10057,10 @@ let portfolioLoadVersion = 0;
 async function loadPortfolio() {
     const container = document.getElementById("certificates-container");
     if (!container) return;
+    const heading = document.getElementById("portfolio-title");
+    if (heading) heading.textContent = currentRole === "Parent" ? "إنجازات أبنائي" :
+        currentRole === "Student" ? "ملف إنجازي" :
+        currentRole === "Teacher" ? "إنجازات طلاب حلقاتي ودوراتي وأبنائي" : "إنجازات طلاب المركز";
     const loadVersion = ++portfolioLoadVersion;
     for (const url of portfolioCertificateUrls) URL.revokeObjectURL(url);
     portfolioCertificateUrls = [];

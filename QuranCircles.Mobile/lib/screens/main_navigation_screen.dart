@@ -5,7 +5,6 @@ import '../services/api_service.dart';
 import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import 'announcements_screen.dart';
-import 'certificates_screen.dart';
 import 'circles_management_screen.dart';
 import 'course_attendance_screen.dart';
 import 'courses_management_screen.dart';
@@ -184,9 +183,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
       screens.add(ExamsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الاختبارات'));
 
-      screens.add(const CertificatesScreen());
-      items.add(const BottomNavigationBarItem(icon: Icon(Icons.workspace_premium), label: 'الشهادات'));
-
       screens.add(AnnouncementsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
     } else {
@@ -194,12 +190,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
       screens.add(role=='Parent'?const Student360Screen(isParentView:true):const Student360Screen());
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.person_pin), label: 'الملف 360°'));
 
-      screens.add(const CertificatesScreen());
-      items.add(const BottomNavigationBarItem(icon: Icon(Icons.workspace_premium), label: 'الشهادات'));
-
       screens.add(AnnouncementsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
     }
+
+    screens.add(const CoursesManagementScreen(portfolioOnly: true));
+    items.add(const BottomNavigationBarItem(icon: Icon(Icons.workspace_premium), label: 'الإنجاز والشهادات'));
 
     // Maintenance Mode Blocker (For all non-developer users)
     if (_isMaintenanceMode && !isDev) {
@@ -692,10 +688,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
 
             ListTile(
               leading: const Icon(Icons.workspace_premium, color: AppTheme.primary),
-              title: Text('السجل العام للشهادات وملف الإنجاز', style: AppTheme.cairoStyle()),
+              title: Text('ملف الإنجاز والشهادات الرقمية', style: AppTheme.cairoStyle()),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CertificatesScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (ctx) => const CoursesManagementScreen(portfolioOnly: true)));
               },
             ),
 

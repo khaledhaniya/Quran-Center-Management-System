@@ -256,8 +256,11 @@ public class ExamsController : ControllerBase
         }
         else if (currentUser.Role == UserRole.Teacher)
         {
+            var ownChildrenIds = await ParentLinks.ChildrenQuery(_db, currentUser)
+                .Select(s => s.Id).ToListAsync();
             query = query.Where(n =>
-                ((n.NominationType == "Quran" || n.NominationType == "Combined") && n.Student != null && n.Student.Circle != null &&
+                ownChildrenIds.Contains(n.StudentId) ||
+                (n.Student != null && n.Student.Circle != null &&
                     (n.Student.Circle.TeacherId == currentUser.TeacherId || n.Student.Circle.AssistantTeacherId == currentUser.TeacherId)) ||
                 (n.NominationType == "Course" && n.Course != null && n.Course.TeacherId == currentUser.TeacherId) ||
                 (n.Course != null && (n.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && n.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
