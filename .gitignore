@@ -44,3 +44,7 @@ backups/
 QuranCircles.Mobile/flutter/
 
 **/__pycache__/
+
+# Local import scratch files and Excel lock files
+tmp/
+~$*.xlsx
