@@ -1,10 +1,20 @@
 /* Bounded dialogs and report components; independent of Bootstrap utilities. */
+.quality-register-tabs { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 22px; padding:7px; width:max-content; max-width:100%; border:1px solid #d9e9de; border-radius:18px; background:#f2f8f4; }
+.quality-register-tabs a { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:42px; padding:8px 16px; border-radius:13px; color:#28533b; text-decoration:none; font-weight:700; }
+.quality-register-tabs a.active { color:#fff; background:#0d5c3a; box-shadow:0 6px 16px #0d5c3a30; }
+#teacher-register-section .section-header { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:20px; }
+#teacher-register-section .section-header h2 { margin:0; color:#15452c; }
+#teacher-register-section .table-responsive { width:100%; max-height:none; overflow:auto; border:1px solid #dce8df; border-radius:16px; }
+#teacher-register-section .data-table { min-width:1040px; }
+#teacher-register-section .data-table td { vertical-align:middle; }
+.teacher-register .reports-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); gap:12px; }
+.teacher-register .reports-fields label { min-width:0; }
 .teacher-register-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0;}
 .teacher-register-summary>div {display:flex;flex-direction:column;gap:8px;padding:18px;background:#f0f7f3;border:1px solid #dce8df;border-radius:16px;color:#52745e;}
 .teacher-register-summary strong {font-size:1.8rem;color:#1a6240;}
-#teacher-register-results .table-responsive {max-height:65dvh;overflow:auto;overscroll-behavior:contain;}
+#teacher-register-results .table-responsive {overflow:auto;overscroll-behavior:contain;}
 #teacher-register-results thead {position:sticky;top:0;z-index:1;background:#edf5f0;}
-@media(max-width:600px){.teacher-register-summary{grid-template-columns:repeat(2,minmax(0,1fr));}#teacher-register-section .section-header{flex-wrap:wrap;gap:14px;}}
+@media(max-width:600px){.teacher-register-summary{grid-template-columns:repeat(2,minmax(0,1fr));}#teacher-register-section .section-header{flex-wrap:wrap;gap:14px;}.quality-register-tabs{width:100%;}.quality-register-tabs a{flex:1 1 170px;text-align:center;}}
 .talent-editor-dialog { display:flex!important; flex-direction:column; width:min(900px,calc(100vw - 24px))!important; max-height:calc(100dvh - 24px)!important; overflow:hidden!important; padding:0!important; background:#f7faf8!important; }
 .talent-editor-dialog .swal2-title { flex:none; text-align:start; margin:0; padding:20px 24px!important; border-bottom:1px solid #dce8df; background:linear-gradient(120deg,#edf6f0,#fff); font-size:clamp(1rem,2.5vw,1.3rem); }
 .talent-editor-dialog .swal2-html-container { flex:1 1 auto; min-height:0; overflow-y:auto!important; overflow-x:hidden!important; margin:0!important; padding:20px 24px; text-align:start!important; max-height:none!important; }

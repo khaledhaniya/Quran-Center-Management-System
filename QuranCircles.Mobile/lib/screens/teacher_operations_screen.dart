@@ -8,7 +8,8 @@ import '../theme/app_theme.dart';
 
 class TeacherOperationsScreen extends StatefulWidget {
   final int? circleId;
-  const TeacherOperationsScreen({super.key, this.circleId});
+  final bool embedded;
+  const TeacherOperationsScreen({super.key, this.circleId, this.embedded = false});
   @override
   State<TeacherOperationsScreen> createState() =>
       _TeacherOperationsScreenState();
@@ -226,7 +227,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-          appBar: AppBar(title: const Text('حضور المعلمين والبدلاء'), actions: [
+          appBar: widget.embedded ? null : AppBar(title: const Text('حضور المعلمين والبدلاء'), actions: [
             IconButton(onPressed: load, icon: const Icon(Icons.refresh))
           ]),
           body: SingleChildScrollView(
@@ -327,12 +328,12 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                   Text('السجلات: ${rows.length} • حاضر: ${rows.where((r) => [
                         'Present',
                         'Late'
-                      ].contains(r['status'])).length} • غائب: ${rows.where((r) => r['status'] == 'Absent').length}'),
+                      ].contains(r['status'])).length} • غائب: ${rows.where((r) => r['status'] == 'Absent').length} • بدلاء: ${rows.where((r) => r['substituteUserId'] != null).length}'),
                 ])),
-            if (tableView && !loading && error == null)
+            if (tableView && MediaQuery.sizeOf(context).width >= 700 && !loading && error == null)
               Padding(
                   padding: const EdgeInsets.all(14),
-                  child: PaginatedDataTable(
+                  child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: PaginatedDataTable(
                       header: const Text('كشف حضور المعلمين'),
                       rowsPerPage: 20,
                       availableRowsPerPage: const [20],
@@ -344,24 +345,26 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                         DataColumn(label: Text('التاريخ / الحلقة')),
                         DataColumn(label: Text('المعلم')),
                         DataColumn(label: Text('الحالة')),
-                        DataColumn(label: Text('الموعد / البدء')),
+                        DataColumn(label: Text('الموعد / البدء / الإغلاق')),
+                        DataColumn(label: Text('تأخر')),
                         DataColumn(label: Text('البديل')),
+                        DataColumn(label: Text('سبب الغياب')),
                         DataColumn(label: Text('التغطية'))
                       ],
-                      source: TeacherRegisterSource(rows, canEdit, coverage))),
-            if (!tableView || loading || error != null)
-              SizedBox(
-                  height: MediaQuery.sizeOf(context).height * .65,
-                  child: loading
+                      source: TeacherRegisterSource(rows, canEdit, coverage)))),
+            if (!tableView || MediaQuery.sizeOf(context).width < 700 || loading || error != null)
+              loading
                       ? const Center(child: CircularProgressIndicator())
                       : error != null
                           ? Center(
                               child: Padding(
                                   padding: const EdgeInsets.all(20),
                                   child: Text(error!)))
-                          : RefreshIndicator(
-                              onRefresh: load,
-                              child: ListView.builder(
+                          : rows.isEmpty
+                              ? Padding(padding: const EdgeInsets.all(30), child: Text('لا توجد حلقات مجدولة في الفترة المحددة.', style: AppTheme.cairoStyle(color: AppTheme.textMuted)))
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
                                   padding:
                                       const EdgeInsets.fromLTRB(14, 0, 14, 28),
                                   itemCount: rows.length,
@@ -410,6 +413,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                                                                   .primary)),
                                                   Text(
                                                       'الموعد: ${r['scheduledStart'] ?? 'غير محدد'} • البدء: ${r['openedAt'] ?? 'لم تبدأ'}'),
+                                                  Text('الإغلاق: ${r['closedAt'] ?? 'لم تغلق'} • التأخر: ${r['lateMinutes'] == null ? '—' : '${r['lateMinutes']} دقيقة'}'),
                                                   if ((r['substituteName'] ??
                                                           '')
                                                       .toString()
@@ -462,7 +466,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                                                         label: const Text(
                                                             'تسجيل غياب / تكليف بديل')),
                                                 ])));
-                                  }))),
+                                  }),
           ]))));
 }
 
@@ -481,10 +485,12 @@ class TeacherRegisterSource extends DataTableSource {
       DataCell(Text(
           '${r['statusText']}${r['isAutomatic'] == true ? ' • تلقائي' : ''}')),
       DataCell(Text(
-          '${r['scheduledStart'] ?? 'دون موعد'} / ${r['openedAt'] ?? 'لم تبدأ'}')),
+          '${r['scheduledStart'] ?? 'دون موعد'} / ${r['openedAt'] ?? 'لم تبدأ'} / ${r['closedAt'] ?? 'لم تغلق'}')),
+      DataCell(Text(r['lateMinutes'] == null ? '—' : '${r['lateMinutes']} دقيقة')),
       DataCell(Text((r['substituteName'] ?? '').toString().isEmpty
           ? 'لا يوجد'
           : r['substituteName'].toString())),
+      DataCell(Text((r['reason'] ?? '').toString().isEmpty ? '—' : r['reason'].toString())),
       DataCell(canEdit
           ? TextButton(
               onPressed: () => coverage(r),

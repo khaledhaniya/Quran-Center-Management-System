@@ -1044,9 +1044,11 @@ function handleRouting() {
         document.getElementById("admin-dashboard-section")?.classList.remove("hidden");
         loadAdminDashboard();
     }
-    else if (hash === "#teacher-register" && (isAdminOrDev || currentRole === "Teacher")) {
-        document.getElementById("btn-teacher-register")?.classList.add("active");
-        document.getElementById("teacher-register-section")?.classList.remove("hidden");
+    else if (hash === "#teacher-register" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("quality")))) {
+        document.getElementById("btn-admin-quality")?.classList.add("active");
+        document.getElementById("btn-teacher-quality")?.classList.add("active");
+        document.getElementById("quality-management-section")?.classList.remove("hidden");
+        showQualityRegisterPanel(true);
         loadTeacherRegisterPage();
     }
     else if (hash === "#profile-requests" && isAdminOrDev) {
@@ -1102,6 +1104,7 @@ function handleRouting() {
         document.getElementById("btn-admin-quality")?.classList.add("active");
         document.getElementById("btn-teacher-quality")?.classList.add("active");
         document.getElementById("quality-management-section")?.classList.remove("hidden");
+        showQualityRegisterPanel(false);
         loadQualityManagementScreen();
     }
     else if (hash === "#memorization-forum" && (isAdminOrDev || (currentRole === "Teacher" && teacherCan("memorization")))) {

@@ -21,7 +21,8 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() { if (mounted) setState(() {}); });
     _fetchQualityOverview();
   }
 
@@ -65,19 +66,18 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: _tabController.index == 0 ? FloatingActionButton.extended(
           backgroundColor: const Color(0xFF0D5C3A),
           icon: const Icon(Icons.assignment_turned_in, color: Colors.white),
           label: Text('زيارة رقابية موحدة', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
           onPressed: circles.isEmpty ? null : () => _showNewQualityVisitModal(circles),
-        ),
+        ) : null,
         appBar: AppBar(
-          title: Text('ملف الجودة والرقابة والتوجيه', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          title: Text('ملف الجودة والرقابة والتوجيه', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
           backgroundColor: const Color(0xFF0D5C3A),
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
-            IconButton(icon:const Icon(Icons.punch_clock),tooltip:'حضور المعلمين والبدلاء',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const TeacherOperationsScreen()))),
             IconButton(icon: const Icon(Icons.calendar_month),tooltip:'خطط الحلقات وحضور المعلمين',
               onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CenterOperationsScreen()))),
             IconButton(
@@ -88,6 +88,8 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
           ],
           bottom: TabBar(
             controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             indicatorColor: Colors.amber,
             indicatorWeight: 3,
             labelColor: Colors.white,
@@ -102,61 +104,41 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                 icon: const Icon(Icons.school, size: 18),
                 text: 'الدورات العلمية (${courses.length})',
               ),
+              const Tab(icon: Icon(Icons.punch_clock, size: 18), text: 'حضور المعلمين والبدلاء'),
             ],
           ),
         ),
-        body: _isLoading
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Color(0xFF0D5C3A)),
-                    SizedBox(height: 14),
-                    Text('جاري تحليل مؤشرات الجودة الحقيقية...', style: TextStyle(fontFamily: 'Cairo', color: Colors.grey)),
-                  ],
-                ),
-              )
-            : _errorMessage != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                          const SizedBox(height: 12),
-                          Text(_errorMessage!, textAlign: TextAlign.center, style: AppTheme.cairoStyle(color: Colors.red)),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _fetchQualityOverview,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('إعادة المحاولة'),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D5C3A), foregroundColor: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _fetchQualityOverview,
-                    child: Column(
-                      children: [
-                        // Quality KPIs Header
-                        _buildQualityKpiHeader(stats),
-
-                        // Tab Views
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _buildCirclesTab(circles),
-                              _buildCoursesTab(courses),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+        body: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFD8E8DE)),
+                boxShadow: const [BoxShadow(color: Color(0x120D5C3A), blurRadius: 14, offset: Offset(0, 5))],
+              ),
+              child: Text('الجودة والرقابة ومتابعة الحلقات', textAlign: TextAlign.center,
+                style: AppTheme.cairoStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ),
+          if (_tabController.index != 2 && !_isLoading && _errorMessage == null) _buildQualityKpiHeader(stats),
+          Expanded(child: TabBarView(controller: _tabController, children: [
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(child: Text(_errorMessage!, textAlign: TextAlign.center))
+                    : _buildCirclesTab(circles),
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(child: Text(_errorMessage!, textAlign: TextAlign.center))
+                    : _buildCoursesTab(courses),
+            const TeacherOperationsScreen(embedded: true),
+          ])),
+        ]),
       ),
     );
   }

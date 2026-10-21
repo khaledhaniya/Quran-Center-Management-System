@@ -1,8 +1,14 @@
 let teacherAttendanceRows=[];
 function installTeacherRegisterPage(){
     if(document.getElementById('teacher-register-section'))return;
-    const main=document.querySelector('main.main-content');if(!main)return;
-    const section=document.createElement('section');section.id='teacher-register-section';section.className='content-section hidden';
+    const quality=document.getElementById('quality-management-section');if(!quality)return;
+    const overview=document.createElement('div');overview.id='quality-overview-panel';
+    while(quality.firstChild)overview.appendChild(quality.firstChild);
+    quality.appendChild(overview);
+    const tabs=document.createElement('nav');tabs.className='quality-register-tabs';tabs.setAttribute('aria-label','أقسام ملف الجودة');
+    tabs.innerHTML='<a id="quality-overview-tab" href="#quality-management"><i class="fa-solid fa-award"></i> مؤشرات الجودة والرقابة</a><a id="quality-attendance-tab" href="#teacher-register"><i class="fa-solid fa-user-clock"></i> كشف حضور المعلمين والبدلاء</a>';
+    quality.prepend(tabs);
+    const section=document.createElement('section');section.id='teacher-register-section';section.className='hidden';
     section.innerHTML=`<div class="section-header"><div><h2>حضور المعلمين والبدلاء</h2><p>كشف التشغيل اليومي لكل حلقة • المعلم الأصلي والتغطية الفعلية</p></div><div class="operations-actions"><button class="btn btn-success" onclick="exportTeacherRegister('xlsx')">تنزيل Excel</button><button class="btn btn-outline-danger" onclick="exportTeacherRegister('pdf')">تنزيل PDF</button></div></div>
         <div class="reports-studio teacher-register"><p class="reports-description">يرصد بدء الحلقة من أول تسميع. يظهر التأخر بعد 15 دقيقة، والغياب بعد انتهاء موعد الحلقة دون نشاط. الموعد غير المحدد لا يُحسب غياباً.</p>
         <div class="reports-fields"><label>من تاريخ<input type="date" id="teacher-register-from"></label><label>إلى تاريخ<input type="date" id="teacher-register-to"></label>
@@ -11,7 +17,14 @@ function installTeacherRegisterPage(){
         <label>المعلم أو الحلقة<input type="search" id="teacher-register-search" placeholder="اسم المعلم الأصلي أو البديل أو الحلقة"></label></div>
         <div class="operations-actions"><button class="btn btn-primary" onclick="refreshTeacherRegister()">عرض الكشف</button><button class="btn btn-outline-secondary" onclick="resetTeacherRegister()">كشف اليوم بالكامل</button></div>
         <div id="teacher-register-summary" class="teacher-register-summary"></div><div id="teacher-register-results" aria-live="polite"></div></div>`;
-    main.append(section);
+    quality.append(section);
+}
+function showQualityRegisterPanel(attendance){
+    installTeacherRegisterPage();
+    document.getElementById('quality-overview-panel')?.classList.toggle('hidden',attendance);
+    document.getElementById('teacher-register-section')?.classList.toggle('hidden',!attendance);
+    document.getElementById('quality-overview-tab')?.classList.toggle('active',!attendance);
+    document.getElementById('quality-attendance-tab')?.classList.toggle('active',attendance);
 }
 function teacherRegisterFilter(){return {kind:'teacher_discipline',from:document.getElementById('teacher-register-from').value,to:document.getElementById('teacher-register-to').value,circleId:Number(document.getElementById('teacher-register-circle').value)||null,status:document.getElementById('teacher-register-status').value||null,search:document.getElementById('teacher-register-search').value.trim()||null};}
 async function loadTeacherRegisterPage(date){
@@ -45,7 +58,7 @@ async function refreshTeacherRegister(){
         const query=new URLSearchParams(Object.entries(filter).filter(([k,v])=>k!=='kind'&&v!==null));
         const rows=await apiRequest(`/operations/teacher-attendance?${query}`);if(version!==teacherRegisterVersion)return;teacherAttendanceRows=rows;
         document.getElementById('teacher-register-summary').innerHTML=[['السجلات',rows.length],['حاضر',rows.filter(r=>['Present','Late'].includes(r.status)).length],['غائب',rows.filter(r=>r.status==='Absent').length],['تغطية بديلة',rows.filter(r=>r.substituteUserId).length]].map(([label,count])=>`<div><strong>${count}</strong><span>${label}</span></div>`).join('');
-        target.innerHTML=`<div class="table-responsive"><table class="data-table"><thead><tr><th>التاريخ / الحلقة</th><th>المعلم الأصلي</th><th>الحالة</th><th>الموعد / البدء</th><th>البديل</th><th>التغطية</th></tr></thead><tbody>${teacherAttendanceRows.map((r,i)=>`<tr><td>${escapeXml(r.date)}<br><strong>${escapeXml(r.circleName)}</strong></td><td>${escapeXml(r.teacherName)}</td><td><span class="teacher-state state-${r.status}">${escapeXml(r.statusText)}</span>${r.isAutomatic?'<small class="d-block">رصد تلقائي</small>':''}</td><td>${r.scheduledStart||'غير محدد'} / ${r.openedAt||'لم تبدأ'}</td><td>${escapeXml(r.substituteName||'لا يوجد')}<small class="d-block">${escapeXml(r.reason)}</small></td><td>${["Admin","Developer"].includes(currentRole)||(getAuthStorage("taskRole")||"").includes("الجودة")?`<button class="btn btn-sm btn-outline-primary" data-coverage-index="${i}">غياب / تكليف بديل</button>`:""}${r.substituteUserId===Number(currentUserId)?`<button class="btn btn-sm btn-success" data-cover-record="${r.circleId}">رصد التسميع</button>`:""}</td></tr>`).join('')||'<tr><td colspan="6">لا توجد حلقات مجدولة في الفترة.</td></tr>'}</tbody></table></div>`;
+        target.innerHTML=`<div class="table-responsive"><table class="data-table"><thead><tr><th>التاريخ / الحلقة</th><th>المعلم الأصلي</th><th>الحالة</th><th>الموعد</th><th>بدء الحلقة</th><th>إغلاق الحلقة</th><th>دقائق التأخر</th><th>البديل / السبب</th><th>الإجراء</th></tr></thead><tbody>${teacherAttendanceRows.map((r,i)=>`<tr><td>${escapeXml(r.date)}<br><strong>${escapeXml(r.circleName)}</strong></td><td>${escapeXml(r.teacherName)}</td><td><span class="teacher-state state-${r.status}">${escapeXml(r.statusText)}</span>${r.isAutomatic?'<small class="d-block">رصد تلقائي</small>':''}</td><td>${escapeXml(r.scheduledStart||'غير محدد')}</td><td>${escapeXml(r.openedAt||'لم تبدأ')}</td><td>${escapeXml(r.closedAt||'لم تغلق')}</td><td>${r.lateMinutes??'—'}</td><td>${escapeXml(r.substituteName||'لا يوجد')}<small class="d-block">${escapeXml(r.reason||'')}</small></td><td>${["Admin","Developer"].includes(currentRole)||(currentRole==='Teacher'&&teacherCan('quality'))?`<button class="btn btn-sm btn-outline-primary" data-coverage-index="${i}">غياب / تكليف بديل</button>`:""}${r.substituteUserId===Number(currentUserId)?`<button class="btn btn-sm btn-success" data-cover-record="${r.circleId}">رصد التسميع</button>`:""}</td></tr>`).join('')||'<tr><td colspan="9">لا توجد حلقات مجدولة في الفترة.</td></tr>'}</tbody></table></div>`;
         target.querySelectorAll('[data-cover-record]').forEach(button=>button.onclick=()=>startCoverageRecitation(Number(button.dataset.coverRecord)));
         target.querySelectorAll('[data-coverage-index]').forEach(button=>button.onclick=()=>{const r=teacherAttendanceRows[Number(button.dataset.coverageIndex)];showTeacherCoverage(r.circleId,r.circleName,r.date);});
     }catch(e){target.innerHTML=`<p class="reports-error">${escapeXml(e.message)}</p>`;}
@@ -74,10 +87,6 @@ function showQualityStudents(kind,id){
 }
 document.addEventListener('DOMContentLoaded',()=>{
     installTeacherRegisterPage();
-    const actions=document.querySelector('#quality-management-section .action-buttons-group');
-    if(actions){const button=document.createElement('button');button.className='btn btn-outline-primary';button.textContent='كشف حضور المعلمين والبدلاء';button.onclick=()=>showTeacherAttendance();actions.prepend(button);}
-    const teachers=document.getElementById('btn-admin-teachers');
-    if(teachers){const link=document.createElement('a');link.className='nav-item admin-only developer-only';link.id='btn-teacher-register';link.href='#teacher-register';link.innerHTML='<i class="fa-solid fa-user-clock"></i><span>حضور المعلمين والبدلاء</span>';link.onclick=e=>{e.preventDefault();showTeacherAttendance();};teachers.after(link);}
 });
 
 async function startCoverageRecitation(circleId){

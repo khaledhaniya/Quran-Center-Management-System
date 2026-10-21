@@ -51,9 +51,13 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         backgroundColor: primary,
         foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
+        elevation: 2,
+        shadowColor: Color(0x33083C25),
+        centerTitle: false,
+        toolbarHeight: 64,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(20))),
         titleTextStyle: TextStyle(
+          fontFamily: 'Cairo',
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: Colors.white,

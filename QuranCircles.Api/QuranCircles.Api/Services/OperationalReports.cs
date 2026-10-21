@@ -117,9 +117,9 @@ public class OperationalReports(AppDbContext db)
                 rows = (await db.CourseEnrollments.Include(e => e.Course).AsNoTracking().Where(e => ids.Contains(e.StudentId) && e.CertificateCode != null && e.CertificateDate >= from && e.CertificateDate <= to).ToListAsync())
                     .Select(e => new[] { Name(e.StudentId), e.Course?.Name ?? "", e.CertificateCode!, e.CertificateDate.ToString()!, e.Grade?.ToString() ?? "" }).ToList(); break;
             case "teacher_discipline":
-                columns = ["الحلقة", "المعلم الأصلي", "التاريخ", "الحالة", "بداية مقررة", "بداية فعلية", "التأخير بالدقائق", "المعلم البديل", "سبب الغياب أو الإجازة"];
+                columns = ["الحلقة", "المعلم الأصلي", "التاريخ", "الحالة", "بداية مقررة", "بداية فعلية", "إغلاق الحلقة", "التأخير بالدقائق", "المعلم البديل", "سبب الغياب أو الإجازة"];
                 rows = TeacherAttendanceService.Filter(await new TeacherAttendanceService(db).BuildAsync(from, to, filter.CircleId), filter.TeacherId, filter.Status, filter.Search).Select(d => new[] {
-                    d.CircleName, d.TeacherName, d.Date.ToString("yyyy-MM-dd"), d.StatusText + (d.IsAutomatic ? " • رصد تلقائي" : ""), d.ScheduledStart ?? "غير محدد", d.OpenedAt ?? "لم تبدأ",
+                    d.CircleName, d.TeacherName, d.Date.ToString("yyyy-MM-dd"), d.StatusText + (d.IsAutomatic ? " • رصد تلقائي" : ""), d.ScheduledStart ?? "غير محدد", d.OpenedAt ?? "لم تبدأ", d.ClosedAt ?? "لم تغلق",
                     d.LateMinutes?.ToString() ?? "", d.SubstituteName, d.Reason }).ToList(); break;
             case "circle_scorecard":
                 columns = ["الحلقة", "الطلاب", "الحضور %", "جلسات التسميع", "صفحات الحفظ", "صفحات المراجعة", "متوسط الإتقان"];

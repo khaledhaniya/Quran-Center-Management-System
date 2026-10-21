@@ -28,7 +28,6 @@ import 'teacher_sessions_screen.dart';
 import 'teacher_circle_students_screen.dart';
 import 'teacher_comprehensive_report_screen.dart';
 import 'teacher_lottery_screen.dart';
-import 'teacher_operations_screen.dart';
 import 'parent_portal_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -275,22 +274,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _centerName,
-              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              _mosqueName,
-              style: AppTheme.cairoStyle(fontSize: 11, color: const Color(0xFFD4AF37)),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+        toolbarHeight: 74,
+        titleSpacing: 12,
+        centerTitle: false,
+        title: Row(children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .14), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.menu_book_rounded, color: Color(0xFFE8D49E), size: 25),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_centerName, style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(_mosqueName, style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.accentLight), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          )),
+        ]),
         actions: [
           // Pending Offline Sync Indicator
           ValueListenableBuilder<int>(
@@ -355,7 +357,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
               decoration: const BoxDecoration(color: AppTheme.primary),
               accountName: Text(
                 _currentUser.fullName,
-                style: AppTheme.cairoStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: AppTheme.cairoStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               accountEmail: Text(
                 'مركز البيان - مسجد علي بن أبي طالب | ${_currentUser.role}',
@@ -449,11 +451,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (ctx) => const QualityManagementScreen()));
                 },
-              ),
-              ListTile(
-                leading: const Icon(Icons.punch_clock, color: AppTheme.primary),
-                title: Text('حضور المعلمين والبدلاء',style:AppTheme.cairoStyle(fontWeight:FontWeight.bold)),
-                onTap:(){Navigator.pop(context);Navigator.push(context,MaterialPageRoute(builder:(_)=>const TeacherOperationsScreen()));},
               ),
               ListTile(
                 leading: const Icon(Icons.notifications_active, color: AppTheme.primary),
@@ -724,10 +721,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           ],
         ),
       ),
-      body: IndexedStack(
-        index: _currentIndex < screens.length ? _currentIndex : 0,
-        children: screens,
-      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFD7E8DC)),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [BoxShadow(color: Color(0x110D5C3A), blurRadius: 14, offset: Offset(0, 5))],
+            ),
+            child: Text(items[_currentIndex < items.length ? _currentIndex : 0].label ?? '',
+              textAlign: TextAlign.center,
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryDark, fontSize: 15)),
+          ),
+        ),
+        Expanded(child: IndexedStack(
+          index: _currentIndex < screens.length ? _currentIndex : 0,
+          children: screens,
+        )),
+      ]),
       bottomNavigationBar: items.length<2?null:BottomNavigationBar(
         currentIndex: _currentIndex < items.length ? _currentIndex : 0,
         type: BottomNavigationBarType.fixed,
