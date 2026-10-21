@@ -16,15 +16,12 @@ public class StudentsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly PasswordHasher _hasher;
     private readonly ReportService _reportSvc;
-    private readonly StudentWorkbookImporter _workbookImporter;
-    public StudentsController(StudentService svc, AppDbContext db, PasswordHasher hasher, ReportService reportSvc,
-        StudentWorkbookImporter workbookImporter)
+    public StudentsController(StudentService svc, AppDbContext db, PasswordHasher hasher, ReportService reportSvc)
     {
         _svc = svc;
         _db = db;
         _hasher = hasher;
         _reportSvc = reportSvc;
-        _workbookImporter = workbookImporter;
     }
 
     [HttpGet("my-progress")]
@@ -137,36 +134,6 @@ public class StudentsController : ControllerBase
         }
         var list = await query.OrderBy(s => s.FullName).ToListAsync();
         return Ok(list.Select(s => StudentService.MapStudentToFullObject(s)).ToList());
-    }
-
-    [HttpPost("import-excel")]
-    [RequestSizeLimit(10_485_760)]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
-    public async Task<IActionResult> ImportExcel([FromForm] IFormFile? file,
-        [FromForm] int firstSerial, [FromForm] bool previewOnly = false)
-    {
-        if (file == null || file.Length == 0 || file.Length > 10_000_000 ||
-            !file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { error = "اختر ملف Excel بصيغة xlsx وحجم لا يتجاوز 10 ميغابايت." });
-        try
-        {
-            await using var stream = new MemoryStream();
-            await file.CopyToAsync(stream);
-            stream.Position = 0;
-            var result = await _workbookImporter.ProcessAsync(stream, firstSerial, previewOnly);
-            if (!previewOnly && result.Added > 0)
-                await AuditLogger.LogAsync(_db, HttpContext, "ImportStudentsExcel",
-                    $"استيراد {result.Added} طالباً من Excel بدءاً من رقم السجل {firstSerial}");
-            return Ok(result);
-        }
-        catch (InvalidDataException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (FormatException)
-        {
-            return BadRequest(new { error = "تعذر قراءة ملف Excel. تحقق من سلامته وصيغته." });
-        }
     }
 
     [HttpPost]

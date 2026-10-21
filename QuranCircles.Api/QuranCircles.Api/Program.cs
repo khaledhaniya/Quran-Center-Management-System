@@ -162,7 +162,6 @@ builder.Services.AddRateLimiter(options => {
 });
 builder.Services.AddHttpClient<QuranCircles.Api.Services.SmsGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<QuranCircles.Api.Services.StudentService>();
-builder.Services.AddScoped<QuranCircles.Api.Services.StudentWorkbookImporter>();
 builder.Services.AddScoped<QuranCircles.Api.Services.TeacherService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.CircleService>();
 builder.Services.AddScoped<QuranCircles.Api.Services.SessionService>();

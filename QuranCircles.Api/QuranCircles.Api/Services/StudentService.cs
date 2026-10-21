@@ -147,7 +147,6 @@ public class StudentService
         RegistrationDate = s.RegistrationDate.ToString("yyyy-MM-dd"),
         s.IsActive,
         s.StudentIdentityNumber,
-        s.SchoolGrade,
         s.PreviousQuranMemorization,
         s.StudentMobile,
         s.StudentWhatsapp,
@@ -346,7 +345,6 @@ public class StudentService
             ParentId = resolvedParentId,
             IsActive = true,
             StudentIdentityNumber = dto.StudentIdentityNumber,
-            SchoolGrade = dto.SchoolGrade,
             PreviousQuranMemorization = dto.PreviousQuranMemorization,
             StudentMobile = dto.StudentMobile,
             StudentWhatsapp = dto.StudentWhatsapp,
@@ -426,7 +424,6 @@ public class StudentService
         if (dto.IsActive.HasValue) s.IsActive = dto.IsActive.Value;
 
         if (dto.StudentIdentityNumber != null) s.StudentIdentityNumber = string.IsNullOrWhiteSpace(dto.StudentIdentityNumber) ? null : dto.StudentIdentityNumber.Trim();
-        if (dto.SchoolGrade != null) s.SchoolGrade = string.IsNullOrWhiteSpace(dto.SchoolGrade) ? null : dto.SchoolGrade.Trim();
         if (dto.PreviousQuranMemorization != null) s.PreviousQuranMemorization = string.IsNullOrWhiteSpace(dto.PreviousQuranMemorization) ? null : dto.PreviousQuranMemorization.Trim();
         if (dto.StudentMobile != null) s.StudentMobile = string.IsNullOrWhiteSpace(dto.StudentMobile) ? null : dto.StudentMobile.Trim();
         if (dto.StudentWhatsapp != null) s.StudentWhatsapp = string.IsNullOrWhiteSpace(dto.StudentWhatsapp) ? null : dto.StudentWhatsapp.Trim();

@@ -33,8 +33,7 @@ public record CreateStudentDto(
     string? CurrentAddress = null,
     string? CurrentHousingType = null,
     string? Notes = null,
-    string? ParentName = null,
-    string? SchoolGrade = null
+    string? ParentName = null
 );
 
 public record UpdateStudentDto(
@@ -72,8 +71,7 @@ public record UpdateStudentDto(
     double? DailyPacePages = null,
     string? CompletedAjzaa = null,
     string? Username = null,
-    string? Password = null,
-    string? SchoolGrade = null
+    string? Password = null
 );
 
 public record StudentDto(
