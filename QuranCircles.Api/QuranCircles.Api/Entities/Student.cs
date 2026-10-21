@@ -17,6 +17,7 @@ public class Student
 
     // Extended Excel Fields
     public string? StudentIdentityNumber { get; set; }
+    public string? SchoolGrade { get; set; }
     public string? PreviousQuranMemorization { get; set; }
     public string? StudentMobile { get; set; }
     public string? StudentWhatsapp { get; set; }

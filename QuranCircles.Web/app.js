@@ -4035,6 +4035,67 @@ function getOrphanBadgeHtml(fatherStatus, motherStatus) {
 }
 
 // ----------------- Admin: Students Management -----------------
+async function importStudentsExcel() {
+    if (!['Admin', 'Developer'].includes(currentRole)) return;
+    const input = await Swal.fire({
+        title: 'استيراد طلاب من ملف Excel',
+        html: `<div class="text-end" dir="rtl">
+            <label class="form-label fw-bold" for="students-import-file">ملف البيانات (.xlsx)</label>
+            <input id="students-import-file" type="file" accept=".xlsx" class="form-control mb-3">
+            <label class="form-label fw-bold" for="students-import-start">رقم أول سجل جديد في الملف</label>
+            <input id="students-import-start" type="number" min="1" step="1" class="form-control" placeholder="مثلاً: 243">
+            <small class="text-muted d-block mt-2">لن تُستورد السجلات السابقة لهذا الرقم. يوجد عرض للنتيجة قبل الحفظ، ولا يعاد الاستيراد تلقائياً عند تحديث الموقع.</small>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'فحص الملف',
+        cancelButtonText: 'إلغاء',
+        preConfirm: () => {
+            const file = document.getElementById('students-import-file')?.files?.[0];
+            const firstSerial = Number(document.getElementById('students-import-start')?.value);
+            if (!file || !Number.isInteger(firstSerial) || firstSerial < 1) {
+                Swal.showValidationMessage('اختر ملف Excel واكتب رقم أول سجل جديد.');
+                return false;
+            }
+            return { file, firstSerial };
+        }
+    });
+    if (!input.isConfirmed || !input.value) return;
+    const { file, firstSerial } = input.value;
+    const send = async previewOnly => {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('firstSerial', String(firstSerial));
+        form.append('previewOnly', String(previewOnly));
+        const response = await fetch(`${API_BASE}/students/import-excel`, {
+            method: 'POST', headers: { Authorization: `Bearer ${authToken}` }, body: form
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'تعذر استيراد البيانات.');
+        return result;
+    };
+    try {
+        const preview = await send(true);
+        const confirmation = await Swal.fire({
+            title: 'مراجعة قبل الحفظ',
+            html: `<div dir="rtl" class="text-end">
+                <p>سجلات من الرقم المحدد: <strong>${Number(preview.rowsSelected)}</strong></p>
+                <p>طلاب جدد سيُضافون: <strong>${Number(preview.added)}</strong></p>
+                <p>موجودون مسبقاً ولن يتكرروا: <strong>${Number(preview.alreadyPresent)}</strong></p>
+                <p>تكرارات داخل الملف: <strong>${Number(preview.duplicateInFile)}</strong></p>
+            </div>`,
+            icon: 'info', showCancelButton: true,
+            confirmButtonText: 'حفظ الطلاب الجدد', cancelButtonText: 'إلغاء'
+        });
+        if (!confirmation.isConfirmed || !preview.added) return;
+        const saved = await send(false);
+        cachedStudents = null;
+        await loadAdminStudents();
+        await Swal.fire('تم الحفظ', `أُضيف ${Number(saved.added)} طالباً إلى قاعدة البيانات.`, 'success');
+    } catch (error) {
+        await Swal.fire('تعذر الاستيراد', error.message || 'حدث خطأ غير متوقع.', 'error');
+    }
+}
+
 async function loadAdminStudents(search = "") {
     const tbody = document.getElementById("students-table-body");
     if (tbody && (!cachedStudents || cachedStudents.length === 0)) {
@@ -6048,6 +6109,7 @@ function setupFormsAndModals() {
     document.getElementById("btn-add-circle")?.addEventListener("click", () => showCircleModal());
     document.getElementById("btn-add-teacher")?.addEventListener("click", () => showTeacherModal());
     document.getElementById("btn-add-student")?.addEventListener("click", () => showStudentModal());
+    document.getElementById("btn-import-students-excel")?.addEventListener("click", importStudentsExcel);
     document.getElementById("btn-refresh-report")?.addEventListener("click", () => safeExecute(loadAdminDashboard, "تحديث التقرير"));
 
     // Bind search inputs safely
