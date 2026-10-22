@@ -21,6 +21,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
   List<Circle> circles = [];
   List<dynamic> rows = [];
   bool loading = true;
+  bool tableView = true;
   String? error;
   bool get canEdit =>
       ['Admin', 'Developer'].contains(ApiService.currentUser?.role) ||
