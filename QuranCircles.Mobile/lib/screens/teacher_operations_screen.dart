@@ -322,7 +322,13 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
             if (tableView && !loading && error == null)
               Padding(
                   padding: const EdgeInsets.all(14),
-                  child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: PaginatedDataTable(
+                  child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: MediaQuery.sizeOf(context).width > 1300
+                            ? MediaQuery.sizeOf(context).width - 28
+                            : 1300,
+                        child: PaginatedDataTable(
                       header: const Text('كشف حضور المعلمين'),
                       rowsPerPage: 20,
                       availableRowsPerPage: const [20],
@@ -341,7 +347,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                         DataColumn(label: Text('المعلم البديل')),
                         DataColumn(label: Text('التغطية'))
                       ],
-                      source: TeacherRegisterSource(rows, canEdit, coverage)))),
+                      source: TeacherRegisterSource(rows, canEdit, coverage))))),
             if (!tableView || loading || error != null)
               loading
                       ? const Center(child: CircularProgressIndicator())
