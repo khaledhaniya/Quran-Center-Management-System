@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/center_logo.dart';
 import 'main_navigation_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   String _serverUrl = ApiService.baseUrl;
   String _centerName = 'مركز البيان لتعليم القرآن الكريم';
   String _mosqueName = 'مسجد علي بن أبي طالب';
+  String _logoUrl = '';
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -47,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       final s = await ApiService.getSystemSettings();
       if (s != null && mounted) {
+        AppTheme.setStyle((s['themeStyle'] ?? s['ThemeStyle'] ?? 'Classic').toString());
         setState(() {
           if (s['centerName'] != null && s['centerName'].toString().trim().isNotEmpty) {
             _centerName = s['centerName'].toString().trim();
@@ -54,6 +57,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           if (s['mosqueName'] != null && s['mosqueName'].toString().trim().isNotEmpty) {
             _mosqueName = s['mosqueName'].toString().trim();
           }
+          _logoUrl = (s['logoUrl'] ?? s['LogoUrl'] ?? '').toString();
         });
       }
     } catch (_) {}
@@ -252,15 +256,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           padding: const EdgeInsets.all(8),
                           child: ClipOval(
-                            child: Image.asset(
-                              'assets/logo.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) => const Icon(
-                                Icons.mosque_rounded,
-                                size: 48,
-                                color: Color(0xFFE5C07B),
-                              ),
-                            ),
+                            child: CenterLogo(logoUrl: _logoUrl, size: 76),
                           ),
                         ),
                       ),

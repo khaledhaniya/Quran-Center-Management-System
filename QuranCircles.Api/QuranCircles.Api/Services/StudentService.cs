@@ -16,7 +16,7 @@ public class StudentService
         _hasher = hasher;
     }
 
-    public async Task<List<object>> GetAllAsync(string? search)
+    public async Task<List<object>> GetAllAsync(string? search, bool hideParentPhone = false)
     {
         var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
 
@@ -25,7 +25,7 @@ public class StudentService
             var q = search.Trim().ToLower();
             query = query.Where(s => s.FullName.ToLower().Contains(q)
                 || (s.StudentIdentityNumber != null && s.StudentIdentityNumber.Contains(q))
-                || (s.FamilyContact != null && s.FamilyContact.Contains(q))
+                || (!hideParentPhone && s.FamilyContact != null && s.FamilyContact.Contains(q))
                 || (s.StudentMobile != null && s.StudentMobile.Contains(q))
                 || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
         }
@@ -67,11 +67,12 @@ public class StudentService
         return students.Select(s => MapStudentToFullObject(
             s,
             s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null,
-            studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber
+            studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber,
+            hideParentPhone
         )).ToList();
     }
 
-    public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search, bool onlyCircle = false, int? userId = null)
+    public async Task<List<object>> GetStudentsForTeacherAsync(int teacherId, string? search, bool onlyCircle = false, int? userId = null, bool hideParentPhone = false)
     {
         var today = CenterClock.Today;
         var query = _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).AsQueryable();
@@ -93,7 +94,7 @@ public class StudentService
             var q = search.Trim().ToLower();
             query = query.Where(s => s.FullName.ToLower().Contains(q)
                 || (s.StudentIdentityNumber != null && s.StudentIdentityNumber.Contains(q))
-                || (s.FamilyContact != null && s.FamilyContact.Contains(q))
+                || (!hideParentPhone && s.FamilyContact != null && s.FamilyContact.Contains(q))
                 || (s.StudentMobile != null && s.StudentMobile.Contains(q))
                 || (s.Circle != null && s.Circle.Name.ToLower().Contains(q)));
         }
@@ -126,17 +127,18 @@ public class StudentService
         return students.Select(s => MapStudentToFullObject(
             s,
             s.ParentId.HasValue && parentMap.TryGetValue(s.ParentId.Value, out var pName) ? pName : null,
-            studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber
+            studentUserMap.TryGetValue(s.Id, out var uName) ? uName : s.StudentIdentityNumber,
+            hideParentPhone
         )).ToList();
     }
 
-    public static object MapStudentToFullObject(Student s, string? parentName = null, string? username = null) => new
+    public static object MapStudentToFullObject(Student s, string? parentName = null, string? username = null, bool hideParentPhone = false) => new
     {
         s.Id,
         s.FullName,
         Username = username ?? s.StudentIdentityNumber,
         s.Address,
-        s.FamilyContact,
+        FamilyContact = hideParentPhone ? null : s.FamilyContact,
         DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
         s.CircleId,
         CircleName = s.Circle?.Name ?? "غير مسند حلقة",
@@ -155,7 +157,7 @@ public class StudentService
         s.MotherStatus,
         s.Kinship,
         s.ParentIdentityNumber,
-        s.WhatsappNumber,
+        WhatsappNumber = hideParentPhone ? null : s.WhatsappNumber,
         s.WalletNumber,
         s.BankAccountNumber,
         s.BankName,
@@ -177,7 +179,7 @@ public class StudentService
     public async Task<Student?> GetByIdAsync(int id)
         => await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
 
-    public async Task<object?> GetFullStudentByIdAsync(int id)
+    public async Task<object?> GetFullStudentByIdAsync(int id, bool hideParentPhone = false)
     {
         var s = await _db.Students.Include(s => s.Circle).FirstOrDefaultAsync(s => s.Id == id);
         if (s == null) return null;
@@ -217,7 +219,7 @@ public class StudentService
 
         string? username = stUser?.Username ?? s.StudentIdentityNumber;
 
-        return MapStudentToFullObject(s, parentName, username);
+        return MapStudentToFullObject(s, parentName, username, hideParentPhone);
     }
 
     private static string ExtractFatherName(string fullName)

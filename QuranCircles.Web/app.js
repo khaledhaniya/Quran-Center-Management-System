@@ -15691,9 +15691,10 @@ function selectThemeOption(themeKey) {
     document.body.classList.add(`theme-${themeKey.toLowerCase()}`);
 }
 
-function toggleSettingSwitch(inputId) {
+function toggleSettingSwitch(inputId, event) {
     const input = document.getElementById(inputId);
     if (!input) return;
+    if (event?.target === input) return;
     input.checked = !input.checked;
     updateSwitchCardState(input);
 }
@@ -15708,7 +15709,7 @@ function updateSwitchCardState(input) {
 
 async function exportSystemBackup() {
     try {
-        showAlert("جاري تجهيز وتصدير النسخة الاحتياطية لكافة بيانات المنظومة...", "info");
+        showAlert("جاري تجهيز ملف تصدير البيانات الأساسية...", "info");
         const token = getToken();
         const headers = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -15720,13 +15721,13 @@ async function exportSystemBackup() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `quran_center_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `quran_center_data_${new Date().toISOString().slice(0,10)}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
 
-        showAlert("تم تحميل وتصدير النسخة الاحتياطية الكاملة للمنظومة بنجاح! 💾", "success");
+        showAlert("تم تنزيل ملف بيانات أساسية. للنسخ الكامل القابل للاستعادة استخدم نسخة SQL من لوحة الاستضافة.", "success");
     } catch (e) {
         console.error(e);
         showAlert("فشل تصدير النسخة الاحتياطية: " + e.message, "danger");
@@ -15799,7 +15800,7 @@ async function loadSystemSettingsForm() {
             settings = normalizeSettings(liveSettings);
             cachedSystemSettings = settings;
             localStorage.setItem("system_settings_cache", JSON.stringify(settings));
-        }
+        } else isOfflineMode = true;
     } catch(e) {
         isOfflineMode = true;
     }
@@ -15821,7 +15822,7 @@ async function loadSystemSettingsForm() {
                         </h4>
                         ${isOfflineMode ? `
                             <span class="badge bg-warning bg-opacity-10 text-dark fw-bold px-3 py-1 rounded-pill border border-warning">
-                                <i class="fa-solid fa-bolt me-1 text-warning"></i> الحفظ والتطبيق المباشر (Live Sync)
+                                <i class="fa-solid fa-triangle-exclamation me-1 text-warning"></i> تعذر الاتصال بالخادم • عرض محفوظ فقط
                             </span>
                         ` : `
                             <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-1 rounded-pill">
@@ -15862,7 +15863,7 @@ async function loadSystemSettingsForm() {
 
             <!-- Form Card -->
             <div class="settings-card shadow-sm">
-                <form id="system-settings-form">
+                <form id="system-settings-form" novalidate>
 
                     <!-- TAB 1: الهوية والبيانات المؤسسية -->
                     <div class="settings-tab-pane active" id="tab-pane-identity">
@@ -15967,7 +15968,7 @@ async function loadSystemSettingsForm() {
                         </div>
 
                         <div class="settings-flags-grid">
-                            <div class="settings-switch-card ${settings.allowTeacherEditStudentPlan === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-teacher-edit-plan')">
+                            <div class="settings-switch-card ${settings.allowTeacherEditStudentPlan === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-teacher-edit-plan', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-book-bookmark text-success me-1"></i> السماح للمعلم بتعديل خطة حفظ الطالب وتوثيق الأجزاء</span>
                                     <span class="switch-desc">تمكين المعلم من تحديث خطة الحفظ واعتماد الأجزاء المنجزة لطلابه.</span>
@@ -15978,7 +15979,7 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.allowTeacherSelfEnrollment === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-teacher-enrollment')">
+                            <div class="settings-switch-card ${settings.allowTeacherSelfEnrollment === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-teacher-enrollment', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-user-plus text-warning me-1"></i> السماح للمعلم بتنسيب طلاب جدد لحلقته مباشرة</span>
                                     <span class="switch-desc">تمكين المعلم من البحث وتنسيب طلاب المركز لحلقته دون مراجعة مسبقة.</span>
@@ -15989,7 +15990,7 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.hideParentPhoneFromTeacher === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-hide-parent-phone')">
+                            <div class="settings-switch-card ${settings.hideParentPhoneFromTeacher === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-hide-parent-phone', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-shield-cat text-danger me-1"></i> حجب أرقام هواتف أولياء الأمور عن المعلم (خصوصية مشددة)</span>
                                     <span class="switch-desc">إخفاء رقم هاتف ولي الأمر من كشف الطلاب لدى المعلم لقصر التواصل عبر الإدارة.</span>
@@ -16000,7 +16001,7 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.allowStudentProfileEditRequests === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-profile-requests')">
+                            <div class="settings-switch-card ${settings.allowStudentProfileEditRequests === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-profile-requests', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-id-card-clip text-primary me-1"></i> تمكين الطلاب وأولياء الأمور من تقديم طلبات تعديل البيانات</span>
                                     <span class="switch-desc">السماح بتقديم طلب تعديل بيانات الاتصال ومراجعتها واعتمادها من الإدارة.</span>
@@ -16011,7 +16012,7 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.enforceDailyAttendanceRecording === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enforce-attendance')">
+                            <div class="settings-switch-card ${settings.enforceDailyAttendanceRecording === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enforce-attendance', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-clock-rotate-left text-info me-1"></i> إلزام المعلم برصد التسميع اليومي في تاريخ اليوم فقط</span>
                                     <span class="switch-desc">منع المعلم من تسجيل حضور أو تسميع لتواريخ سابقة دون إذن إداري.</span>
@@ -16022,23 +16023,13 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.showCumulativeAttendance === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-show-cumulative-attendance')">
-                                <div class="switch-label-block">
-                                    <span class="switch-title"><i class="fa-solid fa-chart-column text-secondary me-1"></i> إظهار مؤشر الحضور التراكمي في شاشات التسميع</span>
-                                    <span class="switch-desc">عرض نسبة الحضور التراكمية في كشف التسميع اليومي.</span>
-                                </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-show-cumulative-attendance" ${settings.showCumulativeAttendance === true ? 'checked' : ''}>
-                                    <span class="switch-slider"></span>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
-                    <!-- TAB 4: الشهادات والاعتمادات ولوحة الشرف -->
+                    <!-- TAB 4: الشهادات والاعتمادات -->
                     <div class="settings-tab-pane" id="tab-pane-certificates">
                         <div class="settings-section-divider">
-                            <h4><i class="fa-solid fa-stamp"></i> 4. الشهادات والاعتمادات الرسمية ولوحة الشرف</h4>
+                            <h4><i class="fa-solid fa-stamp"></i> 4. الشهادات والاعتمادات الرسمية</h4>
                             <span class="badge bg-light text-muted border">بيانات التوقيع المعتمد للشهادات والجوائز</span>
                         </div>
 
@@ -16055,7 +16046,7 @@ async function loadSystemSettingsForm() {
                         </div>
 
                         <div class="settings-flags-grid">
-                            <div class="settings-switch-card ${settings.enableCertificates === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-certificates')">
+                            <div class="settings-switch-card ${settings.enableCertificates === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-certificates', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-award text-success me-1"></i> تفعيل نظام إصدار وطباعة الشهادات الرقمية المعتمدة</span>
                                     <span class="switch-desc">إتاحة طباعة الشهادات للطلاب الناجحين في المساقات واختبارات الأجزاء.</span>
@@ -16066,16 +16057,6 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.showHonorsBoard === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-show-honors-board')">
-                                <div class="switch-label-block">
-                                    <span class="switch-title"><i class="fa-solid fa-trophy text-warning me-1"></i> تفعيل لوحة شرف المتميزين والمتفوقين</span>
-                                    <span class="switch-desc">إظهار الطلاب الأوائل وأصحاب أعلى معدلات التسميع في لوحة المؤشرات.</span>
-                                </div>
-                                <div class="custom-switch">
-                                    <input type="checkbox" id="setting-show-honors-board" ${settings.showHonorsBoard === true ? 'checked' : ''}>
-                                    <span class="switch-slider"></span>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -16087,7 +16068,7 @@ async function loadSystemSettingsForm() {
                         </div>
 
                         <div class="settings-flags-grid mb-3">
-                            <div class="settings-switch-card ${settings.allowPublicAnnouncements === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-public-announcements')">
+                            <div class="settings-switch-card ${settings.allowPublicAnnouncements === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-allow-public-announcements', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-bullhorn text-info me-1"></i> تفعيل لوحة التعاميم والإعلانات العامة للمركز</span>
                                     <span class="switch-desc">إتاحة لوحة التعاميم لجميع المعلمين والطلاب وأولياء الأمور.</span>
@@ -16098,7 +16079,7 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.enableAbsenceAutoAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-absence-alert')">
+                            <div class="settings-switch-card ${settings.enableAbsenceAutoAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-absence-alert', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> تفعيل تنبيهات الغياب الفورية لأولياء الأمور</span>
                                     <span class="switch-desc">إرسال تنبيه مباشر وتلقائي لولي الأمر عند تسجيل غياب الطالب عن الحلقة.</span>
@@ -16109,7 +16090,7 @@ async function loadSystemSettingsForm() {
                                 </div>
                             </div>
 
-                            <div class="settings-switch-card ${settings.enableRecitationIncompleteAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-recitation-alert')">
+                            <div class="settings-switch-card ${settings.enableRecitationIncompleteAlert === true ? 'active' : ''}" onclick="toggleSettingSwitch('setting-enable-recitation-alert', event)">
                                 <div class="switch-label-block">
                                     <span class="switch-title"><i class="fa-solid fa-book-open-reader text-warning me-1"></i> تفعيل تنبيهات عدم التسميع الفورية لأولياء الأمور</span>
                                     <span class="switch-desc">إرسال تنبيه مباشر لولي الأمر عند تسجيل حالة (لم يُسمّع) للطالب في حلقة اليوم.</span>
@@ -16207,8 +16188,8 @@ async function loadSystemSettingsForm() {
                     <!-- TAB 7: النسخ الاحتياطي وحماية البيانات -->
                     <div class="settings-tab-pane" id="tab-pane-backup">
                         <div class="settings-section-divider">
-                            <h4><i class="fa-solid fa-database"></i> 7. إدارة النسخ الاحتياطي الشامل وحماية بيانات المركز</h4>
-                            <span class="badge bg-light text-muted border">حفظ واسترجاع كامل لبيانات الطلاب والحلقات والطلبات والإعدادات</span>
+                            <h4><i class="fa-solid fa-database"></i> 7. تصدير البيانات وحماية قاعدة المركز</h4>
+                            <span class="badge bg-light text-muted border">تصدير JSON للبيانات الأساسية فقط</span>
                         </div>
 
                         <div class="p-4 mb-4 rounded-3 border bg-light">
@@ -16217,26 +16198,22 @@ async function loadSystemSettingsForm() {
                                     <i class="fa-solid fa-cloud-arrow-down fs-4"></i>
                                 </div>
                                 <div>
-                                    <h6 class="fw-bold text-dark mb-1">النسخ الاحتياطي الكامل لقاعدة البيانات (Full Database Backup & Restore)</h6>
-                                    <p class="text-muted small mb-0">يمكنك بضغطة زر واحدة تنزيل ملف JSON يحتوي على كافة بيانات المنظومة (الطلاب، الحلقات، المعلمين، طلبات التعديل، سجلات التسميع، والنتائج والإعدادات).</p>
+                                    <h6 class="fw-bold text-dark mb-1">تصدير بيانات المنظومة الأساسية</h6>
+                                    <p class="text-muted small mb-0">ملف JSON للمراجعة والأرشفة فقط؛ لا يشمل كل جداول النظام. للاستعادة الكاملة أنشئ نسخة SQL ‏(.bak) من لوحة MonsterASP.</p>
                                 </div>
                             </div>
 
                             <div class="d-flex flex-wrap gap-3">
                                 <button type="button" class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-xs" onclick="exportSystemBackup()">
-                                    <i class="fa-solid fa-download me-1"></i> تحميل نسخة احتياطية كاملة للمنظومة (Backup JSON)
+                                    <i class="fa-solid fa-download me-1"></i> تنزيل البيانات الأساسية (JSON)
                                 </button>
-                                <label class="btn btn-outline-primary fw-bold px-4 py-2 rounded-3 shadow-xs mb-0 cursor-pointer" style="cursor: pointer;">
-                                    <i class="fa-solid fa-upload me-1"></i> استعادة المنظومة من نسخة احتياطية (Restore JSON)
-                                    <input type="file" accept=".json,application/json" style="display: none;" onchange="handleRestoreBackupFile(event)">
-                                </label>
                             </div>
                         </div>
 
                         <div class="alert alert-success d-flex align-items-center gap-2">
                             <i class="fa-solid fa-shield-halved fs-3 text-success"></i>
                             <div>
-                                <strong>أمان وحفظ البيانات:</strong> قاعدة بيانات المنظومة تعمل بنظام الكتابة المتزامنة (WAL Mode) لضمان حفظ كل حركة تسجيل أو تعديل بشكل دائم ومباشر.
+                                <strong>النسخة القابلة للاستعادة:</strong> أنشئ ملف BAK من صفحة Backups لقاعدة البيانات في MonsterASP واحتفظ بنسخة خارج الاستضافة.
                             </div>
                         </div>
                     </div>
@@ -16244,7 +16221,7 @@ async function loadSystemSettingsForm() {
                     <!-- Sticky Action Bar -->
                     <div class="settings-actions-footer">
                         <div class="d-flex align-items-center gap-2">
-                            <button type="submit" class="btn btn-save-settings">
+                            <button type="submit" class="btn btn-save-settings" ${isOfflineMode ? 'disabled title="اتصل بالخادم ثم أعد تحميل الإعدادات قبل الحفظ"' : ''}>
                                 <i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة فوراً
                             </button>
                             <button type="button" class="btn btn-light px-4" onclick="loadSystemSettingsForm()">
@@ -16260,8 +16237,12 @@ async function loadSystemSettingsForm() {
         </div>
     `;
 
+    document.querySelectorAll("#system-settings-form .settings-switch-card input[type='checkbox']").forEach(input => {
+        input.addEventListener("change", () => updateSwitchCardState(input));
+    });
     document.getElementById("system-settings-form").addEventListener("submit", async (e) => {
         e.preventDefault();
+        if (isOfflineMode) { showAlert("تعذر الاتصال بالخادم. أعد تحميل الإعدادات قبل الحفظ.", "danger"); return; }
         const submitBtn = e.target.querySelector("button[type='submit']");
         if (submitBtn) {
             submitBtn.disabled = true;
@@ -16273,6 +16254,24 @@ async function loadSystemSettingsForm() {
             return el ? el.checked === true : false;
         };
 
+        const numeric = [
+            ["setting-passing-score", 50, 100],
+            ["setting-min-attendance-exam", 0, 100],
+            ["setting-max-students-circle", 5, 50],
+            ["setting-max-absence-warning", 1, 15]
+        ];
+        const invalid = numeric.find(([id, min, max]) => {
+            const raw = document.getElementById(id)?.value?.trim();
+            const value = Number(raw);
+            return !raw || !Number.isInteger(value) || value < min || value > max;
+        });
+        if (invalid || !document.getElementById("setting-center-name")?.value.trim() || !document.getElementById("setting-mosque-name")?.value.trim()) {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> حفظ وتطبيق الإعدادات للمنظومة فوراً'; }
+            showAlert("راجع اسم المركز والمسجد والقيم الأكاديمية قبل الحفظ.", "danger");
+            if (invalid) switchSettingsTab('academic');
+            return;
+        }
+
         const dto = {
             centerName: (document.getElementById("setting-center-name")?.value || "").trim(),
             mosqueName: (document.getElementById("setting-mosque-name")?.value || "").trim(),
@@ -16282,20 +16281,18 @@ async function loadSystemSettingsForm() {
             welcomeMessage: (document.getElementById("setting-welcome-msg")?.value || "").trim(),
             logoUrl: (document.getElementById("setting-logo-url")?.value || "").trim(),
             themeStyle: document.getElementById("setting-theme-style")?.value || "Classic",
-            passingScoreThreshold: parseInt(document.getElementById("setting-passing-score")?.value) || 70,
-            minAttendancePercentForExam: parseInt(document.getElementById("setting-min-attendance-exam")?.value) || 75,
-            maxStudentsPerCircle: parseInt(document.getElementById("setting-max-students-circle")?.value) || 20,
-            maxAbsenceDaysWarning: parseInt(document.getElementById("setting-max-absence-warning")?.value) || 3,
+            passingScoreThreshold: Number(document.getElementById("setting-passing-score")?.value),
+            minAttendancePercentForExam: Number(document.getElementById("setting-min-attendance-exam")?.value),
+            maxStudentsPerCircle: Number(document.getElementById("setting-max-students-circle")?.value),
+            maxAbsenceDaysWarning: Number(document.getElementById("setting-max-absence-warning")?.value),
             allowTeacherEditStudentPlan: getCheckboxValue("setting-allow-teacher-edit-plan"),
             allowTeacherSelfEnrollment: getCheckboxValue("setting-allow-teacher-enrollment"),
             hideParentPhoneFromTeacher: getCheckboxValue("setting-hide-parent-phone"),
             allowStudentProfileEditRequests: getCheckboxValue("setting-allow-profile-requests"),
             enforceDailyAttendanceRecording: getCheckboxValue("setting-enforce-attendance"),
-            showCumulativeAttendance: getCheckboxValue("setting-show-cumulative-attendance"),
             signatoryName: (document.getElementById("setting-signatory-name")?.value || "").trim(),
             signatoryTitle: (document.getElementById("setting-signatory-title")?.value || "").trim(),
             enableCertificates: getCheckboxValue("setting-enable-certificates"),
-            showHonorsBoard: getCheckboxValue("setting-show-honors-board"),
             allowPublicAnnouncements: getCheckboxValue("setting-allow-public-announcements"),
             enableAbsenceAutoAlert: getCheckboxValue("setting-enable-absence-alert"),
             absenceAlertTemplate: (document.getElementById("setting-absence-alert-template")?.value || "").trim(),
@@ -16303,20 +16300,14 @@ async function loadSystemSettingsForm() {
             recitationAlertTemplate: (document.getElementById("setting-recitation-alert-template")?.value || "").trim()
         };
 
-        // 1. Instant local and DOM application
-        cachedSystemSettings = normalizeSettings(dto);
-        localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
-        applySystemSettingsToUI(cachedSystemSettings);
-
-        // 2. Try sending to API
         try {
             const res = await apiRequest("/settings", "PUT", dto, 0, true);
-            if (res) {
-                const updated = res.settings || res;
-                cachedSystemSettings = normalizeSettings(updated);
-                localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
-                applySystemSettingsToUI(cachedSystemSettings);
-            }
+            if (!res) throw new Error("لم يؤكد الخادم حفظ الإعدادات.");
+            const updated = res.settings || res;
+            cachedSystemSettings = normalizeSettings(updated);
+            settingsFetchedAt = Date.now();
+            localStorage.setItem("system_settings_cache", JSON.stringify(cachedSystemSettings));
+            applySystemSettingsToUI(cachedSystemSettings);
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
@@ -16325,12 +16316,10 @@ async function loadSystemSettingsForm() {
                     confirmButtonText: 'ممتاز',
                     confirmButtonColor: '#0d5c3a'
                 });
-            } else {
-                showAlert("تم حفظ وتطبيق إعدادات المنظومة وتحديث واجهات الويب وتطبيق الموبايل بنجاح! 🎉✨", "success");
-            }
+            } else showAlert("تم حفظ الإعدادات على الخادم وتطبيقها.", "success");
         } catch(err) {
-            // Saved locally with success notice
-            showAlert("تم حفظ وتطبيق كافة الإعدادات بنجاح على هذا المتصفح والواجهة! 🎉 (جاهزة للمزامنة السحابية)", "success");
+            applySystemSettingsToUI(cachedSystemSettings || settings);
+            showAlert("لم تُحفظ الإعدادات على الخادم: " + (err.message || err), "danger");
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;

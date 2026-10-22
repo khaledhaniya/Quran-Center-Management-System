@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
+import '../widgets/center_logo.dart';
 import 'announcements_screen.dart';
 import 'circles_management_screen.dart';
 import 'course_attendance_screen.dart';
@@ -46,6 +47,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
   int _pendingRequestsCount = 0;
   String _centerName = 'مركز البيان لتعليم القرآن';
   String _mosqueName = 'مسجد علي بن أبي طالب';
+  String _logoUrl = '';
   bool _isMaintenanceMode = false;
   Timer? _settingsRefreshTimer;
   bool _settingsRequestInFlight = false;
@@ -66,13 +68,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
     try {
       final s = await ApiService.getSystemSettings();
       if (s != null && mounted) {
+        AppTheme.setStyle((s['themeStyle'] ?? s['ThemeStyle'] ?? 'Classic').toString());
         final nextCenter = s['centerName'] ?? s['CenterName'] ?? _centerName;
         final nextMosque = s['mosqueName'] ?? s['MosqueName'] ?? _mosqueName;
+        final nextLogo = (s['logoUrl'] ?? s['LogoUrl'] ?? '').toString();
         final nextMaintenance = s['maintenanceMode'] == true || s['MaintenanceMode'] == true;
-        if (nextCenter != _centerName || nextMosque != _mosqueName || nextMaintenance != _isMaintenanceMode) {
+        if (nextCenter != _centerName || nextMosque != _mosqueName || nextLogo != _logoUrl || nextMaintenance != _isMaintenanceMode) {
           setState(() {
             _centerName = nextCenter;
             _mosqueName = nextMosque;
+            _logoUrl = nextLogo;
             _isMaintenanceMode = nextMaintenance;
           });
         }
@@ -282,7 +287,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           Container(
             width: 42, height: 42,
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: .14), borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.menu_book_rounded, color: Color(0xFFE8D49E), size: 25),
+            child: ClipRRect(borderRadius: BorderRadius.circular(10), child: CenterLogo(logoUrl: _logoUrl, size: 38)),
           ),
           const SizedBox(width: 10),
           Expanded(child: Column(

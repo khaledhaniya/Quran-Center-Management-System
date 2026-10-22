@@ -1437,6 +1437,18 @@ class ApiService {
     }
   }
 
+  static Future<List<int>?> downloadSystemDataExport() async {
+    try {
+      final response = await httpClient.get(
+        Uri.parse('$baseUrl/settings/backup'),
+        headers: _headers(),
+      );
+      return response.statusCode == 200 ? response.bodyBytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // --- Financial Management & Treasury Ledger ---
   static Future<Map<String, dynamic>> getFinancialSummary() async {
     try {

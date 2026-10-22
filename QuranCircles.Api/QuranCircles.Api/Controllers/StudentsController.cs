@@ -42,7 +42,9 @@ public class StudentsController : ControllerBase
     public async Task<IActionResult> Get(int id)
     {
         if (!await new StudentReadAccess(_db).CanReadAsync(HttpContext, id)) return Forbid();
-        var s = await _svc.GetFullStudentByIdAsync(id);
+        var hidePhone = FakeAuth.GetRole(HttpContext) == UserRole.Teacher &&
+            await _db.SystemSettings.AsNoTracking().AnyAsync(x => x.HideParentPhoneFromTeacher);
+        var s = await _svc.GetFullStudentByIdAsync(id, hidePhone);
         if (s == null) return NotFound(new { error = "الطالب غير موجود." });
         return Ok(s);
     }
@@ -69,9 +71,10 @@ public class StudentsController : ControllerBase
         }
         else if (currentUser != null && currentUser.Role == UserRole.Teacher)
         {
+            var hidePhone = await _db.SystemSettings.AsNoTracking().AnyAsync(x => x.HideParentPhoneFromTeacher);
             if (Request.Query.ContainsKey("all") || Request.Query["forEnrollment"] == "true")
             {
-                return Ok(await _svc.GetAllAsync(search));
+                return Ok(await _svc.GetAllAsync(search, hidePhone));
             }
 
             int teacherId = currentUser.TeacherId ?? 0;
@@ -80,7 +83,7 @@ public class StudentsController : ControllerBase
                 var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
                 if (t != null) teacherId = t.Id;
             }
-            return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search, onlyCircle == true, currentUserId));
+            return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search, onlyCircle == true, currentUserId, hidePhone));
         }
         return Ok(await _svc.GetAllAsync(search));
     }
@@ -257,6 +260,8 @@ public class StudentsController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser?.Role == UserRole.Teacher)
         {
+            if (await _db.SystemSettings.AsNoTracking().AnyAsync(s => !s.AllowTeacherEditStudentPlan))
+                return Forbid();
             int tId = currentUser.TeacherId ?? 0;
             Teacher? teacherObj = null;
             if (tId > 0)
@@ -326,6 +331,8 @@ public class StudentsController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser?.Role == UserRole.Teacher)
         {
+            if (await _db.SystemSettings.AsNoTracking().AnyAsync(s => !s.AllowTeacherEditStudentPlan))
+                return Forbid();
             int tId = currentUser.TeacherId ?? 0;
             Teacher? teacherObj = null;
             if (tId > 0)

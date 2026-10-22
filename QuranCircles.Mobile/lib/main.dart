@@ -16,10 +16,12 @@ class QuranCirclesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return ValueListenableBuilder<String>(
+      valueListenable: AppTheme.style,
+      builder: (context, styleName, _) => MaterialApp(
       title: 'مركز البيان لتعليم القرآن الكريم',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.themeFor(styleName),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -37,6 +39,6 @@ class QuranCirclesApp extends StatelessWidget {
         );
       },
       home: const SplashScreen(),
-    );
+    ));
   }
 }

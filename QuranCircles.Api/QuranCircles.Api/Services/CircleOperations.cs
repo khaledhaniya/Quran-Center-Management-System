@@ -15,6 +15,9 @@ public class CircleOperations(AppDbContext db)
         var user = await db.Users.Include(u => u.Teacher).FirstOrDefaultAsync(u => u.Id == userId);
         var circle = await db.Circles.FindAsync(circleId);
         if (user == null || circle == null) return false;
+        if (user.Role == UserRole.Teacher && date != CenterClock.Today &&
+            await db.SystemSettings.AsNoTracking().AnyAsync(s => s.EnforceDailyAttendanceRecording))
+            return false;
         var day = await db.CircleDays.FirstOrDefaultAsync(d => d.CircleId == circleId && d.Date == date);
         if (day?.Status is "Suspended" or "Closed") return false;
         if (day?.Status == "Absent")

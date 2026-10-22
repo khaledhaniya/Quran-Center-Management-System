@@ -35,7 +35,7 @@ public class SettingsController : ControllerBase
         }
         catch (Exception)
         {
-            return Ok(new SystemSettings());
+            return StatusCode(503, new { error = "تعذر تحميل إعدادات المركز من قاعدة البيانات." });
         }
     }
 
@@ -44,6 +44,15 @@ public class SettingsController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> UpdateSettings([FromBody] UpdateSettingsDto dto)
     {
+        if (dto.PassingScoreThreshold is < 50 or > 100 ||
+            dto.MinAttendancePercentForExam is < 0 or > 100 ||
+            dto.MaxStudentsPerCircle is < 5 or > 50 ||
+            dto.MaxAbsenceDaysWarning is < 1 or > 15)
+            return BadRequest(new { error = "قيمة أحد المعايير خارج النطاق المسموح." });
+        if (dto.ThemeStyle != null && dto.ThemeStyle is not ("Classic" or "Modern" or "Sapphire" or "Dark"))
+            return BadRequest(new { error = "نمط المظهر غير معروف." });
+        if (dto.MaintenanceMode.HasValue && FakeAuth.GetRole(HttpContext) != UserRole.Developer)
+            return Forbid();
         try
         {
             var settings = await _db.SystemSettings.FirstOrDefaultAsync();
@@ -64,16 +73,16 @@ public class SettingsController : ControllerBase
             if (dto.ThemeStyle != null) settings.ThemeStyle = dto.ThemeStyle.Trim();
 
             // 2. Academic & Quranic Standards
-            if (dto.PassingScoreThreshold.HasValue && dto.PassingScoreThreshold.Value > 0)
+            if (dto.PassingScoreThreshold.HasValue)
                 settings.PassingScoreThreshold = dto.PassingScoreThreshold.Value;
 
-            if (dto.MinAttendancePercentForExam.HasValue && dto.MinAttendancePercentForExam.Value > 0)
+            if (dto.MinAttendancePercentForExam.HasValue)
                 settings.MinAttendancePercentForExam = dto.MinAttendancePercentForExam.Value;
 
-            if (dto.MaxStudentsPerCircle.HasValue && dto.MaxStudentsPerCircle.Value > 0)
+            if (dto.MaxStudentsPerCircle.HasValue)
                 settings.MaxStudentsPerCircle = dto.MaxStudentsPerCircle.Value;
 
-            if (dto.MaxAbsenceDaysWarning.HasValue && dto.MaxAbsenceDaysWarning.Value > 0)
+            if (dto.MaxAbsenceDaysWarning.HasValue)
                 settings.MaxAbsenceDaysWarning = dto.MaxAbsenceDaysWarning.Value;
 
             // 3. Security, Permissions & Access Control
@@ -157,7 +166,7 @@ public class SettingsController : ControllerBase
             });
 
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
-            return File(bytes, "application/json", $"quran_center_backup_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
+            return File(bytes, "application/json", $"quran_center_data_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
         }
         catch (Exception ex)
         {
@@ -167,74 +176,10 @@ public class SettingsController : ControllerBase
 
     [HttpPost("restore")]
     [RequireRole(UserRole.Admin, UserRole.Developer)]
-    public async Task<IActionResult> RestoreBackup([FromBody] System.Text.Json.JsonElement payload)
+    public IActionResult RestoreBackup() => StatusCode(410, new
     {
-        try
-        {
-            if (payload.TryGetProperty("Students", out var studentsEl) && studentsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                var students = System.Text.Json.JsonSerializer.Deserialize<List<Student>>(studentsEl.GetRawText());
-                if (students != null && students.Any())
-                {
-                    foreach (var s in students)
-                    {
-                        var existing = await _db.Students.FindAsync(s.Id);
-                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(s);
-                        else _db.Students.Add(s);
-                    }
-                }
-            }
-
-            if (payload.TryGetProperty("Teachers", out var teachersEl) && teachersEl.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                var teachers = System.Text.Json.JsonSerializer.Deserialize<List<Teacher>>(teachersEl.GetRawText());
-                if (teachers != null && teachers.Any())
-                {
-                    foreach (var t in teachers)
-                    {
-                        var existing = await _db.Teachers.FindAsync(t.Id);
-                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(t);
-                        else _db.Teachers.Add(t);
-                    }
-                }
-            }
-
-            if (payload.TryGetProperty("Circles", out var circlesEl) && circlesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                var circles = System.Text.Json.JsonSerializer.Deserialize<List<Circle>>(circlesEl.GetRawText());
-                if (circles != null && circles.Any())
-                {
-                    foreach (var c in circles)
-                    {
-                        var existing = await _db.Circles.FindAsync(c.Id);
-                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(c);
-                        else _db.Circles.Add(c);
-                    }
-                }
-            }
-
-            if (payload.TryGetProperty("ProfileUpdateRequests", out var reqsEl) && reqsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                var reqs = System.Text.Json.JsonSerializer.Deserialize<List<ProfileUpdateRequest>>(reqsEl.GetRawText());
-                if (reqs != null && reqs.Any())
-                {
-                    foreach (var r in reqs)
-                    {
-                        var existing = await _db.ProfileUpdateRequests.FindAsync(r.Id);
-                        if (existing != null) _db.Entry(existing).CurrentValues.SetValues(r);
-                        else _db.ProfileUpdateRequests.Add(r);
-                    }
-                }
-            }
-
-            await _db.SaveChangesAsync();
-            return Ok(new { message = "تم استعادة كافة بيانات المنظومة بنجاح تام." });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = "فشل استعادة البيانات: " + ex.Message });
-        }
-    }
+        error = "تم إيقاف الاستعادة الجزئية لأنها لا تعيد قاعدة البيانات كاملة. استخدم نسخة SQL من لوحة الاستضافة."
+    });
 }
 
 public record UpdateSettingsDto(

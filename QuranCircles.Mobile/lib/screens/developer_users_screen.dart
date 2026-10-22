@@ -50,7 +50,8 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
   void _toggleMaintenanceMode(bool val) async {
     setState(() => _isUpdatingMaintenance = true);
     try {
-      await ApiService.updateSystemSettings({'maintenanceMode': val});
+      final saved = await ApiService.updateSystemSettings({'maintenanceMode': val});
+      if (!saved) throw StateError('لم يؤكد الخادم حفظ التغيير');
       if (mounted) {
         setState(() {
           _isMaintenanceMode = val;

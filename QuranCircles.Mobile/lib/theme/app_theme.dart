@@ -1,6 +1,25 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+  static final ValueNotifier<String> style = ValueNotifier<String>('Classic');
+  static void setStyle(String value) {
+    if (const {'Classic', 'Modern', 'Sapphire', 'Dark'}.contains(value)) style.value = value;
+  }
+
+  static ThemeData themeFor(String styleName) {
+    final color = switch (styleName) {
+      'Modern' => const Color(0xFF059669),
+      'Sapphire' => const Color(0xFF1E40AF),
+      'Dark' => const Color(0xFF0F172A),
+      _ => primary,
+    };
+    return lightTheme.copyWith(
+      primaryColor: color,
+      colorScheme: ColorScheme.fromSeed(seedColor: color, primary: color, secondary: accent),
+      appBarTheme: lightTheme.appBarTheme.copyWith(backgroundColor: color),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white)),
+    );
+  }
   static const Color primary = Color(0xFF0D5C3A);
   static const Color primaryDark = Color(0xFF083C25);
   static const Color primaryLight = Color(0xFF1E8252);

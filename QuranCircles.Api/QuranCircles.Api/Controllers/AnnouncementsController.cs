@@ -42,6 +42,9 @@ public class AnnouncementsController : ControllerBase
 
         var user = await _db.Users.FindAsync(userId.Value);
         if (user == null) return Unauthorized(new { error = "المستخدم غير موجود." });
+        if ((dto.TargetType is AnnouncementTarget.All or AnnouncementTarget.AllTeachers) &&
+            await _db.SystemSettings.AsNoTracking().AnyAsync(s => !s.AllowPublicAnnouncements))
+            return BadRequest(new { error = "نشر التعميمات العامة معطل في إعدادات المركز." });
 
         // Scoping & Validation
         bool isUserTeacher = user.Role == UserRole.Teacher || user.TeacherId.HasValue;

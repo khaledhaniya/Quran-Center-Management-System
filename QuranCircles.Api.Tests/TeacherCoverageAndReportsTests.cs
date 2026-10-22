@@ -10,6 +10,37 @@ namespace QuranCircles.Api.Tests;
 
 public class TeacherCoverageAndReportsTests
 {
+    [Fact]
+    public async Task CmsDailyRecordingRuleBlocksTeacherBackfillButNotAdministrator()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        using var db = Open(connection);
+        db.SystemSettings.Add(new SystemSettings { EnforceDailyAttendanceRecording = true });
+        db.Teachers.Add(new Teacher { Id = 1, FullName = "معلم", IsActive = true });
+        db.Users.AddRange(
+            new User { Id = 1, Username = "teacher", Role = UserRole.Teacher, TeacherId = 1 },
+            new User { Id = 2, Username = "admin", Role = UserRole.Admin });
+        db.Circles.Add(new Circle { Id = 1, Name = "حلقة", TeacherId = 1, IsActive = true });
+        await db.SaveChangesAsync();
+        var context = new DefaultHttpContext();
+        context.Items["QuranCenter.VerifiedUser"] = await db.Users.Include(u => u.Teacher).SingleAsync(u => u.Id == 1);
+        var operation = new CircleOperations(db);
+        Assert.True(await operation.CanRecordAsync(context, 1, CenterClock.Today));
+        Assert.False(await operation.CanRecordAsync(context, 1, CenterClock.Today.AddDays(-1)));
+        context.Items["QuranCenter.VerifiedUser"] = await db.Users.SingleAsync(u => u.Id == 2);
+        Assert.True(await operation.CanRecordAsync(context, 1, CenterClock.Today.AddDays(-1)));
+    }
+
+    [Fact]
+    public void TeacherStudentViewCanHideParentContactWithoutHidingStudentPhone()
+    {
+        var student = new Student { FullName = "طالب", FamilyContact = "0590000000", WhatsappNumber = "0590000001", StudentMobile = "0590000002" };
+        var hidden = System.Text.Json.JsonSerializer.SerializeToElement(StudentService.MapStudentToFullObject(student, hideParentPhone: true));
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, hidden.GetProperty("FamilyContact").ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, hidden.GetProperty("WhatsappNumber").ValueKind);
+        Assert.Equal("0590000002", hidden.GetProperty("StudentMobile").GetString());
+    }
+
     private static AppDbContext Open(SqliteConnection connection)
     {
         connection.Open();
