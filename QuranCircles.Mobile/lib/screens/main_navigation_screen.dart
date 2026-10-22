@@ -21,6 +21,7 @@ import 'teachers_management_screen.dart';
 import 'system_settings_screen.dart';
 import 'financial_management_screen.dart';
 import 'quality_management_screen.dart';
+import 'teacher_operations_screen.dart';
 import 'memorization_forum_screen.dart';
 import 'preacher_youth_screen.dart';
 import 'teacher_attendance_screen.dart';
@@ -453,6 +454,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.punch_clock, color: AppTheme.primary),
+                title: Text('كشف حضور المعلمين والبدلاء', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherOperationsScreen()));
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.notifications_active, color: AppTheme.primary),
                 title: Text('طلبات تعديل ملفات الطلاب والأولياء', style: AppTheme.cairoStyle()),
                 trailing: _pendingRequestsCount > 0
@@ -649,6 +658,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (ctx) => const QualityManagementScreen()));
+                  },
+                ),
+              if (_currentUser.isQualitySupervisor)
+                ListTile(
+                  leading: const Icon(Icons.punch_clock, color: AppTheme.primary),
+                  title: Text('كشف حضور المعلمين والبدلاء', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherOperationsScreen()));
                   },
                 ),
               if (_currentUser.isMemorizationSupervisor)

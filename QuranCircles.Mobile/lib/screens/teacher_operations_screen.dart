@@ -8,19 +8,16 @@ import '../theme/app_theme.dart';
 
 class TeacherOperationsScreen extends StatefulWidget {
   final int? circleId;
-  final bool embedded;
-  const TeacherOperationsScreen({super.key, this.circleId, this.embedded = false});
+  const TeacherOperationsScreen({super.key, this.circleId});
   @override
   State<TeacherOperationsScreen> createState() =>
       _TeacherOperationsScreenState();
 }
 
 class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
-  String from = '', to = '';
+  String selectedDate = '';
   int? circle;
-  String status = '';
   final search = TextEditingController();
-  bool tableView = true;
   List<Circle> circles = [];
   List<dynamic> rows = [];
   bool loading = true;
@@ -43,10 +40,9 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
 
   Map<String, dynamic> get reportFilter => {
         'kind': 'teacher_discipline',
-        'from': from,
-        'to': to,
+        'from': selectedDate,
+        'to': selectedDate,
         'circleId': circle,
-        'status': status.isEmpty ? null : status,
         'search': search.text.trim()
       };
   Future<void> load() async {
@@ -55,10 +51,9 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
       error = null;
     });
     try {
-      if (from.isEmpty) {
+      if (selectedDate.isEmpty) {
         final clock = await ApiService.centerOperation('today');
-        from = clock['date'];
-        to = from;
+        selectedDate = clock['date'];
       }
       final query = Uri(
           queryParameters: reportFilter.entries
@@ -86,22 +81,16 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
     }
   }
 
-  Future<void> chooseDate(bool first) async {
+  Future<void> chooseDate() async {
     final clock = await ApiService.centerOperation('today');
     if (!mounted) return;
     final picked = await showDatePicker(
         context: context,
-        initialDate: DateTime.parse(first ? from : to),
+        initialDate: DateTime.parse(selectedDate),
         firstDate: DateTime(2020),
         lastDate: DateTime.parse(clock['date']));
     if (picked != null) {
-      setState(() {
-        if (first) {
-          from = picked.toIso8601String().substring(0, 10);
-        } else {
-          to = picked.toIso8601String().substring(0, 10);
-        }
-      });
+      setState(() => selectedDate = picked.toIso8601String().substring(0, 10));
       load();
     }
   }
@@ -161,7 +150,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                                   controller: reason,
                                   maxLines: 3,
                                   decoration: const InputDecoration(
-                                      labelText: 'سبب الغياب أو الإجازة',
+                                      labelText: 'العذر أو سبب الغياب (اكتب بدون عذر عند عدم وجوده)',
                                       border: OutlineInputBorder())),
                             ])),
                     actions: [
@@ -223,11 +212,28 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
     }
   }
 
+  String get dayTitle {
+    if (selectedDate.isEmpty) return 'جارٍ تحديد اليوم';
+    const weekdays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+    return '${weekdays[DateTime.parse(selectedDate).weekday - 1]} • $selectedDate';
+  }
+
+  static String absenceLabel(Map<String, dynamic> row) {
+    switch (row['status']) {
+      case 'Absent': return 'غائب';
+      case 'Pending':
+      case 'LatePending': return 'قيد المتابعة';
+      case 'Suspended': return 'الحلقة معلقة';
+      case 'Unscheduled': return 'دون موعد';
+      default: return 'مش غايب';
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-          appBar: widget.embedded ? null : AppBar(title: const Text('حضور المعلمين والبدلاء'), actions: [
+          appBar: AppBar(title: const Text('حضور المعلمين والبدلاء'), actions: [
             IconButton(onPressed: load, icon: const Icon(Icons.refresh))
           ]),
           body: SingleChildScrollView(
@@ -236,18 +242,16 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                 padding: const EdgeInsets.all(14),
                 child: Column(children: [
                   Text(
-                      'يرصد بدء الحلقة من أول تسميع. يظهر التأخر بعد 15 دقيقة والغياب بعد انتهاء الموعد دون نشاط. الموعد غير المحدد لا يحتسب غياباً.',
+                      'كشف يوم واحد. يُسجّل الغياب بقرار إداري فقط، وبعد نهاية اليوم تظهر «مش غايب» إذا لم يُسجَّل غياب. تنبيه التأخر لا يعني الغياب.',
                       style: AppTheme.cairoStyle(
                           fontSize: 11,
                           color: AppTheme.textMuted,
                           height: 1.8)),
                   Wrap(spacing: 8, runSpacing: 8, children: [
-                    OutlinedButton(
-                        onPressed: from.isEmpty ? null : () => chooseDate(true),
-                        child: Text('من: $from')),
-                    OutlinedButton(
-                        onPressed: to.isEmpty ? null : () => chooseDate(false),
-                        child: Text('إلى: $to')),
+                    OutlinedButton.icon(
+                        onPressed: selectedDate.isEmpty ? null : chooseDate,
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text('تاريخ الكشف: $selectedDate')),
                     OutlinedButton(
                         onPressed: () => downloadReport('xlsx'),
                         child: const Text('Excel')),
@@ -274,32 +278,6 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                           load();
                         }),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                      key: ValueKey(status),
-                      initialValue: status,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'الحالة'),
-                      items: const [
-                        DropdownMenuItem(value: '', child: Text('كل الحالات')),
-                        DropdownMenuItem(value: 'Present', child: Text('حاضر')),
-                        DropdownMenuItem(
-                            value: 'Late', child: Text('حاضر متأخر')),
-                        DropdownMenuItem(value: 'Absent', child: Text('غائب')),
-                        DropdownMenuItem(
-                            value: 'LatePending',
-                            child: Text('متأخر ولم تبدأ')),
-                        DropdownMenuItem(
-                            value: 'Pending', child: Text('بانتظار البدء')),
-                        DropdownMenuItem(
-                            value: 'Suspended', child: Text('معلقة')),
-                        DropdownMenuItem(
-                            value: 'Unscheduled', child: Text('دون موعد'))
-                      ],
-                      onChanged: (v) {
-                        setState(() => status = v ?? '');
-                        load();
-                      }),
-                  const SizedBox(height: 12),
                   TextField(
                       controller: search,
                       onSubmitted: (_) => load(),
@@ -313,9 +291,8 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                     TextButton(
                         onPressed: () async {
                           search.clear();
-                          status = '';
                           circle = null;
-                          from = '';
+                          selectedDate = '';
                           await load();
                         },
                         child: const Text('كشف اليوم بالكامل')),
@@ -325,12 +302,23 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                             tableView ? Icons.view_agenda : Icons.table_rows),
                         label: Text(tableView ? 'عرض البطاقات' : 'عرض الجدول'))
                   ]),
-                  Text('السجلات: ${rows.length} • حاضر: ${rows.where((r) => [
-                        'Present',
-                        'Late'
-                      ].contains(r['status'])).length} • غائب: ${rows.where((r) => r['status'] == 'Absent').length} • بدلاء: ${rows.where((r) => r['substituteUserId'] != null).length}'),
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(18)),
+                    child: Text('كشف يوم $dayTitle', textAlign: TextAlign.center,
+                      style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text('الحلقات: ${rows.length}  •  الغياب: ${rows.where((r) => r['status'] == 'Absent').length}  •  أسباب موثقة: ${rows.where((r) => r['status'] == 'Absent' && (r['reason'] ?? '').toString().isNotEmpty).length}  •  مش غايب: ${rows.where((r) => absenceLabel(r as Map<String, dynamic>) == 'مش غايب').length}',
+                      style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryDark)),
+                  ),
+                  Text('حرّك الجدول أفقياً لرؤية الغياب والعذر وباقي التفاصيل.',
+                    style: AppTheme.cairoStyle(fontSize: 11, color: AppTheme.textMuted)),
                 ])),
-            if (tableView && MediaQuery.sizeOf(context).width >= 700 && !loading && error == null)
+            if (tableView && !loading && error == null)
               Padding(
                   padding: const EdgeInsets.all(14),
                   child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: PaginatedDataTable(
@@ -342,17 +330,18 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                       columnSpacing: 20,
                       horizontalMargin: 16,
                       columns: const [
-                        DataColumn(label: Text('التاريخ / الحلقة')),
+                        DataColumn(label: Text('الحلقة')),
                         DataColumn(label: Text('المعلم')),
-                        DataColumn(label: Text('الحالة')),
-                        DataColumn(label: Text('الموعد / البدء / الإغلاق')),
-                        DataColumn(label: Text('تأخر')),
-                        DataColumn(label: Text('البديل')),
-                        DataColumn(label: Text('سبب الغياب')),
+                        DataColumn(label: Text('وقت الحلقة')),
+                        DataColumn(label: Text('البدء / الإغلاق')),
+                        DataColumn(label: Text('التأخير')),
+                        DataColumn(label: Text('الغياب')),
+                        DataColumn(label: Text('العذر')),
+                        DataColumn(label: Text('المعلم البديل')),
                         DataColumn(label: Text('التغطية'))
                       ],
                       source: TeacherRegisterSource(rows, canEdit, coverage)))),
-            if (!tableView || MediaQuery.sizeOf(context).width < 700 || loading || error != null)
+            if (!tableView || loading || error != null)
               loading
                       ? const Center(child: CircularProgressIndicator())
                       : error != null
@@ -402,7 +391,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                                                               fontSize: 12)),
                                                   const SizedBox(height: 8),
                                                   Text(
-                                                      '${r['statusText']}${r['isAutomatic'] == true ? ' • رصد تلقائي' : ''}',
+                                                      'الغياب: ${absenceLabel(r)} • ${r['statusText']}',
                                                       style: AppTheme.cairoStyle(
                                                           fontWeight:
                                                               FontWeight.bold,
@@ -412,8 +401,9 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                                                               : AppTheme
                                                                   .primary)),
                                                   Text(
-                                                      'الموعد: ${r['scheduledStart'] ?? 'غير محدد'} • البدء: ${r['openedAt'] ?? 'لم تبدأ'}'),
+                                                      'الموعد: ${r['scheduledStart'] == null ? 'غير محدد' : '${r['scheduledStart']} - ${r['scheduledEnd'] ?? ''}'} • البدء: ${r['openedAt'] ?? 'لم تبدأ'}'),
                                                   Text('الإغلاق: ${r['closedAt'] ?? 'لم تغلق'} • التأخر: ${r['lateMinutes'] == null ? '—' : '${r['lateMinutes']} دقيقة'}'),
+                                                  Text('العذر: ${r['status'] == 'Absent' ? ((r['reason'] ?? '').toString().isEmpty ? 'لم يذكر عذر' : r['reason'].toString()) : '—'}'),
                                                   if ((r['substituteName'] ??
                                                           '')
                                                       .toString()
@@ -427,11 +417,6 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .bold)),
-                                                  if ((r['reason'] ?? '')
-                                                      .toString()
-                                                      .isNotEmpty)
-                                                    Text(
-                                                        r['reason'].toString()),
                                                   if (r['substituteUserId'] ==
                                                       ApiService
                                                           .currentUser?.id)
@@ -480,17 +465,16 @@ class TeacherRegisterSource extends DataTableSource {
     if (index >= rows.length) return null;
     final r = rows[index] as Map<String, dynamic>;
     return DataRow.byIndex(index: index, cells: [
-      DataCell(Text('${r['date']}\n${r['circleName']}')),
+      DataCell(Text('${r['circleName']}')),
       DataCell(Text('${r['teacherName']}')),
-      DataCell(Text(
-          '${r['statusText']}${r['isAutomatic'] == true ? ' • تلقائي' : ''}')),
-      DataCell(Text(
-          '${r['scheduledStart'] ?? 'دون موعد'} / ${r['openedAt'] ?? 'لم تبدأ'} / ${r['closedAt'] ?? 'لم تغلق'}')),
+      DataCell(Text(r['scheduledStart'] == null ? 'دون موعد' : '${r['scheduledStart']} - ${r['scheduledEnd'] ?? ''}')),
+      DataCell(Text('${r['openedAt'] ?? 'لم تبدأ'} / ${r['closedAt'] ?? 'لم تغلق'}')),
       DataCell(Text(r['lateMinutes'] == null ? '—' : '${r['lateMinutes']} دقيقة')),
+      DataCell(Text(_TeacherOperationsScreenState.absenceLabel(r))),
+      DataCell(Text(r['status'] == 'Absent' ? ((r['reason'] ?? '').toString().isEmpty ? 'لم يذكر عذر' : r['reason'].toString()) : '—')),
       DataCell(Text((r['substituteName'] ?? '').toString().isEmpty
           ? 'لا يوجد'
           : r['substituteName'].toString())),
-      DataCell(Text((r['reason'] ?? '').toString().isEmpty ? '—' : r['reason'].toString())),
       DataCell(canEdit
           ? TextButton(
               onPressed: () => coverage(r),

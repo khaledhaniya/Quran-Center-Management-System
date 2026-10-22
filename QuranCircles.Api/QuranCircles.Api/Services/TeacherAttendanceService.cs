@@ -5,7 +5,7 @@ using QuranCircles.Api.Entities;
 namespace QuranCircles.Api.Services;
 
 public record TeacherAttendanceRow(int CircleId, string CircleName, DateOnly Date, int? TeacherId, string TeacherName,
-    string Status, string StatusText, bool IsAutomatic, string? ScheduledStart, string? OpenedAt, string? ClosedAt,
+    string Status, string StatusText, bool IsAutomatic, string? ScheduledStart, string? ScheduledEnd, string? OpenedAt, string? ClosedAt,
     int? LateMinutes, int? SubstituteUserId, string SubstituteName, string Reason);
 
 public class TeacherAttendanceService(AppDbContext db)
@@ -44,15 +44,17 @@ public class TeacherAttendanceService(AppDbContext db)
             DateTime? start = scheduled && TimeOnly.TryParse(schedule!.StartTime, out var time) ? date.ToDateTime(time) : null;
             var opened = day?.OpenedAt is DateTime o ? CenterClock.Local(o) : (DateTime?)null;
             var closed = day?.ClosedAt is DateTime c ? CenterClock.Local(c) : (DateTime?)null;
-            int? late = opened.HasValue && start.HasValue ? Math.Max(0, (int)(opened.Value - start.Value).TotalMinutes) : null;
+            int? late = opened.HasValue && start.HasValue ? Math.Max(0, (int)(opened.Value - start.Value).TotalMinutes)
+                : start.HasValue && date == DateOnly.FromDateTime(now) && now >= start.Value.AddMinutes(15)
+                    ? Math.Max(0, (int)(now - start.Value).TotalMinutes) : null;
             var status = day?.Status is "Absent" or "Suspended" ? day.Status : opened.HasValue ? (late > 0 ? "Late" : "Present")
-                : start.HasValue && now >= start.Value.AddMinutes(schedule!.DurationMinutes) ? "Absent"
+                : start.HasValue && date < DateOnly.FromDateTime(now) ? "NotAbsent"
                 : start.HasValue && now >= start.Value.AddMinutes(15) ? "LatePending"
                 : start.HasValue ? "Pending" : "Unscheduled";
-            var label = status switch { "Absent" => "غائب", "Suspended" => "الحلقة معلقة", "Late" => "حاضر متأخر", "Present" => "حاضر", "LatePending" => "متأخر • لم تبدأ", "Pending" => "بانتظار بدء الحلقة", _ => "الموعد غير محدد" };
+            var label = status switch { "Absent" => "غائب", "Suspended" => "الحلقة معلقة", "Late" => "حاضر متأخر", "Present" => "حاضر", "NotAbsent" => "لم يُسجّل غياب", "LatePending" => "متأخر • لم تبدأ", "Pending" => "بانتظار بدء الحلقة", _ => "الموعد غير محدد" };
             var teacherId = day?.TeacherId ?? circle.TeacherId;
             rows.Add(new(circle.Id, circle.Name, date, teacherId, teacherId.HasValue ? teachers.GetValueOrDefault(teacherId.Value, "غير معين") : "غير معين",
-                status, label, status == "Absent" && day?.Status != "Absent", start?.ToString("HH:mm"), opened?.ToString("HH:mm"), closed?.ToString("HH:mm"),
+                status, label, false, start?.ToString("HH:mm"), start?.AddMinutes(schedule!.DurationMinutes).ToString("HH:mm"), opened?.ToString("HH:mm"), closed?.ToString("HH:mm"),
                 late, day?.SubstituteUserId, day?.SubstituteUserId is int sub ? users.GetValueOrDefault(sub, "حساب غير متاح") : "", day?.Reason ?? ""));
         }
         return rows.OrderByDescending(r => r.Date).ThenBy(r => r.CircleName).ToList();

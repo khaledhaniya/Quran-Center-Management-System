@@ -117,10 +117,11 @@ public class OperationalReports(AppDbContext db)
                 rows = (await db.CourseEnrollments.Include(e => e.Course).AsNoTracking().Where(e => ids.Contains(e.StudentId) && e.CertificateCode != null && e.CertificateDate >= from && e.CertificateDate <= to).ToListAsync())
                     .Select(e => new[] { Name(e.StudentId), e.Course?.Name ?? "", e.CertificateCode!, e.CertificateDate.ToString()!, e.Grade?.ToString() ?? "" }).ToList(); break;
             case "teacher_discipline":
-                columns = ["الحلقة", "المعلم الأصلي", "التاريخ", "الحالة", "بداية مقررة", "بداية فعلية", "إغلاق الحلقة", "التأخير بالدقائق", "المعلم البديل", "سبب الغياب أو الإجازة"];
+                columns = ["الحلقة", "المعلم الأصلي", "التاريخ", "الحالة", "وقت الحلقة", "بداية فعلية", "إغلاق الحلقة", "التأخير بالدقائق", "الغياب", "العذر", "المعلم البديل"];
                 rows = TeacherAttendanceService.Filter(await new TeacherAttendanceService(db).BuildAsync(from, to, filter.CircleId), filter.TeacherId, filter.Status, filter.Search).Select(d => new[] {
-                    d.CircleName, d.TeacherName, d.Date.ToString("yyyy-MM-dd"), d.StatusText + (d.IsAutomatic ? " • رصد تلقائي" : ""), d.ScheduledStart ?? "غير محدد", d.OpenedAt ?? "لم تبدأ", d.ClosedAt ?? "لم تغلق",
-                    d.LateMinutes?.ToString() ?? "", d.SubstituteName, d.Reason }).ToList(); break;
+                    d.CircleName, d.TeacherName, d.Date.ToString("yyyy-MM-dd"), d.StatusText, d.ScheduledStart == null ? "غير محدد" : $"{d.ScheduledStart} - {d.ScheduledEnd}", d.OpenedAt ?? "لم تبدأ", d.ClosedAt ?? "لم تغلق",
+                    d.LateMinutes?.ToString() ?? "", d.Status == "Absent" ? "غائب" : d.Status is "Pending" or "LatePending" ? "قيد المتابعة" : d.Status == "Suspended" ? "الحلقة معلقة" : d.Status == "Unscheduled" ? "دون موعد" : "مش غايب",
+                    d.Status == "Absent" ? d.Reason : "", d.SubstituteName }).ToList(); break;
             case "circle_scorecard":
                 columns = ["الحلقة", "الطلاب", "الحضور %", "جلسات التسميع", "صفحات الحفظ", "صفحات المراجعة", "متوسط الإتقان"];
                 rows = students.GroupBy(s => s.CircleId).Select(g => { var gIds = g.Select(s => s.Id).ToHashSet(); var a = attendance.Where(a => a.CircleId == g.Key).ToList(); var rec = sessions.Where(s => gIds.Contains(s.StudentId)).ToList(); return new[] { g.First().Circle?.Name ?? "غير مسند", g.Count().ToString(), F(ReportService.Percentage(a.Count(a => a.Status is AttendanceStatus.Present or AttendanceStatus.Late), a.Count)), rec.Count.ToString(), F(rec.Where(s => s.RecitationType == RecitationType.Memorization).Sum(ReportService.Pages)), F(rec.Where(s => s.RecitationType != RecitationType.Memorization).Sum(ReportService.Pages)), rec.Count == 0 ? "لا توجد بيانات" : F(rec.Average(ReportService.Score)) }; }).ToList(); break;

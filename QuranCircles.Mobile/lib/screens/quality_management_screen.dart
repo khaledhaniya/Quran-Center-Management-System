@@ -21,7 +21,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() { if (mounted) setState(() {}); });
     _fetchQualityOverview();
   }
@@ -104,7 +104,6 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                 icon: const Icon(Icons.school, size: 18),
                 text: 'الدورات العلمية (${courses.length})',
               ),
-              const Tab(icon: Icon(Icons.punch_clock, size: 18), text: 'حضور المعلمين والبدلاء'),
             ],
           ),
         ),
@@ -124,7 +123,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                 style: AppTheme.cairoStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
-          if (_tabController.index != 2 && !_isLoading && _errorMessage == null) _buildQualityKpiHeader(stats),
+          if (!_isLoading && _errorMessage == null) _buildQualityKpiHeader(stats),
           Expanded(child: TabBarView(controller: _tabController, children: [
             _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -136,7 +135,6 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                 : _errorMessage != null
                     ? Center(child: Text(_errorMessage!, textAlign: TextAlign.center))
                     : _buildCoursesTab(courses),
-            const TeacherOperationsScreen(embedded: true),
           ])),
         ]),
       ),

@@ -19,7 +19,7 @@ public class TeacherCoverageAndReportsTests
     }
 
     [Fact]
-    public async Task AbsenceRequiresAFinishedScheduledSessionAndNeverAnUnconfiguredCircle()
+    public async Task MissingSessionDoesNotBecomeAbsenceWithoutAnExplicitRecord()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");
         using var db = Open(connection);
@@ -30,9 +30,12 @@ public class TeacherCoverageAndReportsTests
         var date = new DateOnly(2026,10,15);
         var late = await service.BuildAsync(date,date,localNow:new DateTime(2026,10,15,16,20,0));
         Assert.Equal("LatePending",late.Single(r=>r.CircleId==1).Status);
+        Assert.Equal(20,late.Single(r=>r.CircleId==1).LateMinutes);
         var finished = await service.BuildAsync(date,date,localNow:new DateTime(2026,10,15,17,0,0));
-        Assert.True(finished.Single(r=>r.CircleId==1).IsAutomatic);
-        Assert.Equal("Absent",finished.Single(r=>r.CircleId==1).Status);
+        Assert.Equal("LatePending",finished.Single(r=>r.CircleId==1).Status);
+        var nextDay = await service.BuildAsync(date,date,localNow:new DateTime(2026,10,16,8,0,0));
+        Assert.Equal("NotAbsent",nextDay.Single(r=>r.CircleId==1).Status);
+        Assert.False(nextDay.Single(r=>r.CircleId==1).IsAutomatic);
         Assert.Equal("Unscheduled",finished.Single(r=>r.CircleId==2).Status);
         Assert.False(finished.Single(r=>r.CircleId==2).IsAutomatic);
     }
