@@ -9226,40 +9226,53 @@ body.dark-mode .plan-juz-btn:hover {
     border-color: rgba(212, 175, 55, 0.8) !important;
     box-shadow: 0 4px 20px rgba(212, 175, 55, 0.25);
 }
-.dev-maintenance-toggle.form-check-input {
-    appearance: none;
-    background-image: none !important;
-    width: 66px;
-    height: 36px;
-    margin: 0;
-    border: 1px solid #6b8790;
+.dev-maintenance-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 10px 5px 5px;
+    min-height: 44px;
+    border: 1px solid #667f89;
     border-radius: 999px;
-    background: linear-gradient(135deg, #526776, #31424e);
-    box-shadow: inset 0 2px 5px #0005, 0 0 0 3px #ffffff12;
+    background: #203642;
+    color: #fff;
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 800;
     cursor: pointer;
-    position: relative;
-    transition: background .25s, box-shadow .25s, border-color .25s;
+    white-space: nowrap;
+    transition: background .2s, border-color .2s, box-shadow .2s;
 }
-.dev-maintenance-toggle.form-check-input::before {
-    content: '';
+.dev-maintenance-track {
+    display: block;
+    width: 62px;
+    height: 32px;
+    border-radius: 999px;
+    position: relative;
+    background: #566d78;
+    box-shadow: inset 0 2px 5px #0005;
+    transition: background .2s;
+}
+.dev-maintenance-thumb {
     position: absolute;
-    top: 4px;
-    right: 33px;
+    top: 3px;
+    right: 32px;
+    display: grid;
+    place-items: center;
     width: 26px;
     height: 26px;
     border-radius: 50%;
     background: #fff;
+    color: #475c65;
     box-shadow: 0 2px 7px #0005;
-    transition: right .25s, transform .25s;
+    transition: right .2s, color .2s;
 }
-.dev-maintenance-toggle.form-check-input:checked {
-    border-color: #ffdc78;
-    background: linear-gradient(135deg, #d97706, #f5b820);
-    background-image: none !important;
-    box-shadow: inset 0 2px 5px #663d1055, 0 0 0 4px #f5b82038;
-}
-.dev-maintenance-toggle.form-check-input:checked::before { right: 5px; }
-.dev-maintenance-toggle.form-check-input:focus-visible { outline: 3px solid #f8d785; outline-offset: 4px; }
+.dev-maintenance-toggle[aria-checked="true"] { border-color: #ffcf62; background: #80520c; box-shadow: 0 0 0 3px #f4b73a35; }
+.dev-maintenance-toggle[aria-checked="true"] .dev-maintenance-track { background: #f1af25; }
+.dev-maintenance-toggle[aria-checked="true"] .dev-maintenance-thumb { right: 4px; color: #995f06; }
+.dev-maintenance-toggle:hover { border-color: #f3ca70; }
+.dev-maintenance-toggle:focus-visible { outline: 3px solid #f8d785; outline-offset: 4px; }
+.dev-maintenance-toggle:disabled { opacity: .65; cursor: wait; }
 @media (max-width: 650px) {
     .dev-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); padding: 12px; }
     .dev-search-input-wrap, .dev-search-input { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }

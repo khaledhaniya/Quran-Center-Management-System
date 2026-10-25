@@ -15596,9 +15596,12 @@ function checkMaintenanceBlock() {
 
     const devToggle = document.getElementById("dev-maintenance-toggle");
     if (devToggle) {
-        devToggle.checked = isMaintenance;
+        devToggle.setAttribute('aria-checked', String(isMaintenance));
+        devToggle.setAttribute('aria-label', isMaintenance ? 'إيقاف وضع الصيانة' : 'تفعيل وضع الصيانة');
         devToggle.disabled = false;
     }
+    const maintenanceAction = document.getElementById('dev-maintenance-action');
+    if (maintenanceAction) maintenanceAction.textContent = isMaintenance ? 'إيقاف' : 'تشغيل';
     const statusLabel = document.getElementById("dev-maintenance-status-label");
     if (statusLabel) {
         statusLabel.textContent = isMaintenance ? "مفعّل (الدخول للمطور فقط)" : "معطّل (المنظومة متاحة)";

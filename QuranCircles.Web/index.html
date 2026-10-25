@@ -23,8 +23,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- html2pdf for direct PDF certificate export -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20261015_2">
-    <link rel="stylesheet" href="operations.css?v=20261015_2">
+    <link rel="stylesheet" href="styles.css?v=20261025_3">
+    <link rel="stylesheet" href="operations.css?v=20261025_3">
     <link rel="stylesheet" href="dashboard.css?v=20261015_2">
     <link rel="stylesheet" href="parent-portal.css?v=20261017_2">
     <link rel="stylesheet" href="workflows.css?v=20261022_1">
@@ -1647,9 +1647,10 @@
                                             <span id="dev-maintenance-status-label" class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-50 px-2 py-0.5" style="font-size: 0.72rem;">معطّل (المنظومة متاحة)</span>
                                         </div>
                                     </div>
-                                    <div class="form-check form-switch m-0 ms-2">
-                                        <input class="form-check-input dev-maintenance-toggle" type="checkbox" id="dev-maintenance-toggle" role="switch" aria-label="تفعيل وضع الصيانة" onchange="toggleMaintenanceMode(this.checked)">
-                                    </div>
+                                    <button class="dev-maintenance-toggle" type="button" id="dev-maintenance-toggle" role="switch" aria-checked="false" aria-label="تفعيل وضع الصيانة" onclick="toggleMaintenanceMode(this.getAttribute('aria-checked') !== 'true')">
+                                        <span class="dev-maintenance-track" aria-hidden="true"><span class="dev-maintenance-thumb"><i class="fa-solid fa-power-off"></i></span></span>
+                                        <span class="dev-maintenance-action" id="dev-maintenance-action">تشغيل</span>
+                                    </button>
                                 </div>
                                 <button class="btn btn-warning text-dark shadow px-4 py-2.5 rounded-3 fw-bold d-inline-flex align-items-center gap-2" onclick="showCreateUserModal()" style="font-size: 0.95rem;">
                                     <i class="fa-solid fa-user-plus"></i> إنشاء مستخدم جديد
@@ -2868,7 +2869,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script defer src="assets/logo_base64.js?v=20260913_v11_preacher_youth_clean_cards"></script>
     <script defer src="js/quran-exam-engine.js?v=20260920_v5_confirm_and_manual_fix"></script>
-    <script defer src="app.js?v=20261022_1"></script>
+    <script defer src="app.js?v=20261025_3"></script>
     <script defer src="js/operations.js?v=20261017_2"></script>
     <script defer src="js/report-center.js?v=20261017_2"></script>
     <script defer src="js/parent-portal.js?v=20261017_2"></script>
