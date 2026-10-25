@@ -291,6 +291,7 @@ function resetInactivityTimer() {
 });
 
 function setupAuth() {
+    closeMobileSidebar();
     const token = getAuthStorage("token");
     const role = getAuthStorage("role");
     const userId = getAuthStorage("userId");
@@ -577,6 +578,7 @@ async function handleLogin(e) {
 }
 
 function handleLogout(isSilent = false) {
+    closeMobileSidebar();
     if (inactivityTimer) clearTimeout(inactivityTimer);
     clearAllAuthStorage();
 
@@ -924,8 +926,17 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
 }
 
 // ----------------- Routing & Navigation -----------------
+function closeMobileSidebar() {
+    document.getElementById("app-sidebar")?.classList.remove("open");
+    document.getElementById("sidebar-overlay")?.classList.remove("open");
+    document.body.classList.remove("mobile-nav-open");
+    document.getElementById("mobile-nav-toggle")?.setAttribute("aria-expanded", "false");
+}
+
 function setupNavigation() {
     window.addEventListener("hashchange", handleRouting);
+    window.addEventListener("resize", () => { if (window.innerWidth > 992) closeMobileSidebar(); });
+    window.addEventListener("keydown", (event) => { if (event.key === "Escape") closeMobileSidebar(); });
 
     const mobileToggle = document.getElementById("mobile-nav-toggle");
     const sidebar = document.getElementById("app-sidebar");
@@ -933,29 +944,26 @@ function setupNavigation() {
 
     if (mobileToggle && sidebar && overlay) {
         mobileToggle.addEventListener("click", () => {
-            sidebar.classList.toggle("open");
-            overlay.classList.toggle("open");
+            if (sidebar.classList.contains("open")) {
+                closeMobileSidebar();
+            } else {
+                sidebar.classList.add("open");
+                overlay.classList.add("open");
+                document.body.classList.add("mobile-nav-open");
+                mobileToggle.setAttribute("aria-expanded", "true");
+            }
         });
 
-        overlay.addEventListener("click", () => {
-            sidebar.classList.remove("open");
-            overlay.classList.remove("open");
-        });
+        overlay.addEventListener("click", closeMobileSidebar);
 
         const closeMobileBtn = document.getElementById("btn-close-mobile-sidebar");
         if (closeMobileBtn) {
-            closeMobileBtn.addEventListener("click", () => {
-                sidebar.classList.remove("open");
-                overlay.classList.remove("open");
-            });
+            closeMobileBtn.addEventListener("click", closeMobileSidebar);
         }
 
         // Close sidebar when clicking any navigation link on mobile
-        document.querySelectorAll(".nav-item").forEach(link => {
-            link.addEventListener("click", () => {
-                sidebar.classList.remove("open");
-                overlay.classList.remove("open");
-            });
+        document.getElementById("sidebar-nav")?.addEventListener("click", (event) => {
+            if (event.target.closest(".nav-item")) closeMobileSidebar();
         });
     }
 
@@ -6135,6 +6143,7 @@ document.addEventListener("click", (e) => {
 
 
 function openModal(title, isLarge = false) {
+    closeMobileSidebar();
     document.getElementById("modal-title").textContent = title;
     const container = document.getElementById("modal-container");
     if (isLarge) {
@@ -9305,6 +9314,7 @@ async function deleteUser(userId) {
 
 // ----------------- User Profile: Change My Password -----------------
 window.showChangeMyPasswordModal = function() {
+    closeMobileSidebar();
     openModal("تغيير كلمة المرور الرسمية");
 
     const content = document.getElementById("modal-body-content");
@@ -15596,12 +15606,14 @@ function checkMaintenanceBlock() {
 
     const devToggle = document.getElementById("dev-maintenance-toggle");
     if (devToggle) {
-        devToggle.setAttribute('aria-checked', String(isMaintenance));
+        devToggle.setAttribute('aria-pressed', String(isMaintenance));
         devToggle.setAttribute('aria-label', isMaintenance ? 'إيقاف وضع الصيانة' : 'تفعيل وضع الصيانة');
         devToggle.disabled = false;
     }
     const maintenanceAction = document.getElementById('dev-maintenance-action');
-    if (maintenanceAction) maintenanceAction.textContent = isMaintenance ? 'إيقاف' : 'تشغيل';
+    if (maintenanceAction) maintenanceAction.textContent = isMaintenance ? 'إنهاء الصيانة' : 'تفعيل الصيانة';
+    const maintenanceHint = document.getElementById('dev-maintenance-action-hint');
+    if (maintenanceHint) maintenanceHint.textContent = isMaintenance ? 'إعادة فتح النظام للمستخدمين' : 'إيقاف دخول المستخدمين مؤقتاً';
     const statusLabel = document.getElementById("dev-maintenance-status-label");
     if (statusLabel) {
         statusLabel.textContent = isMaintenance ? "مفعّل (الدخول للمطور فقط)" : "معطّل (المنظومة متاحة)";
