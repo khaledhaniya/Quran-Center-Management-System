@@ -114,6 +114,7 @@ public class TeacherCoverageAndReportsTests
         db.CourseEnrollments.AddRange(new CourseEnrollment {Id=42,StudentId=1,CourseId=1,Status="Passed",Grade=95,CertificateCode="CERT-42"},
             new CourseEnrollment {Id=43,StudentId=1,CourseId=1,Status="Passed",Grade=30,CertificateCode="CERT-43"});
         db.ExamNominations.Add(new ExamNomination {Id=1,StudentId=1,Status="Completed",JuzStart=3,JuzEnd=3,Result=new ExamResult {Grade=40}});
+        db.ExamNominations.Add(new ExamNomination {Id=2,StudentId=1,NominationType="Course",CourseId=1,Status="Completed",Result=new ExamResult {Grade=95}});
         await db.SaveChangesAsync();
         var (profile,error)=await new StudentService(db,new PasswordHasher()).GetStudentProgressByIdAsync(1);
         Assert.Null(error);

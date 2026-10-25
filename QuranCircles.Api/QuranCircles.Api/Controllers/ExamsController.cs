@@ -23,7 +23,8 @@ public class ExamsController : ControllerBase
     }
 
     [HttpPost("nominate")]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [Idempotent]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Developer)]
     public async Task<IActionResult> Nominate([FromBody] CreateNominationDto dto)
     {
         var student = await _db.Students
@@ -35,7 +36,9 @@ public class ExamsController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser == null) return Unauthorized();
 
-        if (currentUser.Role == UserRole.Teacher)
+        var actsAsTeacher = (currentUser.Role == UserRole.Teacher || currentUser.Role == UserRole.Parent) && currentUser.TeacherId.HasValue;
+        if (currentUser.Role == UserRole.Parent && !actsAsTeacher) return Forbid();
+        if (actsAsTeacher)
         {
             if (!currentUser.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive))
                 return Forbid();
@@ -66,6 +69,17 @@ public class ExamsController : ControllerBase
                 {
                     return BadRequest(new { Message = "الطالب غير مسجل في هذه الدورة." });
                 }
+                var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
+                if (settings.MinAttendancePercentForExam > 0)
+                {
+                    var records = await _db.CourseAttendances.Where(a => a.CourseId == dto.CourseId && a.StudentId == student.Id).ToListAsync();
+                    if (records.Count > 0)
+                    {
+                        var attendanceRate = Math.Round(100d * records.Count(a => a.Status is AttendanceStatus.Present or AttendanceStatus.Late) / records.Count, 1);
+                        if (attendanceRate < settings.MinAttendancePercentForExam)
+                            return BadRequest(new { Message = $"نسبة حضور الطالب {attendanceRate}% أقل من الحد المطلوب {settings.MinAttendancePercentForExam}%. يلزم استثناء من إدارة المركز." });
+                    }
+                }
             }
             else
             {
@@ -86,37 +100,11 @@ public class ExamsController : ControllerBase
                     return BadRequest(new { Message = "الطالب غير مسجل في هذه الدورة." });
                 }
 
-                // Check Course Attendance threshold strictly for teachers
-                if (currentUser.Role == UserRole.Teacher)
-                {
-                    var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
-                    int minAttendance = settings.MinAttendancePercentForExam;
-                    if (minAttendance > 0)
-                    {
-                        var courseRecords = await _db.CourseAttendances
-                            .Where(ca => ca.CourseId == dto.CourseId.Value && ca.StudentId == student.Id)
-                            .ToListAsync();
-
-                        if (courseRecords.Count > 0)
-                        {
-                            int presentCount = courseRecords.Count(ca => ca.Status == AttendanceStatus.Present || ca.Status == AttendanceStatus.Late);
-                            int totalSessions = courseRecords.Count;
-                            double attendanceRate = Math.Round((double)presentCount / totalSessions * 100, 1);
-
-                            if (attendanceRate < minAttendance)
-                            {
-                                return BadRequest(new {
-                                    Message = $"لا يمكن لمعلم الدورة ترشيح الطالب للاختبار لتجاوزه نسبة الغياب المحددة (نسبة حضوره {attendanceRate}% والحد الأدنى المطلوب {minAttendance}%). يتطلب ترشيحه استثناءً وموافقة مباشرة من إدارة المركز."
-                                });
-                            }
-                        }
-                    }
-                }
             }
         }
 
         int teacherId = 0;
-        if (currentUser.Role == UserRole.Teacher)
+        if (actsAsTeacher)
         {
             teacherId = currentUser.TeacherId ?? 0;
         }
@@ -137,8 +125,15 @@ public class ExamsController : ControllerBase
         if (dto.NominationType == "Combined" && (!dto.JuzStart.HasValue || !dto.JuzEnd.HasValue || dto.JuzStart < 1 || dto.JuzEnd > 30 || dto.JuzEnd < dto.JuzStart ||
             !new[] { 5, 10, 15, 20, 30 }.Contains(dto.JuzEnd.Value - dto.JuzStart.Value + 1)))
             return BadRequest(new { Message = "حدد سلسلة مجتمعة من 5 أو 10 أو 15 أو 20 أو 30 جزءاً." });
-        if (dto.NominationType == "Combined" && await _db.ExamNominations.AnyAsync(e => e.StudentId == dto.StudentId && e.NominationType == "Combined" && e.JuzStart == dto.JuzStart && e.JuzEnd == dto.JuzEnd && e.Status != "Cancelled"))
+        if (dto.NominationType == "Combined" && await _db.ExamNominations.AnyAsync(e => e.StudentId == dto.StudentId && e.NominationType == "Combined" && e.JuzStart == dto.JuzStart && e.JuzEnd == dto.JuzEnd && (e.Status == "Pending" || e.Status == "Scheduled" || e.Status == "Completed")))
             return Conflict(new { Message = "هذه السلسلة مرشحة مسبقاً للطالب." });
+        if (dto.NominationType == "Course" && await _db.CourseEnrollments.AnyAsync(e => e.StudentId == dto.StudentId && e.CourseId == dto.CourseId && (e.Status == "Passed" || e.Status == "Certified")))
+            return Conflict(new { Message = "الطالب اجتاز هذه الدورة سابقاً؛ لا يمكن إعادة ترشيحه." });
+        if (dto.NominationType != "Combined" && await _db.ExamNominations.AnyAsync(e =>
+            e.StudentId == dto.StudentId && e.NominationType == dto.NominationType &&
+            (dto.NominationType == "Course" ? e.CourseId == dto.CourseId : e.JuzStart == dto.JuzStart && e.JuzEnd == dto.JuzEnd) &&
+            (e.Status == "Pending" || e.Status == "Scheduled" || e.Status == "Completed")))
+            return Conflict(new { Message = "الطالب مرشح بالفعل لهذا الاختبار أو اجتازه. لا يمكن تكرار الترشيح." });
 
         var nomination = new ExamNomination
         {
@@ -238,7 +233,7 @@ public class ExamsController : ControllerBase
         bool isGeneralSupervisor = currentUser.Role == UserRole.Admin ||
                                    currentUser.Role == UserRole.Developer ||
                                    currentUser.Role == UserRole.ExamSupervisor ||
-                                   (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+                                   (currentTeacher?.IsActive == true && currentTeacher.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
 
         var query = _db.ExamNominations
             .Include(n => n.Student)
@@ -254,7 +249,12 @@ public class ExamsController : ControllerBase
         {
             // Exam Supervisors, Admins, and Developers can see all nominations
         }
-        else if (currentUser.Role == UserRole.Teacher)
+        else if (currentUser.Role == UserRole.Teacher && currentTeacher?.IsActive != true)
+        {
+            var ownChildrenIds = await ParentLinks.ChildrenQuery(_db, currentUser).Select(s => s.Id).ToListAsync();
+            query = query.Where(n => ownChildrenIds.Contains(n.StudentId));
+        }
+        else if (currentUser.Role == UserRole.Teacher || (currentUser.Role == UserRole.Parent && currentTeacher?.IsActive == true))
         {
             var ownChildrenIds = await ParentLinks.ChildrenQuery(_db, currentUser)
                 .Select(s => s.Id).ToListAsync();
@@ -277,6 +277,7 @@ public class ExamsController : ControllerBase
                 .Select(s => s.Id).ToList();
             query = query.Where(n => studentIds.Contains(n.StudentId));
         }
+        else return Forbid();
 
         var nominationsList = await query.ToListAsync();
 
@@ -334,7 +335,7 @@ public class ExamsController : ControllerBase
     }
 
     [HttpPut("schedule")]
-    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher, UserRole.Parent)]
     public async Task<IActionResult> Schedule([FromBody] ScheduleExamDto dto)
     {
         var nomination = await _db.ExamNominations
@@ -343,16 +344,18 @@ public class ExamsController : ControllerBase
             .FirstOrDefaultAsync(n => n.Id == dto.NominationId);
 
         if (nomination == null) return NotFound(new { Message = "طلب الترشيح غير موجود." });
+        if (nomination.Status != "Pending") return BadRequest(new { Message = "لا يمكن جدولة اختبار لم يعد بانتظار الجدولة." });
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser == null) return Unauthorized();
 
         var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
+        if ((currentUser.Role == UserRole.Parent || currentUser.Role == UserRole.Teacher) && currentTeacher?.IsActive != true) return Forbid();
         bool isGeneralSupervisor = currentUser.Role == UserRole.Admin ||
                                    currentUser.Role == UserRole.Developer ||
                                    currentUser.Role == UserRole.ExamSupervisor ||
-                                   (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+                                   (currentTeacher?.IsActive == true && currentTeacher.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
 
         if (!isGeneralSupervisor)
         {
@@ -408,7 +411,7 @@ public class ExamsController : ControllerBase
     }
 
     [HttpPost("evaluate")]
-    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher, UserRole.Parent)]
     public async Task<IActionResult> Evaluate([FromBody] EvaluateExamDto dto)
     {
         var nomination = await _db.ExamNominations
@@ -418,16 +421,19 @@ public class ExamsController : ControllerBase
             .FirstOrDefaultAsync(n => n.Id == dto.NominationId);
 
         if (nomination == null) return NotFound(new { Message = "طلب الترشيح غير موجود." });
+        if (nomination.Status != "Scheduled") return BadRequest(new { Message = "يجب جدولة الاختبار قبل رصد النتيجة." });
+        if (dto.Grade < 0 || dto.Grade > 100) return BadRequest(new { Message = "الدرجة يجب أن تكون بين صفر ومئة." });
 
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser == null) return Unauthorized();
 
         var currentTeacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
+        if ((currentUser.Role == UserRole.Parent || currentUser.Role == UserRole.Teacher) && currentTeacher?.IsActive != true) return Forbid();
         bool isGeneralSupervisor = currentUser.Role == UserRole.Admin ||
                                    currentUser.Role == UserRole.Developer ||
                                    currentUser.Role == UserRole.ExamSupervisor ||
-                                   (currentTeacher?.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+                                   (currentTeacher?.IsActive == true && currentTeacher.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
 
         if (!isGeneralSupervisor)
         {

@@ -14,6 +14,72 @@ namespace QuranCircles.Api.Tests;
 public class ParentPortalAndPermissionsTests
 {
     private static AppDbContext Open(SqliteConnection c){c.Open();var db=new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(c).Options);db.Database.EnsureCreated();return db;}
+    [Fact]
+    public async Task AStudentCircleAnnouncementReachesOnlyTheAssignedAudience()
+    {
+        using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);
+        db.Teachers.AddRange(new Teacher {Id=1,FullName="معلم الحلقة"},new Teacher {Id=2,FullName="معلم الدورة"},new Teacher {Id=3,FullName="معلم دورة الزميل"});
+        db.Circles.AddRange(new Circle {Id=1,Name="الأولى",TeacherId=1},new Circle {Id=2,Name="الثانية"});
+        db.Courses.AddRange(new Course {Id=1,Name="التجويد",TeacherId=2},new Course {Id=2,Name="دورة الزميل",TeacherId=3});
+        db.Students.AddRange(new Student {Id=1,FullName="المرسل",CircleId=1,ParentId=5},new Student {Id=2,FullName="زميل",CircleId=1},new Student {Id=3,FullName="طالب آخر",CircleId=2});
+        db.CourseEnrollments.Add(new CourseEnrollment {StudentId=1,CourseId=1});
+        db.CourseEnrollments.Add(new CourseEnrollment {StudentId=2,CourseId=2});
+        var sender=new User {Id=1,Username="sender",FullName="المرسل",Role=UserRole.Student,StudentId=1};
+        var peer=new User {Id=2,Username="peer",FullName="زميل",Role=UserRole.Student,StudentId=2};
+        var outsider=new User {Id=3,Username="outsider",FullName="طالب آخر",Role=UserRole.Student,StudentId=3};
+        var circleTeacher=new User {Id=4,Username="circle",FullName="معلم الحلقة",Role=UserRole.Teacher,TeacherId=1};
+        var parent=new User {Id=5,Username="parent",FullName="ولي الأمر",Role=UserRole.Parent};
+        var courseTeacher=new User {Id=6,Username="course",FullName="معلم الدورة",Role=UserRole.Teacher,TeacherId=2};
+        var admin=new User {Id=7,Username="admin",FullName="المدير",Role=UserRole.Admin};
+        var peerCourseTeacher=new User {Id=8,Username="peerCourse",FullName="معلم دورة الزميل",Role=UserRole.Teacher,TeacherId=3};
+        db.Users.AddRange(sender,peer,outsider,circleTeacher,parent,courseTeacher,admin,peerCourseTeacher);await db.SaveChangesAsync();
+        var context=new DefaultHttpContext();context.Items["QuranCenter.VerifiedUser"]=sender;
+        var service=new AnnouncementService(db);
+        var controller=new AnnouncementsController(service,db){ControllerContext=new ControllerContext {HttpContext=context}};
+        Assert.IsType<BadRequestObjectResult>(await controller.Create(new("خارج الحلقة","رسالة",AnnouncementTarget.Circle,2)));
+        Assert.IsType<OkObjectResult>(await controller.Create(new("من الطالب","رسالة",AnnouncementTarget.Circle,1)));
+        Assert.Single(await service.GetMyAnnouncementsAsync(peer.Id));
+        Assert.Single(await service.GetMyAnnouncementsAsync(circleTeacher.Id));
+        Assert.Single(await service.GetMyAnnouncementsAsync(courseTeacher.Id));
+        Assert.Empty(await service.GetMyAnnouncementsAsync(peerCourseTeacher.Id));
+        Assert.Single(await service.GetMyAnnouncementsAsync(admin.Id));
+        Assert.Empty(await service.GetMyAnnouncementsAsync(outsider.Id));
+        Assert.Empty(await service.GetMyAnnouncementsAsync(parent.Id));
+    }
+    [Fact]
+    public async Task DuplicateExamNominationsAndDirectCourseGradesAreRejected()
+    {
+        using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);
+        db.Teachers.Add(new Teacher {Id=1,FullName="معلم الدورة"});
+        db.Courses.Add(new Course {Id=1,Name="التجويد",TeacherId=1});
+        db.Students.Add(new Student {Id=1,FullName="الطالب"});
+        db.CourseEnrollments.Add(new CourseEnrollment {Id=1,StudentId=1,CourseId=1});
+        var user=new User {Id=1,Username="teacher",Role=UserRole.Teacher,TeacherId=1};
+        var admin=new User {Id=2,Username="admin",Role=UserRole.Admin};
+        db.Users.AddRange(user,admin);
+        await db.SaveChangesAsync();
+        var context=new DefaultHttpContext();context.Items["QuranCenter.VerifiedUser"]=user;
+        var exams=new ExamsController(db){ControllerContext=new ControllerContext {HttpContext=context}};
+        Assert.IsType<OkObjectResult>(await exams.Nominate(new() {StudentId=1,NominationType="Course",CourseId=1}));
+        Assert.IsType<ConflictObjectResult>(await exams.Nominate(new() {StudentId=1,NominationType="Course",CourseId=1}));
+        var courses=new CoursesController(db){ControllerContext=new ControllerContext {HttpContext=context}};
+        Assert.IsType<BadRequestObjectResult>(courses.RecordGrade(new(1,95)));
+        var enrollment=await db.CourseEnrollments.SingleAsync();
+        Assert.Null(enrollment.Grade);Assert.Null(enrollment.CertificateCode);
+        enrollment.Grade=95;enrollment.Status="Passed";enrollment.CertificateCode="LEGACY";await db.SaveChangesAsync();
+        var rows=Assert.IsType<OkObjectResult>(await courses.GetEnrollments(1));
+        var row=Assert.Single(JsonSerializer.SerializeToElement(rows.Value).EnumerateArray());
+        Assert.Equal(JsonValueKind.Null,row.GetProperty("Grade").ValueKind);
+        Assert.Equal(JsonValueKind.Null,row.GetProperty("CertificateCode").ValueKind);
+        Assert.Equal("Enrolled",row.GetProperty("Status").GetString());
+        context.Items["QuranCenter.VerifiedUser"]=admin;
+        var report=Assert.IsType<OkObjectResult>(await courses.GetComprehensiveReport());
+        var course=Assert.Single(JsonSerializer.SerializeToElement(report.Value).GetProperty("Courses").EnumerateArray());
+        var reportStudent=Assert.Single(course.GetProperty("Students").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null,reportStudent.GetProperty("Grade").ValueKind);
+        Assert.Equal("-",reportStudent.GetProperty("CertificateCode").GetString());
+        Assert.Equal("قيد الدراسة",reportStudent.GetProperty("StatusArabic").GetString());
+    }
     [Theory]
     [InlineData("معلم دورات","courses")]
     [InlineData("معلم دورة","courses")]

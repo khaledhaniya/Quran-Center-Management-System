@@ -47,6 +47,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     int targetType = 1;
     int? selectedTargetId;
     int? selectedCircleFilter;
+    int? selectedCourseFilter;
 
     final isTeacher = widget.currentUser.role == 'Teacher' || widget.currentUser.teacherId != null;
     final isParent = widget.currentUser.role == 'Parent' || widget.currentUser.hasChildren || widget.currentUser.childrenCount > 0;
@@ -61,19 +62,41 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
     final searchController = TextEditingController();
     List<Circle> circles = [];
+    List<Course> courses = [];
     List<Teacher> teachers = [];
     List<Student> students = [];
     List<Map<String, dynamic>> parentsList = [];
     List<Map<String, dynamic>> parentTeachers = [];
+    final courseStudentIds = <int, Set<int>>{};
 
     try {
       circles = await ApiService.getCircles();
+      if (isTeacher) courses = (await ApiService.getCourses()).where((c) => c.teacherId == widget.currentUser.teacherId && c.isActive).toList();
+      if (isTeacher) {
+        for (final course in courses) {
+          final enrollments = await ApiService.getCourseEnrollments(course.id);
+          courseStudentIds[course.id] = enrollments.map((row) => (row['studentId'] as num?)?.toInt() ?? 0).toSet();
+        }
+      }
       if (isTeacher && widget.currentUser.teacherId != null) {
-        circles = circles.where((c) => c.teacherId == widget.currentUser.teacherId).toList();
+        circles = circles.where((c) => c.teacherId == widget.currentUser.teacherId || c.assistantTeacherId == widget.currentUser.teacherId).toList();
       }
       teachers = await ApiService.getTeachers();
       students = await ApiService.getStudents();
-      if (isTeacher && circles.isNotEmpty) {
+      if (isStudent) {
+        final ownCircleId = students.where((s) => s.id == widget.currentUser.studentId).map((s) => s.circleId).firstOrNull;
+        circles = circles.where((c) => c.id == ownCircleId && c.isActive).toList();
+        final ownCourseRows = await ApiService.getMyCourses();
+        final courseIds = ownCourseRows.map((row) => row['courseId']).toSet();
+        final ownCourses = await ApiService.getCourses();
+        final teacherIds = <int>{
+          ...circles.where((c) => c.teacherId != null).map((c) => c.teacherId!),
+          ...circles.where((c) => c.assistantTeacherId != null).map((c) => c.assistantTeacherId!),
+          ...ownCourses.where((c) => courseIds.contains(c.id) && c.teacherId != null).map((c) => c.teacherId!),
+        };
+        teachers = teachers.where((t) => teacherIds.contains(t.id)).toList();
+      }
+      if (isTeacher) {
         final circleIds = circles.map((c) => c.id).toSet();
         students = students.where((s) => s.circleId != null && circleIds.contains(s.circleId)).toList();
       }
@@ -121,13 +144,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           DropdownMenuItem(value: 3, child: Text('معلم الحلقة (محفظي)')),
                           DropdownMenuItem(value: 2, child: Text('طلاب حلقتي')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
-                        ] else if (isDualRole) ...const [
+                        ] else if (isDualRole) ...[
                           DropdownMenuItem(value: 3, child: Text('✨ معلم حلقة القرآن لابنك (المحفظ)')),
                           DropdownMenuItem(value: 8, child: Text('✨ معلم دورة ابنك التدريبية')),
                           DropdownMenuItem(value: 9, child: Text('✨ جميع معلمي أبنائي (حلقات ودورات)')),
                           DropdownMenuItem(value: 2, child: Text('📋 كل طلاب حلقتي')),
+                          if (courses.isNotEmpty) const DropdownMenuItem(value: 11, child: Text('📋 طلاب دورتي')),
                           DropdownMenuItem(value: 4, child: Text('📋 طالب معين في حلقتي')),
-                          DropdownMenuItem(value: 7, child: Text('📋 ولي أمر معين في حلقتي')),
+                          DropdownMenuItem(value: 7, child: Text('📋 ولي أمر معين في حلقتي أو دورتي')),
                           DropdownMenuItem(value: 10, child: Text('📋 معلم آخر')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ] else if (widget.currentUser.role == 'Parent') ...const [
@@ -135,10 +159,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           DropdownMenuItem(value: 8, child: Text('معلم دورة ابنك التدريبية')),
                           DropdownMenuItem(value: 9, child: Text('جميع معلمي أبنائي (حلقات ودورات)')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
-                        ] else if (isTeacher) ...const [
+                        ] else if (isTeacher) ...[
                           DropdownMenuItem(value: 2, child: Text('كل طلاب حلقتي')),
+                          if (courses.isNotEmpty) const DropdownMenuItem(value: 11, child: Text('طلاب دورتي')),
                           DropdownMenuItem(value: 4, child: Text('طالب معين في حلقتي')),
-                          DropdownMenuItem(value: 7, child: Text('ولي أمر معين في حلقتي')),
+                          DropdownMenuItem(value: 7, child: Text('ولي أمر معين في حلقتي أو دورتي')),
                           DropdownMenuItem(value: 3, child: Text('معلم آخر')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ] else ...const [
@@ -156,6 +181,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           setModalState(() {
                             targetType = val;
                             selectedTargetId = null;
+                            selectedCircleFilter = null;
+                            selectedCourseFilter = null;
                             searchController.clear();
                           });
                         }
@@ -163,14 +190,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    if (targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10) ...[
+                    if (targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10 || targetType == 11) ...[
                       if (targetType == 4) ...[
                         DropdownButtonFormField<int?>(
                           initialValue: selectedCircleFilter,
                           decoration: const InputDecoration(labelText: 'فلترة بالحلقة القرآنية (اختياري)'),
                           items: [
                             const DropdownMenuItem<int?>(value: null, child: Text('-- جميع الحلقات والطلاب --')),
-                            const DropdownMenuItem<int?>(value: -1, child: Text('⚠️ طلاب غير مسندين لحلقة')),
+                            if (!isTeacher) const DropdownMenuItem<int?>(value: -1, child: Text('⚠️ طلاب غير مسندين لحلقة')),
                             ...circles.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text('🕌 ${c.name}'))),
                           ],
                           onChanged: (val) {
@@ -186,7 +213,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           initialValue: selectedCircleFilter,
                           decoration: const InputDecoration(labelText: 'فلترة بحلقة الأبناء (اختياري)'),
                           items: [
-                            const DropdownMenuItem<int?>(value: null, child: Text('-- جميع أولياء الأمور --')),
+                            const DropdownMenuItem<int?>(value: null, child: Text('-- أولياء أمور طلابي --')),
                             ...circles.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text('🕌 ${c.name}'))),
                           ],
                           onChanged: (val) {
@@ -197,6 +224,21 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           },
                         ),
                         const SizedBox(height: 8),
+                        if (courses.isNotEmpty) ...[
+                          DropdownButtonFormField<int?>(
+                            initialValue: selectedCourseFilter,
+                            decoration: const InputDecoration(labelText: 'فلترة بدورة الأبناء (اختياري)'),
+                            items: [
+                              const DropdownMenuItem<int?>(value: null, child: Text('-- جميع دوراتي --')),
+                              ...courses.map((course) => DropdownMenuItem<int?>(value: course.id, child: Text(course.name, overflow: TextOverflow.ellipsis))),
+                            ],
+                            onChanged: (value) => setModalState(() {
+                              selectedCourseFilter = value;
+                              selectedTargetId = null;
+                            }),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ],
 
                       TextField(
@@ -234,6 +276,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           onChanged: (val) => setModalState(() => selectedTargetId = val),
                         );
                       }),
+                    ] else if (targetType == 11) ...[
+                      DropdownButtonFormField<int>(
+                        initialValue: courses.any((course) => course.id == selectedTargetId) ? selectedTargetId : null,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'اختر الدورة *'),
+                        items: courses.map((course) => DropdownMenuItem<int>(value: course.id, child: Text(course.name, overflow: TextOverflow.ellipsis))).toList(),
+                        onChanged: (value) => setModalState(() => selectedTargetId = value),
+                      ),
                     ] else if ((targetType == 3 || targetType == 8 || targetType == 9) && isParent && (widget.currentUser.role == 'Parent' || targetType == 8 || targetType == 9 || (targetType == 3 && isDualRole))) ...[
                       // Filter parent's children's teachers
                       Builder(builder: (c) {
@@ -359,6 +409,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             return children.any((ch) => ch['circleId'] == selectedCircleFilter);
                           }).toList();
                         }
+                        if (selectedCourseFilter != null) {
+                          final enrolled = courseStudentIds[selectedCourseFilter] ?? <int>{};
+                          filtered = filtered.where((parent) => (parent['children'] as List? ?? []).any((child) => enrolled.contains((child['id'] as num?)?.toInt()))).toList();
+                        }
                         if (query.isNotEmpty) {
                           filtered = filtered.where((p) {
                             final parentName = (p['parentName'] ?? '').toString().toLowerCase();
@@ -400,7 +454,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               onPressed: () async {
                 if (titleController.text.trim().isEmpty || contentController.text.trim().isEmpty) return;
 
-                if ((targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10) && selectedTargetId == null) {
+                if ((targetType == 2 || targetType == 3 || targetType == 4 || targetType == 7 || targetType == 8 || targetType == 9 || targetType == 10 || targetType == 11) && selectedTargetId == null) {
                   ScaffoldMessenger.of(dialogCtx).showSnackBar(
                     const SnackBar(content: Text('يرجى اختيار الجهة المستهدفة من القائمة'), backgroundColor: Colors.orange),
                   );
@@ -411,6 +465,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 if (targetType == 8 || targetType == 9 || targetType == 10) {
                   actualTargetType = 3; // AnnouncementTarget.Teacher
                 }
+                if (targetType == 11) actualTargetType = 10; // AnnouncementTarget.Course
 
                 final ok = await ApiService.createAnnouncement(
                   title: titleController.text.trim(),

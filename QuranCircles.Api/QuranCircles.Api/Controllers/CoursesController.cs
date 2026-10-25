@@ -26,13 +26,20 @@ public class CoursesController : ControllerBase
     {
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
+        if (currentUser == null) return Unauthorized();
 
         var query = _db.Courses.AsQueryable();
 
-        if (currentUser != null && currentUser.Role == UserRole.Teacher)
+        if (currentUser.Role == UserRole.Teacher || (currentUser.Role == UserRole.Parent && currentUser.TeacherId.HasValue))
         {
-            query = query.Where(c => c.TeacherId == currentUser.TeacherId);
+            query = query.Where(c => c.TeacherId == currentUser.TeacherId && c.Teacher != null && c.Teacher.IsActive);
         }
+        else if (currentUser.Role == UserRole.Student)
+            query = query.Where(c => c.Enrollments.Any(e => e.StudentId == currentUser.StudentId));
+        else if (currentUser.Role == UserRole.Parent)
+            query = query.Where(c => false);
+        else if (currentUser.Role != UserRole.Admin && currentUser.Role != UserRole.Developer && currentUser.Role != UserRole.ExamSupervisor)
+            return Forbid();
 
         var courses = await query
             .Include(c => c.Teacher)
@@ -98,13 +105,16 @@ public class CoursesController : ControllerBase
             var studentRows = c.Enrollments.Select(e =>
             {
                 var st = e.Student;
-                var nom = courseNoms.FirstOrDefault(n => n.StudentId == e.StudentId);
+                var nom = courseNoms.Where(n => n.StudentId == e.StudentId).OrderByDescending(n => n.Id).FirstOrDefault();
+                var evaluatedNom = courseNoms.Where(n => n.StudentId == e.StudentId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")).OrderByDescending(n => n.Id).FirstOrDefault();
+                var verifiedGrade = evaluatedNom?.Result?.Grade;
+                var hasCertificate = evaluatedNom?.Status == "Completed" && !string.IsNullOrWhiteSpace(e.CertificateCode);
                 var stAtts = courseAtts.Where(ca => ca.StudentId == e.StudentId).ToList();
                 int presentCount = stAtts.Count(a => a.Status == AttendanceStatus.Present);
                 int absentCount = stAtts.Count(a => a.Status == AttendanceStatus.Absent);
                 int lateCount = stAtts.Count(a => a.Status == AttendanceStatus.Late);
 
-                string statusDesc = e.Status switch
+                string statusDesc = evaluatedNom == null ? "قيد الدراسة" : e.Status switch
                 {
                     "Passed" => "ناجح",
                     "Failed" => "راسب",
@@ -113,9 +123,9 @@ public class CoursesController : ControllerBase
                 };
 
                 string evaluation = "";
-                if (e.Grade.HasValue)
+                if (verifiedGrade.HasValue)
                 {
-                    double g = e.Grade.Value;
+                    double g = verifiedGrade.Value;
                     if (g >= 90) evaluation = "ممتاز";
                     else if (g >= 80) evaluation = "جيد جداً";
                     else if (g >= 70) evaluation = "جيد";
@@ -132,12 +142,12 @@ public class CoursesController : ControllerBase
                     StudentMobile = st?.StudentMobile ?? st?.FamilyContact ?? "-",
                     CircleName = st?.Circle != null ? st.Circle.Name : "بدون حلقة",
                     EnrollmentDate = e.EnrollmentDate.ToString("yyyy-MM-dd"),
-                    Status = e.Status,
+                    Status = evaluatedNom == null ? "Enrolled" : e.Status,
                     StatusArabic = statusDesc,
-                    Grade = e.Grade,
+                    Grade = verifiedGrade,
                     Evaluation = evaluation,
-                    CertificateCode = e.CertificateCode ?? "-",
-                    CertificateDate = e.CertificateDate?.ToString("yyyy-MM-dd") ?? "-",
+                    CertificateCode = hasCertificate ? e.CertificateCode : "-",
+                    CertificateDate = hasCertificate ? e.CertificateDate?.ToString("yyyy-MM-dd") ?? "-" : "-",
                     ExamScheduledDate = nom?.ExamDate?.ToString("yyyy-MM-dd HH:mm") ?? "-",
                     ExamStatus = nom != null ? (nom.Status switch { "Completed" => "مكتمل", "Scheduled" => "مجدول", "Cancelled" => "ملغي", _ => "قيد الانتظار" }) : "-",
                     ExamScore = nom?.Result?.Grade,
@@ -159,9 +169,9 @@ public class CoursesController : ControllerBase
                 TeacherMobile = c.Teacher != null ? (c.Teacher.WhatsappNumber ?? "-") : "-",
                 ExamSupervisorName = cSupervisorName,
                 TotalEnrolled = c.Enrollments.Count,
-                TotalPassed = c.Enrollments.Count(e => e.Status == "Passed" || e.Status == "Certified"),
-                TotalFailed = c.Enrollments.Count(e => e.Status == "Failed"),
-                TotalPending = c.Enrollments.Count(e => e.Status != "Passed" && e.Status != "Certified" && e.Status != "Failed"),
+                TotalPassed = c.Enrollments.Count(e => (e.Status == "Passed" || e.Status == "Certified") && courseNoms.Any(n => n.StudentId == e.StudentId && n.Status == "Completed" && n.Result != null)),
+                TotalFailed = c.Enrollments.Count(e => e.Status == "Failed" && courseNoms.Any(n => n.StudentId == e.StudentId && n.Status == "Failed" && n.Result != null)),
+                TotalPending = c.Enrollments.Count(e => !courseNoms.Any(n => n.StudentId == e.StudentId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed"))),
                 Students = studentRows
             };
         }).OrderByDescending(c => c.CourseId).ToList();
@@ -323,7 +333,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpPost("enroll")]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Developer)]
     public async Task<IActionResult> Enroll([FromBody] EnrollDto dto)
     {
         var course = await _db.Courses.FindAsync(dto.CourseId);
@@ -333,8 +343,9 @@ public class CoursesController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser == null) return Unauthorized();
 
-        if (currentUser.Role == UserRole.Teacher)
+        if (currentUser.Role == UserRole.Teacher || currentUser.Role == UserRole.Parent)
         {
+            if (!currentUser.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive)) return Forbid();
             // 1. Must be the instructor of this course
             if (course.TeacherId != currentUser.TeacherId)
             {
@@ -455,7 +466,7 @@ public class CoursesController : ControllerBase
             if (currentUser.StudentId.HasValue)
                 studentIds.Add(currentUser.StudentId.Value);
         }
-        else if (currentUser.Role == UserRole.Parent)
+        else if (currentUser.Role == UserRole.Parent && !currentUser.TeacherId.HasValue)
         {
             var children = await _db.Students.AsNoTracking().ToListAsync();
             studentIds = children.Where(s => ParentLinks.IsChild(currentUser, s))
@@ -466,17 +477,18 @@ public class CoursesController : ControllerBase
             // Admins/Developers/Teachers: Return passed/certified enrollments
             var query = _db.CourseEnrollments.AsQueryable();
 
-            if (currentUser.Role == UserRole.Teacher)
+            if (currentUser.Role == UserRole.Teacher || (currentUser.Role == UserRole.Parent && currentUser.TeacherId.HasValue))
             {
                 // A teacher can also be a parent; keep those certificates visible in one portfolio.
+                var activeTeacher = currentUser.TeacherId.HasValue && await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive);
                 var ownChildrenIds = await ParentLinks.ChildrenQuery(_db, currentUser)
                     .Select(s => s.Id).ToListAsync();
                 query = query.Where(e =>
                     ownChildrenIds.Contains(e.StudentId) ||
-                    (e.Student != null && e.Student.Circle != null &&
+                    (activeTeacher && e.Student != null && e.Student.Circle != null &&
                         (e.Student.Circle.TeacherId == currentUser.TeacherId || e.Student.Circle.AssistantTeacherId == currentUser.TeacherId)) ||
-                    (e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
-                    (e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+                    (activeTeacher && e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
+                    (activeTeacher && e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
                 );
             }
             else if (currentUser.Role == UserRole.ExamSupervisor)
@@ -498,11 +510,11 @@ public class CoursesController : ControllerBase
                     CourseDescription = e.Course != null ? e.Course.Description : "",
                     TeacherName = (e.Course != null && e.Course.Teacher != null) ? e.Course.Teacher.FullName : "بدون معلم",
                     StudentName = e.Student != null ? e.Student.FullName : "",
-                    e.Grade,
-                    e.Status,
-                    e.CertificateCode,
+                    Grade = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Grade : null,
+                    Status = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Status : "Enrolled",
+                    CertificateCode = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateCode : null,
                     e.EnrollmentDate,
-                    e.CertificateDate
+                    CertificateDate = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateDate : null
                 })
                 .ToListAsync();
 
@@ -523,11 +535,11 @@ public class CoursesController : ControllerBase
                 CourseDescription = e.Course != null ? e.Course.Description : "",
                 TeacherName = (e.Course != null && e.Course.Teacher != null) ? e.Course.Teacher.FullName : "بدون معلم",
                 StudentName = e.Student != null ? e.Student.FullName : "",
-                e.Grade,
-                e.Status,
-                e.CertificateCode,
+                Grade = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Grade : null,
+                Status = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Status : "Enrolled",
+                CertificateCode = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateCode : null,
                 e.EnrollmentDate,
-                e.CertificateDate
+                CertificateDate = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateDate : null
             })
             .ToListAsync();
 
@@ -565,11 +577,11 @@ public class CoursesController : ControllerBase
                 CourseName = e.Course != null ? e.Course.Name : "",
                 CourseDescription = e.Course != null ? e.Course.Description : "",
                 TeacherName = (e.Course != null && e.Course.Teacher != null) ? e.Course.Teacher.FullName : "بدون معلم",
-                e.Grade,
-                e.Status,
-                e.CertificateCode,
+                Grade = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Grade : null,
+                Status = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Status : "Enrolled",
+                CertificateCode = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateCode : null,
                 e.EnrollmentDate,
-                e.CertificateDate
+                CertificateDate = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateDate : null
             })
             .ToListAsync();
 
@@ -577,12 +589,12 @@ public class CoursesController : ControllerBase
     }
 
     [HttpGet("{id:int}/enrollments")]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Developer)]
     public async Task<IActionResult> GetEnrollments(int id)
     {
         var currentUser = await _db.Users.FindAsync(FakeAuth.GetUserId(HttpContext));
         if (currentUser == null) return Unauthorized();
-        if (currentUser.Role == UserRole.Teacher && !await _db.Courses.AnyAsync(c => c.Id == id && c.TeacherId == currentUser.TeacherId))
+        if ((currentUser.Role == UserRole.Teacher || currentUser.Role == UserRole.Parent) && !await _db.Courses.AnyAsync(c => c.Id == id && c.TeacherId == currentUser.TeacherId && currentUser.TeacherId.HasValue && c.Teacher != null && c.Teacher.IsActive))
             return Forbid();
         var enrollments = await _db.CourseEnrollments
             .Include(e => e.Student)
@@ -594,11 +606,11 @@ public class CoursesController : ControllerBase
                 e.StudentId,
                 StudentName = e.Student != null ? e.Student.FullName : "",
                 HalaqahName = (e.Student != null && e.Student.Circle != null) ? e.Student.Circle.Name : "بدون حلقة",
-                e.Grade,
-                e.Status,
-                e.CertificateCode,
+                Grade = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Grade : null,
+                Status = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && (n.Status == "Completed" || n.Status == "Failed")) ? e.Status : "Enrolled",
+                CertificateCode = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateCode : null,
                 e.EnrollmentDate,
-                e.CertificateDate
+                CertificateDate = _db.ExamNominations.Any(n => n.StudentId == e.StudentId && n.CourseId == e.CourseId && n.Result != null && n.Status == "Completed") ? e.CertificateDate : null
             })
             .ToListAsync();
 
@@ -607,131 +619,29 @@ public class CoursesController : ControllerBase
 
     [HttpPut("grade")]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer, UserRole.ExamSupervisor)]
-    public async Task<IActionResult> RecordGrade([FromBody] RecordGradeDto dto)
+    public IActionResult RecordGrade([FromBody] RecordGradeDto dto)
     {
-        var enrollment = await _db.CourseEnrollments
-            .Include(e => e.Course)
-            .Include(e => e.Student)
-            .FirstOrDefaultAsync(e => e.Id == dto.EnrollmentId);
-
-        if (enrollment == null) return NotFound(new { Message = "سجل التسجيل غير موجود." });
-
-        var currentUserId = FakeAuth.GetUserId(HttpContext);
-        var currentUser = await _db.Users.FindAsync(currentUserId);
-        if (currentUser == null) return Unauthorized();
-
-        // RBAC validation: Allow Admin, Developer, ExamSupervisor.
-        // If Teacher: Allow if course teacher, course supervisor, exam specialist, or circle teacher.
-        if (currentUser.Role == UserRole.Teacher)
-        {
-            var teacher = currentUser.TeacherId.HasValue ? await _db.Teachers.FindAsync(currentUser.TeacherId.Value) : null;
-            bool isExamSpecialist = teacher?.TaskRole != null && teacher.TaskRole.Contains("مشرف اختبارات");
-
-            bool isCourseTeacher = enrollment.Course != null && enrollment.Course.TeacherId == currentUser.TeacherId;
-            bool isCourseSupervisor = enrollment.Course != null && (
-                enrollment.Course.ExamSupervisorId == currentUser.Id ||
-                (currentUser.TeacherId.HasValue && enrollment.Course.ExamSupervisorId == currentUser.TeacherId.Value)
-            );
-
-            if (!isExamSpecialist && !isCourseTeacher && !isCourseSupervisor)
-            {
-                return Forbid();
-            }
-        }
-
-        if (!await QuranCircles.Api.Services.SensitiveActionVerifier.VerifyAsync(HttpContext, _db, dto.Code2FA))
-            return BadRequest(new { error = "يرجى إدخال كلمة مرور حسابك الحالية لتأكيد اعتماد النتيجة." });
-
-        var settings = await _db.SystemSettings.FirstOrDefaultAsync() ?? new SystemSettings();
-        int passingScore = settings.PassingScoreThreshold > 0 ? settings.PassingScoreThreshold : 70;
-
-        enrollment.Grade = dto.Grade;
-
-        string oldStatus = enrollment.Status;
-        if (dto.Grade >= passingScore)
-        {
-            enrollment.Status = "Passed";
-            if (string.IsNullOrEmpty(enrollment.CertificateCode))
-            {
-                enrollment.CertificateCode = $"CERT-{DateTime.Today.Year}{DateTime.Today.Month:00}-{new Random().Next(1000, 9999)}";
-                enrollment.CertificateDate = DateOnly.FromDateTime(DateTime.Today);
-            }
-        }
-        else
-        {
-            enrollment.Status = "Failed";
-            enrollment.CertificateCode = null;
-            enrollment.CertificateDate = null;
-
-            // Revoke and sync any linked ExamNomination for this course & student
-            var linkedNominations = await _db.ExamNominations
-                .Include(n => n.Result)
-                .Where(n => n.StudentId == enrollment.StudentId && n.CourseId == enrollment.CourseId)
-                .ToListAsync();
-
-            foreach (var nom in linkedNominations)
-            {
-                nom.Status = "Failed";
-                if (nom.Result != null)
-                {
-                    nom.Result.Grade = dto.Grade;
-                }
-            }
-        }
-
-        await _db.SaveChangesAsync();
-
-        // Audit Log
-        _db.AuditLogs.Add(new AuditLog
-        {
-            Username = currentUser?.Username ?? "Unknown",
-            Action = "RecordCourseGrade",
-            Details = $"رصد علامة الطالب {enrollment.Student?.FullName ?? "طالب"} في {enrollment.Course?.Name ?? "مساق"} بدرجة {dto.Grade} وحالة {enrollment.Status}",
-            Timestamp = DateTime.UtcNow,
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "::1"
-        });
-        await _db.SaveChangesAsync();
-
-        // Trigger simulated WhatsApp alert if passed
-        object? whatsappAlert = null;
-        if (enrollment.Status == "Passed" && oldStatus != "Passed" && enrollment.Student != null && enrollment.Course != null)
-        {
-            var message = $"مرحباً ولي أمر الطالب {enrollment.Student.FullName}، يسعدنا إعلامكم بنجاح ابنكم في {enrollment.Course.Name} بحصوله على درجة {dto.Grade}% وحصوله على شهادة رقمية معتمدة برمز: {enrollment.CertificateCode}. يمكنكم معاينتها من ملف الإنجاز الرقمي.";
-            whatsappAlert = new
-            {
-                Recipient = enrollment.Student.FamilyContact,
-                Message = message,
-                SentSuccessfully = false,
-                Status = "draft",
-                Timestamp = DateTime.Now
-            };
-        }
-
-        return Ok(new
-        {
-            Message = "تم رصد العلامة وتحديث الحالة بنجاح.",
-            Enrollment = new
-            {
-                enrollment.Id,
-                enrollment.Grade,
-                enrollment.Status,
-                enrollment.CertificateCode,
-                enrollment.CertificateDate
-            },
-            WhatsappAlert = whatsappAlert
-        });
+        return BadRequest(new { error = "ترصد درجة الدورة حصراً بعد الترشيح والاختبار من صفحة إدارة الاختبارات؛ ثم تصدر الشهادة تلقائياً عند الاجتياز." });
     }
 
     [HttpPost("attendance")]
     [Idempotent]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Developer)]
     public async Task<IActionResult> RecordCourseAttendance([FromBody] BulkCourseAttendanceDto dto)
     {
         var course = await _db.Courses.FindAsync(dto.CourseId);
         if (course == null) return NotFound(new { Message = "الدورة غير موجودة." });
+        var currentUser = await _db.Users.FindAsync(FakeAuth.GetUserId(HttpContext));
+        if (currentUser == null) return Unauthorized();
+        if ((currentUser.Role == UserRole.Teacher || currentUser.Role == UserRole.Parent) && (course.TeacherId != currentUser.TeacherId || !currentUser.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive))) return Forbid();
 
         if (dto.SessionDate > DateOnly.FromDateTime(DateTime.Today))
             return BadRequest(new { Message = "لا يمكن تسجيل حضور لتاريخ في المستقبل." });
+        var ids = dto.Items.Select(i => i.StudentId).ToList();
+        if (ids.Count != ids.Distinct().Count() || dto.Items.Any(i => !Enum.IsDefined(i.Status)))
+            return BadRequest(new { Message = "كشف الحضور يحتوي على طالب مكرر أو حالة غير صالحة." });
+        var enrolledIds = await _db.CourseEnrollments.Where(e => e.CourseId == dto.CourseId && ids.Contains(e.StudentId)).Select(e => e.StudentId).ToListAsync();
+        if (enrolledIds.Count != ids.Count) return BadRequest(new { Message = "لا يمكن تسجيل حضور لطالب غير مسجل في هذه الدورة." });
 
         foreach (var item in dto.Items)
         {
@@ -760,9 +670,12 @@ public class CoursesController : ControllerBase
     }
 
     [HttpGet("{courseId:int}/attendance")]
-    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Developer)]
     public async Task<IActionResult> GetCourseAttendance(int courseId, [FromQuery] DateOnly date)
     {
+        var currentUser = await _db.Users.FindAsync(FakeAuth.GetUserId(HttpContext));
+        if (currentUser == null) return Unauthorized();
+        if ((currentUser.Role == UserRole.Teacher || currentUser.Role == UserRole.Parent) && !await _db.Courses.AnyAsync(c => c.Id == courseId && c.TeacherId == currentUser.TeacherId && currentUser.TeacherId.HasValue && c.Teacher != null && c.Teacher.IsActive)) return Forbid();
         var records = await _db.CourseAttendances
             .Where(ca => ca.CourseId == courseId && ca.SessionDate == date)
             .Select(ca => new {
@@ -774,8 +687,10 @@ public class CoursesController : ControllerBase
     }
 
     [HttpGet("student/{studentId:int}/attendance")]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Student, UserRole.Developer)]
     public async Task<IActionResult> GetStudentCourseAttendance(int studentId)
     {
+        if (!await new StudentReadAccess(_db).CanReadAsync(HttpContext, studentId)) return Forbid();
         var history = await _db.CourseAttendances
             .Include(ca => ca.Course)
             .Where(ca => ca.StudentId == studentId)

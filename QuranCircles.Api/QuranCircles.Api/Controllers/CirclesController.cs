@@ -27,12 +27,8 @@ public class CirclesController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser != null && currentUser.Role == UserRole.Teacher)
         {
+            if (!currentUser.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive)) return Forbid();
             int teacherId = currentUser.TeacherId ?? 0;
-            if (teacherId == 0)
-            {
-                var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
-                if (t != null) teacherId = t.Id;
-            }
             return Ok(await _svc.GetAllForTeacherAsync(teacherId, currentUserId));
         }
         return Ok(await _svc.GetAllAsync());

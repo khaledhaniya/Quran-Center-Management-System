@@ -43,6 +43,13 @@
 #parent-audit-container { padding-bottom:24px; }
 #certificates-container { grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))!important; align-items:start; }
 @media(max-width:650px) { .quality-method-banner { align-items:flex-start; flex-wrap:wrap; padding:15px; } .quality-method-total { margin-inline-start:62px; } .unified-certificate-image { height:175px; } }
+@media(max-width:650px) {
+    .quality-method-banner { display:grid; grid-template-columns:44px minmax(0,1fr); gap:10px 12px; align-items:start; }
+    .quality-method-copy { overflow-wrap:anywhere; }
+    .quality-method-copy h6 { line-height:1.5; }
+    .quality-method-copy p { line-height:1.7; font-size:.84rem; }
+    .quality-method-total { grid-column:2; justify-self:start; margin:0; white-space:normal; }
+}
 @media(max-width:768px) { #admin-dashboard-section .dashboard-header-card { padding:clamp(14px,4vw,22px)!important; } #admin-dashboard-section .filter-toolbar { align-items:stretch!important; } #admin-dashboard-section .custom-date-inputs,#admin-dashboard-section .preset-buttons-group { width:100%; } #parent-audit-section .requests-toolbar-card { top:0; } }
 .talent-editor-dialog { background:#f8fbf9!important; border:1px solid #d9e7dd!important; box-shadow:0 22px 70px #102d2033!important; }
 .talent-editor-dialog .swal2-title { color:#154a35; font-size:clamp(1.1rem,3vw,1.45rem); line-height:1.55; padding-inline:12px; overflow-wrap:anywhere; }

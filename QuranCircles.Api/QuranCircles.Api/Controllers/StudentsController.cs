@@ -57,6 +57,11 @@ public class StudentsController : ControllerBase
         var currentUser = await _db.Users.FindAsync(currentUserId);
         if (currentUser != null && currentUser.Role == UserRole.Parent)
         {
+            if (currentUser.TeacherId.HasValue && await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive))
+            {
+                var hidePhone = await _db.SystemSettings.AsNoTracking().AnyAsync(x => x.HideParentPhoneFromTeacher);
+                return Ok(await _svc.GetStudentsForTeacherAsync(currentUser.TeacherId.Value, search, onlyCircle == true, currentUserId, hidePhone));
+            }
             var children = await _reportSvc.GetSmartChildrenForParentAsync(currentUser);
             return Ok(children.Select(s => StudentService.MapStudentToFullObject(s, currentUser?.FullName)).ToList());
         }
@@ -71,6 +76,7 @@ public class StudentsController : ControllerBase
         }
         else if (currentUser != null && currentUser.Role == UserRole.Teacher)
         {
+            if (!currentUser.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive)) return Forbid();
             var hidePhone = await _db.SystemSettings.AsNoTracking().AnyAsync(x => x.HideParentPhoneFromTeacher);
             if (Request.Query.ContainsKey("all") || Request.Query["forEnrollment"] == "true")
             {
@@ -78,11 +84,6 @@ public class StudentsController : ControllerBase
             }
 
             int teacherId = currentUser.TeacherId ?? 0;
-            if (teacherId == 0)
-            {
-                var t = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
-                if (t != null) teacherId = t.Id;
-            }
             return Ok(await _svc.GetStudentsForTeacherAsync(teacherId, search, onlyCircle == true, currentUserId, hidePhone));
         }
         return Ok(await _svc.GetAllAsync(search));

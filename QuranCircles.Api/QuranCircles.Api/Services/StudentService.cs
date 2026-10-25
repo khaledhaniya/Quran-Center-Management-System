@@ -814,7 +814,8 @@ public class StudentService
         var passedCourses = await _db.CourseEnrollments
             .Include(ce => ce.Course)
                 .ThenInclude(c => c!.Teacher)
-            .Where(ce => ce.StudentId == s.Id && (ce.Status == "Passed" || ce.Status == "Certified") && ce.CertificateCode != null && ce.CertificateCode != "" && ce.Grade.HasValue && ce.Grade.Value >= certificateSettings.PassingScoreThreshold)
+            .Where(ce => ce.StudentId == s.Id && (ce.Status == "Passed" || ce.Status == "Certified") && ce.CertificateCode != null && ce.CertificateCode != "" && ce.Grade.HasValue && ce.Grade.Value >= certificateSettings.PassingScoreThreshold &&
+                _db.ExamNominations.Any(n => n.StudentId == ce.StudentId && n.CourseId == ce.CourseId && n.Status == "Completed" && n.Result != null))
             .OrderByDescending(ce => ce.CertificateDate ?? ce.EnrollmentDate)
             .ToListAsync();
 

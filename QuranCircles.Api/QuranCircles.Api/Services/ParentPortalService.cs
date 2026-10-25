@@ -17,6 +17,8 @@ public class ParentPortalService(AppDbContext db)
         var sessions=await db.Sessions.AsNoTracking().Where(s=>ids.Contains(s.StudentId)&&s.SessionDate>=from&&s.SessionDate<=to).OrderByDescending(s=>s.SessionDate).ThenByDescending(s=>s.Id).ToListAsync();
         var attendance=await db.Attendances.AsNoTracking().Where(a=>ids.Contains(a.StudentId)&&a.SessionDate>=from&&a.SessionDate<=to).OrderByDescending(a=>a.SessionDate).ToListAsync();
         var enrollments=await db.CourseEnrollments.Include(e=>e.Course).ThenInclude(c=>c!.Teacher).AsNoTracking().Where(e=>ids.Contains(e.StudentId)).ToListAsync();
+        var evaluated=await db.ExamNominations.AsNoTracking().Where(n=>ids.Contains(n.StudentId)&&n.CourseId.HasValue&&n.Result!=null&&(n.Status=="Completed"||n.Status=="Failed")).Select(n=>new {n.StudentId,n.CourseId}).ToListAsync();
+        var evaluatedKeys=evaluated.Select(n=>(n.StudentId,n.CourseId)).ToHashSet();
         var talents=await db.TalentRecords.AsNoTracking().Where(t=>ids.Contains(t.StudentId)&&t.EventDate>=from&&t.EventDate<=to).GroupBy(t=>t.StudentId).Select(g=>new {Id=g.Key,Count=g.Count()}).ToDictionaryAsync(g=>g.Id,g=>g.Count);
         var children=students.Select(s=>{
             var rec=sessions.Where(r=>r.StudentId==s.Id).ToList();var att=attendance.Where(a=>a.StudentId==s.Id).ToList();
@@ -34,7 +36,7 @@ public class ParentPortalService(AppDbContext db)
                 talentsCount=talents.GetValueOrDefault(s.Id),
                 recentSessions=rec.Take(5).Select(r=>new {date=r.SessionDate.ToString("yyyy-MM-dd"),surah=r.SurahName,type=SessionService.RecitationTypeText(r.RecitationType),pages=ReportService.Pages(r),assessment=SessionService.AssessmentText(r.Assessment)}),
                 recentAttendance=att.Take(5).Select(a=>new {date=a.SessionDate.ToString("yyyy-MM-dd"),status=a.Status switch {AttendanceStatus.Present=>"حاضر",AttendanceStatus.Late=>"متأخر",AttendanceStatus.ExcusedAbsent=>"غائب بعذر",_=>"غائب دون عذر"}}),
-                courses=enrollments.Where(e=>e.StudentId==s.Id).Select(e=>new {id=e.CourseId,name=e.Course?.Name??"دورة",teacherName=e.Course?.Teacher?.FullName??"لم يحدد",status=e.Status switch {"Passed"=>"ناجح","Certified"=>"معتمد","Failed"=>"لم يجتز",_=>"مسجل"},grade=e.Grade})
+                courses=enrollments.Where(e=>e.StudentId==s.Id).Select(e=>new {id=e.CourseId,name=e.Course?.Name??"دورة",teacherName=e.Course?.Teacher?.FullName??"لم يحدد",status=evaluatedKeys.Contains((e.StudentId,(int?)e.CourseId))?e.Status switch {"Passed"=>"ناجح","Certified"=>"معتمد","Failed"=>"لم يجتز",_=>"مسجل"}:"مسجل",grade=evaluatedKeys.Contains((e.StudentId,(int?)e.CourseId))?e.Grade:null})
             };
         }).ToList();
         return new {from=from.ToString("yyyy-MM-dd"),to=to.ToString("yyyy-MM-dd"),today=today.ToString("yyyy-MM-dd"),

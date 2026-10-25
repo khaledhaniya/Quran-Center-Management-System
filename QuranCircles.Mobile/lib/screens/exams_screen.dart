@@ -47,7 +47,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
   }
 
   void _showNominateDialog() async {
-    final isTeacher = widget.currentUser.role == 'Teacher';
+    final isTeacher = widget.currentUser.role == 'Teacher' || (widget.currentUser.role == 'Parent' && widget.currentUser.teacherId != null);
     List<Student> allStudents = [];
     List<Student> quranStudents = [];
     List<Course> courses = [];
@@ -666,7 +666,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
   @override
   Widget build(BuildContext context) {
     final role = widget.currentUser.role;
-    final canNominate = role == 'Teacher' || role == 'Admin' || role == 'Developer';
+    final canNominate = role == 'Teacher' || (role == 'Parent' && widget.currentUser.teacherId != null) || role == 'Admin' || role == 'Developer';
     final isSupervisor = role == 'ExamSupervisor' || role == 'Admin' || role == 'Developer';
 
     final pendingCount = _nominations.where((n) => n.status == 'Pending').length;

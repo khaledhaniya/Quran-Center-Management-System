@@ -42,6 +42,8 @@ public class AnnouncementsController : ControllerBase
 
         var user = await _db.Users.FindAsync(userId.Value);
         if (user == null) return Unauthorized(new { error = "المستخدم غير موجود." });
+        if (dto.TargetType == AnnouncementTarget.StudentCircle)
+            return BadRequest(new { error = "نوع المستلمين غير صالح للنشر المباشر." });
         if ((dto.TargetType is AnnouncementTarget.All or AnnouncementTarget.AllTeachers) &&
             await _db.SystemSettings.AsNoTracking().AnyAsync(s => !s.AllowPublicAnnouncements))
             return BadRequest(new { error = "نشر التعميمات العامة معطل في إعدادات المركز." });
@@ -51,23 +53,12 @@ public class AnnouncementsController : ControllerBase
         if (user.Role == UserRole.Teacher || (isUserTeacher && dto.TargetType != AnnouncementTarget.Admin && (user.Role != UserRole.Parent || dto.TargetType != AnnouncementTarget.Teacher)))
         {
             int tId = user.TeacherId ?? 0;
-            Teacher? teacherObj = null;
-            if (tId > 0) teacherObj = await _db.Teachers.FindAsync(tId);
-            if (teacherObj == null)
-            {
-                teacherObj = await _db.Teachers.FirstOrDefaultAsync(t => t.FullName == user.FullName);
-                if (teacherObj != null) tId = teacherObj.Id;
-            }
-
-            var taskRole = teacherObj?.TaskRole ?? "";
-            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || user.Role == UserRole.Admin || user.Role == UserRole.Developer;
+            var teacherObj = tId > 0 ? await _db.Teachers.FindAsync(tId) : null;
+            if (teacherObj?.IsActive != true) return Forbid();
 
             if (dto.TargetType == AnnouncementTarget.All || dto.TargetType == AnnouncementTarget.AllTeachers)
             {
-                if (!isSupervisorOrAdmin)
-                {
-                    return BadRequest(new { error = "غير مسموح للمعلم إرسال تعاميم عامة لكافة المعلمين أو الجميع." });
-                }
+                return BadRequest(new { error = "غير مسموح للمعلم إرسال تعاميم عامة لكافة المعلمين أو الجميع." });
             }
             else if (dto.TargetType == AnnouncementTarget.Admin)
             {
@@ -80,23 +71,35 @@ public class AnnouncementsController : ControllerBase
             else if (dto.TargetType == AnnouncementTarget.Circle && dto.TargetId.HasValue)
             {
                 var circle = await _db.Circles.Include(c => c.Teacher).FirstOrDefaultAsync(c => c.Id == dto.TargetId.Value);
-                if (circle == null || (!isSupervisorOrAdmin && circle.TeacherId != tId && circle.Teacher?.FullName != user.FullName))
+                if (circle == null || (circle.TeacherId != tId && circle.AssistantTeacherId != tId))
                 {
                     return BadRequest(new { error = "غير مسموح بالإرسال لحلقة لا تشرف عليها." });
                 }
             }
+            else if (dto.TargetType == AnnouncementTarget.Course && dto.TargetId.HasValue)
+            {
+                if (!await _db.Courses.AnyAsync(c => c.Id == dto.TargetId.Value && c.IsActive && c.TeacherId == tId))
+                    return BadRequest(new { error = "غير مسموح بالإرسال لدورة غير مسندة إليك." });
+            }
             else if (dto.TargetType == AnnouncementTarget.Student && dto.TargetId.HasValue)
             {
                 var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == dto.TargetId.Value);
-                if (student == null || (!isSupervisorOrAdmin && student.Circle != null && student.Circle.TeacherId != tId && student.Circle.Teacher?.FullName != user.FullName))
+                var teachesCourse = await _db.CourseEnrollments.AnyAsync(e => e.StudentId == dto.TargetId.Value && e.Course != null && e.Course.TeacherId == tId);
+                if (student == null || (student.Circle?.TeacherId != tId && student.Circle?.AssistantTeacherId != tId && !teachesCourse))
                 {
                     return BadRequest(new { error = "غير مسموح بالإرسال لطالب خارج حلقتك." });
                 }
             }
             else if (dto.TargetType == AnnouncementTarget.Parent && dto.TargetId.HasValue)
             {
-                // Allowed: teacher messaging a parent of students
+                var parent = await _db.Users.FirstOrDefaultAsync(p => p.Role != UserRole.Student && (p.Id == dto.TargetId || p.ParentId == dto.TargetId));
+                if (parent == null) return BadRequest(new { error = "ولي الأمر المحدد غير موجود." });
+                var childIds = await ParentLinks.ChildrenQuery(_db, parent).Select(s => s.Id).ToListAsync();
+                var assigned = await _db.Students.AnyAsync(s => childIds.Contains(s.Id) && s.Circle != null && (s.Circle.TeacherId == tId || s.Circle.AssistantTeacherId == tId)) ||
+                    await _db.CourseEnrollments.AnyAsync(e => childIds.Contains(e.StudentId) && e.Course != null && e.Course.TeacherId == tId);
+                if (!assigned) return BadRequest(new { error = "ولي الأمر ليس ضمن حلقتك أو دورتك." });
             }
+            else return BadRequest(new { error = "فئة المستلمين غير متاحة للمعلم." });
         }
         else if (user.Role == UserRole.Parent)
         {
@@ -106,10 +109,12 @@ public class AnnouncementsController : ControllerBase
             }
             else if (dto.TargetType == AnnouncementTarget.Teacher && dto.TargetId.HasValue)
             {
-                var teacherExists = await _db.Teachers.AnyAsync(t => t.Id == dto.TargetId.Value);
-                if (!teacherExists)
+                var children = await ParentLinks.ChildrenQuery(_db, user).Select(s => s.Id).ToListAsync();
+                var teacherAssigned = await _db.Students.AnyAsync(s => children.Contains(s.Id) && s.Circle != null && (s.Circle.TeacherId == dto.TargetId || s.Circle.AssistantTeacherId == dto.TargetId)) ||
+                    await _db.CourseEnrollments.AnyAsync(e => children.Contains(e.StudentId) && e.Course != null && e.Course.TeacherId == dto.TargetId);
+                if (!teacherAssigned)
                 {
-                    return BadRequest(new { error = "المعلم المحدد غير موجود." });
+                    return BadRequest(new { error = "المعلم ليس مسنداً لأي من أبنائك." });
                 }
             }
             else if (isUserTeacher)
@@ -127,9 +132,17 @@ public class AnnouncementsController : ControllerBase
             {
                 // Allowed: Student sending to Center Administration
             }
-            else if (dto.TargetType == AnnouncementTarget.Circle || dto.TargetType == AnnouncementTarget.Teacher)
+            else if (dto.TargetType == AnnouncementTarget.Circle && dto.TargetId.HasValue)
             {
-                // Allowed: Student messaging circle or teacher
+                var ownsCircle = await _db.Students.AnyAsync(s => s.Id == user.StudentId && s.CircleId == dto.TargetId && s.Circle != null && s.Circle.IsActive);
+                if (!ownsCircle) return BadRequest(new { error = "يمكنك النشر لطلاب حلقتك فقط." });
+                dto = dto with { TargetType = AnnouncementTarget.StudentCircle, TargetId = user.StudentId };
+            }
+            else if (dto.TargetType == AnnouncementTarget.Teacher && dto.TargetId.HasValue)
+            {
+                var assigned = await _db.Students.AnyAsync(s => s.Id == user.StudentId && s.Circle != null && (s.Circle.TeacherId == dto.TargetId || s.Circle.AssistantTeacherId == dto.TargetId)) ||
+                    await _db.CourseEnrollments.AnyAsync(e => e.StudentId == user.StudentId && e.Course != null && e.Course.TeacherId == dto.TargetId);
+                if (!assigned) return BadRequest(new { error = "المعلم غير مسند لحلقتك أو دورتك." });
             }
             else
             {

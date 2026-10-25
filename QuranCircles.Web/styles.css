@@ -9226,6 +9226,47 @@ body.dark-mode .plan-juz-btn:hover {
     border-color: rgba(212, 175, 55, 0.8) !important;
     box-shadow: 0 4px 20px rgba(212, 175, 55, 0.25);
 }
+.dev-maintenance-toggle.form-check-input {
+    appearance: none;
+    background-image: none !important;
+    width: 66px;
+    height: 36px;
+    margin: 0;
+    border: 1px solid #6b8790;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #526776, #31424e);
+    box-shadow: inset 0 2px 5px #0005, 0 0 0 3px #ffffff12;
+    cursor: pointer;
+    position: relative;
+    transition: background .25s, box-shadow .25s, border-color .25s;
+}
+.dev-maintenance-toggle.form-check-input::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 33px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 7px #0005;
+    transition: right .25s, transform .25s;
+}
+.dev-maintenance-toggle.form-check-input:checked {
+    border-color: #ffdc78;
+    background: linear-gradient(135deg, #d97706, #f5b820);
+    background-image: none !important;
+    box-shadow: inset 0 2px 5px #663d1055, 0 0 0 4px #f5b82038;
+}
+.dev-maintenance-toggle.form-check-input:checked::before { right: 5px; }
+.dev-maintenance-toggle.form-check-input:focus-visible { outline: 3px solid #f8d785; outline-offset: 4px; }
+@media (max-width: 650px) {
+    .dev-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .dev-search-input-wrap, .dev-search-input { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+    .dev-filters-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+    .dev-select-filter { width: 100%; min-width: 0; }
+    .dev-maintenance-box { width: 100%; justify-content: space-between; }
+}
 
 /* Certificate Preview Modal Scaling */
 .cert-preview-wrapper {

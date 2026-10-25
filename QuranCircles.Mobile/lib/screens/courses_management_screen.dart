@@ -423,19 +423,13 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              grade != null ? '$grade%' : (status == 'Passed' ? 'ناجح' : 'قيد الدراسة'),
+                              grade != null ? '$grade%' : 'لم يتم رصد الدرجة',
                               style: AppTheme.cairoStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: status == 'Passed' ? Colors.green : (status == 'Failed' ? Colors.red : Colors.blue),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            icon: const Icon(Icons.edit_note, color: AppTheme.primary, size: 22),
-                            tooltip: 'رصد درجة الطالب مباشرة',
-                            onPressed: () => _promptRecordStudentGrade(item, course),
                           ),
                         ],
                       ),
@@ -448,86 +442,6 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
-        ],
-      ),
-    );
-  }
-
-  void _promptRecordStudentGrade(Map<String, dynamic> enrollmentItem, Course course) {
-    final gradeCtrl = TextEditingController(text: enrollmentItem['grade']?.toString() ?? '');
-    final passwordCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Row(
-          children: [
-            const Icon(Icons.grade, color: Colors.amber),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'رصد درجة: ${enrollmentItem['studentName']}',
-                style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('دورة: ${course.name}', style: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700)),
-            const SizedBox(height: 12),
-            TextField(controller: passwordCtrl, obscureText: true,
-              decoration: const InputDecoration(labelText: 'كلمة المرور الحالية لتأكيد الاعتماد')),
-            const SizedBox(height: 12),
-            TextField(
-              controller: gradeCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'العلامة المستحقة (من 100) *',
-                prefixIcon: Icon(Icons.percent, color: AppTheme.primary),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-            icon: const Icon(Icons.save, color: Colors.white, size: 16),
-            label: Text('حفظ واعتتماد', style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            onPressed: () async {
-              final val = double.tryParse(gradeCtrl.text.trim());
-              if (val == null || val < 0 || val > 100) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('يرجى إدخال علامة صحيحة بين 0 و 100'), backgroundColor: Colors.orange),
-                );
-                return;
-              }
-              try {
-                final enrollmentId = enrollmentItem['id'] ?? enrollmentItem['enrollmentId'];
-                await ApiService.recordCourseGrade(enrollmentId: enrollmentId, grade: val, code2FA: passwordCtrl.text);
-                if (!dialogCtx.mounted) return;
-                Navigator.pop(dialogCtx);
-                if (!mounted || !context.mounted) return;
-                Navigator.pop(context); // close enrollments dialog
-                _showCourseEnrollmentsModal(course); // re-open updated
-                if (!mounted || !context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم رصد العلامة واعتتماد النتيجة بنجاح ✨'), backgroundColor: Colors.green),
-                );
-              } catch (e) {
-                if (!mounted || !context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
-                );
-              }
-            },
-          ),
         ],
       ),
     );

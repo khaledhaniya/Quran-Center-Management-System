@@ -188,13 +188,28 @@ public class ParentController : ControllerBase
     }
 
     [HttpGet("audit")]
-    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.Parent)]
     public async Task<IActionResult> GetParentAudit()
     {
+        var caller = await _db.Users.FindAsync(FakeAuth.GetUserId(HttpContext));
+        if (caller == null) return Unauthorized();
+        if (caller.Role == UserRole.Parent && (!caller.TeacherId.HasValue || !await _db.Teachers.AnyAsync(t => t.Id == caller.TeacherId.Value && t.IsActive))) return Forbid();
+        List<int>? assignedStudentIds = null;
+        if (caller.Role == UserRole.Teacher || caller.Role == UserRole.Parent)
+        {
+            assignedStudentIds = new List<int>();
+            if (caller.TeacherId.HasValue && await _db.Teachers.AnyAsync(t => t.Id == caller.TeacherId.Value && t.IsActive))
+            {
+                var circleIds = await _db.Circles.Where(c => c.TeacherId == caller.TeacherId || c.AssistantTeacherId == caller.TeacherId).Select(c => c.Id).ToListAsync();
+                var courseStudentIds = await _db.CourseEnrollments.Where(e => e.Course != null && e.Course.TeacherId == caller.TeacherId).Select(e => e.StudentId).ToListAsync();
+                assignedStudentIds = await _db.Students.Where(s => (s.CircleId.HasValue && circleIds.Contains(s.CircleId.Value)) || courseStudentIds.Contains(s.Id)).Select(s => s.Id).ToListAsync();
+            }
+        }
         var users = await _db.Users.Include(u => u.Teacher).Where(u => u.Role != UserRole.Student).AsNoTracking().ToListAsync();
         var students = await _db.Students.Include(s => s.Circle).AsNoTracking().ToListAsync();
+        if (assignedStudentIds != null) students = students.Where(s => assignedStudentIds.Contains(s.Id)).ToList();
         return Ok(users.Select(user => new { user, children = students.Where(s => ParentLinks.IsChild(user, s)).ToList() })
-            .Where(x => x.user.Role == UserRole.Parent || x.children.Count > 0)
+            .Where(x => assignedStudentIds != null ? x.children.Count > 0 : x.user.Role == UserRole.Parent || x.children.Count > 0)
             .Select(x => new {
                 parentId = x.user.ParentId ?? x.user.Id, parentUserId = x.user.Id,
                 parentName = x.user.FullName, username = x.user.Username,

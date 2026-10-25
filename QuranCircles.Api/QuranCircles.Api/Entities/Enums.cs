@@ -51,7 +51,9 @@ public enum AnnouncementTarget
     Student = 4,
     AllTeachers = 5,
     Admin = 6,
-    Parent = 7
+    Parent = 7,
+    Course = 10,
+    StudentCircle = 12
 }
 
 

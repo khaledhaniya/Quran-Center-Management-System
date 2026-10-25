@@ -21,6 +21,7 @@ class _Student360ScreenState extends State<Student360Screen> {
   Map<String, dynamic>? _profileData;
   bool _isLoadingStudents = true;
   bool _isLoadingProfile = false;
+  int _profileRequestVersion = 0;
 
   final List<String> _juzNames = const [
     "البقرة (الم)",
@@ -109,20 +110,22 @@ class _Student360ScreenState extends State<Student360Screen> {
   }
 
   void _loadProfile(int studentId) async {
+    final requestVersion = ++_profileRequestVersion;
     setState(() {
       _isLoadingProfile = true;
+      _profileData = null;
     });
 
     try {
       final data = await ApiService.getStudent360(studentId);
-      if (mounted) {
+      if (mounted && requestVersion == _profileRequestVersion) {
         setState(() {
           _profileData = data;
           _isLoadingProfile = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && requestVersion == _profileRequestVersion) {
         setState(() {
           _isLoadingProfile = false;
         });
@@ -390,6 +393,7 @@ class _Student360ScreenState extends State<Student360Screen> {
                     _isLoadingStudents
                         ? const LinearProgressIndicator()
                         : DropdownButtonFormField<Student>(
+                            key: ValueKey(_selectedStudent?.id),
                             initialValue: _selectedStudent,
                             isExpanded: true,
                             decoration: const InputDecoration(

@@ -712,7 +712,9 @@ function getRoleArabicName(role) {
 function updateSidebarMenu() {
     const admin = ['Admin','Developer'].includes(currentRole);
     const teacher = currentRole === 'Teacher';
-    ['btn-courses','btn-exams'].forEach((id,index)=>document.getElementById(id)?.classList.toggle('hidden',!(admin || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (teacher && teacherCan(index===0?'courses':'exams')))));
+    const parentTeacher = currentRole === 'Parent' && getAuthStorage('teacherId') && (getAuthStorage('hasChildren') === 'true' || Number(getAuthStorage('childrenCount')) > 0);
+    document.getElementById('btn-courses')?.classList.toggle('hidden', !(admin || ((teacher || parentTeacher) && getAuthStorage('teacherId') && teacherCan('courses'))));
+    document.getElementById('btn-exams')?.classList.toggle('hidden', !(admin || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (teacher && (teacherCan('circles') || teacherCan('courses') || teacherCan('exams')))));
     // Strictly gate notification bell to Admin and Developer only
     const bellContainer = document.getElementById("notification-bell-container");
     if (bellContainer) {
@@ -1183,12 +1185,12 @@ function handleRouting() {
         document.getElementById("portfolio-section")?.classList.remove("hidden");
         loadPortfolio();
     }
-    else if (hash === "#courses" && (isAdminOrDev || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (currentRole === "Teacher" && teacherCan("courses")))) {
+    else if (hash === "#courses" && (isAdminOrDev || ((currentRole === "Teacher" || (currentRole === "Parent" && (getAuthStorage('hasChildren') === 'true' || Number(getAuthStorage('childrenCount')) > 0))) && getAuthStorage('teacherId') && teacherCan("courses")))) {
         document.getElementById("btn-courses")?.classList.add("active");
         document.getElementById("courses-section")?.classList.remove("hidden");
         loadCourses();
     }
-    else if (hash === "#exams" && (isAdminOrDev || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (currentRole === "Teacher" && teacherCan("exams")))) {
+    else if (hash === "#exams" && (isAdminOrDev || ['Parent','Student','ExamSupervisor'].includes(currentRole) || (currentRole === "Teacher" && (teacherCan("circles") || teacherCan("courses") || teacherCan("exams"))))) {
         document.getElementById("btn-exams")?.classList.add("active");
         document.getElementById("exams-section")?.classList.remove("hidden");
         loadExams();
@@ -8038,6 +8040,8 @@ async function loadAnnouncements() {
 
             let targetTypeArabic = "عام";
             if (a.targetType === "Circle") targetTypeArabic = "حلقة";
+            else if (a.targetType === "StudentCircle") targetTypeArabic = "طلاب الحلقة";
+            else if (a.targetType === "Course") targetTypeArabic = "دورة";
             else if (a.targetType === "Teacher") targetTypeArabic = "معلّم";
             else if (a.targetType === "Student") targetTypeArabic = "طالب";
             else if (a.targetType === "AllTeachers") targetTypeArabic = "كل المعلمين";
@@ -8103,8 +8107,9 @@ async function showAnnouncementFormModal() {
             </optgroup>
             <optgroup label="📋 نشر وإرسال بصفتك معلماً:">
                 <option value="Circle">كل طلاب حلقتي</option>
+                ${teacherCan('courses') ? '<option value="Course">طلاب دورتي</option>' : ''}
                 <option value="Student">طالب معين في حلقتي</option>
-                <option value="Parent">ولي أمر معين في حلقتي</option>
+                <option value="Parent">ولي أمر معين في حلقتي أو دورتي</option>
                 <option value="Teacher">معلم آخر معين</option>
             </optgroup>
             <option value="Admin">إدارة المركز</option>
@@ -8112,8 +8117,9 @@ async function showAnnouncementFormModal() {
     } else if (currentRole === "Teacher") {
         targetOptions = `
             <option value="Circle">كل طلاب حلقتي</option>
+            ${teacherCan('courses') ? '<option value="Course">طلاب دورتي</option>' : ''}
             <option value="Student">طالب معين في حلقتي</option>
-            <option value="Parent">ولي أمر معين في حلقتي</option>
+            <option value="Parent">ولي أمر معين في حلقتي أو دورتي</option>
             <option value="Teacher">معلم آخر معين</option>
             <option value="Admin">مدير المركز</option>
         `;
@@ -8126,7 +8132,7 @@ async function showAnnouncementFormModal() {
         `;
     } else if (currentRole === "Student") {
         targetOptions = `
-            <option value="Teacher">معلم الحلقة (محفظك)</option>
+            <option value="Teacher">معلم حلقتي أو دورتي</option>
             <option value="Circle">طلاب حلقتي</option>
             <option value="Admin">إدارة المركز</option>
         `;
@@ -8294,6 +8300,9 @@ async function showAnnouncementFormModal() {
             if (currentRole === "Teacher") {
                 const tId = currentUser.teacherId || parseInt(currentUserId);
                 filterCircles = filterCircles.filter(c => c.teacherId === tId);
+            } else if (currentRole === "Student") {
+                const student = (await apiRequest('/students')).find(s => s.id === Number(getAuthStorage('studentId')));
+                filterCircles = filterCircles.filter(c => c.id === student?.circleId);
             }
 
             selectionsContainer.innerHTML = `
@@ -8320,11 +8329,21 @@ async function showAnnouncementFormModal() {
                 selectEl.innerHTML = matched.map(c => `<option value="${c.id}" style="padding: 6px 10px;">🕌 ${c.name} (المعلم: ${c.teacherName || 'غير مسند'})</option>`).join('');
             });
         }
+        else if (type === "Course") {
+            const courses = (await apiRequest('/courses')).filter(c => c.isActive && (currentRole !== 'Teacher' || c.teacherId === Number(getAuthStorage('teacherId'))));
+            selectionsContainer.innerHTML = `<label for="announcement-form-target-id" class="form-label fw-bold">اختر الدورة المستهدفة</label><select id="announcement-form-target-id" class="form-select" required><option value="">-- اختر دورة --</option>${courses.map(c=>`<option value="${c.id}">${escapeXml(c.name)}</option>`).join('')}</select>`;
+        }
         else if (type === "Teacher") {
             let filterTeachers = cachedTeachers.filter(t => t.isActive);
             if (currentRole === "Teacher") {
                 const tId = currentUser.teacherId || parseInt(currentUserId);
                 filterTeachers = filterTeachers.filter(t => t.id !== tId);
+            } else if (currentRole === "Student") {
+                const ownStudent = (await apiRequest('/students')).find(s => s.id === Number(getAuthStorage('studentId')));
+                const ownCircle = cachedCircles.find(c => c.id === ownStudent?.circleId);
+                const ownCourses = await apiRequest('/courses');
+                const assignedTeacherIds = new Set([ownCircle?.teacherId, ownCircle?.assistantTeacherId, ...ownCourses.map(c => c.teacherId)]);
+                filterTeachers = filterTeachers.filter(t => assignedTeacherIds.has(t.id));
             }
 
             selectionsContainer.innerHTML = `
@@ -8365,7 +8384,7 @@ async function showAnnouncementFormModal() {
                 let availableCircles = (cachedCircles || []).filter(c => c.isActive);
                 let filterStudents = allStudents;
 
-                if (currentRole === "Teacher") {
+                if (currentRole === "Teacher" || (currentRole === "Parent" && isUserTeacher)) {
                     const tId = currentUser.teacherId || parseInt(currentUserId);
                     availableCircles = availableCircles.filter(c => c.teacherId === tId);
                     const myCircleIds = availableCircles.map(c => c.id);
@@ -8378,7 +8397,7 @@ async function showAnnouncementFormModal() {
                             <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-warning me-1"></i> فلترة بالحلقة القرآنية:</label>
                             <select id="announcement-student-circle-filter" class="form-select border-warning shadow-xs">
                                 <option value="ALL">-- جميع الطلاب (${filterStudents.length}) --</option>
-                                <option value="UNASSIGNED">⚠️ طلاب غير مسندين لحلقة</option>
+                                ${isUserTeacher ? '' : '<option value="UNASSIGNED">⚠️ طلاب غير مسندين لحلقة</option>'}
                                 ${availableCircles.map(c => `<option value="${c.id}">🕌 ${c.name}</option>`).join('')}
                             </select>
                         </div>
@@ -8461,22 +8480,11 @@ async function showAnnouncementFormModal() {
                 let availableCircles = (cachedCircles || []).filter(c => c.isActive);
                 let finalParentsList = [];
 
-                if (currentRole === "Teacher") {
+                if (isUserTeacher) {
                     const cu = getCurrentUser();
-                    const tId = cu.teacherId || parseInt(currentUserId);
-                    const teacherFullName = getAuthStorage("fullName") || "";
-                    const teacherFirstWord = (teacherFullName.split(' ')[0] || "").trim().toLowerCase();
-
+                    const tId = cu.teacherId;
                     // Match circles belonging to this teacher
-                    availableCircles = availableCircles.filter(c =>
-                        c.teacherId == tId ||
-                        (c.teacherName && teacherFirstWord && c.teacherName.toLowerCase().includes(teacherFirstWord))
-                    );
-
-                    // Fallback: if no circles matched by id/name, don't leave empty
-                    if (availableCircles.length === 0 && (cachedCircles || []).length > 0) {
-                        availableCircles = (cachedCircles || []).filter(c => c.isActive);
-                    }
+                    availableCircles = availableCircles.filter(c => c.teacherId == tId || c.assistantTeacherId == tId);
 
                     const myCircleIds = availableCircles.map(c => c.id);
                     const myCircleNames = availableCircles.map(c => (c.name || "").toLowerCase());
@@ -8558,6 +8566,18 @@ async function showAnnouncementFormModal() {
                     });
 
                     finalParentsList = Array.from(parentMap.values());
+                    // The audit endpoint already limits teachers to parents of their assigned students.
+                    // Include course parents even when their child is outside the teacher's Quran circle.
+                    finalParentsList = (rawParentsList || []).map(p => ({
+                        parentId: p.parentId || p.parentUserId,
+                        parentUserId: p.parentUserId,
+                        parentName: p.parentName || `ولي أمر الطالب (${(p.children || []).map(c => c.fullName).join('، ')})`,
+                        username: p.username || '',
+                        parentIdentityNumber: p.parentIdentityNumber || '',
+                        familyContact: p.children?.[0]?.familyContact || '',
+                        children: p.children || [],
+                        childrenNames: (p.children || []).map(c => c.fullName).join('، ')
+                    }));
                 } else {
                     // Admin / Developer: include all parents
                     finalParentsList = (rawParentsList || []).map(p => {
@@ -8580,12 +8600,18 @@ async function showAnnouncementFormModal() {
                     });
                 }
 
+                const availableCourses = isUserTeacher ? (await apiRequest('/courses')).filter(c => c.isActive) : [];
+                const courseStudentIds = new Map();
+                await Promise.all(availableCourses.map(async c => {
+                    const enrollments = await apiRequest(`/courses/${c.id}/enrollments`).catch(() => []);
+                    courseStudentIds.set(c.id, new Set(enrollments.map(e => e.studentId)));
+                }));
                 selectionsContainer.innerHTML = `
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
                             <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-warning me-1"></i> فلترة بحلقة الأبناء:</label>
                             <select id="announcement-parent-circle-filter" class="form-select border-warning shadow-xs">
-                                <option value="ALL">-- جميع أولياء الأمور (${finalParentsList.length}) --</option>
+                                <option value="ALL">-- أولياء أمور طلابي (${finalParentsList.length}) --</option>
                                 ${availableCircles.map(c => `<option value="${c.id}" data-name="${(c.name||'').toLowerCase()}">🕌 ${escapeXml(c.name)}</option>`).join('')}
                             </select>
                         </div>
@@ -8594,6 +8620,7 @@ async function showAnnouncementFormModal() {
                             <input type="text" id="announcement-target-search" class="form-control border-primary shadow-xs" placeholder="🔍 ابحث باسم ولي الأمر، الابن، أو رقم الهوية..." autocomplete="off">
                         </div>
                     </div>
+                    ${availableCourses.length ? `<div class="form-group mb-2"><label class="form-label fw-bold">أو فلترة بدورة الأبناء:</label><select id="announcement-parent-course-filter" class="form-select"><option value="ALL">-- جميع دوراتي --</option>${availableCourses.map(c => `<option value="${c.id}">${escapeXml(c.name)}</option>`).join('')}</select></div>` : ''}
                     <div class="form-group mt-2">
                         <label for="announcement-form-target-id" class="form-label fw-bold text-dark">اختر ولي الأمر المستهدف (<span id="target-search-count">${finalParentsList.length}</span>):</label>
                         <select id="announcement-form-target-id" class="form-select border-success" size="7" required style="font-size: 0.95rem;">
@@ -8607,12 +8634,14 @@ async function showAnnouncementFormModal() {
                 `;
 
                 const circleFilter = document.getElementById("announcement-parent-circle-filter");
+                const courseFilter = document.getElementById("announcement-parent-course-filter");
                 const searchInput = document.getElementById("announcement-target-search");
                 const selectEl = document.getElementById("announcement-form-target-id");
                 const countEl = document.getElementById("target-search-count");
 
                 function updateParentList() {
                     const selectedCircle = circleFilter.value;
+                    const selectedCourse = courseFilter?.value || 'ALL';
                     const q = searchInput.value.trim().toLowerCase();
 
                     let matched = finalParentsList;
@@ -8624,6 +8653,10 @@ async function showAnnouncementFormModal() {
                             (c.circleId && c.circleId === cId) ||
                             (cName && c.circleName && c.circleName.toLowerCase() === cName)
                         ));
+                    }
+                    if (selectedCourse !== 'ALL') {
+                        const enrolled = courseStudentIds.get(Number(selectedCourse)) || new Set();
+                        matched = matched.filter(p => p.children?.some(c => enrolled.has(c.id)));
                     }
 
                     if (q) {
@@ -8654,6 +8687,7 @@ async function showAnnouncementFormModal() {
                 }
 
                 circleFilter.addEventListener("change", updateParentList);
+                courseFilter?.addEventListener('change', updateParentList);
                 searchInput.addEventListener("input", updateParentList);
             } catch (e) {
                 console.error(e);
@@ -11069,7 +11103,7 @@ async function showCourseEnrollmentsModal(courseId, courseName) {
                             <tr>
                                 <td><strong>${e.studentName}</strong></td>
                                 <td>${e.halaqahName}</td>
-                                <td><strong>${e.grade !== null ? e.grade : '-'}</strong></td>
+                                <td><strong>${e.grade !== null ? e.grade : 'لم يتم رصد الدرجة'}</strong></td>
                                 <td>
                                     <span class="badge ${e.status === 'Passed' ? 'badge-success' : (e.status === 'Failed' ? 'badge-danger' : 'badge-warning')}">
                                         ${e.status === 'Passed' ? 'ناجح (مجاز)' : (e.status === 'Failed' ? 'لم يجتز' : 'مستمر')}
@@ -11077,7 +11111,7 @@ async function showCourseEnrollmentsModal(courseId, courseName) {
                                 </td>
                                 <td><code class="small">${e.certificateCode || '-'}</code></td>
                                 <td>
-                                    <button class="btn btn-outline-primary btn-sm" onclick="showRecordGradeModal(${e.id}, '${e.studentName}', ${courseId})"><i class="fa-solid fa-marker"></i> رصد درجة</button>
+                                    <span class="text-muted small">الرصد من إدارة الاختبارات بعد الترشيح</span>
                                 </td>
                             </tr>
                         `).join('')}
@@ -11151,6 +11185,9 @@ async function showCourseAttendanceModal(courseId, courseName) {
                                                 </label>
                                                 <label style="cursor:pointer; display:flex; align-items:center; gap:4px; margin:0; color:var(--warning-color);">
                                                     <input type="radio" name="status-${e.studentId}" value="3" ${currentStatus === 3 ? 'checked' : ''}> متأخر
+                                                </label>
+                                                <label style="cursor:pointer; display:flex; align-items:center; gap:4px; margin:0; color:var(--primary-color);">
+                                                    <input type="radio" name="status-${e.studentId}" value="4" ${currentStatus === 4 ? 'checked' : ''}> غائب بعذر
                                                 </label>
                                             </div>
                                         </td>
@@ -11236,62 +11273,6 @@ async function showCourseAttendanceModal(courseId, courseName) {
     }
 }
 
-function showRecordGradeModal(enrollmentId, studentName, courseId) {
-    // Save current modal to restore after 2FA or grade submit
-    const prevModalTitle = document.getElementById("modal-title").textContent;
-    const prevModalBody = document.getElementById("modal-body-content").innerHTML;
-
-    openModal(`رصد علامة الطالب: ${studentName}`);
-    const content = document.getElementById("modal-body-content");
-    content.innerHTML = `
-        <form id="record-grade-form">
-            <div class="form-group">
-                <label for="grade-input-value">العلامة النهائية (من 100):</label>
-                <input type="number" id="grade-input-value" class="form-control" min="0" max="100" placeholder="رصد الدرجة المستحقة..." required>
-            </div>
-            <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-success"><i class="fa-solid fa-save"></i> حفظ وعرض التنبيه</button>
-                <button type="button" class="btn btn-light" id="btn-back-to-enrolls">رجوع</button>
-            </div>
-        </form>
-    `;
-
-    document.getElementById("btn-back-to-enrolls").addEventListener("click", () => {
-        openModal(prevModalTitle);
-        document.getElementById("modal-body-content").innerHTML = prevModalBody;
-    });
-
-    document.getElementById("record-grade-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const gradeVal = parseFloat(document.getElementById("grade-input-value").value);
-
-        promptTwoFactor(async (code) => {
-            try {
-                // Post grade with 2FA header and body
-                const res = await apiRequest(`/courses/grade`, "PUT", { enrollmentId, grade: gradeVal, code2FA: code }, { "X-2FA-Code": code });
-                showAlert("تم رصد العلامة وحفظ الشهادة بنجاح.", "success");
-
-                if (typeof loadCourses === "function") {
-                    loadCourses();
-                }
-                if (typeof loadPortfolio === "function") {
-                    loadPortfolio();
-                }
-
-                // If there's a simulated WhatsApp alert, pop it up!
-                if (res.whatsappAlert) {
-                    showWhatsAppSimulateModal(res.whatsappAlert);
-                } else {
-                    closeModal();
-                }
-            } catch(err) {
-                showAlert(err.message || "حدث خطأ أثناء رصد العلامة.", "danger");
-            }
-        });
-    });
-}
-
-
 // 5. SECURITY: 2FA POPUP
 function promptTwoFactor(onVerifyCallback) {
     const prevTitle = document.getElementById("modal-title").textContent;
@@ -11360,7 +11341,7 @@ function showWhatsAppSimulateModal(alertData) {
 
 // 7. EXAMINATIONS NOMINATIONS WORKFLOW
 async function loadExams() {
-    const isTeacher = currentRole === "Teacher";
+    const isTeacher = currentRole === "Teacher" || (currentRole === "Parent" && !!getAuthStorage('teacherId'));
     const isAdmin = (currentRole === "Admin" || currentRole === "Developer");
     const tRole = (getAuthStorage("taskRole") || "").trim();
     const isSupervisor = (currentRole === "ExamSupervisor" || (isTeacher && tRole.includes("اختبار")));
@@ -11561,8 +11542,9 @@ function renderExamsTable(list, filterType, isAdmin, isSupervisor) {
 
 function showNominateModal() {
     openModal("ترشيح طالب لاختبار شفوي");
-    const canQuran=currentRole!=="Teacher"||teacherCan('circles');
-    const canCourse=currentRole!=="Teacher"||teacherCan('courses');
+    const isAssignedTeacher=currentRole==='Teacher'||(currentRole==='Parent'&&!!getAuthStorage('teacherId'));
+    const canQuran=!isAssignedTeacher||teacherCan('circles');
+    const canCourse=!isAssignedTeacher||teacherCan('courses');
     const initialType=!canQuran&&canCourse?'Course':'Quran';
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `

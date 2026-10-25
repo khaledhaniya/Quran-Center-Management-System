@@ -197,26 +197,18 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                   child: ListTile(
                                     title: Text(r.studentName, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
                                     subtitle: Text('المساق: ${r.courseName}', style: AppTheme.cairoStyle(fontSize: 12)),
-                                    trailing: ToggleButtons(
-                                      constraints: const BoxConstraints(minWidth: 42, minHeight: 32),
-                                      borderRadius: BorderRadius.circular(8),
-                                      selectedColor: Colors.white,
-                                      fillColor: currentStatus == 1 ? Colors.green : (currentStatus == 2 ? Colors.red : Colors.orange),
-                                      isSelected: [
-                                        currentStatus == 1,
-                                        currentStatus == 2,
-                                        currentStatus == 3,
+                                    trailing: DropdownButton<int>(
+                                      value: currentStatus,
+                                      underline: const SizedBox.shrink(),
+                                      items: const [
+                                        DropdownMenuItem(value: 1, child: Text('حاضر')),
+                                        DropdownMenuItem(value: 2, child: Text('غائب')),
+                                        DropdownMenuItem(value: 3, child: Text('متأخر')),
+                                        DropdownMenuItem(value: 4, child: Text('غائب بعذر')),
                                       ],
-                                      onPressed: (btnIndex) {
-                                        setState(() {
-                                          _attendanceStatus[r.studentId] = btnIndex + 1;
-                                        });
+                                      onChanged: (value) {
+                                        if (value != null) setState(() => _attendanceStatus[r.studentId] = value);
                                       },
-                                      children: const [
-                                        Text('حاضر', style: TextStyle(fontSize: 11)),
-                                        Text('غائب', style: TextStyle(fontSize: 11)),
-                                        Text('متأخر', style: TextStyle(fontSize: 11)),
-                                      ],
                                     ),
                                   ),
                                 );

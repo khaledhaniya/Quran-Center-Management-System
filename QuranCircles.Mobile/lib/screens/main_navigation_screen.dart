@@ -180,7 +180,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الدورات'));
       }
 
-      if (_currentUser.isExamSupervisor) {
+      if (_currentUser.isHalaqahTeacher || _currentUser.isCourseTeacher || _currentUser.isExamSupervisor) {
         screens.add(ExamsScreen(currentUser: _currentUser));
         items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الترشيحات'));
       }
@@ -197,6 +197,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
 
       screens.add(AnnouncementsScreen(currentUser: _currentUser));
       items.add(const BottomNavigationBarItem(icon: Icon(Icons.campaign), label: 'الإعلانات'));
+      screens.add(ExamsScreen(currentUser: _currentUser));
+      items.add(const BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'الاختبارات'));
+      if (role == 'Parent' && (_currentUser.hasChildren || _currentUser.childrenCount > 0) && _currentUser.teacherId != null && _currentUser.isCourseTeacher) {
+        screens.add(const CoursesManagementScreen());
+        items.add(const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'دوراتي'));
+      }
     }
 
     screens.add(const CoursesManagementScreen(portfolioOnly: true));
