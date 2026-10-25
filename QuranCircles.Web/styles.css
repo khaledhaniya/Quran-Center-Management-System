@@ -9335,7 +9335,14 @@ body.dark-mode .plan-juz-btn:hover {
 /* On small screens the document scrolls naturally below the browser bars. */
 @media (max-width: 992px) {
     body.mobile-nav-open { overflow: hidden; }
+    .main-header {
+        position: sticky !important;
+        top: 0;
+    }
+    .layout-body { grid-template-columns: minmax(0, 1fr) !important; }
     .main-content {
+        min-width: 0;
+        max-width: 100%;
         height: auto !important;
         min-height: calc(100dvh - 64px);
         overflow-y: visible !important;
@@ -9351,4 +9358,21 @@ body.dark-mode .plan-juz-btn:hover {
     .sidebar-footer { flex-shrink: 0; }
     .modal-overlay { z-index: 10001; }
     .modal-card { max-height: calc(100dvh - 24px); }
+    #developer-users-section,
+    #developer-users-section .dev-hero-header,
+    #developer-users-section .header-titles,
+    #developer-users-section .action-buttons-group,
+    #developer-users-section .dev-toolbar,
+    #developer-users-section .dev-cards-grid,
+    #developer-users-section .dev-user-card { min-width: 0; max-width: 100%; }
+    #developer-users-section .dev-hero-header h2 { overflow-wrap: anywhere; }
+    #developer-users-section .dev-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    }
+    #developer-users-section .dev-card-header,
+    #developer-users-section .dev-card-info-row { min-width: 0; flex-wrap: wrap; }
+    #developer-users-section .dev-card-username,
+    #developer-users-section .dev-card-info-row code,
+    #developer-users-section .dev-card-info-row > div,
+    #developer-users-section .dev-card-info-row > span { min-width: 0; overflow-wrap: anywhere; }
 }
