@@ -21,10 +21,12 @@ void main() {
       Object result=[];
       if(request.url.path.endsWith('/operations/today'))result={'date':'2026-10-17'};
       if(request.url.path.endsWith('/circles'))result=[{'id':1,'name':'حلقة البيان','isActive':true}];
-      if(request.url.path.endsWith('/teacher-attendance'))result=[
+      if(request.url.path.endsWith('/teacher-attendance')) {
+        result=[
         {'circleId':1,'circleName':'حلقة البيان','teacherName':'محمد أحمد','date':'2026-10-17','status':'Absent','statusText':'غائب','isAutomatic':false,'substituteName':'عبد الرحمن البديل','reason':'إجازة','scheduledStart':'08:00','openedAt':null,'closedAt':null,'lateMinutes':0},
         {'circleId':1,'circleName':'حلقة البيان','teacherName':'محمد أحمد','date':'2026-10-16','status':'NotAbsent','statusText':'لم يسجل غياب','isAutomatic':false,'substituteName':'','reason':'','scheduledStart':'08:00','openedAt':null,'closedAt':null,'lateMinutes':0}
-      ];
+        ];
+      }
       return http.Response(jsonEncode(result),200,headers:{'content-type':'application/json; charset=utf-8'});
     });
     addTearDown((){ApiService.httpClient.close();ApiService.httpClient=previousClient;ApiService.currentUser=previousUser;ApiService.invalidateCache();});
