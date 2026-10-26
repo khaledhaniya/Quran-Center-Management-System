@@ -91,7 +91,11 @@ public class ExportsController(AppDbContext db) : ControllerBase
             var student = await db.Students.FindAsync(studentId);
             var circleTeacherAccess = user.TeacherId.HasValue && student?.CircleId.HasValue == true &&
                 await db.Circles.AnyAsync(c => c.Id == student.CircleId.Value && (c.TeacherId == user.TeacherId.Value || c.AssistantTeacherId == user.TeacherId.Value));
+            var qualityTeacher = user.TeacherId.HasValue
+                ? await db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == user.TeacherId.Value && t.IsActive)
+                : null;
             bool access = user.Role is UserRole.Admin or UserRole.Developer || user.StudentId == studentId ||
+                (qualityTeacher != null && TeacherPermissions.For(qualityTeacher).Contains("quality")) ||
                 (user.Role == UserRole.ExamSupervisor && (request.CertificateKind == "exam" || courseSupervisorId == user.Id)) ||
                 (user.TeacherId.HasValue && user.TeacherId == teacherId) || circleTeacherAccess ||
                 (student != null && ParentLinks.IsChild(user, student));

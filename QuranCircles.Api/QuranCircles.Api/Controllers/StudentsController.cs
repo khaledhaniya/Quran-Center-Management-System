@@ -148,9 +148,19 @@ public class StudentsController : ControllerBase
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
 
-        if (currentUser?.Role == UserRole.Teacher && !settings.AllowTeacherSelfEnrollment)
+        if (currentUser == null) return Unauthorized();
+        if (currentUser.Role is not (UserRole.Admin or UserRole.Developer) && !settings.AllowTeacherSelfEnrollment)
         {
             return BadRequest(new { error = "عذراً، تسجيل وتنسيب الطلاب بواسطة المعلم معطل حالياً من قبل إدارة المركز." });
+        }
+        if (currentUser.Role is not (UserRole.Admin or UserRole.Developer))
+        {
+            var teacherId = currentUser.TeacherId;
+            if (!teacherId.HasValue || !dto.CircleId.HasValue ||
+                !await _db.Teachers.AnyAsync(t => t.Id == teacherId.Value && t.IsActive) ||
+                !await _db.Circles.AnyAsync(c => c.Id == dto.CircleId.Value && c.IsActive &&
+                    (c.TeacherId == teacherId.Value || c.AssistantTeacherId == teacherId.Value)))
+                return Forbid();
         }
 
         var (created, createdParent, error) = await _svc.CreateAsync(dto);
@@ -179,28 +189,19 @@ public class StudentsController : ControllerBase
         var currentUserId = FakeAuth.GetUserId(HttpContext);
         var currentUser = await _db.Users.FindAsync(currentUserId);
 
-        if (currentUser?.Role == UserRole.Teacher)
+        if (currentUser?.Role == UserRole.Teacher || (currentUser?.Role == UserRole.Parent && currentUser.TeacherId.HasValue))
         {
             var student = await _db.Students.Include(s => s.Circle).ThenInclude(c => c!.Teacher).FirstOrDefaultAsync(s => s.Id == id);
             if (student == null) return NotFound(new { error = "الطالب غير موجود." });
 
             int tId = currentUser.TeacherId ?? 0;
-            Teacher? teacherObj = null;
-            if (tId > 0)
-            {
-                teacherObj = await _db.Teachers.FindAsync(tId);
-            }
-            if (teacherObj == null)
-            {
-                teacherObj = await _db.Teachers.FirstOrDefaultAsync(x => x.FullName == currentUser.FullName);
-                if (teacherObj != null) tId = teacherObj.Id;
-            }
+            var teacherObj = tId > 0 ? await _db.Teachers.FindAsync(tId) : null;
 
-            bool isHisStudent = student.CircleId.HasValue && (student.Circle?.TeacherId == tId || (student.Circle?.Teacher != null && student.Circle.Teacher.FullName == currentUser.FullName));
-            var taskRole = teacherObj?.TaskRole ?? "";
-            bool isSupervisorOrAdmin = taskRole.Contains("مشرف") || taskRole.Contains("موجه") || currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Developer;
-
-            if (!isHisStudent && !isSupervisorOrAdmin)
+            bool isHisStudent = teacherObj?.IsActive == true && student.CircleId.HasValue &&
+                (student.Circle?.TeacherId == tId || student.Circle?.AssistantTeacherId == tId);
+            bool targetAssigned = !dto.CircleId.HasValue || await _db.Circles.AnyAsync(c => c.Id == dto.CircleId.Value && c.IsActive &&
+                (c.TeacherId == tId || c.AssistantTeacherId == tId));
+            if (!isHisStudent || !targetAssigned)
             {
                 return Forbid();
             }

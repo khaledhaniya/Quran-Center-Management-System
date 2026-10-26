@@ -30,6 +30,41 @@ public class OperationalIntegrityTests
     }
 
     [Fact]
+    public async Task CoursePlansUseCourseIdentityAndOldPlansReceiveTheNewColumn()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:"); connection.Open();
+        using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options);
+        db.Database.EnsureCreated();
+        db.Database.ExecuteSqlRaw("ALTER TABLE CirclePlans DROP COLUMN CourseId");
+        OperationsSchema.Ensure(db);
+        Assert.Equal(1, db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM pragma_table_info('CirclePlans') WHERE name = 'CourseId'").Single());
+        db.Courses.Add(new Course { Id = 7, Name = "دورة التجويد", IsActive = true });
+        db.Teachers.AddRange(new Teacher { Id = 1, FullName = "مشرف الجودة", TaskRole = "مسؤول الجودة" },
+            new Teacher { Id = 2, FullName = "معلم" });
+        var admin = new User { Id = 1, Username = "admin", Role = UserRole.Admin };
+        var quality = new User { Id = 2, Username = "quality", Role = UserRole.Teacher, TeacherId = 1 };
+        var ordinary = new User { Id = 3, Username = "ordinary", Role = UserRole.Teacher, TeacherId = 2 };
+        db.Users.AddRange(admin, quality, ordinary); await db.SaveChangesAsync();
+        var context = new DefaultHttpContext(); context.Items["QuranCenter.VerifiedUser"] = admin;
+        var controller = new OperationsController(db) { ControllerContext = new ControllerContext { HttpContext = context } };
+        var today = CenterClock.Today;
+        Assert.IsType<OkObjectResult>(await controller.SavePlan(new CirclePlan {
+            CourseId = 7, Track = "Course", Title = "دروس التجويد", Unit = "درس",
+            StartsOn = today, EndsOn = today.AddDays(30), Target = 12 }));
+        var saved = await db.CirclePlans.SingleAsync();
+        Assert.Equal(7, saved.CourseId);
+        Assert.Equal(0, saved.CircleId);
+        context.Items["QuranCenter.VerifiedUser"] = ordinary;
+        Assert.IsType<ForbidResult>(await controller.SavePlan(new CirclePlan {
+            CourseId = 7, Track = "Course", Title = "خطة أخرى", Unit = "درس",
+            StartsOn = today, EndsOn = today.AddDays(30), Target = 8 }));
+        context.Items["QuranCenter.VerifiedUser"] = quality;
+        Assert.IsType<OkObjectResult>(await controller.SavePlan(new CirclePlan {
+            CourseId = 7, Track = "Course", Title = "خطة الجودة", Unit = "درس",
+            StartsOn = today, EndsOn = today.AddDays(30), Target = 8 }));
+    }
+
+    [Fact]
     public async Task ExistingCenterCanLoadQualityAfterMissingVisitsTableIsUpgraded()
     {
         using var connection = new SqliteConnection("Data Source=:memory:"); connection.Open();

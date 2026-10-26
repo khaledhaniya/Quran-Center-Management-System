@@ -31,6 +31,7 @@ import 'teacher_circle_students_screen.dart';
 import 'teacher_comprehensive_report_screen.dart';
 import 'teacher_lottery_screen.dart';
 import 'parent_portal_screen.dart';
+import 'circle_leaderboard_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -392,6 +393,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                 setState(() => _currentIndex = 0);
               },
             ),
+
+            if (isTeacher || isAdmin)
+              ListTile(
+                leading: const Icon(Icons.emoji_events, color: AppTheme.primary),
+                title: Text('صدارة الحلقات', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CircleLeaderboardScreen()));
+                },
+              ),
 
             if (_currentUser.role == 'Parent' || (_currentUser.hasChildren && _currentUser.childrenCount > 0)) ...[
               Container(

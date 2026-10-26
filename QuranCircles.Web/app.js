@@ -533,6 +533,20 @@ async function handleLogin(e) {
         const data = await response.json();
 
         // Secure Storage based on Remember Me preference
+        // A second login can happen without a page reload. Invalidate the previous
+        // account's lists and pending requests before painting the new account.
+        window.authGeneration = (window.authGeneration || 0) + 1;
+        cachedTeachers = [];
+        cachedCircles = [];
+        cachedStudents = [];
+        cachedUsers = [];
+        teacherRegisterVersion++;
+        portfolioLoadVersion++;
+        cachedQualityOverview = null;
+        const capacityBadge = document.getElementById('teacher-circle-capacity-badge');
+        if (capacityBadge) capacityBadge.textContent = 'جارٍ تحميل سعة الحلقة…';
+        const teacherRows = document.getElementById('teacher-students-table-body');
+        if (teacherRows) teacherRows.innerHTML = '<tr><td colspan="7" class="text-center p-4">جارٍ تحميل بيانات الحلقة…</td></tr>';
         clearAllAuthStorage();
         setAuthStorage("token", data.token, rememberMe);
         setAuthStorage("role", data.role, rememberMe);
@@ -578,6 +592,9 @@ async function handleLogin(e) {
 }
 
 function handleLogout(isSilent = false) {
+    window.authGeneration = (window.authGeneration || 0) + 1;
+    portfolioLoadVersion++;
+    cachedQualityOverview = null;
     closeMobileSidebar();
     if (inactivityTimer) clearTimeout(inactivityTimer);
     clearAllAuthStorage();
@@ -840,6 +857,7 @@ function updateSidebarMenu() {
 
 // ----------------- API request dispatcher with Auto-Retry & Wakeup Resilience -----------------
 async function apiRequest(path, method = "GET", body = null, retries = 1, silent = false, customHeaders = null) {
+    const requestGeneration = window.authGeneration || 0;
     let actualRetries = typeof retries === "number" ? retries : 1;
     let extraHeaders = (typeof retries === "object" && retries !== null) ? retries : (customHeaders || {});
 
@@ -862,6 +880,7 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
     for (let attempt = 0; attempt <= actualRetries; attempt++) {
         try {
             const response = await fetch(`${API_BASE}${path}`, options);
+            if (requestGeneration !== (window.authGeneration || 0)) throw new Error('تغير الحساب أثناء تحميل البيانات.');
 
             if (response.status === 401) {
                 handleLogout();
@@ -903,7 +922,9 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
                 return null;
             }
 
-            return await response.json();
+            const result = await response.json();
+            if (requestGeneration !== (window.authGeneration || 0)) throw new Error('تغير الحساب أثناء تحميل البيانات.');
+            return result;
         } catch (error) {
             const isNetworkError = (error.name === "TypeError" || (error.message && (error.message.includes("fetch") || error.message.includes("network") || error.message.includes("Failed to fetch"))));
 
@@ -913,7 +934,7 @@ async function apiRequest(path, method = "GET", body = null, retries = 1, silent
                 continue;
             }
 
-            if (!silent) {
+            if (!silent && requestGeneration === (window.authGeneration || 0)) {
                 console.error(`API Error on ${path}:`, error);
                 const userFriendlyMsg = isNetworkError
                     ? "⚠️ جاري استيقاظ الخادم السحابي أو تحديث البيانات. يرجى الانتظار ثوانٍ معدودة والضغط على إعادة المحاولة."
@@ -1020,6 +1041,12 @@ function handleRouting() {
     // If teacher has no assigned tasks or circles, allow announcements or lock view to empty state
     const isTeacherWithoutTask = currentRole === "Teacher" && !teacherPermissions().length;
     if (isTeacherWithoutTask) {
+        if (hash === '#competitions') {
+            document.getElementById('btn-competitions')?.classList.add('active');
+            document.getElementById('competitions-section')?.classList.remove('hidden');
+            loadCompetitions();
+            return;
+        }
         if (hash === "#announcements") {
             document.getElementById("btn-announcements")?.classList.add("active");
             document.getElementById("announcements-section")?.classList.remove("hidden");
@@ -4165,8 +4192,12 @@ async function loadTeacherAttendanceSetup() {
 
 // ----------------- Teacher: Students & Enrollment Management -----------------
 async function loadTeacherStudentsSetup() {
+    const accountGeneration = window.authGeneration || 0;
+    const capacityBadge = document.getElementById('teacher-circle-capacity-badge');
+    if (capacityBadge) capacityBadge.textContent = 'جارٍ تحميل سعة الحلقة…';
     try {
         const circles = await apiRequest("/circles");
+        if (accountGeneration !== (window.authGeneration || 0)) return;
         const myCircles = (circles || []).filter(c => c.isActive);
         const select = document.getElementById("teacher-students-circle-select");
         if (!select) return;
@@ -4174,6 +4205,7 @@ async function loadTeacherStudentsSetup() {
 
         if (myCircles.length === 0) {
             select.innerHTML = `<option value="">لا توجد حلقات مسندة إليك</option>`;
+            if (capacityBadge) capacityBadge.textContent = 'لا توجد حلقة مسندة';
             const tbody = document.getElementById("teacher-students-table-body");
             if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted p-4">لا توجد حلقات مسندة إلى حسابك حالياً.</td></tr>`;
             return;
@@ -4204,6 +4236,7 @@ async function loadTeacherStudentsSetup() {
 }
 
 async function loadTeacherStudentsTable() {
+    const accountGeneration = window.authGeneration || 0;
     const select = document.getElementById("teacher-students-circle-select");
     if (!select || !select.value) return;
     const circleId = select.value;
@@ -4213,6 +4246,7 @@ async function loadTeacherStudentsTable() {
 
     try {
         const circle = await apiRequest(`/circles/${circleId}`);
+        if (accountGeneration !== (window.authGeneration || 0) || select.value !== circleId) return;
         const students = circle.students || [];
 
         const capBadge = document.getElementById("teacher-circle-capacity-badge");
@@ -6178,7 +6212,7 @@ async function showStudentModal(studentId = null) {
         try { cachedCircles = await apiRequest("/circles"); } catch(e) {}
     }
 
-    if (cachedUsers.length === 0) {
+    if (cachedUsers.length === 0 && ['Admin', 'Developer'].includes(currentRole)) {
         try { cachedUsers = await apiRequest("/users"); } catch(e) {}
     }
 
@@ -6623,7 +6657,7 @@ async function showStudentModal(studentId = null) {
             if (pSearchHint) pSearchHint.innerHTML = "";
             return;
         }
-        if (!cachedUsers || cachedUsers.length === 0) {
+        if ((!cachedUsers || cachedUsers.length === 0) && ['Admin', 'Developer'].includes(currentRole)) {
             try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(e) {}
         }
 
@@ -6824,7 +6858,9 @@ async function showStudentModal(studentId = null) {
                 const res = await apiRequest("/students", "POST", dto, 1, true);
 
                 // Refresh cached data
-                try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(err) {}
+                if (['Admin', 'Developer'].includes(currentRole)) {
+                    try { cachedUsers = await apiRequest("/users", "GET", null, 0, true); } catch(err) {}
+                }
                 try { cachedStudents = await apiRequest("/students", "GET", null, 0, true); } catch(err) {}
                 if (typeof loadAdminStudents === "function") loadAdminStudents();
                 if (typeof loadAdminCircles === "function") loadAdminCircles();
@@ -8105,6 +8141,9 @@ async function showAnnouncementFormModal() {
     const hasChildren = getAuthStorage("hasChildren") === "true" || parseInt(getAuthStorage("childrenCount") || "0") > 0;
     const isUserTeacher = getAuthStorage("isTeacher") === "true" || !!getAuthStorage("teacherId") || currentRole === "Teacher";
     const isDualRoleTeacherParent = hasChildren && isUserTeacher;
+    const hasCircleAssignment = cachedCircles.some(c => c.isActive);
+    const hasTeachingAssignment = hasCircleAssignment || teacherCan('courses');
+    const qualityOptions = teacherCan('quality') ? `<optgroup label="إرسال بصفتك مشرف الجودة"><option value="QualityCircleTeachers">معلمو الحلقات في المركز</option><option value="QualityAdmin">مدير المركز</option></optgroup>` : '';
 
     let targetOptions = "";
     if (isDualRoleTeacherParent) {
@@ -8114,22 +8153,24 @@ async function showAnnouncementFormModal() {
                 <option value="ParentCourseTeacher">معلم دورة تدريبية لابنك</option>
                 <option value="ParentAllTeachers">جميع معلمي أبنائي (حلقات ودورات)</option>
             </optgroup>
-            <optgroup label="📋 نشر وإرسال بصفتك معلماً:">
-                <option value="Circle">كل طلاب حلقتي</option>
+            ${hasTeachingAssignment ? `<optgroup label="📋 نشر وإرسال بصفتك معلماً:">
+                ${hasCircleAssignment ? '<option value="Circle">كل طلاب حلقتي</option>' : ''}
                 ${teacherCan('courses') ? '<option value="Course">طلاب دورتي</option>' : ''}
-                <option value="Student">طالب معين في حلقتي</option>
+                ${hasCircleAssignment ? '<option value="Student">طالب معين في حلقتي</option>' : ''}
                 <option value="Parent">ولي أمر معين في حلقتي أو دورتي</option>
                 <option value="Teacher">معلم آخر معين</option>
-            </optgroup>
+            </optgroup>` : ''}
+            ${qualityOptions}
             <option value="Admin">إدارة المركز</option>
         `;
     } else if (currentRole === "Teacher") {
         targetOptions = `
-            <option value="Circle">كل طلاب حلقتي</option>
+            ${hasTeachingAssignment ? `${hasCircleAssignment ? '<option value="Circle">كل طلاب حلقتي</option>' : ''}
             ${teacherCan('courses') ? '<option value="Course">طلاب دورتي</option>' : ''}
-            <option value="Student">طالب معين في حلقتي</option>
+            ${hasCircleAssignment ? '<option value="Student">طالب معين في حلقتي</option>' : ''}
             <option value="Parent">ولي أمر معين في حلقتي أو دورتي</option>
-            <option value="Teacher">معلم آخر معين</option>
+            <option value="Teacher">معلم آخر معين</option>` : ''}
+            ${qualityOptions}
             <option value="Admin">مدير المركز</option>
         `;
     } else if (currentRole === "Parent") {
@@ -8204,7 +8245,7 @@ async function showAnnouncementFormModal() {
         selectionsContainer.innerHTML = "";
         selectionsContainer.classList.add("hidden");
 
-        if (type === "All" || type === "AllTeachers" || type === "Admin") {
+        if (type === "All" || type === "AllTeachers" || type === "Admin" || type === "QualityAdmin" || type === "QualityCircleTeachers") {
             return;
         }
 
@@ -8713,7 +8754,7 @@ async function showAnnouncementFormModal() {
         const targetType = targetTypeSelect.value;
 
         let targetId = null;
-        if (targetType !== "All" && targetType !== "AllTeachers" && targetType !== "Admin") {
+        if (targetType !== "All" && targetType !== "AllTeachers" && targetType !== "Admin" && targetType !== "QualityAdmin" && targetType !== "QualityCircleTeachers") {
             const targetIdSelect = document.getElementById("announcement-form-target-id");
             if (targetIdSelect) {
                 let val = targetIdSelect.value;
@@ -8734,12 +8775,15 @@ async function showAnnouncementFormModal() {
         if (targetType === "ParentQuranTeacher" || targetType === "ParentCourseTeacher" || targetType === "ParentAllTeachers") {
             actualTargetType = "Teacher";
         }
+        if (targetType === 'QualityCircleTeachers') actualTargetType = 'CircleTeachers';
+        if (targetType === 'QualityAdmin') actualTargetType = 'Admin';
 
         const dto = {
             title: title,
             content: contentVal,
             targetType: actualTargetType,
-            targetId: targetId
+            targetId: targetId,
+            senderCapacity: targetType.startsWith('Quality') ? 'Quality' : null
         };
 
         try {
@@ -10105,7 +10149,7 @@ async function loadPortfolio() {
     const heading = document.getElementById("portfolio-title");
     if (heading) heading.textContent = currentRole === "Parent" ? "إنجازات أبنائي" :
         currentRole === "Student" ? "ملف إنجازي" :
-        currentRole === "Teacher" ? "إنجازات طلاب حلقاتي ودوراتي وأبنائي" : "إنجازات طلاب المركز";
+        currentRole === "Teacher" && !teacherCan('quality') ? "إنجازات طلاب حلقاتي ودوراتي وأبنائي" : "إنجازات طلاب المركز";
     const loadVersion = ++portfolioLoadVersion;
     for (const url of portfolioCertificateUrls) URL.revokeObjectURL(url);
     portfolioCertificateUrls = [];
@@ -17650,7 +17694,10 @@ window.showNewQualityVisitModal = showNewQualityVisitModal;
 async function showNewQualityVisitModal() {
     let circles = [];
     try {
-        circles = await apiRequest("/circles", "GET", null, 1, true);
+        // The generic circles endpoint is scoped to a teacher's own circles.
+        // Quality visits use the center-wide overview instead.
+        const overview = await apiRequest('/operations/plan-targets', 'GET', null, 1, true);
+        circles = overview?.circles || [];
     } catch (_) {}
     if (!Array.isArray(circles)) circles = [];
 

@@ -18,6 +18,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   List<Announcement> _announcements = [];
   bool _isLoading = true;
 
+  Widget _scrollingChoice(String label) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Text(label, softWrap: false, style: AppTheme.cairoStyle(fontSize: 12)),
+      );
+
   @override
   void initState() {
     super.initState();
@@ -53,9 +58,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     final isParent = widget.currentUser.role == 'Parent' || widget.currentUser.hasChildren || widget.currentUser.childrenCount > 0;
     final isStudent = widget.currentUser.role == 'Student';
     final isDualRole = isTeacher && isParent;
+    final isQuality = widget.currentUser.isQualitySupervisor;
 
     if (isTeacher && !isParent) {
-      targetType = 2; // Default to Circle for Teacher
+      targetType = isQuality ? 13 : 2;
     } else if (isParent || isStudent) {
       targetType = 3; // Default to Teacher for Parent and Student
     }
@@ -148,24 +154,26 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           DropdownMenuItem(value: 3, child: Text('✨ معلم حلقة القرآن لابنك (المحفظ)')),
                           DropdownMenuItem(value: 8, child: Text('✨ معلم دورة ابنك التدريبية')),
                           DropdownMenuItem(value: 9, child: Text('✨ جميع معلمي أبنائي (حلقات ودورات)')),
-                          DropdownMenuItem(value: 2, child: Text('📋 كل طلاب حلقتي')),
+                          if (circles.isNotEmpty) const DropdownMenuItem(value: 2, child: Text('📋 كل طلاب حلقتي')),
                           if (courses.isNotEmpty) const DropdownMenuItem(value: 11, child: Text('📋 طلاب دورتي')),
-                          DropdownMenuItem(value: 4, child: Text('📋 طالب معين في حلقتي')),
-                          DropdownMenuItem(value: 7, child: Text('📋 ولي أمر معين في حلقتي أو دورتي')),
-                          DropdownMenuItem(value: 10, child: Text('📋 معلم آخر')),
+                          if (circles.isNotEmpty) const DropdownMenuItem(value: 4, child: Text('📋 طالب معين في حلقتي')),
+                          if (circles.isNotEmpty || courses.isNotEmpty) const DropdownMenuItem(value: 7, child: Text('📋 ولي أمر معين في حلقتي أو دورتي')),
+                          if (circles.isNotEmpty || courses.isNotEmpty) const DropdownMenuItem(value: 10, child: Text('📋 معلم آخر')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
+                          if (isQuality) ...const [DropdownMenuItem(value: 13, child: Text('مشرف الجودة: معلمو الحلقات')), DropdownMenuItem(value: 15, child: Text('مشرف الجودة: مدير المركز'))],
                         ] else if (widget.currentUser.role == 'Parent') ...const [
                           DropdownMenuItem(value: 3, child: Text('معلم حلقة القرآن لابنك (المحفظ)')),
                           DropdownMenuItem(value: 8, child: Text('معلم دورة ابنك التدريبية')),
                           DropdownMenuItem(value: 9, child: Text('جميع معلمي أبنائي (حلقات ودورات)')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
                         ] else if (isTeacher) ...[
-                          DropdownMenuItem(value: 2, child: Text('كل طلاب حلقتي')),
+                          if (circles.isNotEmpty) const DropdownMenuItem(value: 2, child: Text('كل طلاب حلقتي')),
                           if (courses.isNotEmpty) const DropdownMenuItem(value: 11, child: Text('طلاب دورتي')),
-                          DropdownMenuItem(value: 4, child: Text('طالب معين في حلقتي')),
-                          DropdownMenuItem(value: 7, child: Text('ولي أمر معين في حلقتي أو دورتي')),
-                          DropdownMenuItem(value: 3, child: Text('معلم آخر')),
+                          if (circles.isNotEmpty) const DropdownMenuItem(value: 4, child: Text('طالب معين في حلقتي')),
+                          if (circles.isNotEmpty || courses.isNotEmpty) const DropdownMenuItem(value: 7, child: Text('ولي أمر معين في حلقتي أو دورتي')),
+                          if (circles.isNotEmpty || courses.isNotEmpty) const DropdownMenuItem(value: 3, child: Text('معلم آخر')),
                           DropdownMenuItem(value: 6, child: Text('إدارة المركز')),
+                          if (isQuality) ...const [DropdownMenuItem(value: 13, child: Text('مشرف الجودة: معلمو الحلقات')), DropdownMenuItem(value: 15, child: Text('مشرف الجودة: مدير المركز'))],
                         ] else ...const [
                           DropdownMenuItem(value: 1, child: Text('الجميع (عام)')),
                           DropdownMenuItem(value: 5, child: Text('جميع المعلمين')),
@@ -270,7 +278,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           items: filtered
                               .map((item) => DropdownMenuItem<int>(
                                     value: item.id,
-                                    child: Text(item.name, overflow: TextOverflow.ellipsis),
+                                    child: _scrollingChoice(item.name),
                                   ))
                               .toList(),
                           onChanged: (val) => setModalState(() => selectedTargetId = val),
@@ -281,7 +289,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         initialValue: courses.any((course) => course.id == selectedTargetId) ? selectedTargetId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'اختر الدورة *'),
-                        items: courses.map((course) => DropdownMenuItem<int>(value: course.id, child: Text(course.name, overflow: TextOverflow.ellipsis))).toList(),
+                        items: courses.map((course) => DropdownMenuItem<int>(value: course.id, child: _scrollingChoice(course.name))).toList(),
                         onChanged: (value) => setModalState(() => selectedTargetId = value),
                       ),
                     ] else if ((targetType == 3 || targetType == 8 || targetType == 9) && isParent && (widget.currentUser.role == 'Parent' || targetType == 8 || targetType == 9 || (targetType == 3 && isDualRole))) ...[
@@ -341,11 +349,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                 final icon = item['isQuranTeacher'] == true ? '🕌' : '📘';
                                 return DropdownMenuItem<int>(
                                   value: id,
-                                  child: Text(
-                                    '$icon $name ($sum)',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.cairoStyle(fontSize: 12),
-                                  ),
+                                  child: _scrollingChoice('$icon $name ($sum)'),
                                 );
                               })
                               .toList(),
@@ -362,7 +366,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           items: filtered
                               .map((item) => DropdownMenuItem<int>(
                                     value: item.id,
-                                    child: Text(item.fullName, overflow: TextOverflow.ellipsis),
+                                    child: _scrollingChoice(item.fullName),
                                   ))
                               .toList(),
                           onChanged: (val) => setModalState(() => selectedTargetId = val),
@@ -390,11 +394,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           items: filtered
                               .map((item) => DropdownMenuItem<int>(
                                     value: item.id,
-                                    child: Text(
-                                      '${item.fullName} - ${item.circleName ?? "غير مسند"}',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTheme.cairoStyle(fontSize: 12),
-                                    ),
+                                    child: _scrollingChoice('${item.fullName} - ${item.circleName ?? "غير مسند"}'),
                                   ))
                               .toList(),
                           onChanged: (val) => setModalState(() => selectedTargetId = val),
@@ -433,7 +433,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                 final name = p['parentName'] ?? 'ولي أمر';
                                 return DropdownMenuItem<int>(
                                   value: id,
-                                  child: Text(name, overflow: TextOverflow.ellipsis, style: AppTheme.cairoStyle(fontSize: 12)),
+                                  child: _scrollingChoice(name.toString()),
                                 );
                               })
                               .toList(),
@@ -466,12 +466,15 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   actualTargetType = 3; // AnnouncementTarget.Teacher
                 }
                 if (targetType == 11) actualTargetType = 10; // AnnouncementTarget.Course
+                if (targetType == 13) actualTargetType = 11; // CircleTeachers
+                if (targetType == 15) actualTargetType = 6; // Admin
 
                 final ok = await ApiService.createAnnouncement(
                   title: titleController.text.trim(),
                   content: contentController.text.trim(),
                   targetType: actualTargetType,
                   targetId: selectedTargetId,
+                  senderCapacity: targetType == 13 || targetType == 15 ? 'Quality' : null,
                 );
 
                 if (!dialogCtx.mounted) return;

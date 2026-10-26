@@ -98,8 +98,10 @@ class ApiService {
   static List<Student>? _cachedStudents;
   static List<Teacher>? _cachedTeachers;
   static List<Circle>? _cachedCircles;
+  static int _cacheGeneration = 0;
 
   static void invalidateCache() {
+    _cacheGeneration++;
     _cachedStudents = null;
     _cachedTeachers = null;
     _cachedCircles = null;
@@ -249,6 +251,7 @@ class ApiService {
   // --- Students CRUD ---
   static Future<List<Student>> getStudents(
       {String? search, bool forceRefresh = false}) async {
+    final generation = _cacheGeneration;
     if (!forceRefresh &&
         (search == null || search.isEmpty) &&
         _cachedStudents != null) {
@@ -263,6 +266,7 @@ class ApiService {
       final response =
           await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
+        if (generation != _cacheGeneration) return [];
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Student.fromJson(item)).toList();
         if (search == null || search.isEmpty) {
@@ -327,6 +331,7 @@ class ApiService {
 
   // --- Teachers CRUD ---
   static Future<List<Teacher>> getTeachers({bool forceRefresh = false}) async {
+    final generation = _cacheGeneration;
     if (!forceRefresh && _cachedTeachers != null) {
       return _cachedTeachers!;
     }
@@ -334,6 +339,7 @@ class ApiService {
       final response = await httpClient.get(Uri.parse('$baseUrl/teachers'),
           headers: _headers());
       if (response.statusCode == 200) {
+        if (generation != _cacheGeneration) return [];
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Teacher.fromJson(item)).toList();
         _cachedTeachers = list;
@@ -448,6 +454,7 @@ class ApiService {
 
   // --- Circles CRUD ---
   static Future<List<Circle>> getCircles({bool forceRefresh = false}) async {
+    final generation = _cacheGeneration;
     if (!forceRefresh && _cachedCircles != null) {
       return _cachedCircles!;
     }
@@ -455,6 +462,7 @@ class ApiService {
       final response = await httpClient.get(Uri.parse('$baseUrl/circles'),
           headers: _headers());
       if (response.statusCode == 200) {
+        if (generation != _cacheGeneration) return [];
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Circle.fromJson(item)).toList();
         _cachedCircles = list;
@@ -521,6 +529,15 @@ class ApiService {
   }
 
   // --- Courses CRUD ---
+  static Future<List<Map<String, dynamic>>> getCircleLeaderboard() async {
+    final response = await httpClient.get(
+      Uri.parse('$baseUrl/competitions/leaderboard'), headers: _headers());
+    if (response.statusCode != 200) {
+      throw Exception('فشل تحميل صدارة الحلقات (${response.statusCode})');
+    }
+    return List<Map<String, dynamic>>.from(jsonDecode(response.body) as List);
+  }
+
   static Future<List<Course>> getCourses() async {
     final response = await httpClient.get(Uri.parse('$baseUrl/courses'),
         headers: _headers());
@@ -1021,6 +1038,7 @@ class ApiService {
     required String content,
     int targetType = 1,
     int? targetId,
+    String? senderCapacity,
     String? operationId,
   }) async {
     final response = await httpClient
@@ -1035,6 +1053,7 @@ class ApiService {
             'content': content,
             'targetType': targetType,
             'targetId': targetId,
+            'senderCapacity': senderCapacity,
           }),
         )
         .timeout(const Duration(seconds: 20));

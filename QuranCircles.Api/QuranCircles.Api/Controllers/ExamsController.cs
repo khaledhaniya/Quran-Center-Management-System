@@ -234,6 +234,8 @@ public class ExamsController : ControllerBase
                                    currentUser.Role == UserRole.Developer ||
                                    currentUser.Role == UserRole.ExamSupervisor ||
                                    (currentTeacher?.IsActive == true && currentTeacher.TaskRole != null && currentTeacher.TaskRole.Contains("مشرف اختبارات"));
+        bool canSeeAllForQuality = currentTeacher?.IsActive == true &&
+                                   TeacherPermissions.For(currentTeacher).Contains("quality");
 
         var query = _db.ExamNominations
             .Include(n => n.Student)
@@ -245,7 +247,7 @@ public class ExamsController : ControllerBase
             .Include(n => n.Result)
             .AsQueryable();
 
-        if (isGeneralSupervisor)
+        if (isGeneralSupervisor || canSeeAllForQuality)
         {
             // Exam Supervisors, Admins, and Developers can see all nominations
         }

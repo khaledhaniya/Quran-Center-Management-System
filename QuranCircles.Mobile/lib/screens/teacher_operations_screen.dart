@@ -16,6 +16,7 @@ class TeacherOperationsScreen extends StatefulWidget {
 
 class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
   String selectedDate = '';
+  String fromDate = '';
   int? circle;
   final search = TextEditingController();
   List<Circle> circles = [];
@@ -41,7 +42,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
 
   Map<String, dynamic> get reportFilter => {
         'kind': 'teacher_discipline',
-        'from': selectedDate,
+        'from': fromDate,
         'to': selectedDate,
         'circleId': circle,
         'search': search.text.trim()
@@ -55,6 +56,11 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
       if (selectedDate.isEmpty) {
         final clock = await ApiService.centerOperation('today');
         selectedDate = clock['date'];
+        fromDate = DateTime.parse(selectedDate).subtract(const Duration(days: 30)).toIso8601String().substring(0, 10);
+      }
+      if (DateTime.parse(selectedDate).difference(DateTime.parse(fromDate)).inDays < 0 ||
+          DateTime.parse(selectedDate).difference(DateTime.parse(fromDate)).inDays > 92) {
+        throw Exception('حدد فترة صحيحة لا تتجاوز 92 يوماً');
       }
       final query = Uri(
           queryParameters: reportFilter.entries
@@ -82,16 +88,19 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
     }
   }
 
-  Future<void> chooseDate() async {
+  Future<void> chooseDate({bool start = false}) async {
     final clock = await ApiService.centerOperation('today');
     if (!mounted) return;
     final picked = await showDatePicker(
         context: context,
-        initialDate: DateTime.parse(selectedDate),
+        initialDate: DateTime.parse(start ? fromDate : selectedDate),
         firstDate: DateTime(2020),
-        lastDate: DateTime.parse(clock['date']));
+        lastDate: start ? DateTime.parse(selectedDate) : DateTime.parse(clock['date']));
     if (picked != null) {
-      setState(() => selectedDate = picked.toIso8601String().substring(0, 10));
+      setState(() {
+        if (start) { fromDate = picked.toIso8601String().substring(0, 10); }
+        else { selectedDate = picked.toIso8601String().substring(0, 10); }
+      });
       load();
     }
   }
@@ -216,7 +225,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
   String get dayTitle {
     if (selectedDate.isEmpty) return 'جارٍ تحديد اليوم';
     const weekdays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
-    return '${weekdays[DateTime.parse(selectedDate).weekday - 1]} • $selectedDate';
+    return '$fromDate — $selectedDate (${weekdays[DateTime.parse(selectedDate).weekday - 1]})';
   }
 
   static String absenceLabel(Map<String, dynamic> row) {
@@ -243,16 +252,20 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                 padding: const EdgeInsets.all(14),
                 child: Column(children: [
                   Text(
-                      'كشف يوم واحد. يُسجّل الغياب بقرار إداري فقط، وبعد نهاية اليوم تظهر «مش غايب» إذا لم يُسجَّل غياب. تنبيه التأخر لا يعني الغياب.',
+                      'اختر فترة تصل إلى 92 يوماً. يظهر كل يوم مع حالة الغياب والبديل المسند له.',
                       style: AppTheme.cairoStyle(
                           fontSize: 11,
                           color: AppTheme.textMuted,
                           height: 1.8)),
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     OutlinedButton.icon(
-                        onPressed: selectedDate.isEmpty ? null : chooseDate,
+                        onPressed: selectedDate.isEmpty ? null : () => chooseDate(start: true),
                         icon: const Icon(Icons.calendar_today),
-                        label: Text('تاريخ الكشف: $selectedDate')),
+                        label: Text('من: $fromDate')),
+                    OutlinedButton.icon(
+                        onPressed: selectedDate.isEmpty ? null : () => chooseDate(),
+                        icon: const Icon(Icons.event),
+                        label: Text('إلى: $selectedDate')),
                     OutlinedButton(
                         onPressed: () => downloadReport('xlsx'),
                         child: const Text('Excel')),
@@ -294,6 +307,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                           search.clear();
                           circle = null;
                           selectedDate = '';
+                          fromDate = '';
                           await load();
                         },
                         child: const Text('كشف اليوم بالكامل')),
@@ -308,7 +322,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                     margin: const EdgeInsets.only(top: 14),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(18)),
-                    child: Text('كشف يوم $dayTitle', textAlign: TextAlign.center,
+                    child: Text('كشف الفترة $dayTitle', textAlign: TextAlign.center,
                       style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                   Padding(
@@ -322,12 +336,16 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
             if (tableView && !loading && error == null)
               Padding(
                   padding: const EdgeInsets.all(14),
-                  child: SingleChildScrollView(
+                  child: SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.62,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
-                        width: MediaQuery.sizeOf(context).width > 1300
+                        width: MediaQuery.sizeOf(context).width > 1450
                             ? MediaQuery.sizeOf(context).width - 28
-                            : 1300,
+                            : 1450,
                         child: PaginatedDataTable(
                       header: const Text('كشف حضور المعلمين'),
                       rowsPerPage: 20,
@@ -337,6 +355,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                       columnSpacing: 20,
                       horizontalMargin: 16,
                       columns: const [
+                        DataColumn(label: Text('اليوم والتاريخ')),
                         DataColumn(label: Text('الحلقة')),
                         DataColumn(label: Text('المعلم')),
                         DataColumn(label: Text('وقت الحلقة')),
@@ -347,7 +366,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                         DataColumn(label: Text('المعلم البديل')),
                         DataColumn(label: Text('التغطية'))
                       ],
-                      source: TeacherRegisterSource(rows, canEdit, coverage))))),
+                      source: TeacherRegisterSource(rows, canEdit, coverage)))))),
             if (!tableView || loading || error != null)
               loading
                       ? const Center(child: CircularProgressIndicator())
@@ -463,6 +482,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
 }
 
 class TeacherRegisterSource extends DataTableSource {
+  static const weekdays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
   final List<dynamic> rows;
   final bool canEdit;
   final Future<void> Function(Map<String, dynamic>) coverage;
@@ -472,7 +492,8 @@ class TeacherRegisterSource extends DataTableSource {
     if (index >= rows.length) return null;
     final r = rows[index] as Map<String, dynamic>;
     return DataRow.byIndex(index: index, cells: [
-      DataCell(Text('${r['circleName']}')),
+      DataCell(Text('${weekdays[DateTime.parse(r['date'].toString()).weekday - 1]}\n${r['date']}')),
+      DataCell(SizedBox(width: 140, child: Text('${r['circleName']}', maxLines: 3, overflow: TextOverflow.ellipsis))),
       DataCell(Text('${r['teacherName']}')),
       DataCell(Text(r['scheduledStart'] == null ? 'دون موعد' : '${r['scheduledStart']} - ${r['scheduledEnd'] ?? ''}')),
       DataCell(Text('${r['openedAt'] ?? 'لم تبدأ'} / ${r['closedAt'] ?? 'لم تغلق'}')),

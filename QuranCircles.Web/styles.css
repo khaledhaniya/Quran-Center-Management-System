@@ -9376,3 +9376,5 @@ body.dark-mode .plan-juz-btn:hover {
     #developer-users-section .dev-card-info-row > div,
     #developer-users-section .dev-card-info-row > span { min-width: 0; overflow-wrap: anywhere; }
 }
+#announcement-form-target-selections { max-width:100%; overflow-x:auto; overscroll-behavior-inline:contain; }
+#announcement-form-target-selections select[size] { width:max-content; min-width:100%; max-width:none; }

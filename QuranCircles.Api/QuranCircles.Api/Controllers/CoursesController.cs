@@ -480,16 +480,18 @@ public class CoursesController : ControllerBase
             if (currentUser.Role == UserRole.Teacher || (currentUser.Role == UserRole.Parent && currentUser.TeacherId.HasValue))
             {
                 // A teacher can also be a parent; keep those certificates visible in one portfolio.
-                var activeTeacher = currentUser.TeacherId.HasValue && await _db.Teachers.AnyAsync(t => t.Id == currentUser.TeacherId.Value && t.IsActive);
+                var activeTeacher = currentUser.Teacher?.IsActive == true;
+                var qualityAccess = activeTeacher && TeacherPermissions.For(currentUser.Teacher).Contains("quality");
                 var ownChildrenIds = await ParentLinks.ChildrenQuery(_db, currentUser)
                     .Select(s => s.Id).ToListAsync();
-                query = query.Where(e =>
-                    ownChildrenIds.Contains(e.StudentId) ||
-                    (activeTeacher && e.Student != null && e.Student.Circle != null &&
-                        (e.Student.Circle.TeacherId == currentUser.TeacherId || e.Student.Circle.AssistantTeacherId == currentUser.TeacherId)) ||
-                    (activeTeacher && e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
-                    (activeTeacher && e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
-                );
+                if (!qualityAccess)
+                    query = query.Where(e =>
+                        ownChildrenIds.Contains(e.StudentId) ||
+                        (activeTeacher && e.Student != null && e.Student.Circle != null &&
+                            (e.Student.Circle.TeacherId == currentUser.TeacherId || e.Student.Circle.AssistantTeacherId == currentUser.TeacherId)) ||
+                        (activeTeacher && e.Course != null && e.Course.TeacherId == currentUser.TeacherId) ||
+                        (activeTeacher && e.Course != null && (e.Course.ExamSupervisorId == currentUser.Id || (currentUser.TeacherId.HasValue && e.Course.ExamSupervisorId == currentUser.TeacherId.Value)))
+                    );
             }
             else if (currentUser.Role == UserRole.ExamSupervisor)
             {

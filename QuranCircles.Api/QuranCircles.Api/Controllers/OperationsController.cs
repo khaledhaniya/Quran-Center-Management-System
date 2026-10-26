@@ -50,31 +50,51 @@ public class OperationsController(AppDbContext db) : ControllerBase
     }
     public record CoverageInput(DateOnly Date, int? SubstituteUserId, string Reason);
 
+    [HttpGet("plan-targets")]
+    public async Task<IActionResult> PlanTargets()
+    {
+        if (!await new TeacherAttendanceService(db).CanManageAsync(HttpContext)) return Forbid();
+        var circles = await db.Circles.AsNoTracking().Where(c => c.IsActive)
+            .OrderBy(c => c.Name).Select(c => new { c.Id, c.Name, TeacherName = c.Teacher != null ? c.Teacher.FullName : "بدون محفظ" }).ToListAsync();
+        var courses = await db.Courses.AsNoTracking().Where(c => c.IsActive)
+            .OrderBy(c => c.Name).Select(c => new { c.Id, c.Name }).ToListAsync();
+        return Ok(new { circles, courses });
+    }
+
     [HttpGet("plans")]
-    public async Task<IActionResult> Plans() => Ok(await db.CirclePlans.AsNoTracking().OrderByDescending(p => p.StartsOn).ToListAsync());
+    public async Task<IActionResult> Plans() => await new TeacherAttendanceService(db).CanManageAsync(HttpContext)
+        ? Ok(await db.CirclePlans.AsNoTracking().OrderByDescending(p => p.StartsOn).ToListAsync()) : Forbid();
 
     [HttpPost("plans")]
-    [RequireRole(UserRole.Admin, UserRole.Developer)]
+    [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> SavePlan(CirclePlan input)
     {
-        if (!await db.Circles.AnyAsync(c => c.Id == input.CircleId) || string.IsNullOrWhiteSpace(input.Title) ||
+        if (!await new TeacherAttendanceService(db).CanManageAsync(HttpContext)) return Forbid();
+        var coursePlan = input.Track == "Course";
+        var validTarget = coursePlan
+            ? input.CourseId.HasValue && await db.Courses.AnyAsync(c => c.Id == input.CourseId.Value && c.IsActive)
+            : await db.Circles.AnyAsync(c => c.Id == input.CircleId && c.IsActive);
+        if (!validTarget || string.IsNullOrWhiteSpace(input.Title) ||
             input.Target <= 0 || input.Completed < 0 || input.Completed > input.Target || input.EndsOn < input.StartsOn ||
             !new[] { "Quran", "Aqeedah", "Tajweed", "Course" }.Contains(input.Track))
             return BadRequest(new { error = "تحقق من الحلقة والمسار والتواريخ والهدف والإنجاز." });
         var plan = input.Id == 0 ? new CirclePlan() : await db.CirclePlans.FindAsync(input.Id);
         if (plan == null) return NotFound();
         if (input.Id == 0) db.CirclePlans.Add(plan);
-        plan.CircleId = input.CircleId; plan.Title = input.Title.Trim(); plan.Track = input.Track;
+        plan.CircleId = coursePlan ? 0 : input.CircleId;
+        plan.CourseId = coursePlan ? input.CourseId : null;
+        plan.Title = input.Title.Trim(); plan.Track = input.Track;
         plan.Unit = input.Unit.Trim(); plan.Target = input.Target; plan.Completed = input.Completed;
         plan.StartsOn = input.StartsOn; plan.EndsOn = input.EndsOn; plan.Notes = input.Notes;
         plan.UpdatedByUserId = FakeAuth.GetUserId(HttpContext)!.Value; plan.UpdatedAt = DateTime.UtcNow;
         db.AuditLogs.Add(new AuditLog { Username = FakeAuth.GetUsername(HttpContext)!, Action = "CirclePlan",
-            Details = $"Circle {plan.CircleId}: {plan.Title}; {plan.Completed}/{plan.Target}" });
+            Details = $"{(coursePlan ? $"Course {plan.CourseId}" : $"Circle {plan.CircleId}")}: {plan.Title}; {plan.Completed}/{plan.Target}" });
         await db.SaveChangesAsync(); return Ok(plan);
     }
 
     [HttpGet("schedules")]
-    public async Task<IActionResult> Schedules() => Ok(await db.CircleSchedules.AsNoTracking().ToListAsync());
+    public async Task<IActionResult> Schedules() => await new TeacherAttendanceService(db).CanManageAsync(HttpContext)
+        ? Ok(await db.CircleSchedules.AsNoTracking().ToListAsync()) : Forbid();
 
     [HttpPost("schedules")]
     [RequireRole(UserRole.Admin, UserRole.Developer)]
@@ -95,6 +115,7 @@ public class OperationsController(AppDbContext db) : ControllerBase
     [HttpGet("days")]
     public async Task<IActionResult> Days([FromQuery] DateOnly? from, [FromQuery] DateOnly? to)
     {
+        if (!await new TeacherAttendanceService(db).CanManageAsync(HttpContext)) return Forbid();
         var f = from ?? CenterClock.Today.AddDays(-30); var t = to ?? CenterClock.Today;
         return Ok(await db.CircleDays.AsNoTracking().Where(d => d.Date >= f && d.Date <= t).ToListAsync());
     }

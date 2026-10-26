@@ -53,6 +53,7 @@ public enum AnnouncementTarget
     Admin = 6,
     Parent = 7,
     Course = 10,
+    CircleTeachers = 11,
     StudentCircle = 12
 }
 

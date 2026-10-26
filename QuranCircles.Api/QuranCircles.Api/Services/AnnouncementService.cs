@@ -33,9 +33,11 @@ public class AnnouncementService
         {
             int tId = user.TeacherId ?? 0;
             if (tId == 0 || !await _db.Teachers.AnyAsync(t => t.Id == tId && t.IsActive)) tId = -1;
+            var teacher = tId > 0 ? await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tId) : null;
+            var isCenterDirector = TeacherPermissions.For(teacher).Contains("leadership");
 
             var teacherCircleIds = await _db.Circles
-                .Where(c => c.TeacherId == tId || c.AssistantTeacherId == tId)
+                .Where(c => c.IsActive && (c.TeacherId == tId || c.AssistantTeacherId == tId))
                 .Select(c => c.Id)
                 .ToListAsync();
             var teacherCourseIds = await _db.Courses.Where(c => c.TeacherId == tId).Select(c => c.Id).ToListAsync();
@@ -47,8 +49,11 @@ public class AnnouncementService
 
             query = query.Where(a =>
                 (a.SenderName == user.FullName && a.TargetType != AnnouncementTarget.StudentCircle) ||
+                a.SenderName == user.FullName + " (مشرف الجودة)" ||
                 a.TargetType == AnnouncementTarget.All ||
                 a.TargetType == AnnouncementTarget.AllTeachers ||
+                (isCenterDirector && a.TargetType == AnnouncementTarget.Admin) ||
+                (teacherCircleIds.Count > 0 && a.TargetType == AnnouncementTarget.CircleTeachers) ||
                 (a.TargetType == AnnouncementTarget.Teacher && (a.TargetId == tId || a.TargetId == user.Id)) ||
                 (a.TargetType == AnnouncementTarget.Circle && a.TargetId.HasValue && teacherCircleIds.Contains(a.TargetId.Value)) ||
                 (a.TargetType == AnnouncementTarget.Course && a.TargetId.HasValue && teacherCourseIds.Contains(a.TargetId.Value)) ||
@@ -87,14 +92,19 @@ public class AnnouncementService
                 .ToListAsync();
             var teacherId = user.TeacherId ?? 0;
             var activeTeacher = teacherId > 0 && await _db.Teachers.AnyAsync(t => t.Id == teacherId && t.IsActive);
-            var assignedCircleIds = activeTeacher ? await _db.Circles.Where(c => c.TeacherId == teacherId || c.AssistantTeacherId == teacherId).Select(c => c.Id).ToListAsync() : new List<int>();
+            var teacher = activeTeacher ? await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teacherId) : null;
+            var isCenterDirector = TeacherPermissions.For(teacher).Contains("leadership");
+            var assignedCircleIds = activeTeacher ? await _db.Circles.Where(c => c.IsActive && (c.TeacherId == teacherId || c.AssistantTeacherId == teacherId)).Select(c => c.Id).ToListAsync() : new List<int>();
             var assignedCourseIds = activeTeacher ? await _db.Courses.Where(c => c.TeacherId == teacherId).Select(c => c.Id).ToListAsync() : new List<int>();
             var assignedStudentIds = activeTeacher ? await _db.Students.Where(s => s.CircleId.HasValue && assignedCircleIds.Contains(s.CircleId.Value)).Select(s => s.Id).ToListAsync() : new List<int>();
             var courseStudentIds = activeTeacher ? await _db.CourseEnrollments.Where(e => assignedCourseIds.Contains(e.CourseId)).Select(e => e.StudentId).Distinct().ToListAsync() : new List<int>();
 
             query = query.Where(a =>
                 (a.SenderName == user.FullName && a.TargetType != AnnouncementTarget.StudentCircle) ||
+                a.SenderName == user.FullName + " (مشرف الجودة)" ||
                 a.TargetType == AnnouncementTarget.All ||
+                (isCenterDirector && a.TargetType == AnnouncementTarget.Admin) ||
+                (activeTeacher && assignedCircleIds.Count > 0 && a.TargetType == AnnouncementTarget.CircleTeachers) ||
                 (a.TargetType == AnnouncementTarget.Parent && (a.TargetId == pId || a.TargetId == user.Id)) ||
                 (a.TargetType == AnnouncementTarget.Student && a.TargetId.HasValue && studentIds.Contains(a.TargetId.Value)) ||
                 (a.TargetType == AnnouncementTarget.Circle && a.TargetId.HasValue && (parentCircleIds.Contains(a.TargetId.Value) || assignedCircleIds.Contains(a.TargetId.Value))) ||
@@ -146,6 +156,8 @@ public class AnnouncementService
                 targetName = $"ولي الأمر: {pName}";
             else if (a.TargetType == AnnouncementTarget.AllTeachers)
                 targetName = "كل المعلمين";
+            else if (a.TargetType == AnnouncementTarget.CircleTeachers)
+                targetName = "معلمو الحلقات";
             else if (a.TargetType == AnnouncementTarget.Admin)
                 targetName = "مدير المركز";
 
@@ -169,6 +181,7 @@ public class AnnouncementService
 
         if (dto.TargetType != AnnouncementTarget.All &&
             dto.TargetType != AnnouncementTarget.AllTeachers &&
+            dto.TargetType != AnnouncementTarget.CircleTeachers &&
             dto.TargetType != AnnouncementTarget.Admin &&
             !dto.TargetId.HasValue)
         {
@@ -215,6 +228,7 @@ public class AnnouncementService
             TargetType = dto.TargetType,
             TargetId = (dto.TargetType == AnnouncementTarget.All ||
                         dto.TargetType == AnnouncementTarget.AllTeachers ||
+                        dto.TargetType == AnnouncementTarget.CircleTeachers ||
                         dto.TargetType == AnnouncementTarget.Admin) ? null : dto.TargetId,
             SenderName = senderName
         };
@@ -256,6 +270,10 @@ public class AnnouncementService
         else if (announcement.TargetType == AnnouncementTarget.AllTeachers)
         {
             targetName = "كل المعلمين";
+        }
+        else if (announcement.TargetType == AnnouncementTarget.CircleTeachers)
+        {
+            targetName = "معلمو الحلقات";
         }
         else if (announcement.TargetType == AnnouncementTarget.Admin)
         {

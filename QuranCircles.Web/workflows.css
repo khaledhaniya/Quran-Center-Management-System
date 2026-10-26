@@ -6,10 +6,11 @@
 .teacher-coverage-date { padding:10px 14px; border-radius:12px; background:#edf7f0; color:#17462e; }
 #teacher-register-section .section-header { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:20px; }
 #teacher-register-section .section-header h2 { margin:0; color:#15452c; }
-#teacher-register-section .table-responsive { width:100%; max-width:100%; max-height:none; overflow:auto; border:1px solid #dce8df; border-radius:16px; }
+#teacher-register-section .table-responsive { width:100%; max-width:100%; max-height:min(65dvh,640px); overflow:auto; border:1px solid #dce8df; border-radius:16px; }
 #teacher-register-section .data-table { min-width:1040px; }
 #teacher-register-section .data-table td { vertical-align:middle; }
-#teacher-register-section .data-table th:first-child,#teacher-register-section .data-table td:first-child { position:sticky; right:0; z-index:2; background:#f5faf6; min-width:150px; box-shadow:-5px 0 12px #153f3212; }
+#teacher-register-section .data-table th:first-child,#teacher-register-section .data-table td:first-child { position:sticky; right:0; z-index:2; background:#f5faf6; min-width:112px; max-width:145px; white-space:normal; overflow-wrap:anywhere; box-shadow:-5px 0 12px #153f3212; }
+#teacher-register-section .data-table td:nth-child(2) {min-width:130px;max-width:190px;white-space:normal;overflow-wrap:anywhere;}
 #teacher-register-section .data-table th:first-child { z-index:3; background:#edf5f0; }
 .teacher-register .reports-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); gap:12px; }
 .teacher-register .reports-fields label { min-width:0; }

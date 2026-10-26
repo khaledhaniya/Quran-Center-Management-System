@@ -7,7 +7,8 @@ public record CreateAnnouncementDto(
     string Title,
     string Content,
     AnnouncementTarget TargetType,
-    int? TargetId
+    int? TargetId,
+    string? SenderCapacity = null
 );
 
 public record AnnouncementDto(

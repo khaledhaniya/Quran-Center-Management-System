@@ -4,6 +4,7 @@ public class CirclePlan
 {
     public int Id { get; set; }
     public int CircleId { get; set; }
+    public int? CourseId { get; set; }
     public string Title { get; set; } = "";
     public string Track { get; set; } = "Quran";
     public string Unit { get; set; } = "صفحة";

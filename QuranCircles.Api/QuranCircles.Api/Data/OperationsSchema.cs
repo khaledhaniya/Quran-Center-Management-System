@@ -34,6 +34,12 @@ public static class OperationsSchema
             else sql = sql.Replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ");
             db.Database.ExecuteSqlRaw(sql);
         }
+        if (db.Database.IsSqlServer())
+            db.Database.ExecuteSqlRaw("IF COL_LENGTH('CirclePlans', 'CourseId') IS NULL ALTER TABLE CirclePlans ADD CourseId int NULL");
+        else if (db.Database.IsNpgsql())
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"CirclePlans\" ADD COLUMN IF NOT EXISTS \"CourseId\" integer NULL");
+        else if (db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM pragma_table_info('CirclePlans') WHERE name = 'CourseId'").Single() == 0)
+            db.Database.ExecuteSqlRaw("ALTER TABLE CirclePlans ADD COLUMN CourseId INTEGER NULL");
         foreach (var (table, index, columns) in new[] {
             ("CircleSchedules", "IX_CircleSchedules_CircleId", "CircleId"),
             ("CircleDays", "IX_CircleDays_CircleId_Date", "CircleId,Date") })

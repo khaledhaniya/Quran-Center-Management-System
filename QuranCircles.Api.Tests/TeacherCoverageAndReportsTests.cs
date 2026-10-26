@@ -72,6 +72,25 @@ public class TeacherCoverageAndReportsTests
     }
 
     [Fact]
+    public async Task FullTeacherRegisterIncludesEveryDayAndItsNamedSubstitute()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        using var db = Open(connection);
+        var today = CenterClock.Today;
+        db.Teachers.Add(new Teacher { Id = 1, FullName = "المعلم الأصلي" });
+        db.Users.Add(new User { Id = 2, Username = "sub", FullName = "المعلم البديل", Role = UserRole.Teacher });
+        db.Circles.Add(new Circle { Id = 1, Name = "حلقة البيان", TeacherId = 1, IsActive = true });
+        db.CircleDays.Add(new CircleDay { CircleId = 1, Date = today.AddDays(-1), TeacherId = 1,
+            Status = "Absent", SubstituteUserId = 2, Reason = "إجازة" });
+        await db.SaveChangesAsync();
+        var rows = await new TeacherAttendanceService(db).BuildAsync(today.AddDays(-2), today);
+        Assert.Equal(3, rows.Count);
+        var absent = Assert.Single(rows, r => r.Status == "Absent");
+        Assert.Equal(today.AddDays(-1), absent.Date);
+        Assert.Equal("المعلم البديل", absent.SubstituteName);
+    }
+
+    [Fact]
     public async Task CoverageGrantsOnlyTheSelectedAccountAndKeepsTheOriginalTeacherAbsent()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");

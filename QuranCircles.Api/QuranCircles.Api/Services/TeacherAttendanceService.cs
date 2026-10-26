@@ -40,7 +40,7 @@ public class TeacherAttendanceService(AppDbContext db)
             days.TryGetValue((circle.Id, date), out var day);
             schedules.TryGetValue(circle.Id, out var schedule);
             var scheduled = schedule != null && CircleOperations.ScheduledOn(schedule, date);
-            if (day == null && (!circle.IsActive || (!scheduled && !(schedule == null && date == to)))) continue;
+            if (day == null && !circle.IsActive) continue;
             DateTime? start = scheduled && TimeOnly.TryParse(schedule!.StartTime, out var time) ? date.ToDateTime(time) : null;
             var opened = day?.OpenedAt is DateTime o ? CenterClock.Local(o) : (DateTime?)null;
             var closed = day?.ClosedAt is DateTime c ? CenterClock.Local(c) : (DateTime?)null;

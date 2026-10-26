@@ -15,6 +15,31 @@ public class ParentPortalAndPermissionsTests
 {
     private static AppDbContext Open(SqliteConnection c){c.Open();var db=new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(c).Options);db.Database.EnsureCreated();return db;}
     [Fact]
+    public async Task QualitySupervisorCanReachCircleTeachersOnlyInQualityCapacity()
+    {
+        using var c = new SqliteConnection("Data Source=:memory:"); using var db = Open(c);
+        db.Teachers.AddRange(
+            new Teacher { Id = 1, FullName = "مشرف الجودة", TaskRole = "مسؤول الجودة" },
+            new Teacher { Id = 2, FullName = "معلم الحلقة" },
+            new Teacher { Id = 3, FullName = "معلم الدورة" });
+        db.Circles.Add(new Circle { Id = 1, Name = "الحلقة", TeacherId = 2, IsActive = true });
+        db.Courses.Add(new Course { Id = 1, Name = "الدورة", TeacherId = 3 });
+        var quality = new User { Id = 1, Username = "quality", FullName = "مشرف الجودة", Role = UserRole.Teacher, TeacherId = 1 };
+        var circleTeacher = new User { Id = 2, Username = "circle", FullName = "معلم الحلقة", Role = UserRole.Teacher, TeacherId = 2 };
+        var courseTeacher = new User { Id = 3, Username = "course", FullName = "معلم الدورة", Role = UserRole.Teacher, TeacherId = 3 };
+        var admin = new User { Id = 4, Username = "admin", FullName = "المدير", Role = UserRole.Admin };
+        db.Users.AddRange(quality, circleTeacher, courseTeacher, admin); await db.SaveChangesAsync();
+        var context = new DefaultHttpContext(); context.Items["QuranCenter.VerifiedUser"] = quality;
+        var service = new AnnouncementService(db);
+        var controller = new AnnouncementsController(service, db) { ControllerContext = new ControllerContext { HttpContext = context } };
+        Assert.IsType<BadRequestObjectResult>(await controller.Create(new("غير مصرح", "رسالة", AnnouncementTarget.CircleTeachers, null)));
+        Assert.IsType<OkObjectResult>(await controller.Create(new("زيارة رقابية", "رسالة", AnnouncementTarget.CircleTeachers, null, "Quality")));
+        Assert.Single(await service.GetMyAnnouncementsAsync(quality.Id));
+        Assert.Single(await service.GetMyAnnouncementsAsync(circleTeacher.Id));
+        Assert.Empty(await service.GetMyAnnouncementsAsync(courseTeacher.Id));
+        Assert.Single(await service.GetMyAnnouncementsAsync(admin.Id));
+    }
+    [Fact]
     public async Task AStudentCircleAnnouncementReachesOnlyTheAssignedAudience()
     {
         using var c=new SqliteConnection("Data Source=:memory:");using var db=Open(c);

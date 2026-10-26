@@ -50,11 +50,27 @@ public class AnnouncementsController : ControllerBase
 
         // Scoping & Validation
         bool isUserTeacher = user.Role == UserRole.Teacher || user.TeacherId.HasValue;
-        if (user.Role == UserRole.Teacher || (isUserTeacher && dto.TargetType != AnnouncementTarget.Admin && (user.Role != UserRole.Parent || dto.TargetType != AnnouncementTarget.Teacher)))
+        var teacher = user.TeacherId.HasValue ? await _db.Teachers.FindAsync(user.TeacherId.Value) : null;
+        var qualityCapacity = string.Equals(dto.SenderCapacity, "Quality", StringComparison.OrdinalIgnoreCase);
+        if (dto.SenderCapacity != null && !qualityCapacity && dto.SenderCapacity != "Teacher")
+            return BadRequest(new { error = "صفة الإرسال غير صالحة." });
+        if (qualityCapacity)
+        {
+            if (teacher?.IsActive != true || !TeacherPermissions.For(teacher).Contains("quality")) return Forbid();
+            if (dto.TargetType == AnnouncementTarget.CircleTeachers) { }
+            else if (dto.TargetType == AnnouncementTarget.Admin) { }
+            else if (dto.TargetType == AnnouncementTarget.Teacher && dto.TargetId.HasValue &&
+                     await _db.Circles.AnyAsync(c => c.IsActive && (c.TeacherId == dto.TargetId || c.AssistantTeacherId == dto.TargetId))) { }
+            else return BadRequest(new { error = "مشرف الجودة يراسل معلمي الحلقات أو مدير المركز بهذه الصفة." });
+        }
+        else if (user.Role == UserRole.Teacher || (isUserTeacher && dto.TargetType != AnnouncementTarget.Admin && (user.Role != UserRole.Parent || dto.TargetType != AnnouncementTarget.Teacher)))
         {
             int tId = user.TeacherId ?? 0;
-            var teacherObj = tId > 0 ? await _db.Teachers.FindAsync(tId) : null;
-            if (teacherObj?.IsActive != true) return Forbid();
+            if (teacher?.IsActive != true) return Forbid();
+            var hasTeachingAssignment = await _db.Circles.AnyAsync(c => c.IsActive && (c.TeacherId == tId || c.AssistantTeacherId == tId)) ||
+                                        await _db.Courses.AnyAsync(c => c.IsActive && c.TeacherId == tId);
+            if (!hasTeachingAssignment && dto.TargetType != AnnouncementTarget.Admin)
+                return BadRequest(new { error = "لا توجد حلقة أو دورة مسندة لك. اختر الإرسال بصفتك مشرف جودة." });
 
             if (dto.TargetType == AnnouncementTarget.All || dto.TargetType == AnnouncementTarget.AllTeachers)
             {
@@ -150,7 +166,7 @@ public class AnnouncementsController : ControllerBase
             }
         }
 
-        var senderName = user.FullName;
+        var senderName = qualityCapacity ? $"{user.FullName} (مشرف الجودة)" : user.FullName;
         var (created, error) = await _svc.CreateAnnouncementAsync(dto, senderName);
         if (error is not null) return BadRequest(new { error });
 

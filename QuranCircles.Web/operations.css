@@ -1,6 +1,7 @@
 .operations-panel { background:#fff; border:1px solid #dfe9e3; border-radius:20px; padding:clamp(16px,3vw,28px); margin-bottom:24px; box-shadow:0 8px 28px #153f3209; }
 .operations-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:16px; margin:16px 0; text-align:start; }
 .operations-fields label { display:grid; gap:8px; font-size:.9rem; font-weight:600; min-width:0; }
+.operations-fields label[hidden] { display:none; }
 .operations-actions { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
 .operations-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:12px; }
 .operations-grid article { background:#f3f8f5; border:1px solid #dce7df; padding:18px; border-radius:16px; text-align:start; }

@@ -3,22 +3,25 @@ function installTeacherRegisterPage(){
     if(document.getElementById('teacher-register-section'))return;
     const main=document.querySelector('main.main-content');if(!main)return;
     const section=document.createElement('section');section.id='teacher-register-section';section.className='content-section hidden';
-    section.innerHTML=`<div class="section-header"><div><h2>حضور المعلمين والبدلاء</h2><p>كشف التشغيل اليومي لكل حلقة • المعلم الأصلي والتغطية الفعلية</p></div><div class="operations-actions"><button class="btn btn-success" onclick="exportTeacherRegister('xlsx')">تنزيل Excel</button><button class="btn btn-outline-danger" onclick="exportTeacherRegister('pdf')">تنزيل PDF</button></div></div>
-        <div class="reports-studio teacher-register"><p class="reports-description">يعرض الكشف تاريخاً واحداً. يُسجَّل الغياب فقط بقرار إداري، وتظهر حالة «مش غايب» بعد انتهاء اليوم إذا لم يُسجَّل غياب. التأخر في بدء الحلقة يظهر أثناء اليوم للمتابعة.</p>
-        <div class="reports-fields"><label>تاريخ الكشف<input type="date" id="teacher-register-date" onchange="refreshTeacherRegister()"></label>
+    section.innerHTML=`<div class="section-header"><div><h2>حضور المعلمين والبدلاء</h2><p>كشف التشغيل لكل يوم • المعلم الأصلي والتغطية الفعلية</p></div><div class="operations-actions"><button class="btn btn-success" onclick="exportTeacherRegister('xlsx')">تنزيل Excel</button><button class="btn btn-outline-danger" onclick="exportTeacherRegister('pdf')">تنزيل PDF</button></div></div>
+        <div class="reports-studio teacher-register"><p class="reports-description">اختر فترة تصل إلى 92 يوماً. يظهر كل يوم في سطر مستقل مع حالة الغياب والبديل المسند له.</p>
+        <div class="reports-fields"><label>من تاريخ<input type="date" id="teacher-register-from"></label><label>إلى تاريخ<input type="date" id="teacher-register-date"></label>
         <label>الحلقة<select id="teacher-register-circle"><option value="">كل الحلقات</option></select></label>
         <label>المعلم أو الحلقة<input type="search" id="teacher-register-search" placeholder="اسم المعلم الأصلي أو البديل أو الحلقة"></label></div>
         <div class="operations-actions"><button class="btn btn-primary" onclick="refreshTeacherRegister()">عرض الكشف</button><button class="btn btn-outline-secondary" onclick="resetTeacherRegister()">كشف اليوم بالكامل</button></div>
         <div id="teacher-register-day" class="teacher-register-day"></div><div id="teacher-register-summary" class="teacher-register-summary"></div><div id="teacher-register-results" aria-live="polite"></div></div>`;
     main.append(section);
 }
-function teacherRegisterFilter(){const date=document.getElementById('teacher-register-date').value;return {kind:'teacher_discipline',from:date,to:date,circleId:Number(document.getElementById('teacher-register-circle').value)||null,search:document.getElementById('teacher-register-search').value.trim()||null};}
+function teacherRegisterFilter(){return {kind:'teacher_discipline',from:document.getElementById('teacher-register-from').value,to:document.getElementById('teacher-register-date').value,circleId:Number(document.getElementById('teacher-register-circle').value)||null,search:document.getElementById('teacher-register-search').value.trim()||null};}
 async function loadTeacherRegisterPage(date){
     installTeacherRegisterPage();
     try{
         const [clock,circles]=await Promise.all([apiRequest('/operations/today'),apiRequest('/circles')]);
         const picker=document.getElementById('teacher-register-date');
         picker.max=clock.date;if(date||!picker.value)picker.value=date||clock.date;
+        const fromPicker=document.getElementById('teacher-register-from');
+        fromPicker.max=picker.value;
+        if(date||!fromPicker.value){const start=new Date(`${picker.value}T12:00:00`);start.setDate(start.getDate()-30);fromPicker.value=date||start.toISOString().slice(0,10);}
         const select=document.getElementById('teacher-register-circle'),value=select.value;
         select.innerHTML='<option value="">كل الحلقات</option>'+circles.map(c=>`<option value="${c.id}">${escapeXml(c.name)}</option>`).join('');select.value=value;
         await refreshTeacherRegister();
@@ -26,7 +29,7 @@ async function loadTeacherRegisterPage(date){
 }
 function showTeacherAttendance(date){
     installTeacherRegisterPage();
-    if(date)document.getElementById('teacher-register-date').value=date;
+    if(date){document.getElementById('teacher-register-date').value=date;document.getElementById('teacher-register-from').value=date;}
     if(location.hash==='#teacher-register')return loadTeacherRegisterPage(date);
     location.hash='#teacher-register';
 }
@@ -48,13 +51,12 @@ async function refreshTeacherRegister(){
     target.innerHTML='<p>جاري تحميل كشف المعلمين…</p>';
     try{
         const filter=teacherRegisterFilter();
+        if(filter.from>filter.to || (new Date(filter.to)-new Date(filter.from))/86400000>92)throw new Error('حدد فترة صحيحة لا تتجاوز 92 يوماً.');
         const query=new URLSearchParams(Object.entries(filter).filter(([k,v])=>k!=='kind'&&v!==null));
         const rows=await apiRequest(`/operations/teacher-attendance?${query}`);if(version!==teacherRegisterVersion)return;teacherAttendanceRows=rows;
-        const selectedDate=filter.from;
-        const dayName=new Intl.DateTimeFormat('ar',{weekday:'long'}).format(new Date(`${selectedDate}T12:00:00`));
-        document.getElementById('teacher-register-day').innerHTML=`<i class="fa-regular fa-calendar-check"></i><span>كشف يوم <strong>${escapeXml(dayName)}</strong> • ${escapeXml(selectedDate)}</span>`;
+        document.getElementById('teacher-register-day').innerHTML=`<i class="fa-regular fa-calendar-check"></i><span>كشف الفترة <strong>${escapeXml(filter.from)}</strong> إلى <strong>${escapeXml(filter.to)}</strong></span>`;
         document.getElementById('teacher-register-summary').innerHTML=[['الحلقات في الكشف',rows.length],['الغياب المسجل',rows.filter(r=>r.status==='Absent').length],['أسباب الغياب الموثقة',rows.filter(r=>r.status==='Absent'&&r.reason).length],['مش غايب',rows.filter(r=>teacherAbsenceLabel(r)==='مش غايب').length]].map(([label,count])=>`<div><strong>${count}</strong><span>${label}</span></div>`).join('');
-        target.innerHTML=`<div class="table-responsive"><table class="data-table"><thead><tr><th>الحلقة</th><th>المعلم الأصلي</th><th>وقت الحلقة</th><th>البدء / الإغلاق</th><th>التأخير</th><th>الغياب</th><th>العذر</th><th>المعلم البديل</th><th>الإجراء</th></tr></thead><tbody>${teacherAttendanceRows.map((r,i)=>`<tr><td><strong>${escapeXml(r.circleName)}</strong></td><td>${escapeXml(r.teacherName)}</td><td>${r.scheduledStart?`${escapeXml(r.scheduledStart)} - ${escapeXml(r.scheduledEnd||'')}`:'غير محدد'}</td><td>${escapeXml(r.openedAt||'لم تبدأ')} / ${escapeXml(r.closedAt||'لم تغلق')}</td><td>${r.lateMinutes==null?'—':`${r.lateMinutes} دقيقة`}</td><td><span class="teacher-state state-${r.status}">${escapeXml(teacherAbsenceLabel(r))}</span><small class="d-block">${escapeXml(r.statusText)}</small></td><td>${escapeXml(r.status==='Absent'?(r.reason||'لم يذكر عذر'):'—')}</td><td>${escapeXml(r.substituteName||'لا يوجد')}</td><td>${["Admin","Developer"].includes(currentRole)||(currentRole==='Teacher'&&teacherCan('quality'))?`<button class="btn btn-sm btn-outline-primary" data-coverage-index="${i}">تسجيل غياب / بديل</button>`:""}${r.substituteUserId===Number(currentUserId)?`<button class="btn btn-sm btn-success" data-cover-record="${r.circleId}">رصد التسميع</button>`:""}</td></tr>`).join('')||'<tr><td colspan="9">لا توجد حلقات لهذا التاريخ.</td></tr>'}</tbody></table></div>`;
+        target.innerHTML=`<div class="table-responsive"><table class="data-table"><thead><tr><th>اليوم والتاريخ</th><th>الحلقة</th><th>المعلم الأصلي</th><th>وقت الحلقة</th><th>البدء / الإغلاق</th><th>التأخير</th><th>الغياب</th><th>العذر</th><th>المعلم البديل</th><th>الإجراء</th></tr></thead><tbody>${teacherAttendanceRows.map((r,i)=>`<tr><td><strong>${escapeXml(new Intl.DateTimeFormat('ar',{weekday:'long'}).format(new Date(`${r.date}T12:00:00`)))}</strong><br>${escapeXml(r.date)}</td><td><strong>${escapeXml(r.circleName)}</strong></td><td>${escapeXml(r.teacherName)}</td><td>${r.scheduledStart?`${escapeXml(r.scheduledStart)} - ${escapeXml(r.scheduledEnd||'')}`:'غير محدد'}</td><td>${escapeXml(r.openedAt||'لم تبدأ')} / ${escapeXml(r.closedAt||'لم تغلق')}</td><td>${r.lateMinutes==null?'—':`${r.lateMinutes} دقيقة`}</td><td><span class="teacher-state state-${r.status}">${escapeXml(teacherAbsenceLabel(r))}</span><small class="d-block">${escapeXml(r.statusText)}</small></td><td>${escapeXml(r.status==='Absent'?(r.reason||'لم يذكر عذر'):'—')}</td><td>${escapeXml(r.substituteName||'لا يوجد')}</td><td>${["Admin","Developer"].includes(currentRole)||(currentRole==='Teacher'&&teacherCan('quality'))?`<button class="btn btn-sm btn-outline-primary" data-coverage-index="${i}">تسجيل غياب / بديل</button>`:""}${r.substituteUserId===Number(currentUserId)?`<button class="btn btn-sm btn-success" data-cover-record="${r.circleId}">رصد التسميع</button>`:""}</td></tr>`).join('')||'<tr><td colspan="10">لا توجد حلقات في هذه الفترة.</td></tr>'}</tbody></table></div>`;
         target.querySelectorAll('[data-cover-record]').forEach(button=>button.onclick=()=>startCoverageRecitation(Number(button.dataset.coverRecord)));
         target.querySelectorAll('[data-coverage-index]').forEach(button=>button.onclick=()=>{const r=teacherAttendanceRows[Number(button.dataset.coverageIndex)];showTeacherCoverage(r.circleId,r.circleName,r.date);});
     }catch(e){target.innerHTML=`<p class="reports-error">${escapeXml(e.message)}</p>`;}
