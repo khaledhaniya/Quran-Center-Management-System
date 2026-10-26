@@ -60,3 +60,4 @@ class _CircleLeaderboardScreenState extends State<CircleLeaderboardScreen> {
           ),
         ),
       );
+}

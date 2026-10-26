@@ -366,7 +366,7 @@ class _TeacherOperationsScreenState extends State<TeacherOperationsScreen> {
                         DataColumn(label: Text('المعلم البديل')),
                         DataColumn(label: Text('التغطية'))
                       ],
-                      source: TeacherRegisterSource(rows, canEdit, coverage)))))),
+                      source: TeacherRegisterSource(rows, canEdit, coverage))))))),
             if (!tableView || loading || error != null)
               loading
                       ? const Center(child: CircularProgressIndicator())
