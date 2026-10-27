@@ -16,11 +16,13 @@ public class UsersController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly PasswordHasher _hasher;
+    private readonly PasswordVault? _vault;
 
-    public UsersController(AppDbContext db, PasswordHasher hasher)
+    public UsersController(AppDbContext db, PasswordHasher hasher, PasswordVault? vault = null)
     {
         _db = db;
         _hasher = hasher;
+        _vault = vault;
     }
 
     [HttpPost("{id:int}/reset-password")]
@@ -40,9 +42,10 @@ public class UsersController : ControllerBase
         var password = PasswordHasher.GenerateTemporaryPassword();
         target.PasswordHash = _hasher.HashPassword(password);
         target.PlainPassword = "";
+        target.PasswordCiphertext = _vault?.Protect(password) ?? "";
         await _db.SaveChangesAsync();
         await AuditLogger.LogAsync(_db, HttpContext, "ResetUserPassword", $"إعادة تعيين كلمة مرور الحساب #{target.Id} ({target.Username}) بواسطة المطور؛ أُلغيت جلسات الحساب السابقة.");
-        return Ok(new { password, message = "تظهر كلمة المرور الجديدة في هذه الاستجابة فقط. سلّمها للمستخدم ليغيّرها من حسابه." });
+        return Ok(new { password, message = "ظهرت كلمة المرور الجديدة، وستبقى متاحة لحساب المطور حتى يغيّرها المستخدم." });
     }
     public record ResetPasswordInput(string CurrentPassword);
 
@@ -50,6 +53,9 @@ public class UsersController : ControllerBase
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> GetAll()
     {
+        Response.Headers.CacheControl = "no-store, private";
+        var canViewPasswords = _vault != null && FakeAuth.GetRole(HttpContext) == UserRole.Developer &&
+            await _db.Users.AsNoTracking().AnyAsync(u => u.Id == FakeAuth.GetUserId(HttpContext) && u.IsActive && u.Role == UserRole.Developer);
         var users = await _db.Users
             .Include(u => u.Teacher)
             .Include(u => u.Student)
@@ -138,9 +144,13 @@ public class UsersController : ControllerBase
                 u.StudentId,
                 u.ParentId,
                 IdentityNumber = !string.IsNullOrWhiteSpace(idNum) ? idNum : "-",
-                PasswordConfigured = !string.IsNullOrEmpty(u.PasswordHash)
+                PasswordConfigured = !string.IsNullOrEmpty(u.PasswordHash),
+                PlainPassword = canViewPasswords ? _vault!.Unprotect(u.PasswordCiphertext) : null
             };
         }).ToList();
+
+        if (canViewPasswords)
+            await AuditLogger.LogAsync(_db, HttpContext, "ViewUserPasswords", "عرض قائمة كلمات المرور بواسطة حساب المطور.");
 
         return Ok(result);
     }
@@ -205,6 +215,7 @@ public class UsersController : ControllerBase
             ParentId = parentId,
             IsActive = true,
             PasswordHash = _hasher.HashPassword(dto.Password.Trim()),
+            PasswordCiphertext = _vault?.Protect(dto.Password.Trim()) ?? "",
             PlainPassword = string.Empty
         };
 
@@ -266,6 +277,7 @@ public class UsersController : ControllerBase
         {
             user.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
             user.PlainPassword = string.Empty;
+            user.PasswordCiphertext = _vault?.Protect(dto.Password.Trim()) ?? "";
         }
 
         // --- Synchronize with Student Record ---

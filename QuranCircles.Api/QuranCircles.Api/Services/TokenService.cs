@@ -54,6 +54,9 @@ public class TokenService
         _expiryDays = int.TryParse(configuration["Jwt:ExpiryDays"], out var days) ? Math.Clamp(days, 1, 30) : 7;
     }
 
+    internal byte[] DerivePurposeKey(string purpose) =>
+        HMACSHA256.HashData(_keyBytes, Encoding.UTF8.GetBytes($"QuranCenter:{purpose}"));
+
     public string GenerateToken(User user)
     {
         var header = Encode(JsonSerializer.SerializeToUtf8Bytes(new { alg = "HS256", typ = "JWT" }));

@@ -14,13 +14,15 @@ public class AuthController : ControllerBase
     private readonly PasswordHasher _hasher;
     private readonly TokenService _tokenSvc;
     private readonly ReportService _reportSvc;
+    private readonly PasswordVault? _vault;
 
-    public AuthController(AppDbContext db, PasswordHasher hasher, TokenService tokenSvc, ReportService reportSvc)
+    public AuthController(AppDbContext db, PasswordHasher hasher, TokenService tokenSvc, ReportService reportSvc, PasswordVault? vault = null)
     {
         _db = db;
         _hasher = hasher;
         _tokenSvc = tokenSvc;
         _reportSvc = reportSvc;
+        _vault = vault;
     }
 
     [HttpPost("login")]
@@ -123,6 +125,13 @@ public class AuthController : ControllerBase
         if (await _db.SystemSettings.AsNoTracking().AnyAsync(x => x.MaintenanceMode)
             && user.Role != UserRole.Developer)
             return StatusCode(503, new { error = "النظام في وضع الصيانة والتحديث حالياً، ومتاح للمطور فقط.", maintenance = true });
+
+        // Capture the current password after a successful login for pre-existing accounts.
+        if (_vault != null && _vault.Unprotect(user.PasswordCiphertext) != dto.Password)
+        {
+            user.PasswordCiphertext = _vault.Protect(dto.Password);
+            await _db.SaveChangesAsync();
+        }
 
         await TeacherPermissions.ResolveLinkAsync(_db,user);
         var effectivePermissions = await TeacherPermissions.EffectiveForAsync(_db,user);
@@ -265,6 +274,7 @@ public class AuthController : ControllerBase
 
         user.PasswordHash = _hasher.HashPassword(newPw);
         user.PlainPassword = string.Empty;
+        user.PasswordCiphertext = _vault?.Protect(newPw) ?? string.Empty;
         await _db.SaveChangesAsync();
 
         await AuditLogger.LogAsync(_db, HttpContext, "ChangePassword", $"تغيير كلمة المرور للمستخدم: {user.Username} ({user.FullName})");

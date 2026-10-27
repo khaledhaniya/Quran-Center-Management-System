@@ -171,6 +171,7 @@ builder.Services.AddHostedService<QuranCircles.Api.Services.TeacherPresenceMonit
 builder.Services.AddScoped<QuranCircles.Api.Services.AnnouncementService>();
 builder.Services.AddSingleton<QuranCircles.Api.Services.PasswordHasher>();
 builder.Services.AddSingleton<QuranCircles.Api.Services.TokenService>();
+builder.Services.AddSingleton<QuranCircles.Api.Services.PasswordVault>();
 
 // 4. Configurable Enterprise CORS Policy
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[]
@@ -243,6 +244,7 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<QuranCircles.Api.Services.PasswordHasher>();
+        var vault = scope.ServiceProvider.GetRequiredService<QuranCircles.Api.Services.PasswordVault>();
         db.Database.EnsureCreated();
 
         // Enable SQLite WAL mode (Write-Ahead Logging) and busy timeout to eliminate locks
@@ -253,7 +255,7 @@ using (var scope = app.Services.CreateScope())
         catch { /* Handled for other database engines */ }
 
         DbSeeder.MigrateSchema(db);
-        DbSeeder.Seed(db, hasher);
+        DbSeeder.Seed(db, hasher, vault);
         Console.WriteLine($"[Database Status] Teachers: {db.Teachers.Count()}, Students: {db.Students.Count()}, Users: {db.Users.Count()}");
     }
     catch (Exception ex)

@@ -6,7 +6,7 @@ namespace QuranCircles.Api.Data;
 
 public static partial class DbSeeder
 {
-    public static void Seed(AppDbContext db, PasswordHasher hasher)
+    public static void Seed(AppDbContext db, PasswordHasher hasher, PasswordVault? vault = null)
     {
         // Initial privileged accounts are created only with administrator-supplied secrets.
         foreach (var (username, role, variable, fullName) in new[] {
@@ -18,7 +18,8 @@ public static partial class DbSeeder
             {
                 if (password.Length < 12) throw new InvalidOperationException($"{variable} must contain at least 12 characters.");
                 db.Users.Add(new User { Username = username, FullName = fullName,
-                    Role = role, IsActive = true, PasswordHash = hasher.HashPassword(password) });
+                    Role = role, IsActive = true, PasswordHash = hasher.HashPassword(password),
+                    PasswordCiphertext = vault?.Protect(password) ?? string.Empty });
             }
         }
         db.SaveChanges();
@@ -32,6 +33,8 @@ public static partial class DbSeeder
         var provider = db.Database.ProviderName ?? "";
         bool isSqlServer = provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase);
         bool isSqlite = provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase);
+
+        EnsurePasswordVaultSchema(db);
 
         try
         {
@@ -824,6 +827,23 @@ public static partial class DbSeeder
 #pragma warning disable EF1002
         db.Database.ExecuteSqlRaw(sql);
 #pragma warning restore EF1002
+    }
+
+    private static void EnsurePasswordVaultSchema(AppDbContext db)
+    {
+        if (db.Database.IsSqlServer())
+            db.Database.ExecuteSqlRaw("IF COL_LENGTH('Users', 'PasswordCiphertext') IS NULL ALTER TABLE Users ADD PasswordCiphertext nvarchar(max) NOT NULL DEFAULT ''");
+        else if (db.Database.IsNpgsql())
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"PasswordCiphertext\" text NOT NULL DEFAULT ''");
+        else
+        {
+            try
+            {
+                if (db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM pragma_table_info('Users') WHERE name = 'PasswordCiphertext'").Single() == 0)
+                    db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN PasswordCiphertext TEXT NOT NULL DEFAULT ''");
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase)) { }
+        }
     }
 
     private static void EnsureIdempotencySchema(AppDbContext db)

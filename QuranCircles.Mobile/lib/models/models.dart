@@ -111,7 +111,7 @@ class User {
       studentId: sId,
       teacherId: tId,
       parentId: pId,
-      plainPassword: null,
+      plainPassword: json['plainPassword']?.toString(),
       hasChildren: parsedHasChildren,
       childrenCount: parsedChildrenCount,
       taskRole: json['taskRole']?.toString(),

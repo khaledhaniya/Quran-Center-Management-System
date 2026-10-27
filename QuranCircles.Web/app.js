@@ -8854,7 +8854,8 @@ function renderUsersTableRows(usersList) {
         else if (u.studentId) refIdStr = `طالب (#${u.studentId})`;
         else if (u.parentId) refIdStr = `ولي أمر (#${u.parentId})`;
 
-        const passwordStatus = u.passwordConfigured === false ? "غير معيّنة" : "لا يمكن استرجاعها";
+        const pw = currentRole === "Developer" ? (u.plainPassword || "") : "";
+        const passwordStatus = u.passwordConfigured === false ? "غير معيّنة" : "تظهر بعد الدخول أو إعادة التعيين";
         const idNum = u.identityNumber || u.nationalId || (u.role === 'Parent' && u.username && /^\d+$/.test(u.username) ? u.username : '-');
 
         // Resolve role & permissions badge with full harmony with Teachers page
@@ -8919,7 +8920,7 @@ function renderUsersTableRows(usersList) {
                 <td style="white-space: nowrap;"><span class="small text-muted">${refIdStr}</span></td>
                 <td style="white-space: nowrap;">
                     <div class="d-inline-flex align-items-center gap-1.5 bg-light px-2 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
-                        <span class="small text-muted" id="pw-user-${u.id}" title="يمكن للمطور تعيين كلمة جديدة بعد تأكيد هويته">${passwordStatus}</span>
+                        <code class="fw-bold font-monospace user-pw-value" id="pw-user-${u.id}" dir="ltr">${pw ? escapeXml(pw) : passwordStatus}</code>
                     </div>
                 </td>
                 <td style="white-space: nowrap; text-align: center;">
@@ -8969,7 +8970,7 @@ function renderUsersTableRows(usersList) {
                     <div class="dev-card-info-row">
                         <span class="text-muted small"><i class="fa-solid fa-key text-warning me-1"></i> كلمة المرور:</span>
                         <div class="d-inline-flex align-items-center gap-2">
-                            <span class="small text-muted">${passwordStatus}</span>
+                            <code class="fw-bold font-monospace" dir="ltr">${pw ? escapeXml(pw) : passwordStatus}</code>
                         </div>
                     </div>
                     <div class="dev-card-info-row">
@@ -9224,11 +9225,16 @@ function showEditUserModal(user) {
                 </div>
 
                 <div class="form-group">
+                    <label>كلمة المرور الحالية:</label>
+                    <div class="form-control font-monospace" dir="ltr" style="background:#f8fafc; overflow-wrap:anywhere;">${user.plainPassword ? escapeXml(user.plainPassword) : 'تظهر بعد دخول المستخدم أو إعادة تعيينها'}</div>
+                </div>
+
+                <div class="form-group">
                     <label for="edit-user-password">تعيين كلمة مرور جديدة (اختياري):</label>
                     <div class="input-group">
                         <input type="password" id="edit-user-password" class="form-control font-monospace fw-bold" autocomplete="new-password" placeholder="اتركها فارغة للإبقاء على الكلمة الحالية">
                     </div>
-                    <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> لا يمكن استرجاع الكلمة الحالية بعد حفظها. استخدم زر إعادة التعيين للحصول على كلمة مؤقتة تظهر مرة واحدة.</small>
+                    <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> تظهر الكلمات التي عُيّنت بعد تفعيل هذه الميزة، وكذلك الكلمات القديمة بعد دخول أصحابها. يمكنك إعادة تعيين الكلمات التي لم تظهر بعد.</small>
                 </div>
 
                 <div class="form-group" style="grid-column: 1 / -1;">
@@ -9317,6 +9323,7 @@ function showEditUserModal(user) {
                 targetUser.username = username;
                 targetUser.role = role;
                 targetUser.isActive = activeVal;
+                if (password?.trim()) targetUser.plainPassword = password.trim();
             }
 
             // Re-render table rows instantly with updated user data
@@ -19703,6 +19710,7 @@ async function resetDeveloperUserPassword(id){
     if(!prompt.isConfirmed)return;
     try{
         const result=await apiRequest(`/users/${id}/reset-password`,'POST',{currentPassword:prompt.value},0,true);
-        await Swal.fire({title:'كلمة المرور الجديدة',text:'احفظها وسلّمها لصاحب الحساب ليغيّرها. لن تظهر مجدداً بعد إغلاق هذه النافذة.',input:'text',inputValue:result.password,inputAttributes:{readonly:'readonly',autocomplete:'off',dir:'ltr'},confirmButtonText:'حفظت الكلمة وإغلاق',allowOutsideClick:false});
+        await Swal.fire({title:'كلمة المرور الجديدة',text:'احفظها وسلّمها لصاحب الحساب. ستظهر أيضًا في قائمة حسابات المطور حتى يغيّرها المستخدم.',input:'text',inputValue:result.password,inputAttributes:{readonly:'readonly',autocomplete:'off',dir:'ltr'},confirmButtonText:'إغلاق',allowOutsideClick:false});
+        await loadDeveloperUsers();
     }catch(e){showAlert(e.message,'danger');}
 }

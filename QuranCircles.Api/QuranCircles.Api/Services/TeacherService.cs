@@ -9,11 +9,13 @@ public class TeacherService
 {
     private readonly AppDbContext _db;
     private readonly PasswordHasher _hasher;
+    private readonly PasswordVault? _vault;
 
-    public TeacherService(AppDbContext db, PasswordHasher hasher)
+    public TeacherService(AppDbContext db, PasswordHasher hasher, PasswordVault? vault = null)
     {
         _db = db;
         _hasher = hasher;
+        _vault = vault;
     }
 
     public async Task<List<TeacherDto>> GetAllAsync(string? search)
@@ -115,6 +117,7 @@ public class TeacherService
             {
                 Username = finalUsername,
                 PasswordHash = _hasher.HashPassword(password),
+                PasswordCiphertext = _vault?.Protect(password) ?? string.Empty,
                 PlainPassword = string.Empty,
                 Role = UserRole.Teacher,
                 FullName = t.FullName,

@@ -12,11 +12,13 @@ public class HuffazForumController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly PasswordHasher _hasher;
+    private readonly PasswordVault? _vault;
 
-    public HuffazForumController(AppDbContext db, PasswordHasher hasher)
+    public HuffazForumController(AppDbContext db, PasswordHasher hasher, PasswordVault? vault = null)
     {
         _db = db;
         _hasher = hasher;
+        _vault = vault;
     }
 
     [HttpGet]
@@ -194,6 +196,7 @@ public class HuffazForumController : ControllerBase
             var userExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == idNumber.ToLower());
             if (!userExists)
             {
+                var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
                 var newUser = new User
                 {
                     Username = idNumber,
@@ -202,7 +205,8 @@ public class HuffazForumController : ControllerBase
                     StudentId = member.StudentId,
                     TeacherId = member.TeacherId,
                     IsActive = true,
-                    PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                    PasswordHash = _hasher.HashPassword(generatedPassword),
+                    PasswordCiphertext = _vault?.Protect(generatedPassword) ?? string.Empty,
                     PlainPassword = string.Empty
                 };
                 _db.Users.Add(newUser);

@@ -84,23 +84,53 @@ public class AccessBoundaryTests
     }
 
     [Fact]
-    public async Task DeveloperResetRequiresReauthenticationAndRevokesOldTokensWithoutSavingTheSecret()
+    public async Task DeveloperOnlyCanViewEncryptedPasswordAfterResetAndUserChange()
     {
         using var connection=new SqliteConnection("Data Source=:memory:");using var db=Open(connection);
         var hasher=new PasswordHasher();var developer=new User {Id=1,Username="dev",Role=UserRole.Developer,PasswordHash=hasher.HashPassword("developer-current")};
         var target=new User {Id=2,Username="student",Role=UserRole.Student,PasswordHash=hasher.HashPassword("old-password")};
         db.Users.AddRange(developer,target);await db.SaveChangesAsync();
         var tokens=new TokenService(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Jwt:SecretKey"]="only-testing-key-with-more-than-thirty-two-bytes" }).Build());
-        var oldToken=tokens.GenerateToken(target);var controller=new UsersController(db,hasher) {ControllerContext=new ControllerContext {HttpContext=Context(developer)}};
+        var vault=new PasswordVault(tokens);
+        var oldToken=tokens.GenerateToken(target);var controller=new UsersController(db,hasher,vault) {ControllerContext=new ControllerContext {HttpContext=Context(developer)}};
         Assert.IsType<BadRequestObjectResult>(await controller.ResetPassword(2,new("incorrect")));
         Assert.True(tokens.ValidateTokenForUser(oldToken,target));
         var result=Assert.IsType<OkObjectResult>(await controller.ResetPassword(2,new("developer-current")));
         var json=System.Text.Json.JsonSerializer.SerializeToElement(result.Value);var password=json.GetProperty("password").GetString()!;
         Assert.True(hasher.VerifyPassword(target.PasswordHash,password));Assert.False(tokens.ValidateTokenForUser(oldToken,target));
         Assert.Empty(target.PlainPassword);Assert.DoesNotContain(password,System.Text.Json.JsonSerializer.Serialize(target));
+        Assert.DoesNotContain(password,target.PasswordCiphertext);
+        Assert.Equal(password,vault.Unprotect(target.PasswordCiphertext));
         Assert.DoesNotContain(password,(await db.AuditLogs.SingleAsync()).Details);
+        var devList=System.Text.Json.JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.GetAll()).Value);
+        Assert.Equal(password,devList.EnumerateArray().Single(x=>x.GetProperty("Id").GetInt32()==2).GetProperty("PlainPassword").GetString());
+        var selfService=new AuthController(db,hasher,tokens,new ReportService(db),vault) {ControllerContext=new ControllerContext {HttpContext=Context(target)}};
+        Assert.IsType<OkObjectResult>(await selfService.ChangePassword(new(password,"changed-by-student")));
+        devList=System.Text.Json.JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.GetAll()).Value);
+        Assert.Equal("changed-by-student",devList.EnumerateArray().Single(x=>x.GetProperty("Id").GetInt32()==2).GetProperty("PlainPassword").GetString());
+        var admin=new User {Id=3,Username="admin",Role=UserRole.Admin,IsActive=true};db.Users.Add(admin);await db.SaveChangesAsync();
+        controller.ControllerContext.HttpContext=Context(admin);
+        var adminList=System.Text.Json.JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.GetAll()).Value);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null,adminList.EnumerateArray().Single(x=>x.GetProperty("Id").GetInt32()==2).GetProperty("PlainPassword").ValueKind);
         controller.ControllerContext.HttpContext=Context(target);
         Assert.IsType<ForbidResult>(await controller.ResetPassword(1,new("old-password")));
+    }
+
+    [Fact]
+    public async Task ExistingPasswordAppearsAfterItsOwnerSignsInWithoutChangingTheHash()
+    {
+        using var connection=new SqliteConnection("Data Source=:memory:");using var db=Open(connection);
+        var hasher=new PasswordHasher();var originalHash=hasher.HashPassword("older-user-password");
+        var user=new User {Id=1,Username="student",FullName="طالب",Role=UserRole.Student,PasswordHash=originalHash};
+        db.Users.Add(user);await db.SaveChangesAsync();
+        var tokens=new TokenService(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Jwt:SecretKey"]="only-testing-key-with-more-than-thirty-two-bytes" }).Build());
+        var vault=new PasswordVault(tokens);
+        var auth=new AuthController(db,hasher,tokens,new ReportService(db),vault) {ControllerContext=new ControllerContext {HttpContext=new DefaultHttpContext()}};
+        Assert.IsType<OkObjectResult>(await auth.Login(new("student","older-user-password")));
+        Assert.Equal(originalHash,user.PasswordHash);
+        Assert.Equal("older-user-password",vault.Unprotect(user.PasswordCiphertext));
+        var otherKey=new TokenService(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Jwt:SecretKey"]="another-testing-key-with-more-than-thirty-two-bytes" }).Build());
+        Assert.Null(new PasswordVault(otherKey).Unprotect(user.PasswordCiphertext));
     }
 
     [Fact]

@@ -8,6 +8,8 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     [System.Text.Json.Serialization.JsonIgnore]
     public string PlainPassword { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string PasswordCiphertext { get; set; } = string.Empty;
     public UserRole Role { get; set; }
     public string FullName { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;

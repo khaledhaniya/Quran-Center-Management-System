@@ -156,7 +156,8 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
     final password=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(title:const Text('إعادة تعيين كلمة المرور'),content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('تُلغي العملية جلسات الحساب السابقة. أدخل كلمة مرور المطور للتأكيد.'),TextField(controller:controller,obscureText:true,autofillHints:const [AutofillHints.password],decoration:const InputDecoration(labelText:'كلمة مرور المطور'))]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('إلغاء')),FilledButton(onPressed:()=>Navigator.pop(ctx,controller.text),child:const Text('تعيين كلمة جديدة'))]));
     controller.dispose();if(password==null||password.isEmpty)return;
     try{final generated=await ApiService.resetUserPassword(user.id,password);if(!mounted)return;
-      await showDialog(context:context,barrierDismissible:false,builder:(ctx)=>AlertDialog(title:const Text('كلمة المرور الجديدة'),content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('تظهر مرة واحدة. سلّمها للمستخدم ليغيّرها من حسابه.'),const SizedBox(height:18),SelectableText(generated,textDirection:TextDirection.ltr)]),actions:[TextButton(onPressed:(){Clipboard.setData(ClipboardData(text:generated));},child:const Text('نسخ')),FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('حفظت الكلمة وإغلاق'))]));
+      await showDialog(context:context,barrierDismissible:false,builder:(ctx)=>AlertDialog(title:const Text('كلمة المرور الجديدة'),content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('سلّمها للمستخدم. ستظهر أيضًا في قائمة حسابات المطور حتى يغيّرها.'),const SizedBox(height:18),SelectableText(generated,textDirection:TextDirection.ltr)]),actions:[TextButton(onPressed:(){Clipboard.setData(ClipboardData(text:generated));},child:const Text('نسخ')),FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('إغلاق'))]));
+      _loadUsers();
     }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
   }
 
@@ -949,7 +950,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                       delegate: SliverChildBuilderDelegate(
                         (ctx, index) {
                           final u = _filteredUsers[index];
-                          const pw = 'لا يمكن استرجاعها';
+                          final pw = u.plainPassword?.isNotEmpty == true ? u.plainPassword! : 'بعد الدخول أو إعادة التعيين';
                           final roleColor = _getRoleColor(u.role);
                           final roleTitle = _getRoleDisplayName(u.role);
 
@@ -1081,9 +1082,8 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                                   const Icon(Icons.key, size: 15, color: AppTheme.accent),
                                                   const SizedBox(width: 6),
                                                   Flexible(
-                                                    child: Text(
+                                                    child: SelectableText(
                                                       pw,
-                                                      overflow: TextOverflow.ellipsis,
                                                       style: const TextStyle(
                                                         fontSize: 13,
                                                         fontWeight: FontWeight.bold,

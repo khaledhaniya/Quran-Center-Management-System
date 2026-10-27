@@ -9,11 +9,13 @@ public class StudentService
 {
     private readonly AppDbContext _db;
     private readonly PasswordHasher _hasher;
+    private readonly PasswordVault? _vault;
 
-    public StudentService(AppDbContext db, PasswordHasher hasher)
+    public StudentService(AppDbContext db, PasswordHasher hasher, PasswordVault? vault = null)
     {
         _db = db;
         _hasher = hasher;
+        _vault = vault;
     }
 
     public async Task<List<object>> GetAllAsync(string? search, bool hideParentPhone = false)
@@ -270,10 +272,12 @@ public class StudentService
                 }
                 else
                 {
+                    var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
                     teacherUser = new User
                     {
                         Username = pIdNum,
-                        PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                        PasswordHash = _hasher.HashPassword(generatedPassword),
+                        PasswordCiphertext = _vault?.Protect(generatedPassword) ?? string.Empty,
                         PlainPassword = string.Empty,
                         FullName = matchedTeacher.FullName,
                         Role = UserRole.Teacher,
@@ -315,10 +319,12 @@ public class StudentService
                     else
                     {
                         // 4. Create new Parent user
+                        var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
                         newlyCreatedParent = new User
                         {
                             Username = pIdNum,
-                            PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                            PasswordHash = _hasher.HashPassword(generatedPassword),
+                            PasswordCiphertext = _vault?.Protect(generatedPassword) ?? string.Empty,
                             PlainPassword = string.Empty,
                             FullName = fatherName,
                             Role = UserRole.Parent,
@@ -382,6 +388,7 @@ public class StudentService
                 {
                     existingUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
                     existingUser.PlainPassword = string.Empty;
+                    existingUser.PasswordCiphertext = _vault?.Protect(dto.Password.Trim()) ?? string.Empty;
                 }
             }
             else
@@ -391,6 +398,7 @@ public class StudentService
                 {
                     Username = stUsername,
                     PasswordHash = _hasher.HashPassword(stPw),
+                    PasswordCiphertext = _vault?.Protect(stPw) ?? string.Empty,
                     PlainPassword = string.Empty,
                     FullName = s.FullName,
                     Role = UserRole.Student,
@@ -476,10 +484,12 @@ public class StudentService
                 }
                 else
                 {
+                    var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
                     teacherUser = new User
                     {
                         Username = pIdNum,
-                        PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                        PasswordHash = _hasher.HashPassword(generatedPassword),
+                        PasswordCiphertext = _vault?.Protect(generatedPassword) ?? string.Empty,
                         PlainPassword = string.Empty,
                         FullName = matchedTeacher.FullName,
                         Role = UserRole.Teacher,
@@ -521,10 +531,12 @@ public class StudentService
                     else
                     {
                         // 4. Create new Parent user
+                        var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
                         var newParent = new User
                         {
                             Username = pIdNum,
-                            PasswordHash = _hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                            PasswordHash = _hasher.HashPassword(generatedPassword),
+                            PasswordCiphertext = _vault?.Protect(generatedPassword) ?? string.Empty,
                             PlainPassword = string.Empty,
                             FullName = fatherName,
                             Role = UserRole.Parent,
@@ -585,6 +597,7 @@ public class StudentService
             {
                 studentUser.PasswordHash = _hasher.HashPassword(dto.Password.Trim());
                 studentUser.PlainPassword = string.Empty;
+                studentUser.PasswordCiphertext = _vault?.Protect(dto.Password.Trim()) ?? string.Empty;
             }
         }
         else if (customUsername != null || !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))
@@ -598,6 +611,7 @@ public class StudentService
             {
                 Username = finalUName,
                 PasswordHash = _hasher.HashPassword(finalPw),
+                PasswordCiphertext = _vault?.Protect(finalPw) ?? string.Empty,
                 PlainPassword = string.Empty,
                 FullName = s.FullName,
                 Role = UserRole.Student,
