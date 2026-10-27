@@ -4348,13 +4348,14 @@ async function showTeacherEnrollExistingModal() {
             return;
         }
 
-        openModal("تنسيب طالب إلى حلقتي القرآنيّة");
+        openModal("تنسيب طالب إلى حلقتي القرآنيّة", true);
+        document.getElementById("modal-container").classList.add("teacher-enroll-modal");
 
         const modalBody = document.getElementById("modal-body-content");
         modalBody.innerHTML = `
-            <div class="p-3" style="direction: rtl;">
-                <div class="alert alert-info d-flex align-items-center justify-content-between gap-2 mb-3">
-                    <div class="d-flex align-items-center gap-2">
+            <div class="teacher-enroll-content" dir="rtl">
+                <div class="teacher-enroll-summary alert alert-info mb-3">
+                    <div class="teacher-enroll-info d-flex align-items-center gap-2">
                         <i class="fa-solid fa-circle-info fs-4 text-primary"></i>
                         <div>
                             <strong>تنسيب الطلاب للحلقة:</strong> يمكنك استعراض والبحث في كافة طلاب المركز القرآني وإضافتهم مباشرة إلى حلقتك.
@@ -4369,12 +4370,12 @@ async function showTeacherEnrollExistingModal() {
                     <div class="col-md-6">
                         <label class="form-label fw-bold text-dark"><i class="fa-solid fa-circle-nodes text-primary me-1"></i> اختر الحلقة المستهدفة للتنسيب:</label>
                         <select id="teacher-enroll-target-circle" class="form-select shadow-xs border-primary">
-                            ${myCircles.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            ${myCircles.map(c => `<option value="${c.id}">${escapeXml(c.name)}</option>`).join('')}
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold text-dark"><i class="fa-solid fa-filter text-secondary me-1"></i> تصفية الطلاب:</label>
-                        <div class="btn-group w-100 shadow-xs" role="group">
+                        <div class="teacher-enroll-filters btn-group w-100 shadow-xs" role="group">
                             <input type="radio" class="btn-check" name="teacher-filter-status" id="filter-status-all" value="all" checked autocomplete="off">
                             <label class="btn btn-outline-primary btn-sm py-2 fw-bold" for="filter-status-all">جميع طلاب المركز</label>
 
@@ -4395,12 +4396,12 @@ async function showTeacherEnrollExistingModal() {
                     </div>
                 </div>
 
-                <div id="teacher-enroll-results-container" style="max-height: 380px; overflow-y: auto;" class="border rounded-3 p-2 bg-light">
+                <div id="teacher-enroll-results-container" class="border rounded-3 p-2 bg-light">
                     <p class="text-center text-muted my-4"><i class="fa-solid fa-spinner fa-spin me-2"></i> جاري جلب كافة طلاب المركز...</p>
                 </div>
 
                 <!-- Footer with Dynamic Capacity and Cancel Button -->
-                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
+                <div class="teacher-enroll-footer d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
                     <div id="teacher-enroll-capacity-footer" class="small fw-bold"></div>
                     <button type="button" class="btn btn-secondary rounded-pill px-4 shadow-xs" onclick="closeModal()">
                         <i class="fa-solid fa-xmark me-1"></i> إلغاء / إغلاق النافذة
@@ -4524,13 +4525,13 @@ async function showTeacherEnrollExistingModal() {
                 }
 
                 html += `
-                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 rounded-3 shadow-xs bg-white border">
-                        <div>
-                            <div class="fw-bold text-dark fs-6 d-flex align-items-center gap-2">
+                    <div class="teacher-enroll-student-row list-group-item list-group-item-action p-3 rounded-3 shadow-xs bg-white border">
+                        <div class="teacher-enroll-student-info">
+                            <div class="teacher-enroll-student-name fw-bold text-dark fs-6 d-flex align-items-center gap-2">
                                 <i class="fa-solid fa-user-graduate text-success"></i>
                                 <span>${escapeXml(s.fullName)}</span>
                             </div>
-                            <div class="small text-muted mt-1 d-flex flex-wrap gap-2 align-items-center">
+                            <div class="teacher-enroll-student-meta small text-muted mt-1 d-flex flex-wrap gap-2 align-items-center">
                                 <span class="badge bg-light text-secondary border">هوية: ${escapeXml(s.studentIdentityNumber || s.id)}</span>
                                 ${s.familyContact ? `<span class="badge bg-light text-muted border"><i class="fa-solid fa-phone me-1"></i>${escapeXml(s.familyContact)}</span>` : ''}
                                 ${hasCircle ? `<span class="badge bg-warning bg-opacity-25 text-dark border"><i class="fa-solid fa-mosque me-1"></i>الحلقة: ${escapeXml(s.circleName)} ${s.teacherName ? `(الشيخ: ${escapeXml(s.teacherName)})` : ''}</span>` : '<span class="badge bg-success bg-opacity-25 text-success border"><i class="fa-solid fa-check me-1"></i>غير مسند حلقة</span>'}
@@ -6181,7 +6182,7 @@ function openModal(title, isLarge = false) {
     closeMobileSidebar();
     document.getElementById("modal-title").textContent = title;
     const container = document.getElementById("modal-container");
-    container.classList.remove("circle-students-modal");
+    container.classList.remove("circle-students-modal", "teacher-enroll-modal");
     if (isLarge) {
         container.classList.add("modal-lg");
     } else {
@@ -6194,7 +6195,7 @@ function closeModal() {
     const container = document.getElementById("modal-container");
     container.classList.remove("open");
     container.classList.remove("modal-lg");
-    container.classList.remove("circle-students-modal");
+    container.classList.remove("circle-students-modal", "teacher-enroll-modal");
 }
 
 function debounce(func, delay) {
