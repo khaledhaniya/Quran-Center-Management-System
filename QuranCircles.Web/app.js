@@ -3570,18 +3570,18 @@ async function manageTeacherRoles(teacherId) {
     }).join("");
 
     const htmlContent = `
-        <div class="text-start" style="direction: rtl;">
+        <div class="teacher-roles-content text-start" dir="rtl">
             <!-- Teacher Header Info -->
-            <div class="p-3 bg-light border rounded-3 mb-3 d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="mb-1 fw-bold text-primary"><i class="fa-solid fa-user-tie me-1"></i> فضيلة الشيخ / ${teacher.fullName}</h5>
-                    <div class="small text-muted font-monospace"><i class="fa-solid fa-id-card me-1"></i> رقم الهوية: <strong>${teacher.identityNumber || '-'}</strong> | الجوال: <strong>${teacher.contact || '-'}</strong></div>
+            <div class="teacher-roles-profile p-3 bg-light border rounded-3 mb-3">
+                <div class="teacher-roles-identity">
+                    <h5 class="mb-1 fw-bold text-primary"><i class="fa-solid fa-user-tie me-1"></i> فضيلة الشيخ / ${escapeXml(teacher.fullName)}</h5>
+                    <div class="small text-muted font-monospace"><i class="fa-solid fa-id-card me-1"></i> رقم الهوية: <strong>${escapeXml(teacher.identityNumber || '-')}</strong> <span class="teacher-roles-separator">|</span> الجوال: <strong>${escapeXml(teacher.contact || '-')}</strong></div>
                 </div>
-                <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 border border-success rounded-pill">تعديل الصلاحيات الفوري</span>
+                <span class="teacher-roles-badge badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 border border-success rounded-pill">تعديل الصلاحيات الفوري</span>
             </div>
 
             <div class="mb-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="teacher-roles-toolbar mb-2">
                     <label class="form-label fw-bold text-dark mb-0"><i class="fa-solid fa-shield-halved text-primary me-1"></i> حدد المهام والصلاحيات الموكلة للشيخ (يمكن اختيار أكثر من مهمة أو إبقاؤه غير مكلف):</label>
                     <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" id="btn-clear-all-roles" style="font-size: 0.8rem;"><i class="fa-solid fa-ban me-1"></i> تفريغ كافة المهام (غير مكلف)</button>
                 </div>
@@ -3599,8 +3599,9 @@ async function manageTeacherRoles(teacherId) {
     `;
 
     const result = await Swal.fire({
-        title: `🛡️ إدارة صلاحيات ومهام الشيخ / ${teacher.fullName}`,
+        title: '🛡️ إدارة صلاحيات ومهام الشيخ',
         html: htmlContent,
+        customClass: { popup: 'teacher-roles-popup' },
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> حفظ وتطبيق الصلاحيات فوراً',
         cancelButtonText: 'إلغاء',
@@ -6180,6 +6181,7 @@ function openModal(title, isLarge = false) {
     closeMobileSidebar();
     document.getElementById("modal-title").textContent = title;
     const container = document.getElementById("modal-container");
+    container.classList.remove("circle-students-modal");
     if (isLarge) {
         container.classList.add("modal-lg");
     } else {
@@ -6192,6 +6194,7 @@ function closeModal() {
     const container = document.getElementById("modal-container");
     container.classList.remove("open");
     container.classList.remove("modal-lg");
+    container.classList.remove("circle-students-modal");
 }
 
 function debounce(func, delay) {
@@ -8799,11 +8802,6 @@ async function showAnnouncementFormModal() {
 }
 
 // ----------------- Developer: User Accounts Management -----------------
-function getUserDisplayPassword() {
-    // Passwords are never returned by the API or retained in browser storage.
-    return "";
-}
-
 window.copyPasswordToClipboard = function(pw, name) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(pw).then(() => {
@@ -8855,7 +8853,7 @@ function renderUsersTableRows(usersList) {
         else if (u.studentId) refIdStr = `طالب (#${u.studentId})`;
         else if (u.parentId) refIdStr = `ولي أمر (#${u.parentId})`;
 
-        const pw = getUserDisplayPassword(u);
+        const passwordStatus = u.passwordConfigured === false ? "غير معيّنة" : "لا يمكن استرجاعها";
         const idNum = u.identityNumber || u.nationalId || (u.role === 'Parent' && u.username && /^\d+$/.test(u.username) ? u.username : '-');
 
         // Resolve role & permissions badge with full harmony with Teachers page
@@ -8920,7 +8918,7 @@ function renderUsersTableRows(usersList) {
                 <td style="white-space: nowrap;"><span class="small text-muted">${refIdStr}</span></td>
                 <td style="white-space: nowrap;">
                     <div class="d-inline-flex align-items-center gap-1.5 bg-light px-2 py-1 rounded border shadow-xs" style="white-space: nowrap; flex-wrap: nowrap;">
-                        <code class="fw-bold text-dark font-monospace user-pw-value" id="pw-user-${u.id}" style="font-size: 0.88rem; letter-spacing: 0.5px;">${pw ? escapeXml(pw) : "محفوظة بأمان"}</code>
+                        <span class="small text-muted" id="pw-user-${u.id}" title="يمكن للمطور تعيين كلمة جديدة بعد تأكيد هويته">${passwordStatus}</span>
                     </div>
                 </td>
                 <td style="white-space: nowrap; text-align: center;">
@@ -8970,7 +8968,7 @@ function renderUsersTableRows(usersList) {
                     <div class="dev-card-info-row">
                         <span class="text-muted small"><i class="fa-solid fa-key text-warning me-1"></i> كلمة المرور:</span>
                         <div class="d-inline-flex align-items-center gap-2">
-                            <code class="fw-bold font-monospace text-dark">${pw ? escapeXml(pw) : "محفوظة بأمان"}</code>
+                            <span class="small text-muted">${passwordStatus}</span>
                         </div>
                     </div>
                     <div class="dev-card-info-row">
@@ -9189,8 +9187,6 @@ function showCreateUserModal() {
 function showEditUserModal(user) {
     openModal(`تعديل الحساب: ${user.fullName}`);
 
-    const pw = getUserDisplayPassword(user);
-
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `
         <form id="edit-user-form">
@@ -9227,14 +9223,11 @@ function showEditUserModal(user) {
                 </div>
 
                 <div class="form-group">
-                    <label for="edit-user-password">كلمة المرور (تستطيع رؤيتها وتعديلها):</label>
+                    <label for="edit-user-password">تعيين كلمة مرور جديدة (اختياري):</label>
                     <div class="input-group">
-                        <input type="text" id="edit-user-password" class="form-control font-monospace fw-bold" value="${escapeXml(pw)}" placeholder="أدخل كلمة مرور جديدة...">
-                        <button class="btn btn-outline-secondary" type="button" title="نسخ كلمة المرور" onclick="copyPasswordToClipboard(document.getElementById('edit-user-password').value, '${escapeXml(user.fullName)}')">
-                            <i class="fa-solid fa-copy"></i>
-                        </button>
+                        <input type="password" id="edit-user-password" class="form-control font-monospace fw-bold" autocomplete="new-password" placeholder="اتركها فارغة للإبقاء على الكلمة الحالية">
                     </div>
-                    <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> بصفتك المطور، يمكنك معرفة كلمة مرور المستخدم وتعديلها مباشرة.</small>
+                    <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> لا يمكن استرجاع الكلمة الحالية بعد حفظها. استخدم زر إعادة التعيين للحصول على كلمة مؤقتة تظهر مرة واحدة.</small>
                 </div>
 
                 <div class="form-group" style="grid-column: 1 / -1;">
@@ -9313,11 +9306,7 @@ function showEditUserModal(user) {
             cachedStudents = [];
             cachedTeachers = [];
 
-            // Persist the edited password in localStorage as immediate guaranteed truth!
-            if (password && password.trim() !== "") {
-            }
-
-            showAlert("تم تحديث حساب المستخدم وكلمة المرور بنجاح.", "success");
+            showAlert(password?.trim() ? "تم تحديث الحساب وتعيين كلمة مرور جديدة." : "تم تحديث حساب المستخدم بنجاح.", "success");
             closeModal();
 
             // Immediately update local cache so change reflects without page reload
@@ -9327,18 +9316,11 @@ function showEditUserModal(user) {
                 targetUser.username = username;
                 targetUser.role = role;
                 targetUser.isActive = activeVal;
-                if (password && password.trim() !== "") {
-                }
             }
 
             // Re-render table rows instantly with updated user data
             renderUsersTableRows(cachedUsers);
 
-            // Also directly update the badge text if present in DOM
-            const pwBadge = document.getElementById(`pw-user-${user.id}`);
-            if (pwBadge && password && password.trim() !== "") {
-                pwBadge.textContent = password.trim();
-            }
         } catch(e) {
             console.error(e);
         }
@@ -13980,6 +13962,7 @@ function exportDynamicReportToPdf() {
 // ==========================================
 async function showManageStudentsModal(circleId) {
     openModal("إدارة وتعيين طلاب الحلقة القرآنية", true);
+    document.getElementById("modal-container").classList.add("circle-students-modal");
     const content = document.getElementById("modal-body-content");
     content.innerHTML = `<div class="text-center p-4 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><p class="mt-2">جاري جلب بيانات الحلقة والطلاب...</p></div>`;
 
@@ -13994,13 +13977,13 @@ async function showManageStudentsModal(circleId) {
 
         function renderManageStudentsModalContent(lastAlertMessage = null, lastAlertType = "success") {
             content.innerHTML = `
-                <div class="p-2">
-                    <div class="alert alert-success d-flex align-items-center justify-content-between mb-3" style="background:#e8f5e9; border: 1px solid #c8e6c9;">
-                        <div>
-                            <h5 class="fw-bold mb-1" style="color: #1b5e20;"><i class="fa-solid fa-mosque me-2"></i> ${circle.name} (${getTimingArabic(circle.timing)})</h5>
-                            <span class="text-muted small">المحفظ المشرف: <b>${circle.teacherName || 'غير معين'}</b> | عدد الطلاب الحالي: <b>${currentStudents.length}</b></span>
+                <div class="circle-students-content" dir="rtl">
+                    <div class="circle-students-summary alert alert-success mb-3">
+                        <div class="circle-students-summary-details">
+                            <h5 class="fw-bold mb-1" style="color: #1b5e20;"><i class="fa-solid fa-mosque me-2"></i> ${escapeXml(circle.name)} (${escapeXml(getTimingArabic(circle.timing))})</h5>
+                            <span class="text-muted small">المحفظ المشرف: <b>${escapeXml(circle.teacherName || 'غير معين')}</b> | عدد الطلاب الحالي: <b>${currentStudents.length}</b></span>
                         </div>
-                        <span class="badge bg-success fs-6">${currentStudents.length} طلاب مسجلين</span>
+                        <span class="circle-students-count badge bg-success fs-6">${currentStudents.length} طلاب مسجلين</span>
                     </div>
 
                     <!-- In-Modal Alert Banner for Circle Management -->
@@ -14016,7 +13999,7 @@ async function showManageStudentsModal(circleId) {
                         ` : ''}
                     </div>
 
-                    <div class="row g-4">
+                    <div class="row g-3 circle-students-columns">
                         <!-- Left: Current Enrolled Students -->
                         <div class="col-md-6">
                             <div class="card shadow-sm h-100" style="border-radius: 12px;">
@@ -14027,10 +14010,10 @@ async function showManageStudentsModal(circleId) {
                                     ${currentStudents.length === 0 ? '<p class="text-muted p-4 text-center">لا يوجد طلاب مسجلين في هذه الحلقة بعد.</p>' : `
                                         <div class="list-group list-group-flush">
                                             ${currentStudents.map(s => `
-                                                <div class="list-group-item d-flex justify-content-between align-items-center p-2 border-bottom">
-                                                    <div>
-                                                        <div class="fw-bold text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${s.fullName}</div>
-                                                        <small class="text-muted">هوية: ${s.studentIdentityNumber || '-'} | جوال: ${s.familyContact || '-'}</small>
+                                                <div class="circle-students-row list-group-item p-2 border-bottom">
+                                                    <div class="circle-students-row-info">
+                                                        <div class="fw-bold text-dark"><i class="fa-solid fa-user-graduate text-success me-1"></i> ${escapeXml(s.fullName)}</div>
+                                                        <small class="text-muted">هوية: ${escapeXml(s.studentIdentityNumber || '-')} | جوال: ${escapeXml(s.familyContact || '-')}</small>
                                                     </div>
                                                     <button class="btn btn-sm btn-outline-danger btn-remove-student-circle" data-id="${s.id}" data-name="${escapeXml(s.fullName)}" title="إلغاء التنسيب من الحلقة">
                                                         <i class="fa-solid fa-user-minus"></i> إزالة
@@ -14054,7 +14037,7 @@ async function showManageStudentsModal(circleId) {
                                         <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-magnifying-glass text-primary me-1"></i> بحث فوري متقدم بالاسم أو رقم الهوية:</label>
                                         <input type="text" id="circle-student-search-input" class="form-control border-success" placeholder="🔍 اكتب اسم الطالب أو رقم هويته..." autocomplete="off">
                                     </div>
-                                    <div class="d-flex gap-2 mb-3">
+                                    <div class="circle-students-filters d-flex gap-2 mb-3">
                                         <div class="form-check form-check-inline">
                                             <input class="form-check-input" type="radio" name="circle-student-filter-type" id="filter-unassigned" value="unassigned" checked>
                                             <label class="form-check-label small fw-bold" for="filter-unassigned">غير مسندين فقط</label>
@@ -14156,10 +14139,10 @@ async function showManageStudentsModal(circleId) {
                 resultsContainer.innerHTML = `
                     <div class="list-group list-group-flush">
                         ${list.slice(0, 100).map(s => `
-                            <div class="list-group-item d-flex justify-content-between align-items-center p-2 border-bottom">
-                                <div>
-                                    <div class="fw-bold text-dark">${s.fullName}</div>
-                                    <small class="text-muted">${s.circleName ? ('حلقة: ' + s.circleName) : '⚠️ غير مسند لحلقة'} | هوية: ${s.studentIdentityNumber || '-'}</small>
+                            <div class="circle-students-row list-group-item p-2 border-bottom">
+                                <div class="circle-students-row-info">
+                                    <div class="fw-bold text-dark">${escapeXml(s.fullName)}</div>
+                                    <small class="text-muted">${s.circleName ? ('حلقة: ' + escapeXml(s.circleName)) : '⚠️ غير مسند لحلقة'} | هوية: ${escapeXml(s.studentIdentityNumber || '-')}</small>
                                 </div>
                                 <button class="btn btn-sm btn-success btn-add-student-to-circle" data-id="${s.id}" data-name="${escapeXml(s.fullName)}">
                                     <i class="fa-solid fa-plus me-1"></i> تنسيب

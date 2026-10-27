@@ -9378,3 +9378,90 @@ body.dark-mode .plan-juz-btn:hover {
 }
 #announcement-form-target-selections { max-width:100%; overflow-x:auto; overscroll-behavior-inline:contain; }
 #announcement-form-target-selections select[size] { width:max-content; min-width:100%; max-width:none; }
+
+/* Circle enrollment and teacher permissions: readable cards at phone widths. */
+.circle-students-modal .modal-card {
+    width: min(96vw, 1080px) !important;
+    max-width: min(96vw, 1080px) !important;
+    max-height: min(92dvh, 920px);
+}
+.circle-students-modal .modal-body { min-width: 0; overscroll-behavior: contain; }
+.circle-students-content, .circle-students-columns > div,
+.circle-students-content .card, .circle-students-row-info { min-width: 0; }
+.circle-students-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    border-radius: 14px;
+}
+.circle-students-summary-details { min-width: 0; overflow-wrap: anywhere; }
+.circle-students-count { flex-shrink: 0; }
+.circle-students-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-radius: 9px;
+}
+.circle-students-row-info { flex: 1 1 auto; overflow-wrap: anywhere; }
+.circle-students-row-info small { display: block; line-height: 1.7; }
+.circle-students-row .btn { flex: 0 0 auto; }
+.circle-students-filters { flex-wrap: wrap; align-items: center; }
+.circle-students-filters .form-check { margin-inline-end: 0; }
+
+.teacher-roles-popup { max-width: min(780px, calc(100vw - 24px)) !important; }
+.teacher-roles-popup .swal2-html-container { max-width: 100%; }
+.teacher-roles-content { min-width: 0; }
+.teacher-roles-profile, .teacher-roles-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.teacher-roles-identity { min-width: 0; overflow-wrap: anywhere; }
+.teacher-roles-identity h5 { line-height: 1.7; overflow-wrap: anywhere; }
+.teacher-roles-badge { flex: 0 0 auto; }
+.teacher-roles-toolbar label { min-width: 0; line-height: 1.7; }
+.teacher-roles-toolbar button { flex: 0 0 auto; white-space: normal !important; }
+.teacher-roles-content .role-card-item,
+.teacher-roles-content .role-card-item * { white-space: normal !important; }
+.teacher-roles-content .role-card-item { height: 100%; text-align: right; }
+.teacher-roles-content .role-card-item .flex-grow-1 { min-width: 0; overflow-wrap: anywhere; }
+.teacher-roles-content .role-card-item .fw-bold { line-height: 1.6; }
+.teacher-roles-content .role-card-item .form-check { flex: 0 0 auto; }
+.teacher-roles-content #swal-roles-summary-input { height: auto; min-height: 38px; }
+
+@media (max-width: 575.98px) {
+    .circle-students-modal { padding: 8px !important; align-items: center; }
+    .circle-students-modal .modal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: calc(100dvh - 16px) !important;
+        margin: 0 !important;
+        border-radius: 16px !important;
+    }
+    .circle-students-modal .modal-header { padding: 12px 14px !important; gap: 8px; }
+    .circle-students-modal .modal-header h3 { font-size: 1rem; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
+    .circle-students-modal .modal-body { padding: 12px !important; }
+    .circle-students-summary { align-items: flex-start; flex-direction: column; }
+    .circle-students-count { white-space: nowrap; }
+    .circle-students-content .card-header { padding: 12px; }
+    .circle-students-content .card-header h6 { min-width: 0; line-height: 1.6; overflow-wrap: anywhere; }
+    .circle-students-row { align-items: flex-start; flex-direction: column; }
+    .circle-students-row .btn { align-self: flex-end; }
+    .circle-students-content .card-body { max-height: min(34dvh, 290px) !important; }
+    .teacher-roles-popup { width: calc(100vw - 16px) !important; padding: 14px 12px !important; }
+    .teacher-roles-popup .swal2-title { font-size: 1.08rem !important; line-height: 1.5; }
+    .teacher-roles-popup .swal2-html-container { padding: 0 !important; max-height: min(68dvh, 620px) !important; }
+    .teacher-roles-profile, .teacher-roles-toolbar { align-items: stretch; flex-direction: column; }
+    .teacher-roles-badge { align-self: flex-start; }
+    .teacher-roles-separator { display: none; }
+    .teacher-roles-identity strong { overflow-wrap: anywhere; }
+    .teacher-roles-toolbar button { align-self: flex-start; }
+    .teacher-roles-content .role-card-item { padding: 12px !important; }
+    .teacher-roles-popup .swal2-actions { display: flex !important; flex-direction: column; align-items: stretch; width: 100%; gap: 8px; margin-top: 14px; }
+    .teacher-roles-popup .swal2-actions button { width: 100%; margin: 0 !important; white-space: normal !important; line-height: 1.5; }
+}

@@ -949,7 +949,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                       delegate: SliverChildBuilderDelegate(
                         (ctx, index) {
                           final u = _filteredUsers[index];
-                          const pw = 'محفوظة بأمان';
+                          const pw = 'لا يمكن استرجاعها';
                           final roleColor = _getRoleColor(u.role);
                           final roleTitle = _getRoleDisplayName(u.role);
 
@@ -1075,27 +1075,32 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.key, size: 15, color: AppTheme.accent),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  pw,
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontFamily: 'monospace',
-                                                    color: Colors.black87,
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.key, size: 15, color: AppTheme.accent),
+                                                  const SizedBox(width: 6),
+                                                  Flexible(
+                                                    child: Text(
+                                                      pw,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontFamily: 'monospace',
+                                                        color: Colors.black87,
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(Icons.copy, size: 15, color: Colors.grey),
-                                                  tooltip: 'إعادة تعيين كلمة المرور بأمان',
-                                                  constraints: const BoxConstraints(),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  onPressed: () => _resetUserPassword(u),
-                                                ),
-                                              ],
+                                                  IconButton(
+                                                    icon: const Icon(Icons.lock_reset, size: 18, color: AppTheme.accent),
+                                                    tooltip: 'تعيين كلمة مرور جديدة تظهر مرة واحدة',
+                                                    constraints: const BoxConstraints(),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    onPressed: () => _resetUserPassword(u),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                             Text(
                                               '#${u.id}',
