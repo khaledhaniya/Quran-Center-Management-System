@@ -103,6 +103,7 @@ public class CirclesController : ControllerBase
     }
 
     [HttpPost("{id:int}/students")]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> AddStudent(int id, [FromBody] AssignStudentDto dto)
     {

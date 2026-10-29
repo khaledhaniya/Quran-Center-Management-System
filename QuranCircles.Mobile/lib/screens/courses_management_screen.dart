@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import 'course_attendance_screen.dart';
 
@@ -625,22 +626,18 @@ class _CoursesManagementScreenState extends State<CoursesManagementScreen> {
                   }
 
                   try {
-                    final ok = await ApiService.enrollInCourse(
-                      courseId: course.id,
-                      studentId: enrollType == 'student' ? selectedStudent!.id : null,
-                      circleId: enrollType == 'circle' ? selectedCircle!.id : null,
-                    );
-
+                    await OfflineSyncManager.queueAction(actionType: 'course_enrollment', payload: {
+                      'courseId': course.id,
+                      'studentId': enrollType == 'student' ? selectedStudent!.id : null,
+                      'circleId': enrollType == 'circle' ? selectedCircle!.id : null,
+                    });
                     if (!dialogCtx.mounted) return;
                     Navigator.pop(dialogCtx);
-
-                    if (ok) {
-                      _loadData();
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('تم تسجيل الطلاب في الدورة التعليمية بنجاح 🎓'), backgroundColor: Colors.green),
-                      );
-                    }
+                    _loadData();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم حفظ التسجيل على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Colors.green),
+                    );
                   } catch (e) {
                     if (!dialogCtx.mounted) return;
                     if (!mounted || !context.mounted) return;

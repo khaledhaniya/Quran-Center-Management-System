@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 
 class CourseAttendanceScreen extends StatefulWidget {
@@ -78,12 +79,15 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     final dateStr = _formatDate(_selectedDate);
     try {
       final list = await ApiService.getCourseAttendance(_selectedCourse!.id, dateStr);
+      final pending = await OfflineSyncManager.pendingAttendance(
+        actionType: 'course_attendance', targetId: _selectedCourse!.id,
+        date: dateStr);
       if (mounted) {
         setState(() {
           _records = list;
           _attendanceStatus.clear();
           for (var r in list) {
-            _attendanceStatus[r.studentId] = r.status;
+            _attendanceStatus[r.studentId] = pending[r.studentId] ?? r.status;
           }
         });
       }
@@ -106,13 +110,14 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }).toList();
 
     try {
-      final ok = await ApiService.saveCourseAttendance(_selectedCourse!.id, dateStr, recordsData);
+      await OfflineSyncManager.queueAction(actionType: 'course_attendance', payload: {
+        'courseId': _selectedCourse!.id, 'date': dateStr, 'records': recordsData,
+      });
       if (!mounted) return;
-      if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ كشف حضور المساق والدورة بنجاح!'), backgroundColor: Colors.green),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تم حفظ حضور الدورة على الجهاز، وسيُرسل عند توفر الاتصال.'),
+        backgroundColor: Colors.green,
+      ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

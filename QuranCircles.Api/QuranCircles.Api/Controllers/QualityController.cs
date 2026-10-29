@@ -276,6 +276,7 @@ public class QualityController : ControllerBase
     }
 
     [HttpPost("visits")]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher, UserRole.ExamSupervisor)]
     public async Task<IActionResult> CreateVisit([FromBody] CreateQualityVisitDto dto)
     {

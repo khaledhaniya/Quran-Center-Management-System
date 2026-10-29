@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 
 class TeacherAttendanceScreen extends StatefulWidget {
@@ -77,10 +78,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     try {
       final allStudents = await ApiService.getStudents(forceRefresh: true);
       final students = allStudents.where((s) => s.circleId == _selectedCircle!.id).toList();
+      final pending = await OfflineSyncManager.pendingAttendance(
+        actionType: 'circle_attendance', targetId: _selectedCircle!.id,
+        date: DateFormat('yyyy-MM-dd').format(_selectedDate));
 
       final Map<int, String> statusMap = {};
       for (var s in students) {
-        statusMap[s.id] = _attendanceStatus[s.id] ?? 'Present';
+        statusMap[s.id] = switch (pending[s.id]) {
+          2 => 'Absent', 3 => 'Late', 4 => 'ExcusedAbsent',
+          1 => 'Present', _ => _attendanceStatus[s.id] ?? 'Present',
+        };
       }
 
       if (mounted) {
@@ -120,21 +127,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         };
       }).toList();
 
-      final success = await ApiService.saveCircleAttendance(_selectedCircle!.id, dateStr, records);
+      await OfflineSyncManager.queueAction(actionType: 'circle_attendance', payload: {
+        'circleId': _selectedCircle!.id, 'date': dateStr, 'records': records,
+      });
       if (mounted) {
         setState(() => _isSaving = false);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ تم حفظ وتحديث سجل الحضور بنجاح!', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-              backgroundColor: Colors.green.shade800,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('فشل في حفظ الحضور، يرجى المحاولة مجدداً', style: AppTheme.cairoStyle())),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('تم حفظ الحضور على الجهاز، وسيُرسل عند توفر الاتصال.',
+              style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.green.shade800,
+        ));
       }
     } catch (e) {
       if (mounted) {
@@ -500,18 +502,18 @@ class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
 
   Future<void> _executeEnroll(int studentId, String studentName) async {
     try {
-      final success = await ApiService.enrollStudentInCircle(_targetCircle.id, studentId);
-      if (success) {
-        if (mounted) {
+      await OfflineSyncManager.queueAction(actionType: 'circle_enrollment', payload: {
+        'circleId': _targetCircle.id, 'studentId': studentId,
+      });
+      if (mounted) {
           Navigator.pop(context);
           widget.onEnrolled();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ تم تنسيب الطالب $studentName لحلقة ${_targetCircle.name} بنجاح!', style: AppTheme.cairoStyle()),
+              content: Text('تم حفظ تنسيب $studentName على الجهاز، وسيُعتمد بعد المزامنة.', style: AppTheme.cairoStyle()),
               backgroundColor: Colors.green.shade800,
             ),
           );
-        }
       }
     } catch (e) {
       if (mounted) {

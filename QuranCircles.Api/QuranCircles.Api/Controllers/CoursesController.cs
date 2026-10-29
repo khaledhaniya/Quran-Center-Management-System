@@ -333,6 +333,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpPost("enroll")]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Parent, UserRole.Developer)]
     public async Task<IActionResult> Enroll([FromBody] EnrollDto dto)
     {

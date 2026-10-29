@@ -3,6 +3,7 @@ import 'center_operations_screen.dart';
 import 'teacher_operations_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 
 class QualityManagementScreen extends StatefulWidget {
@@ -694,7 +695,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                     onPressed: () async {
                       Navigator.pop(ctx);
                       try {
-                        final saved = await ApiService.createQualityVisit({
+                        await OfflineSyncManager.queueAction(actionType: 'quality_visit', payload: {
                           'circleId': selectedCircleId,
                           'supervisorName': supervisorCtrl.text.trim(),
                           'visitDate': DateTime.now().toIso8601String().substring(0, 10),
@@ -704,10 +705,9 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                           'notes': notesCtrl.text.trim(),
                           'isSubstituteModeActive': false,
                         });
-                if (!saved) throw StateError('لم يتم حفظ الزيارة على الخادم.');
                         if (!mounted || !context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم توثيق الزيارة الرقابية بنجاح! 📋'), backgroundColor: Colors.green),
+                          const SnackBar(content: Text('تم حفظ الزيارة على الجهاز، وستُعتمد بعد المزامنة.'), backgroundColor: Colors.green),
                         );
                         _fetchQualityOverview();
                       } catch (e) {
@@ -819,7 +819,7 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                 for(final entry in scores.entries){final value=int.tryParse(entry.value.text);
                   if(value==null || value<0 || value>100){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('سجل درجة صحيحة لكل طالب')));return;}
                   samples.add({'studentId':entry.key,'score':value});}
-                final saved = await ApiService.createQualityVisit({
+                await OfflineSyncManager.queueAction(actionType: 'quality_visit', payload: {
                   'circleId': circleId,
                   'supervisorName': 'مشرف الجودة الميداني',
                   'visitDate': DateTime.now().toIso8601String().substring(0, 10),
@@ -830,11 +830,10 @@ class _QualityManagementScreenState extends State<QualityManagementScreen> with 
                   'spotCheckedStudentsJson':jsonEncode(samples),
                   'isSubstituteModeActive': false,
                 });
-                if (!saved) throw StateError('لم يتم حفظ الزيارة على الخادم.');
                 if (!mounted || !context.mounted) return;
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم توثيق فحص العينات العشوائية بنجاح! 🎲'), backgroundColor: Colors.green),
+                  const SnackBar(content: Text('تم حفظ فحص العينات على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Colors.green),
                 );
               },
               child: const Text('اعتماد وتوثيق الفحص'),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
@@ -15,12 +17,18 @@ class ApiService {
   static http.Client httpClient = http.Client();
   static User? currentUser;
   static String? authToken;
+  static final usingOfflineData = ValueNotifier<bool>(false);
+
+  static bool isNetworkError(Object error) =>
+      error is TimeoutException || error is SocketException ||
+      error is http.ClientException;
 
   static Future<User?> refreshSessionProfile() async {
     if(authToken==null)return currentUser;
     final response=await httpClient.get(Uri.parse('$baseUrl/auth/me'),headers:_headers()).timeout(const Duration(seconds:10));
     if(response.statusCode==401||response.statusCode==403){await logout();throw Exception('انتهت جلسة الدخول');}
     if(response.statusCode!=200)return currentUser;
+    usingOfflineData.value = false;
     final data=jsonDecode(response.body) as Map<String,dynamic>;
     final user=User.fromJson({...data,'id':data['userId']});currentUser=user;
     await AuthStorage.save(baseUrl,jsonEncode({'token':authToken,'user':{...data,'id':data['userId']}}));
@@ -121,6 +129,42 @@ class ApiService {
     return headers;
   }
 
+  static Future<http.Response> sendOfflineRequest({
+    required String method,
+    required String path,
+    required Map<String, dynamic> body,
+    required String operationId,
+  }) {
+    final request = http.Request(method, Uri.parse('$baseUrl/$path'));
+    request.headers.addAll({..._headers(), 'Idempotency-Key': operationId});
+    request.body = jsonEncode(body);
+    return httpClient
+        .send(request)
+        .timeout(const Duration(seconds: 20))
+        .then(http.Response.fromStream);
+  }
+
+  static Future<dynamic> _getCachedJson(String path, String key,
+      {dynamic offlineDefault}) async {
+    http.Response response;
+    try {
+      response = await httpClient.get(Uri.parse('$baseUrl/$path'),
+          headers: _headers()).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      final cached = await OfflineCache.load(key);
+      usingOfflineData.value = true;
+      if (cached != null) return jsonDecode(cached);
+      if (offlineDefault != null) return offlineDefault;
+      rethrow;
+    }
+    if (response.statusCode != 200) {
+      throw Exception('تعذر تحميل البيانات (${response.statusCode})');
+    }
+    usingOfflineData.value = false;
+    await OfflineCache.save(key, response.body);
+    return jsonDecode(response.body);
+  }
+
   // --- Auth ---
   static bool isTokenCurrent(String? token) {
     if (token == null) return false;
@@ -137,6 +181,21 @@ class ApiService {
     }
   }
 
+  static bool _withinOfflineGrace(String? token) {
+    if (token == null) return false;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final claims = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final expiry = claims['exp'];
+      return expiry is num && DateTime.now().millisecondsSinceEpoch <
+          (expiry.toInt() + const Duration(days: 30).inSeconds) * 1000;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<User?> tryAutoLogin() async {
     // Do not migrate legacy plaintext credentials into secure storage.
     await OfflineCache.remove('user_login');
@@ -145,17 +204,19 @@ class ApiService {
       if (cached == null) return null;
       final json = jsonDecode(cached);
       final token = json['token']?.toString();
-      if (!isTokenCurrent(token)) {
+      var user = User.fromJson(json['user'] ?? json);
+      if (user.id <= 0) return null;
+      if (!_withinOfflineGrace(token)) {
         await AuthStorage.remove(baseUrl);
         return null;
       }
-      var user = User.fromJson(json['user'] ?? json);
-      if (user.id <= 0) return null;
       currentUser = user;
-      authToken = token;
+      authToken = isTokenCurrent(token) ? token : null;
       try {
         final response = await httpClient
-            .get(Uri.parse('$baseUrl/auth/me'), headers: _headers())
+            .get(Uri.parse('$baseUrl/auth/me'), headers: {
+              ..._headers(), 'Authorization': 'Bearer $token',
+            })
             .timeout(const Duration(seconds: 10));
         if (response.statusCode == 401 || response.statusCode == 403) {
           await logout();
@@ -164,7 +225,9 @@ class ApiService {
         if(response.statusCode==200){final verified=jsonDecode(response.body) as Map<String,dynamic>;
           user=User.fromJson({...((json['user']??json) as Map<String,dynamic>),...verified,'id':verified['userId']});currentUser=user;
         }
-      } catch (_) {/* Valid cached session supports offline work. */}
+      } catch (_) {
+        usingOfflineData.value = true;
+      }
       OfflineCache.configure(server: baseUrl, userId: user.id);
       NotificationService.start(user);
       OfflineSyncManager.initialize();
@@ -181,6 +244,7 @@ class ApiService {
     await OfflineSyncManager.stop();
     NotificationService.stop();
     invalidateCache();
+    usingOfflineData.value = false;
     currentUser = null;
     authToken = null;
     OfflineCache.resetScope();
@@ -246,16 +310,43 @@ class ApiService {
     await OfflineCache.remove('user_login');
     OfflineCache.resetScope();
     invalidateCache();
+    usingOfflineData.value = false;
   }
 
   // --- Students CRUD ---
+  static String _pendingCircleName(Object? circleId) {
+    for (final circle in _cachedCircles ?? <Circle>[]) {
+      if (circle.id == circleId) return circle.name;
+    }
+    return 'بانتظار المزامنة';
+  }
+
+  static Future<List<Student>> _withPendingStudents(List<Student> students,
+      {String? search}) async {
+    final pending = await OfflineSyncManager.pendingStudents();
+    if (pending.isEmpty) return students;
+    final identities = students.map((s) => s.studentIdentityNumber).toSet();
+    return [
+      ...students,
+      ...pending.where((p) => (p['studentIdentityNumber'] == null ||
+          !identities.contains(p['studentIdentityNumber'])) &&
+          (search == null || search.isEmpty ||
+              p['fullName'].toString().contains(search) ||
+              p['studentIdentityNumber']?.toString().contains(search) == true))
+          .map((p) => Student.fromJson({
+            ...p,
+            'circleName': _pendingCircleName(p['circleId']),
+          })),
+    ];
+  }
+
   static Future<List<Student>> getStudents(
       {String? search, bool forceRefresh = false}) async {
     final generation = _cacheGeneration;
     if (!forceRefresh &&
         (search == null || search.isEmpty) &&
         _cachedStudents != null) {
-      return _cachedStudents!;
+      return _withPendingStudents(_cachedStudents!);
     }
 
     String url = '$baseUrl/students';
@@ -264,8 +355,14 @@ class ApiService {
     }
     try {
       final response =
-          await httpClient.get(Uri.parse(url), headers: _headers());
+          await httpClient.get(Uri.parse(url), headers: _headers())
+              .timeout(const Duration(seconds: 8));
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        invalidateCache();
+        return [];
+      }
       if (response.statusCode == 200) {
+        usingOfflineData.value = false;
         if (generation != _cacheGeneration) return [];
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Student.fromJson(item)).toList();
@@ -273,16 +370,18 @@ class ApiService {
           _cachedStudents = list;
         }
         await OfflineCache.save('students_list', response.body);
-        return list;
+        return _withPendingStudents(list, search: search);
       }
     } catch (_) {
       final cached = await OfflineCache.load('students_list');
       if (cached != null) {
+        usingOfflineData.value = true;
         final List data = jsonDecode(cached);
-        return data.map((item) => Student.fromJson(item)).toList();
+        return _withPendingStudents(
+            data.map((item) => Student.fromJson(item)).toList(), search: search);
       }
     }
-    return _cachedStudents ?? [];
+    return _withPendingStudents(_cachedStudents ?? [], search: search);
   }
 
   static Future<List<Student>> getAllStudentsForEnrollment(
@@ -295,6 +394,7 @@ class ApiService {
       final response =
           await httpClient.get(Uri.parse(url), headers: _headers());
       if (response.statusCode == 200) {
+        usingOfflineData.value = false;
         final List data = jsonDecode(response.body);
         return data.map((item) => Student.fromJson(item)).toList();
       }
@@ -337,8 +437,13 @@ class ApiService {
     }
     try {
       final response = await httpClient.get(Uri.parse('$baseUrl/teachers'),
-          headers: _headers());
+          headers: _headers()).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        invalidateCache();
+        return [];
+      }
       if (response.statusCode == 200) {
+        usingOfflineData.value = false;
         if (generation != _cacheGeneration) return [];
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Teacher.fromJson(item)).toList();
@@ -349,6 +454,7 @@ class ApiService {
     } catch (_) {
       final cached = await OfflineCache.load('teachers_list');
       if (cached != null) {
+        usingOfflineData.value = true;
         final List data = jsonDecode(cached);
         return data.map((item) => Teacher.fromJson(item)).toList();
       }
@@ -460,8 +566,13 @@ class ApiService {
     }
     try {
       final response = await httpClient.get(Uri.parse('$baseUrl/circles'),
-          headers: _headers());
+          headers: _headers()).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        invalidateCache();
+        return [];
+      }
       if (response.statusCode == 200) {
+        usingOfflineData.value = false;
         if (generation != _cacheGeneration) return [];
         final List data = jsonDecode(response.body);
         final list = data.map((item) => Circle.fromJson(item)).toList();
@@ -472,6 +583,7 @@ class ApiService {
     } catch (_) {
       final cached = await OfflineCache.load('circles_list');
       if (cached != null) {
+        usingOfflineData.value = true;
         final List data = jsonDecode(cached);
         return data.map((item) => Circle.fromJson(item)).toList();
       }
@@ -539,13 +651,8 @@ class ApiService {
   }
 
   static Future<List<Course>> getCourses() async {
-    final response = await httpClient.get(Uri.parse('$baseUrl/courses'),
-        headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((item) => Course.fromJson(item)).toList();
-    }
-    throw Exception('فشل جلب قائمة الدورات والمساقات (${response.statusCode})');
+    final List data = await _getCachedJson('courses', 'courses_list');
+    return data.map((item) => Course.fromJson(item)).toList();
   }
 
   static Future<bool> createCourse({
@@ -619,45 +726,30 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getMyCourses() async {
-    final resp = await httpClient.get(
-      Uri.parse('$baseUrl/courses/my-courses'),
-      headers: _headers(),
-    );
-    if (resp.statusCode == 200) {
-      final List data = jsonDecode(resp.body);
-      return data.cast<Map<String, dynamic>>();
-    }
-    return [];
+    final List data = await _getCachedJson('courses/my-courses', 'my_courses');
+    return data.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   // --- Attendance & Sessions ---
   static Future<List<CourseAttendanceRecord>> getCourseAttendance(
       int courseId, String date) async {
-    final enrollmentsResp = await httpClient.get(
-      Uri.parse('$baseUrl/courses/$courseId/enrollments'),
-      headers: _headers(),
-    );
-    final attendanceResp = await httpClient.get(
-      Uri.parse('$baseUrl/courses/$courseId/attendance?date=$date'),
-      headers: _headers(),
-    );
+    final enrollData = await getCourseEnrollments(courseId);
+    final List attData = await _getCachedJson(
+        'courses/$courseId/attendance?date=${Uri.encodeComponent(date)}',
+        'course_attendance_${courseId}_$date', offlineDefault: []);
 
     final Map<int, int> statusMap = {};
-    if (attendanceResp.statusCode == 200) {
-      final List attData = jsonDecode(attendanceResp.body);
-      for (var item in attData) {
-        statusMap[item['studentId'] ?? 0] = item['status'] ?? 1;
-      }
+    for (var item in attData) {
+      statusMap[item['studentId'] ?? 0] = item['status'] ?? 1;
     }
 
-    if (enrollmentsResp.statusCode == 200) {
-      final List enrollData = jsonDecode(enrollmentsResp.body);
-      return enrollData.map((item) {
+    return enrollData.map((item) {
         final sId = item['studentId'] ?? 0;
         final statusVal = statusMap[sId] ?? 1;
         String statusTxt = 'حاضر';
         if (statusVal == 2) statusTxt = 'غائب';
         if (statusVal == 3) statusTxt = 'متأخر';
+        if (statusVal == 4) statusTxt = 'غائب بعذر';
 
         return CourseAttendanceRecord(
           id: item['id'] ?? 0,
@@ -670,8 +762,6 @@ class ApiService {
           statusText: statusTxt,
         );
       }).toList();
-    }
-    return [];
   }
 
   static Future<bool> saveCourseAttendance(
@@ -781,16 +871,14 @@ class ApiService {
 
   static Future<List<Map<String, dynamic>>> getStudentsForEnrollment(
       {String? search}) async {
-    String url = '$baseUrl/students/all-for-enrollment';
+    String path = 'students/all-for-enrollment';
     if (search != null && search.trim().isNotEmpty) {
-      url += '?search=${Uri.encodeComponent(search.trim())}';
+      path += '?search=${Uri.encodeComponent(search.trim())}';
     }
-    final response = await httpClient.get(Uri.parse(url), headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.cast<Map<String, dynamic>>();
-    }
-    return [];
+    final List data = await _getCachedJson(path,
+        search == null || search.isEmpty ? 'enrollment_candidates'
+            : 'enrollment_candidates_${search.trim()}');
+    return data.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   static Future<bool> updateRecitationSession({
@@ -842,36 +930,63 @@ class ApiService {
 
   static Future<List<Map<String, dynamic>>> getStudentSessions(
       int studentId) async {
-    final response = await httpClient.get(
-      Uri.parse('$baseUrl/sessions/student/$studentId'),
-      headers: _headers(),
-    );
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.cast<Map<String, dynamic>>();
+    final List data = await _getCachedJson('sessions/student/$studentId',
+        'student_sessions_$studentId', offlineDefault: []);
+    final sessions = data.map((e) => Map<String, dynamic>.from(e)).toList();
+    final pending = await OfflineSyncManager.getQueuedActions();
+    for (final action in pending.where((a) =>
+        a.actionType == 'recitation_session' && a.payload['studentId'] == studentId)) {
+      sessions.insert(0, {
+        ...action.payload,
+        'id': -action.createdAt.millisecondsSinceEpoch,
+        'pendingSync': true,
+        'syncError': action.reviewError,
+      });
     }
-    return [];
+    return sessions;
   }
 
   static Future<Map<String, dynamic>> getQualityOverview() async {
-    final response = await httpClient
-        .get(Uri.parse('$baseUrl/quality/overview'), headers: _headers());
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    throw Exception('فشل جلب تقرير الجودة والرقابة (${response.statusCode})');
+    return Map<String, dynamic>.from(
+        await _getCachedJson('quality/overview', 'quality_overview'));
   }
 
   // --- Exams & Nominations ---
   static Future<List<ExamNomination>> getNominations() async {
-    final response = await httpClient
-        .get(Uri.parse('$baseUrl/exams/nominations'), headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((item) => ExamNomination.fromJson(item)).toList();
+    final List data = await _getCachedJson('exams/nominations', 'nominations',
+        offlineDefault: []);
+    final nominations = data.map((item) => ExamNomination.fromJson(item)).toList();
+    final pending = await OfflineSyncManager.getQueuedActions();
+    final pendingNominations = pending.where((a) => a.actionType == 'exam_nomination').toList();
+    final students = pendingNominations.isEmpty ? <Student>[] : await getStudents();
+    for (final action in pendingNominations) {
+      final p = action.payload;
+      var studentName = 'طالب رقم ${p['studentId']}';
+      for (final student in students) {
+        if (student.id == p['studentId']) { studentName = student.fullName; break; }
+      }
+      nominations.insert(0, ExamNomination(
+        id: -action.createdAt.millisecondsSinceEpoch,
+        studentId: (p['studentId'] as num).toInt(),
+        studentName: studentName,
+        halaqahName: '', teacherName: '',
+        nominationType: p['nominationType']?.toString() ?? 'Quran',
+        courseId: (p['courseId'] as num?)?.toInt(),
+        juzStart: (p['juzStart'] as num?)?.toInt() ?? 1,
+        juzEnd: (p['juzEnd'] as num?)?.toInt() ?? 1,
+        status: 'LocalPending',
+        nominationDate: action.createdAt.toLocal().toString().substring(0, 16),
+      ));
     }
-    throw Exception(
-        'فشل جلب قائمة طلبات الترشيح والامتحانات (${response.statusCode})');
+    for (final action in pending.where((a) => a.actionType == 'exam_schedule')) {
+      final index = nominations.indexWhere(
+          (n) => n.id == action.payload['nominationId']);
+      if (index >= 0) {
+        nominations[index] = nominations[index]
+            .withPendingSchedule(action.payload['examDate'].toString());
+      }
+    }
+    return nominations;
   }
 
   static Future<bool> nominateExam({
@@ -916,10 +1031,12 @@ class ApiService {
     required double grade,
     String? notes,
     required String code2FA,
+    String? operationId,
   }) async {
     final response = await httpClient.post(
       Uri.parse('$baseUrl/exams/evaluate'),
-      headers: _headers(code2FA: code2FA),
+      headers: {..._headers(code2FA: code2FA),
+        if (operationId != null) 'Idempotency-Key': operationId},
       body: jsonEncode({
         'nominationId': nominationId,
         'majorMistakes': majorMistakes,
@@ -927,7 +1044,7 @@ class ApiService {
         'grade': grade,
         'notes': notes,
       }),
-    );
+    ).timeout(const Duration(seconds: 20));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return true;
@@ -940,14 +1057,31 @@ class ApiService {
 
   static Future<List<Map<String, dynamic>>> getCourseEnrollments(
       int courseId) async {
-    final response = await httpClient.get(
-        Uri.parse('$baseUrl/courses/$courseId/enrollments'),
-        headers: _headers());
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.cast<Map<String, dynamic>>();
+    final List data = await _getCachedJson('courses/$courseId/enrollments',
+        'course_enrollments_$courseId', offlineDefault: []);
+    final enrollments = data.map((e) => Map<String, dynamic>.from(e)).toList();
+    final pending = await OfflineSyncManager.getQueuedActions();
+    final courseActions = pending.where((a) => a.actionType == 'course_enrollment' &&
+        a.payload['courseId'] == courseId).toList();
+    if (courseActions.isEmpty) return enrollments;
+    final students = await getStudents();
+    final existing = enrollments.map((e) => e['studentId']).toSet();
+    for (final action in courseActions) {
+      final p = action.payload;
+      final candidates = students.where((s) => p['studentId'] != null
+          ? s.id == p['studentId'] : s.circleId == p['circleId']);
+      for (final student in candidates) {
+        if (existing.add(student.id)) {
+          enrollments.add({
+            'id': -action.createdAt.millisecondsSinceEpoch,
+            'studentId': student.id,
+            'studentName': student.fullName,
+            'pendingSync': true,
+          });
+        }
+      }
     }
-    return [];
+    return enrollments;
   }
 
   // --- Active Toggles ---
@@ -1415,11 +1549,8 @@ class ApiService {
   // --- Dynamic System Settings CMS ---
   static Future<Map<String, dynamic>?> getSystemSettings() async {
     try {
-      final response = await httpClient.get(Uri.parse('$baseUrl/settings'),
-          headers: _headers());
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
+      return Map<String, dynamic>.from(
+          await _getCachedJson('settings', 'system_settings'));
     } catch (_) {}
     return null;
   }
@@ -1657,11 +1788,8 @@ class ApiService {
   static Future<List<dynamic>> getQualityVisits({int? circleId}) async {
     try {
       final q = circleId != null ? '?circleId=$circleId' : '';
-      final response = await httpClient
-          .get(Uri.parse('$baseUrl/quality/visits$q'), headers: _headers());
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as List<dynamic>;
-      }
+      return await _getCachedJson('quality/visits$q',
+          'quality_visits_${circleId ?? 'all'}') as List<dynamic>;
     } catch (_) {}
     return [];
   }

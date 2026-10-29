@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import 'student_360_screen.dart';
 
@@ -579,12 +580,14 @@ class _EnrollStudentModalDialogState extends State<_EnrollStudentModalDialog> {
 
   Future<void> _executeEnroll(int studentId, String studentName) async {
     try {
-      final success = await ApiService.enrollStudentInCircle(_targetCircle.id, studentId);
-      if (success && mounted) {
+      await OfflineSyncManager.queueAction(actionType: 'circle_enrollment', payload: {
+        'circleId': _targetCircle.id, 'studentId': studentId,
+      });
+      if (mounted) {
         Navigator.pop(context);
         widget.onEnrolled();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ تم تنسيب الطالب $studentName لحلقة ${_targetCircle.name} بنجاح!', style: AppTheme.cairoStyle()), backgroundColor: Colors.green.shade800),
+          SnackBar(content: Text('تم حفظ تنسيب $studentName على الجهاز، وسيُعتمد بعد المزامنة.', style: AppTheme.cairoStyle()), backgroundColor: Colors.green.shade800),
         );
       }
     } catch (e) {
@@ -809,7 +812,7 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
     setState(() => _isSaving = true);
 
     try {
-      final success = await ApiService.createStudent({
+      await OfflineSyncManager.queueAction(actionType: 'create_student', payload: {
         'fullName': _nameController.text.trim(),
         'studentIdentityNumber': _idNumberController.text.trim(),
         'studentMobile': _phoneController.text.trim(),
@@ -818,20 +821,13 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
         'previousQuranMemorization': _memorizationController.text.trim(),
         'circleId': widget.circle.id,
       });
-
       if (mounted) {
         setState(() => _isSaving = false);
-        if (success) {
-          Navigator.pop(context);
-          widget.onAdded();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ تم تسجيل الطالب وتنسيبه للحلقة بنجاح!', style: AppTheme.cairoStyle()), backgroundColor: Colors.green.shade800),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('فشل تسجيل الطالب، تأكد من صحة البيانات ورقم الهوية', style: AppTheme.cairoStyle())),
-          );
-        }
+        Navigator.pop(context);
+        widget.onAdded();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تم حفظ الطالب على الجهاز، وسيُعتمد بعد المزامنة.', style: AppTheme.cairoStyle()), backgroundColor: Colors.green.shade800),
+        );
       }
     } catch (e) {
       if (mounted) {

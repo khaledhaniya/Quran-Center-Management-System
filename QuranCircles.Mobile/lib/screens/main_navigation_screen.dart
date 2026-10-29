@@ -32,6 +32,7 @@ import 'teacher_comprehensive_report_screen.dart';
 import 'teacher_lottery_screen.dart';
 import 'parent_portal_screen.dart';
 import 'circle_leaderboard_screen.dart';
+import 'offline_sync_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User currentUser;
@@ -311,20 +312,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           ValueListenableBuilder<int>(
             valueListenable: OfflineSyncManager.pendingActionsCount,
             builder: (context, pendingCount, _) {
-              if (pendingCount == 0) return const SizedBox.shrink();
+              if (pendingCount == 0 && OfflineSyncManager.reviewActionsCount.value == 0) return const SizedBox.shrink();
               return IconButton(
-                icon: const Icon(Icons.sync, color: Colors.amber),
-                tooltip: 'عمليات معلقة بانتظار المزامنة ($pendingCount)',
-                onPressed: () async {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('جاري مزامنة العمليات المحفوظة أوفلاين مع السيرفر... ⚡')),
-                  );
-                  final synced = await OfflineSyncManager.syncPendingActions();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('تمت مزامنة $synced عملية بنجاح!'), backgroundColor: Colors.green),
-                  );
-                },
+                icon: Icon(Icons.sync_problem,
+                    color: OfflineSyncManager.reviewActionsCount.value > 0 ? Colors.redAccent : Colors.amber),
+                tooltip: 'عمليات محفوظة على الجهاز ($pendingCount)',
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const OfflineSyncScreen())),
               );
             },
           ),
@@ -391,6 +385,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
               onTap: () {
                 Navigator.pop(context);
                 setState(() => _currentIndex = 0);
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.sync, color: AppTheme.primary),
+              title: Text('المزامنة والحفظ المحلي', style: AppTheme.cairoStyle()),
+              trailing: ValueListenableBuilder<int>(
+                valueListenable: OfflineSyncManager.pendingActionsCount,
+                builder: (_, count, __) => count == 0 ? const SizedBox.shrink()
+                    : Text('$count', style: AppTheme.cairoStyle(color: Colors.orange.shade900)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const OfflineSyncScreen()));
               },
             ),
 
@@ -762,6 +771,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
         ),
       ),
       body: Column(children: [
+        ValueListenableBuilder<bool>(
+          valueListenable: ApiService.usingOfflineData,
+          builder: (context, offline, _) => offline && ApiService.authToken != null
+              ? MaterialBanner(
+                  content: const Text('تظهر آخر بيانات محفوظة على الجهاز. ستتحدث عند عودة الاتصال.'),
+                  leading: const Icon(Icons.cloud_off, color: Colors.orange),
+                  actions: [TextButton(onPressed: () => OfflineSyncManager.syncPendingActions(),
+                      child: const Text('مزامنة'))],
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (ApiService.authToken == null)
+          MaterialBanner(
+            content: const Text('تعمل الآن ببيانات الجهاز. انتهت جلسة الدخول؛ سجّل الدخول مجدداً عند توفر الإنترنت لإرسال العمليات.'),
+            leading: const Icon(Icons.cloud_off, color: Colors.orange),
+            actions: [TextButton(onPressed: () => _handleLogout(), child: const Text('تسجيل الدخول'))],
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Container(
@@ -814,7 +840,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           ],
         ),
         content: Text(
-          'هل تريد تسجيل الخروج من حساب (${_currentUser.fullName})؟\nسيتطلب الدخول مجدداً كتابة كلمة المرور.',
+          'هل تريد تسجيل الخروج من حساب (${_currentUser.fullName})؟\nسيتطلب الدخول مجدداً كتابة كلمة المرور.'
+          '${OfflineSyncManager.pendingActionsCount.value + OfflineSyncManager.reviewActionsCount.value > 0 ? '\nتنبيه: توجد عمليات محفوظة على هذا الجهاز لم تُعتمد على الخادم بعد. لن تُحذف عند الخروج، لكنها تحتاج العودة إلى هذا الحساب لمزامنتها.' : ''}',
           style: AppTheme.cairoStyle(fontSize: 13),
         ),
         actions: [

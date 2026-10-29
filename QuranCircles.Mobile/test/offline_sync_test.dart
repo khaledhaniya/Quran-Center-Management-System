@@ -117,7 +117,7 @@ void main() {
         server: ApiService.baseUrl);
     final queue = await OfflineSyncManager.getQueuedActions();
     queue.add(foreign);
-    await OfflineCache.save('offline_sync_queue',
+    await OfflineCache.saveSensitive('offline_sync_queue',
         jsonEncode(queue.map((a) => a.toJson()).toList()));
     var requests = 0;
     ApiService.httpClient = MockClient((_) async {
@@ -128,5 +128,90 @@ void main() {
     expect(await OfflineSyncManager.syncPendingActions(), 0);
     expect(requests, 0);
     expect((await OfflineSyncManager.getQueuedActions()).length, 2);
+  });
+
+  test('Duplicate offline nominations are stored only once', () async {
+    final payload = {
+      'studentId': 14, 'nominationType': 'Quran', 'courseId': null,
+      'juzStart': 2, 'juzEnd': 2,
+    };
+    final first = await OfflineSyncManager.queueAction(
+        actionType: 'exam_nomination', payload: payload);
+    final second = await OfflineSyncManager.queueAction(
+        actionType: 'exam_nomination', payload: payload);
+    expect(second.id, first.id);
+    expect((await OfflineSyncManager.getQueuedActions()).length, 1);
+  });
+
+  test('Rejected operation stays visible and blocks later writes', () async {
+    await OfflineSyncManager.queueAction(actionType: 'exam_nomination', payload: {
+      'studentId': 14, 'nominationType': 'Quran', 'courseId': null,
+      'juzStart': 2, 'juzEnd': 2,
+    });
+    await OfflineSyncManager.queueAction(actionType: 'quality_visit', payload: {
+      'circleId': 1, 'punctualityScore': 95,
+    });
+    var calls = 0;
+    ApiService.httpClient = MockClient((_) async {
+      calls++;
+      return http.Response('{"message":"الترشيح مكرر"}', 400);
+    });
+    ApiService.authToken = 'synthetic-token';
+    expect(await OfflineSyncManager.syncPendingActions(), 0);
+    expect(calls, 1);
+    final queue = await OfflineSyncManager.getQueuedActions();
+    expect(queue.length, 2);
+    expect(queue.first.reviewError, 'الترشيح مكرر');
+    expect(OfflineSyncManager.reviewActionsCount.value, 1);
+    expect(await OfflineSyncManager.syncPendingActions(), 0);
+    expect(calls, 1);
+  });
+
+  test('Pending queue is kept in protected storage', () async {
+    await OfflineSyncManager.queueAction(
+        actionType: 'create_student', payload: {'fullName': 'مؤقت'});
+    expect(await OfflineCache.load('offline_sync_queue'), isNull);
+    expect((await OfflineCache.loadSensitive('offline_sync_queue')),
+        contains('مؤقت'));
+  });
+
+  test('Actions for a locally created student use the server ID after sync',
+      () async {
+    final created = await OfflineSyncManager.queueAction(
+        actionType: 'create_student', payload: {
+      'fullName': 'طالب جديد', 'studentIdentityNumber': 'offline-01',
+      'circleId': 3,
+    });
+    final localId = created.payload['_localId'] as int;
+    expect(localId, lessThan(0));
+    await OfflineSyncManager.queueAction(actionType: 'recitation_session', payload: {
+      'studentId': localId, 'sessionDate': '2026-10-29',
+      'surahName': 'الفاتحة', 'fromVerse': 1, 'toVerse': 7,
+      'assessment': 1,
+    });
+    final sent = <http.Request>[];
+    ApiService.httpClient = MockClient((request) async {
+      sent.add(request);
+      if (request.url.path.endsWith('/students')) {
+        return http.Response('{"student":{"id":51}}', 201);
+      }
+      return http.Response('{}', 201);
+    });
+    ApiService.authToken = 'synthetic-token';
+    expect(await OfflineSyncManager.syncPendingActions(), 2);
+    expect(jsonDecode(sent.last.body)['studentId'], 51);
+    expect(await OfflineSyncManager.getQueuedActions(), isEmpty);
+  });
+
+  test('Exam evaluation draft never stores the confirmation password', () async {
+    await OfflineSyncManager.queueAction(
+        actionType: 'exam_evaluation_draft', payload: {
+      'nominationId': 7, 'majorMistakes': 0, 'minorMistakes': 1,
+      'grade': 96.0, 'notes': 'مسودة',
+    });
+    final raw = await OfflineCache.loadSensitive('offline_sync_queue');
+    expect(raw, contains('exam_evaluation_draft'));
+    expect(raw, isNot(contains('code2FA')));
+    expect(OfflineSyncManager.reviewActionsCount.value, 1);
   });
 }

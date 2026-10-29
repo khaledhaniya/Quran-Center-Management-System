@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import '../utils/contact_helper.dart';
 import 'student_360_screen.dart';
@@ -610,21 +611,15 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                             }
 
                             if (student == null) {
-                              final ok = await ApiService.createStudent(payload);
+                              await OfflineSyncManager.queueAction(
+                                  actionType: 'create_student', payload: payload);
                               if (!dialogCtx.mounted) return;
                               Navigator.pop(dialogCtx);
-                              if (ok) {
-                                _loadData();
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('تم تسجيل وإضافة الطالب بنجاح'), backgroundColor: Color(0xFF0D5C3A)),
-                                );
-                              } else {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('تعذر إضافة الطالب، يرجى التحقق من صحة البيانات'), backgroundColor: Colors.red),
-                                );
-                              }
+                              _loadData();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('تم حفظ الطالب على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Color(0xFF0D5C3A)),
+                              );
                             } else {
                               final ok = await ApiService.updateStudent(student.id, payload);
                               if (!dialogCtx.mounted) return;
@@ -1178,16 +1173,16 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: s.isActive ? const Color(0xFF10B981).withValues(alpha: 0.12) : Colors.red.withValues(alpha: 0.12),
+                    color: s.isPendingSync ? Colors.orange.shade50 : s.isActive ? const Color(0xFF10B981).withValues(alpha: 0.12) : Colors.red.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: s.isActive ? const Color(0xFF10B981) : Colors.red),
+                    border: Border.all(color: s.isPendingSync ? Colors.orange : s.isActive ? const Color(0xFF10B981) : Colors.red),
                   ),
                   child: Text(
-                    s.isActive ? 'نشط' : 'معطّل',
+                    s.isPendingSync ? 'محفوظ محليًا' : s.isActive ? 'نشط' : 'معطّل',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: s.isActive ? const Color(0xFF10B981) : Colors.red,
+                      color: s.isPendingSync ? Colors.orange.shade900 : s.isActive ? const Color(0xFF10B981) : Colors.red,
                     ),
                   ),
                 ),
@@ -1257,7 +1252,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     minimumSize: const Size(0, 32),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () {
+                  onPressed: s.isPendingSync ? null : () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -1277,7 +1272,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     side: BorderSide(color: Colors.grey.shade300),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () => _showChangeCircleModal(s),
+                  onPressed: s.isPendingSync ? null : () => _showChangeCircleModal(s),
                   icon: const Icon(Icons.sync_alt, size: 13, color: Color(0xFF0D5C3A)),
                   label: Text('نقل الحلقة', style: AppTheme.cairoStyle(fontSize: 11, color: const Color(0xFF0D5C3A))),
                 ),
@@ -1286,7 +1281,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 18),
                   tooltip: 'تعديل البيانات الشاملة',
-                  onPressed: () => _showAddEditStudentModal(s),
+                  onPressed: s.isPendingSync ? null : () => _showAddEditStudentModal(s),
                 ),
                 // Toggle active/inactive
                 IconButton(
@@ -1296,13 +1291,13 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                     size: 18,
                   ),
                   tooltip: s.isActive ? 'تعطيل الحساب' : 'تفعيل الحساب',
-                  onPressed: () => _toggleStudentStatus(s),
+                  onPressed: s.isPendingSync ? null : () => _toggleStudentStatus(s),
                 ),
                 // Hard delete
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
                   tooltip: 'حذف نهائي من النظام',
-                  onPressed: () => _confirmHardDelete(s),
+                  onPressed: s.isPendingSync ? null : () => _confirmHardDelete(s),
                 ),
               ],
             ),

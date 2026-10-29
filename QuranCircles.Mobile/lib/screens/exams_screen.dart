@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 import 'quran_exam_system_screen.dart';
 
@@ -329,23 +330,20 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   final finalJuzEnd = nominationType == 'Quran' ? (juzSelectionMode == 'Single' ? singleJuz : juzEnd) : 1;
 
                   try {
-                    final ok = await ApiService.nominateExam(
-                      studentId: finalStudentId!,
-                      nominationType: nominationType,
-                      courseId: nominationType == 'Course' ? selectedCourse?.id : null,
-                      juzStart: finalJuzStart,
-                      juzEnd: finalJuzEnd,
-                    );
-
+                    await OfflineSyncManager.queueAction(actionType: 'exam_nomination', payload: {
+                      'studentId': finalStudentId!,
+                      'nominationType': nominationType,
+                      'courseId': nominationType == 'Course' ? selectedCourse?.id : null,
+                      'juzStart': finalJuzStart,
+                      'juzEnd': finalJuzEnd,
+                    });
                     if (!dialogCtx.mounted) return;
                     Navigator.pop(dialogCtx);
-                    if (ok) {
-                      _loadNominations();
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('تم تقديم طلب الترشيح للاختبار بنجاح!'), backgroundColor: Colors.green),
-                      );
-                    }
+                    _loadNominations();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم حفظ الترشيح على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Colors.green),
+                    );
                   } catch (e) {
                     if (!dialogCtx.mounted) return;
                     Navigator.pop(dialogCtx);
@@ -422,18 +420,16 @@ class _ExamsScreenState extends State<ExamsScreen> {
               onPressed: () async {
                 try {
                   final dateIsoStr = selectedDateTime.toIso8601String();
-                  final ok = await ApiService.scheduleExam(nomination.id, dateIsoStr);
-
+                  await OfflineSyncManager.queueAction(actionType: 'exam_schedule', payload: {
+                    'nominationId': nomination.id, 'examDate': dateIsoStr,
+                  });
                   if (!dialogCtx.mounted) return;
                   Navigator.pop(dialogCtx);
-
-                  if (ok) {
-                    _loadNominations();
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('تم جدولة موعد الاختبار بنجاح!'), backgroundColor: Colors.green),
-                    );
-                  }
+                  _loadNominations();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم حفظ الموعد على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Colors.green),
+                  );
                 } catch (e) {
                   if (!dialogCtx.mounted) return;
                   Navigator.pop(dialogCtx);
@@ -598,35 +594,68 @@ class _ExamsScreenState extends State<ExamsScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
                 onPressed: () async {
+                  final maj = int.tryParse(majorController.text) ?? 0;
+                  final min = int.tryParse(minorController.text) ?? 0;
+                  final draft = {
+                    'nominationId': nomination.id,
+                    'majorMistakes': maj,
+                    'minorMistakes': min,
+                    'grade': currentGrade,
+                    'notes': notesController.text,
+                  };
+                  final operationId = OfflineSyncManager.newOperationId();
+                  var savedLocally = ApiService.authToken == null ||
+                      ApiService.usingOfflineData.value;
                   try {
-                    int maj = int.tryParse(majorController.text) ?? 0;
-                    int min = int.tryParse(minorController.text) ?? 0;
-
-                    final res = await ApiService.evaluateExam(
-                      nominationId: nomination.id,
-                      majorMistakes: maj,
-                      minorMistakes: min,
-                      grade: currentGrade,
-                      notes: notesController.text,
-                      code2FA: passwordController.text,
-                    );
+                    if (savedLocally) {
+                      await OfflineSyncManager.queueAction(
+                          actionType: 'exam_evaluation_draft', payload: draft,
+                          operationId: operationId);
+                    } else {
+                      await ApiService.evaluateExam(
+                        nominationId: nomination.id,
+                        majorMistakes: maj,
+                        minorMistakes: min,
+                        grade: currentGrade,
+                        notes: notesController.text,
+                        code2FA: passwordController.text,
+                        operationId: operationId,
+                      );
+                    }
 
                     if (!dialogCtx.mounted) return;
                     Navigator.pop(dialogCtx);
 
-                    if (res) {
-                      _loadNominations();
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('تم اعتماد العلامة بنجاح! النتيجة: $currentGrade%'), backgroundColor: Colors.green),
-                      );
-                    }
+                    _loadNominations();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(savedLocally
+                          ? 'حُفظ التقييم كمسودة على الجهاز. اعتمده من صفحة المزامنة عند توفر الإنترنت.'
+                          : 'تم اعتماد العلامة بنجاح! النتيجة: $currentGrade%'),
+                      backgroundColor: Colors.green,
+                    ));
                   } catch (e) {
+                    Object failure = e;
+                    if (!savedLocally && ApiService.isNetworkError(e)) {
+                      try {
+                        await OfflineSyncManager.queueAction(
+                            actionType: 'exam_evaluation_draft', payload: draft,
+                            operationId: operationId);
+                        savedLocally = true;
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('حُفظ التقييم كمسودة على الجهاز. اعتمده لاحقاً من صفحة المزامنة.'),
+                              backgroundColor: Colors.orange));
+                        return;
+                      } catch (saveError) {
+                        failure = saveError;
+                      }
+                    }
                     if (!dialogCtx.mounted) return;
                     Navigator.pop(dialogCtx);
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                      SnackBar(content: Text(failure.toString()), backgroundColor: Colors.red),
                     );
                   }
                 },
@@ -826,6 +855,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
                             Color statusColor = Colors.orange;
                             String statusText = 'بانتظار المشرف';
+                            if (item.status == 'LocalPending') {
+                              statusText = 'محفوظ على الجهاز بانتظار المزامنة';
+                            }
+                            if (item.status == 'LocalSchedule') {
+                              statusText = 'موعد محفوظ على الجهاز بانتظار المزامنة';
+                            }
                             IconData statusIcon = Icons.hourglass_top;
 
                             if (item.status == 'Scheduled') {

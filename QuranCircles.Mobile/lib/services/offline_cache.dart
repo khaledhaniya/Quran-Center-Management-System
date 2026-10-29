@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class OfflineCache {
   static String? _scope;
+  static const _secureStorage = FlutterSecureStorage();
   @visibleForTesting
   static Directory? legacyDirectoryOverride;
 
@@ -27,6 +29,25 @@ class OfflineCache {
     if (storageKey == null) return null;
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(storageKey);
+  }
+
+  // Pending writes can contain student details and temporary credentials. Keep
+  // them in the platform's protected storage, separate from display caches.
+  static Future<void> saveSensitive(String key, String value) async {
+    final storageKey = _key(key);
+    if (storageKey == null) throw StateError('No account selected');
+    await _secureStorage.write(key: storageKey, value: value);
+  }
+
+  static Future<String?> loadSensitive(String key) async {
+    final storageKey = _key(key);
+    if (storageKey == null) return null;
+    return _secureStorage.read(key: storageKey);
+  }
+
+  static Future<void> removeSensitive(String key) async {
+    final storageKey = _key(key);
+    if (storageKey != null) await _secureStorage.delete(key: storageKey);
   }
 
   static Future<void> remove(String key) async {

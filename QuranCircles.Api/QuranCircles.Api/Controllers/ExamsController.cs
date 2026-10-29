@@ -337,6 +337,7 @@ public class ExamsController : ControllerBase
     }
 
     [HttpPut("schedule")]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher, UserRole.Parent)]
     public async Task<IActionResult> Schedule([FromBody] ScheduleExamDto dto)
     {
@@ -413,6 +414,7 @@ public class ExamsController : ControllerBase
     }
 
     [HttpPost("evaluate")]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.ExamSupervisor, UserRole.Teacher, UserRole.Parent)]
     public async Task<IActionResult> Evaluate([FromBody] EvaluateExamDto dto)
     {

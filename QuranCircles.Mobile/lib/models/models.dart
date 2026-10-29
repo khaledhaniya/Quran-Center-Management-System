@@ -147,6 +147,7 @@ class Student {
   final String? currentAddress;
   final String? notes;
   final String? username;
+  final bool isPendingSync;
 
   Student({
     required this.id,
@@ -175,6 +176,7 @@ class Student {
     this.currentAddress,
     this.notes,
     this.username,
+    this.isPendingSync = false,
   });
 
   String? get completedAjzaa => previousQuranMemorization;
@@ -207,6 +209,7 @@ class Student {
       currentAddress: json['currentAddress'],
       notes: json['notes'],
       username: json['username'] ?? json['Username'] ?? json['studentIdentityNumber'],
+      isPendingSync: json['pendingSync'] == true,
     );
   }
 }
@@ -458,6 +461,15 @@ class ExamNomination {
     this.canSchedule = false,
     this.canEvaluate = false,
   });
+
+  ExamNomination withPendingSchedule(String date) => ExamNomination(
+    id: id, studentId: studentId, studentName: studentName,
+    halaqahName: halaqahName, teacherName: teacherName,
+    nominationType: nominationType, courseId: courseId,
+    courseName: courseName, juzStart: juzStart, juzEnd: juzEnd,
+    status: 'LocalSchedule', nominationDate: nominationDate,
+    examDate: date, result: result,
+  );
 
   factory ExamNomination.fromJson(Map<String, dynamic> json) {
     return ExamNomination(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 
 class TeacherSessionsScreen extends StatefulWidget {
@@ -379,7 +380,13 @@ class _TeacherSessionsScreenState extends State<TeacherSessionsScreen> {
 
                                             const SizedBox(height: 8),
                                             // Action Buttons
-                                            Row(
+                                            if (s['pendingSync'] == true)
+                                              Text(s['syncError'] == null
+                                                  ? 'محفوظ على الجهاز بانتظار المزامنة'
+                                                  : 'يحتاج مراجعة: ${s['syncError']}',
+                                                  style: AppTheme.cairoStyle(fontSize: 11,
+                                                      color: Colors.orange.shade900)),
+                                            if (s['pendingSync'] != true) Row(
                                               mainAxisAlignment: MainAxisAlignment.end,
                                               children: [
                                                 TextButton.icon(
@@ -550,17 +557,13 @@ class _SessionFormModalState extends State<_SessionFormModal> {
           recitationType: _recitationType,
         );
       } else {
-        success = await ApiService.saveRecitationSession(
-          studentId: widget.student.id,
-          sessionDate: dateStr,
-          surahName: surah,
-          fromVerse: fromV,
-          toVerse: toV,
-          assessment: _assessment,
-          notes: _notesController.text.trim(),
-          viaLottery: _viaLottery,
-          recitationType: _recitationType,
-        );
+        await OfflineSyncManager.queueAction(actionType: 'recitation_session', payload: {
+          'studentId': widget.student.id, 'sessionDate': dateStr,
+          'surahName': surah, 'fromVerse': fromV, 'toVerse': toV,
+          'assessment': _assessment, 'notes': _notesController.text.trim(),
+          'viaLottery': _viaLottery, 'recitationType': _recitationType,
+        });
+        success = true;
       }
 
       if (mounted) {
@@ -569,7 +572,9 @@ class _SessionFormModalState extends State<_SessionFormModal> {
           Navigator.pop(context);
           widget.onSaved();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ تم حفظ جلسة التسميع بنجاح!', style: AppTheme.cairoStyle()), backgroundColor: Colors.green.shade800),
+            SnackBar(content: Text(widget.existingSession == null
+                ? 'تم حفظ التسميع على الجهاز، وسيُرسل عند توفر الاتصال.'
+                : 'تم تعديل جلسة التسميع على الخادم.', style: AppTheme.cairoStyle()), backgroundColor: Colors.green.shade800),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

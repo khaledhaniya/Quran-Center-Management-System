@@ -141,6 +141,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> Create([FromBody] CreateStudentDto dto)
     {

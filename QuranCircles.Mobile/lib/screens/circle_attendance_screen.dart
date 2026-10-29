@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline_sync_manager.dart';
 import '../theme/app_theme.dart';
 
 class CircleAttendanceScreen extends StatefulWidget {
@@ -103,6 +104,20 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
         _selectStudentForSessions(filtered.first);
       }
     });
+    _restorePendingAttendance();
+  }
+
+  Future<void> _restorePendingAttendance() async {
+    final circleId = _selectedCircle?.id;
+    if (circleId == null) return;
+    final date = _formatDate(_selectedDate);
+    final pending = await OfflineSyncManager.pendingAttendance(
+        actionType: 'circle_attendance', targetId: circleId, date: date);
+    if (!mounted || _selectedCircle?.id != circleId ||
+        _formatDate(_selectedDate) != date) return;
+    setState(() {
+      _attendanceStatus.addAll(pending);
+    });
   }
 
   String _formatDate(DateTime dt) {
@@ -123,16 +138,14 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
     }).toList();
 
     try {
-      final ok = await ApiService.saveCircleAttendance(_selectedCircle!.id, dateStr, records);
+      await OfflineSyncManager.queueAction(actionType: 'circle_attendance', payload: {
+        'circleId': _selectedCircle!.id, 'date': dateStr, 'records': records,
+      });
       if (!mounted) return;
-      if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم حفظ وتحديث سجل حضور وغياب الحلقة بنجاح! ☁️'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تم حفظ الحضور على الجهاز، وسيُرسل عند توفر الاتصال.'),
+        backgroundColor: Colors.green,
+      ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -327,12 +340,14 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                                               : () async {
                                                   setModalState(() => isSubmitting = true);
                                                   try {
-                                                    await ApiService.enrollStudentInCircle(_selectedCircle!.id, st.id);
+                                                    await OfflineSyncManager.queueAction(actionType: 'circle_enrollment', payload: {
+                                                      'circleId': _selectedCircle!.id, 'studentId': st.id,
+                                                    });
                                                     if (!mounted) return;
                                                     if (!mounted || !ctx.mounted) return;
                                                     Navigator.pop(ctx);
                                                     ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text('تم تنسيب الطالب (${st.fullName}) للحلقة بنجاح!'), backgroundColor: Colors.green),
+                                                      SnackBar(content: Text('تم حفظ تنسيب الطالب (${st.fullName}) على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Colors.green),
                                                     );
                                                     // Refresh
                                                     final freshStudents = await ApiService.getStudents();
@@ -568,26 +583,24 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                   Navigator.pop(dialogCtx);
 
                   try {
-                    final ok = await ApiService.saveRecitationSession(
-                      studentId: student.id,
-                      sessionDate: _formatDate(_selectedDate),
-                      surahName: isDidNotRecite ? 'لم يُسمّع' : sName,
-                      fromVerse: isDidNotRecite ? 0 : fromV,
-                      toVerse: isDidNotRecite ? 0 : toV,
-                      assessment: assessmentLevel,
-                      notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
-                      viaLottery: viaLottery,
-                      recitationType: recitationType,
-                    );
+                    await OfflineSyncManager.queueAction(actionType: 'recitation_session', payload: {
+                      'studentId': student.id,
+                      'sessionDate': _formatDate(_selectedDate),
+                      'surahName': isDidNotRecite ? 'لم يُسمّع' : sName,
+                      'fromVerse': isDidNotRecite ? 0 : fromV,
+                      'toVerse': isDidNotRecite ? 0 : toV,
+                      'assessment': assessmentLevel,
+                      'notes': notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
+                      'viaLottery': viaLottery,
+                      'recitationType': recitationType,
+                    });
 
                     if (!mounted) return;
-                    if (ok) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('تم توثيق جلسة التسميع بنجاح! 📖'), backgroundColor: Colors.green),
-                      );
-                      if (_selectedStudentForSessions?.id == student.id) {
-                        _selectStudentForSessions(student);
-                      }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم حفظ التسميع على الجهاز، وسيُرسل عند توفر الاتصال.'), backgroundColor: Colors.green),
+                    );
+                    if (_selectedStudentForSessions?.id == student.id) {
+                      _selectStudentForSessions(student);
                     }
                   } catch (e) {
                     if (!mounted) return;
@@ -795,6 +808,7 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                         );
                         if (picked != null) {
                           setState(() => _selectedDate = picked);
+                          _restorePendingAttendance();
                         }
                       },
                       icon: const Icon(Icons.calendar_today, size: 15, color: AppTheme.primary),
@@ -1083,7 +1097,7 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
                               style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                             subtitle: Text(
-                              'التاريخ: $date ${sess['notes'] != null ? "• ملاحظات: ${sess['notes']}" : ""}',
+                              'التاريخ: $date ${sess['notes'] != null ? "• ملاحظات: ${sess['notes']}" : ""}${sess['pendingSync'] == true ? " • محفوظ على الجهاز" : ""}',
                               style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600),
                             ),
                             trailing: Container(
