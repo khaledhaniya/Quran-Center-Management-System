@@ -156,14 +156,16 @@ void main() {
         return http.Response('', 204);
       }
       if (request.url.path.endsWith('/circles')) {
-        return http.Response('[{"id":3,"name":"حلقة الفجر"}]', 200);
+        return http.Response('[{"id":3,"name":"حلقة الفجر"}]', 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
       }
       if (request.url.path.endsWith('/students')) {
         return http.Response(jsonEncode([{
           'id': 14, 'fullName': 'طالب تجريبي', 'isActive': true,
           'circleId': serverHasEnrollment ? 3 : null,
           'circleName': serverHasEnrollment ? 'حلقة الفجر' : null,
-        }]), 200);
+        }]), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
       }
       return http.Response('[]', 200);
     });
