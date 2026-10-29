@@ -390,7 +390,7 @@ class ApiService {
       if (cached != null) {
         usingOfflineData.value = true;
         final List data = jsonDecode(cached);
-        return _withPendingStudents(
+        return await _withPendingStudents(
             data.map((item) => Student.fromJson(item)).toList(), search: search);
       }
     }
