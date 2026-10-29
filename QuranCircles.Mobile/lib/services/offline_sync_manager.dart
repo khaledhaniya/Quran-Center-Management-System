@@ -386,7 +386,8 @@ class OfflineSyncManager {
         return send('POST', 'quality/visits', p);
       default:
         lastSyncError.value = 'نوع عملية غير مدعوم؛ بقيت محفوظة للمراجعة.';
-        return http.Response('{"error":"نوع عملية غير مدعوم"}', 422);
+        return http.Response('{"error":"نوع عملية غير مدعوم"}', 422,
+            headers: {'content-type': 'application/json; charset=utf-8'});
     }
   }
 

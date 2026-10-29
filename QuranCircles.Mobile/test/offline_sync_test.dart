@@ -127,7 +127,9 @@ void main() {
     ApiService.authToken = 'synthetic-token';
     expect(await OfflineSyncManager.syncPendingActions(), 0);
     expect(requests, 0);
-    expect((await OfflineSyncManager.getQueuedActions()).length, 2);
+    final retained = await OfflineSyncManager.getQueuedActions();
+    expect(retained.length, 2);
+    expect(retained.first.reviewError, 'نوع عملية غير مدعوم');
   });
 
   test('Duplicate offline nominations are stored only once', () async {
@@ -154,7 +156,8 @@ void main() {
     var calls = 0;
     ApiService.httpClient = MockClient((_) async {
       calls++;
-      return http.Response('{"message":"الترشيح مكرر"}', 400);
+      return http.Response('{"message":"الترشيح مكرر"}', 400,
+          headers: {'content-type': 'application/json; charset=utf-8'});
     });
     ApiService.authToken = 'synthetic-token';
     expect(await OfflineSyncManager.syncPendingActions(), 0);
