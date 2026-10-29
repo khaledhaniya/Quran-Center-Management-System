@@ -255,14 +255,13 @@ class OfflineSyncManager {
           continue;
         }
         if (action.reviewError != null) {
-          if (action.actionType == 'exam_evaluation_draft') continue;
-          break;
+          continue;
         }
         try {
           final result = await _send(action);
           if (result == null) {
-            lastSyncError.value = 'تعذر الاتصال؛ ستُعاد محاولة المزامنة.';
-            break;
+            lastSyncError.value = 'عملية مرتبطة بطالب لم يكتمل تسجيله؛ ستُعاد محاولتها.';
+            continue;
           }
           final status = result.statusCode;
           if (status >= 200 && status < 300) {
@@ -284,7 +283,7 @@ class OfflineSyncManager {
                   : a).toList());
             });
             lastSyncError.value = 'بعض العمليات تحتاج مراجعة.';
-            break;
+            continue;
           } else {
             lastSyncError.value = status == 401
                 ? 'انتهت جلسة الدخول؛ سجّل الدخول مجدداً للمزامنة.'
@@ -314,6 +313,7 @@ class OfflineSyncManager {
         }
         if (current.length == completed.length) lastSyncError.value = null;
       });
+      if (completed.isNotEmpty) ApiService.invalidateCache();
     } catch (_) {
       lastSyncError.value = 'تعذر قراءة العمليات المحفوظة؛ لم يتم حذفها.';
     }

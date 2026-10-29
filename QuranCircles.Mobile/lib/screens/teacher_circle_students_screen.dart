@@ -430,6 +430,9 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(s.fullName, style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                            if (s.isPendingSync)
+                                              Text('بانتظار مزامنة التنسيب',
+                                                  style: AppTheme.cairoStyle(fontSize: 11, color: Colors.orange.shade900)),
                                             if (s.familyContact != null && s.familyContact!.isNotEmpty)
                                               Text('رقم العائلة: ${s.familyContact}', style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade600)),
                                           ],
@@ -510,7 +513,7 @@ class _TeacherCircleStudentsScreenState extends State<TeacherCircleStudentsScree
                                         IconButton(
                                           icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.red),
                                           tooltip: 'إلغاء التنسيب من الحلقة',
-                                          onPressed: () => _unenrollStudent(s),
+                                          onPressed: s.isPendingSync ? null : () => _unenrollStudent(s),
                                         ),
                                       ],
                                     ],

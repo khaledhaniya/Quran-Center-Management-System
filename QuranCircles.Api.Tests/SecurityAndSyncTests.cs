@@ -130,6 +130,38 @@ public class SecurityAndSyncTests
     }
 
     [Fact]
+    public async Task NoContentMutationIsCommittedAndRetryIsNotRepeated()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = AddUser(db);
+        var http = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+        http.Request.Path = "/api/circles/1/students";
+        http.Request.Headers.Authorization = "Bearer " + services.GetRequiredService<TokenService>().GenerateToken(user);
+        http.Request.Headers["Idempotency-Key"] = "assign-student-once";
+        var action = new ActionContext(http, new RouteData(), new ActionDescriptor(), new ModelStateDictionary());
+        ActionExecutingContext Context() => new(action, new List<IFilterMetadata>(),
+            new Dictionary<string, object?> { ["studentId"] = 12 }, new object());
+        var calls = 0;
+        async Task<ActionExecutedContext> Mutate()
+        {
+            calls++;
+            db.Announcements.Add(new Announcement { Title = "assignment", Content = "committed" });
+            await db.SaveChangesAsync();
+            return new ActionExecutedContext(action, new List<IFilterMetadata>(), new object()) { Result = new NoContentResult() };
+        }
+        var filter = new IdempotentAttribute();
+        await filter.OnActionExecutionAsync(Context(), Mutate);
+        Assert.Equal(1, await db.Announcements.CountAsync());
+        Assert.Equal(1, await db.IdempotencyReceipts.CountAsync());
+        var retry = Context();
+        await filter.OnActionExecutionAsync(retry, Mutate);
+        Assert.IsType<NoContentResult>(retry.Result);
+        Assert.Equal(1, calls);
+        Assert.Equal(1, await db.Announcements.CountAsync());
+    }
+
+    [Fact]
     public async Task UnconfiguredSmsNeverReportsSuccess()
     {
         using var services = Services(); using var scope = services.CreateScope();

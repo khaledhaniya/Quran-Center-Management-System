@@ -34,7 +34,9 @@ public sealed class IdempotentAttribute : Attribute, IAsyncActionFilter
             if (receipt != null)
             {
                 context.Result = receipt.RequestHash == bodyHash
-                    ? new ContentResult { Content = receipt.ResponseJson, ContentType = "application/json; charset=utf-8", StatusCode = receipt.StatusCode }
+                    ? receipt.StatusCode == 204
+                        ? new NoContentResult()
+                        : new ContentResult { Content = receipt.ResponseJson, ContentType = "application/json; charset=utf-8", StatusCode = receipt.StatusCode }
                     : new ConflictObjectResult(new { error = "استُخدم مفتاح العملية مع بيانات مختلفة." });
                 return;
             }
@@ -48,11 +50,27 @@ public sealed class IdempotentAttribute : Attribute, IAsyncActionFilter
                 await using var transaction = await db.Database.BeginTransactionAsync();
                 var executed = await next();
                 if (executed.Exception != null && !executed.ExceptionHandled) return;
-                if (executed.Result is ObjectResult result && (result.StatusCode ?? 200) is >= 200 and < 300)
+                // Several successful write endpoints return 204 (NoContentResult).
+                // Without a receipt and commit here, disposing the transaction undoes
+                // the write even though the client has already received success.
+                var statusCode = executed.Result switch
+                {
+                    ObjectResult result => result.StatusCode ?? 200,
+                    StatusCodeResult result => result.StatusCode,
+                    ContentResult result => result.StatusCode ?? 200,
+                    EmptyResult => 200,
+                    _ => 0
+                };
+                if (statusCode is >= 200 and < 300)
                 {
                     db.IdempotencyReceipts.Add(new IdempotencyReceipt {
-                        Id = receiptId, RequestHash = bodyHash, StatusCode = result.StatusCode ?? 200,
-                        ResponseJson = JsonSerializer.Serialize(result.Value, options)
+                        Id = receiptId, RequestHash = bodyHash, StatusCode = statusCode,
+                        ResponseJson = executed.Result switch
+                        {
+                            ObjectResult result => JsonSerializer.Serialize(result.Value, options),
+                            ContentResult result => result.Content ?? string.Empty,
+                            _ => string.Empty
+                        }
                     });
                     await db.SaveChangesAsync();
                     await transaction.CommitAsync();

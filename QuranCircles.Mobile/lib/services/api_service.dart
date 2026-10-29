@@ -323,11 +323,24 @@ class ApiService {
 
   static Future<List<Student>> _withPendingStudents(List<Student> students,
       {String? search}) async {
+    final actions = await OfflineSyncManager.getQueuedActions();
+    final pendingCircleIds = <int, int>{};
+    for (final action in actions) {
+      if (action.actionType != 'circle_enrollment' || action.reviewError != null) continue;
+      final studentId = action.payload['studentId'];
+      final circleId = action.payload['circleId'];
+      if (studentId is int && circleId is int) pendingCircleIds[studentId] = circleId;
+    }
+    final visibleStudents = students.map((student) {
+      final circleId = pendingCircleIds[student.id];
+      return circleId == null ? student
+          : student.withPendingCircle(circleId, _pendingCircleName(circleId));
+    }).toList();
     final pending = await OfflineSyncManager.pendingStudents();
-    if (pending.isEmpty) return students;
-    final identities = students.map((s) => s.studentIdentityNumber).toSet();
+    if (pending.isEmpty) return visibleStudents;
+    final identities = visibleStudents.map((s) => s.studentIdentityNumber).toSet();
     return [
-      ...students,
+      ...visibleStudents,
       ...pending.where((p) => (p['studentIdentityNumber'] == null ||
           !identities.contains(p['studentIdentityNumber'])) &&
           (search == null || search.isEmpty ||
@@ -396,7 +409,8 @@ class ApiService {
       if (response.statusCode == 200) {
         usingOfflineData.value = false;
         final List data = jsonDecode(response.body);
-        return data.map((item) => Student.fromJson(item)).toList();
+        return _withPendingStudents(
+            data.map((item) => Student.fromJson(item)).toList(), search: search);
       }
     } catch (_) {}
     return getStudents(search: search);
@@ -878,7 +892,20 @@ class ApiService {
     final List data = await _getCachedJson(path,
         search == null || search.isEmpty ? 'enrollment_candidates'
             : 'enrollment_candidates_${search.trim()}');
-    return data.map((e) => Map<String, dynamic>.from(e)).toList();
+    final candidates = data.map((e) => Map<String, dynamic>.from(e)).toList();
+    final pending = await OfflineSyncManager.getQueuedActions();
+    for (final action in pending) {
+      if (action.actionType != 'circle_enrollment' || action.reviewError != null) continue;
+      final studentId = action.payload['studentId'];
+      final circleId = action.payload['circleId'];
+      if (studentId is! int || circleId is! int) continue;
+      for (final candidate in candidates.where((c) => c['id'] == studentId)) {
+        candidate['circleId'] = circleId;
+        candidate['circleName'] = _pendingCircleName(circleId);
+        candidate['pendingSync'] = true;
+      }
+    }
+    return candidates;
   }
 
   static Future<bool> updateRecitationSession({

@@ -181,6 +181,36 @@ class Student {
 
   String? get completedAjzaa => previousQuranMemorization;
 
+  Student withPendingCircle(int targetCircleId, String targetCircleName) => Student(
+    id: id,
+    fullName: fullName,
+    address: address,
+    dateOfBirth: dateOfBirth,
+    familyContact: familyContact,
+    registrationDate: registrationDate,
+    circleId: targetCircleId,
+    circleName: targetCircleName,
+    isActive: isActive,
+    studentIdentityNumber: studentIdentityNumber,
+    previousQuranMemorization: previousQuranMemorization,
+    healthStatus: healthStatus,
+    fatherStatus: fatherStatus,
+    motherStatus: motherStatus,
+    kinship: kinship,
+    parentIdentityNumber: parentIdentityNumber,
+    whatsappNumber: whatsappNumber,
+    walletNumber: walletNumber,
+    bankAccountNumber: bankAccountNumber,
+    bankName: bankName,
+    studentMobile: studentMobile,
+    studentWhatsapp: studentWhatsapp,
+    originalAddress: originalAddress,
+    currentAddress: currentAddress,
+    notes: notes,
+    username: username,
+    isPendingSync: true,
+  );
+
   factory Student.fromJson(Map<String, dynamic> json) {
     return Student(
       id: json['id'] ?? 0,

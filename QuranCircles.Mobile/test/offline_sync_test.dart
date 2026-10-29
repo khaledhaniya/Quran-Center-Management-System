@@ -145,7 +145,46 @@ void main() {
     expect((await OfflineSyncManager.getQueuedActions()).length, 1);
   });
 
-  test('Rejected operation stays visible and blocks later writes', () async {
+  test('Circle enrollment stays visible until a 204 server receipt confirms it',
+      () async {
+    var serverHasEnrollment = false;
+    ApiService.httpClient = MockClient((request) async {
+      if (request.method == 'POST' &&
+          request.url.path.endsWith('/circles/3/students')) {
+        expect(jsonDecode(request.body)['studentId'], 14);
+        serverHasEnrollment = true;
+        return http.Response('', 204);
+      }
+      if (request.url.path.endsWith('/circles')) {
+        return http.Response('[{"id":3,"name":"حلقة الفجر"}]', 200);
+      }
+      if (request.url.path.endsWith('/students')) {
+        return http.Response(jsonEncode([{
+          'id': 14, 'fullName': 'طالب تجريبي', 'isActive': true,
+          'circleId': serverHasEnrollment ? 3 : null,
+          'circleName': serverHasEnrollment ? 'حلقة الفجر' : null,
+        }]), 200);
+      }
+      return http.Response('[]', 200);
+    });
+    await ApiService.getCircles(forceRefresh: true);
+    await OfflineSyncManager.queueAction(actionType: 'circle_enrollment', payload: {
+      'circleId': 3, 'studentId': 14,
+    });
+    final pending = (await ApiService.getStudents(forceRefresh: true)).single;
+    expect(pending.circleId, 3);
+    expect(pending.circleName, 'حلقة الفجر');
+    expect(pending.isPendingSync, isTrue);
+    ApiService.authToken = 'synthetic-token';
+    expect(await OfflineSyncManager.syncPendingActions(), 1);
+    expect(serverHasEnrollment, isTrue);
+    expect(await OfflineSyncManager.getQueuedActions(), isEmpty);
+    final synced = (await ApiService.getStudents(forceRefresh: true)).single;
+    expect(synced.circleId, 3);
+    expect(synced.isPendingSync, isFalse);
+  });
+
+  test('Rejected operation stays visible while independent writes continue', () async {
     await OfflineSyncManager.queueAction(actionType: 'exam_nomination', payload: {
       'studentId': 14, 'nominationType': 'Quran', 'courseId': null,
       'juzStart': 2, 'juzEnd': 2,
@@ -156,20 +195,22 @@ void main() {
     var calls = 0;
     ApiService.httpClient = MockClient((_) async {
       calls++;
-      return http.Response('{"message":"الترشيح مكرر"}', 400,
-          headers: {'content-type': 'application/json; charset=utf-8'});
+      return calls == 1
+          ? http.Response('{"message":"الترشيح مكرر"}', 400,
+              headers: {'content-type': 'application/json; charset=utf-8'})
+          : http.Response('{}', 200);
     });
     ApiService.authToken = 'synthetic-token';
-    expect(await OfflineSyncManager.syncPendingActions(), 0);
-    expect(calls, 1);
+    expect(await OfflineSyncManager.syncPendingActions(), 1);
+    expect(calls, 2);
     final queue = await OfflineSyncManager.getQueuedActions();
-    expect(queue.length, 2);
+    expect(queue.length, 1);
     expect(queue.first.reviewError, 'الترشيح مكرر',
         reason: 'آخر خطأ مزامنة: ${OfflineSyncManager.lastSyncError.value}; '
             'العملية الأولى: ${queue.first.actionType}');
     expect(OfflineSyncManager.reviewActionsCount.value, 1);
     expect(await OfflineSyncManager.syncPendingActions(), 0);
-    expect(calls, 1);
+    expect(calls, 2);
   });
 
   test('Pending queue is kept in protected storage', () async {
