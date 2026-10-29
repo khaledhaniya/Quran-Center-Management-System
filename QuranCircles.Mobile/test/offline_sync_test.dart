@@ -161,7 +161,9 @@ void main() {
     expect(calls, 1);
     final queue = await OfflineSyncManager.getQueuedActions();
     expect(queue.length, 2);
-    expect(queue.first.reviewError, 'الترشيح مكرر');
+    expect(queue.first.reviewError, 'الترشيح مكرر',
+        reason: 'آخر خطأ مزامنة: ${OfflineSyncManager.lastSyncError.value}; '
+            'العملية الأولى: ${queue.first.actionType}');
     expect(OfflineSyncManager.reviewActionsCount.value, 1);
     expect(await OfflineSyncManager.syncPendingActions(), 0);
     expect(calls, 1);

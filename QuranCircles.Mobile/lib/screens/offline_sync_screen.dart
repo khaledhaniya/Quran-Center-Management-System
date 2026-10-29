@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/offline_sync_manager.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class OfflineSyncScreen extends StatefulWidget {
@@ -93,6 +94,9 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
             children: [
               Text('كل عملية هنا محفوظة على هذا الجهاز. تبقى حتى يؤكد الخادم استلامها.',
                   style: AppTheme.cairoStyle(fontSize: 14)),
+              if (ApiService.authToken == null)
+                Text('انتهت جلسة الدخول. ستبقى العمليات محفوظة؛ سجّل الدخول مجدداً عند توفر الإنترنت للمزامنة.',
+                    style: AppTheme.cairoStyle(color: Colors.orange.shade900)),
               const SizedBox(height: 12),
               if (OfflineSyncManager.lastSyncError.value != null)
                 Text(OfflineSyncManager.lastSyncError.value!,

@@ -308,6 +308,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
           )),
         ]),
         actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: ApiService.usingOfflineData,
+            builder: (context, offline, _) =>
+                offline || ApiService.authToken == null
+                    ? IconButton(
+                        icon: const Icon(Icons.cloud_off, color: Colors.amber),
+                        tooltip: ApiService.authToken == null
+                            ? 'جلسة الدخول منتهية؛ سجّل الدخول للمزامنة'
+                            : 'تظهر آخر بيانات محفوظة على الجهاز',
+                        onPressed: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const OfflineSyncScreen())),
+                      )
+                    : const SizedBox.shrink(),
+          ),
           // Pending Offline Sync Indicator
           ValueListenableBuilder<int>(
             valueListenable: OfflineSyncManager.pendingActionsCount,
@@ -771,23 +785,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
         ),
       ),
       body: Column(children: [
-        ValueListenableBuilder<bool>(
-          valueListenable: ApiService.usingOfflineData,
-          builder: (context, offline, _) => offline && ApiService.authToken != null
-              ? MaterialBanner(
-                  content: const Text('تظهر آخر بيانات محفوظة على الجهاز. ستتحدث عند عودة الاتصال.'),
-                  leading: const Icon(Icons.cloud_off, color: Colors.orange),
-                  actions: [TextButton(onPressed: () => OfflineSyncManager.syncPendingActions(),
-                      child: const Text('مزامنة'))],
-                )
-              : const SizedBox.shrink(),
-        ),
-        if (ApiService.authToken == null)
-          MaterialBanner(
-            content: const Text('تعمل الآن ببيانات الجهاز. انتهت جلسة الدخول؛ سجّل الدخول مجدداً عند توفر الإنترنت لإرسال العمليات.'),
-            leading: const Icon(Icons.cloud_off, color: Colors.orange),
-            actions: [TextButton(onPressed: () => _handleLogout(), child: const Text('تسجيل الدخول'))],
-          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Container(
