@@ -291,7 +291,8 @@ class OfflineSyncManager {
                 : 'تعذر الحفظ على الخادم؛ ستُعاد المحاولة.';
             break;
           }
-        } catch (_) {
+        } catch (error) {
+          if (kDebugMode) debugPrint('Offline sync transport error: $error');
           lastSyncError.value = 'تعذر الاتصال؛ ستُعاد محاولة المزامنة.';
           break;
         }
