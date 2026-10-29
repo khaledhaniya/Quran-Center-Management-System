@@ -646,7 +646,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           Navigator.pop(dialogCtx);
                         }
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(content: Text('حُفظ التقييم كمسودة على الجهاز. اعتمده لاحقاً من صفحة المزامنة.'),
                                 backgroundColor: Colors.orange));
                         }
