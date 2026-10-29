@@ -114,7 +114,9 @@ class _CircleAttendanceScreenState extends State<CircleAttendanceScreen> with Si
     final pending = await OfflineSyncManager.pendingAttendance(
         actionType: 'circle_attendance', targetId: circleId, date: date);
     if (!mounted || _selectedCircle?.id != circleId ||
-        _formatDate(_selectedDate) != date) return;
+        _formatDate(_selectedDate) != date) {
+      return;
+    }
     setState(() {
       _attendanceStatus.addAll(pending);
     });

@@ -642,10 +642,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             actionType: 'exam_evaluation_draft', payload: draft,
                             operationId: operationId);
                         savedLocally = true;
-                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('حُفظ التقييم كمسودة على الجهاز. اعتمده لاحقاً من صفحة المزامنة.'),
-                              backgroundColor: Colors.orange));
+                        if (dialogCtx.mounted) {
+                          Navigator.pop(dialogCtx);
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('حُفظ التقييم كمسودة على الجهاز. اعتمده لاحقاً من صفحة المزامنة.'),
+                                backgroundColor: Colors.orange));
+                        }
                         return;
                       } catch (saveError) {
                         failure = saveError;

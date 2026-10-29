@@ -370,7 +370,7 @@ class ApiService {
           _cachedStudents = list;
         }
         await OfflineCache.save('students_list', response.body);
-        return _withPendingStudents(list, search: search);
+        return await _withPendingStudents(list, search: search);
       }
     } catch (_) {
       final cached = await OfflineCache.load('students_list');

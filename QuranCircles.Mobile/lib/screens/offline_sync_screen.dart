@@ -54,11 +54,15 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
       if (password == null) return;
       await OfflineSyncManager.approveEvaluationDraft(action.id, password);
       await _refresh();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم اعتماد التقييم على الخادم.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تم اعتماد التقييم على الخادم.')));
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر الاعتماد: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('تعذر الاعتماد: $e')));
+      }
     } finally {
       controller.dispose();
     }
