@@ -409,7 +409,7 @@ class ApiService {
       if (response.statusCode == 200) {
         usingOfflineData.value = false;
         final List data = jsonDecode(response.body);
-        return _withPendingStudents(
+        return await _withPendingStudents(
             data.map((item) => Student.fromJson(item)).toList(), search: search);
       }
     } catch (_) {}
