@@ -156,6 +156,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [IdentityMutation]
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
@@ -181,8 +182,8 @@ public class UsersController : ControllerBase
         if (roleVal == UserRole.Student && !studentId.HasValue)
         {
             var matchedS = await _db.Students.FirstOrDefaultAsync(s =>
-                (!string.IsNullOrWhiteSpace(s.StudentIdentityNumber) && s.StudentIdentityNumber.Trim() == dto.Username.Trim()) ||
-                s.FullName.Trim().ToLower() == dto.FullName.Trim().ToLower());
+                !string.IsNullOrWhiteSpace(s.StudentIdentityNumber) &&
+                s.StudentIdentityNumber.Trim() == dto.Username.Trim());
             if (matchedS != null)
             {
                 studentId = matchedS.Id;
@@ -194,8 +195,8 @@ public class UsersController : ControllerBase
         else if (roleVal == UserRole.Teacher && !teacherId.HasValue)
         {
             var matchedT = await _db.Teachers.FirstOrDefaultAsync(t =>
-                (!string.IsNullOrWhiteSpace(t.IdentityNumber) && t.IdentityNumber.Trim() == dto.Username.Trim()) ||
-                t.FullName.Trim().ToLower() == dto.FullName.Trim().ToLower());
+                !string.IsNullOrWhiteSpace(t.IdentityNumber) &&
+                t.IdentityNumber.Trim() == dto.Username.Trim());
             if (matchedT != null)
             {
                 teacherId = matchedT.Id;
@@ -204,6 +205,10 @@ public class UsersController : ControllerBase
                     matchedT.IdentityNumber = dto.Username.Trim();
             }
         }
+
+        var identityError = await new IdentityConflictChecker(_db).CheckUsernameAsync(
+            dto.Username, studentId: studentId, teacherId: teacherId);
+        if (identityError is not null) return BadRequest(new { error = identityError });
 
         var user = new User
         {
@@ -238,6 +243,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [IdentityMutation]
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
     {
@@ -257,8 +263,15 @@ public class UsersController : ControllerBase
         var taken = await _db.Users.AnyAsync(u => u.Id != id && u.Username.ToLower() == dto.Username.ToLower().Trim());
         if (taken) return BadRequest(new { error = "اسم المستخدم محجوز بالفعل." });
 
+        int? targetStudentId = dto.StudentId.HasValue
+            ? (dto.StudentId.Value > 0 ? dto.StudentId.Value : null) : user.StudentId;
+        int? targetTeacherId = dto.TeacherId.HasValue
+            ? (dto.TeacherId.Value > 0 ? dto.TeacherId.Value : null) : user.TeacherId;
+        var identityError = await new IdentityConflictChecker(_db).CheckUsernameAsync(
+            dto.Username, studentId: targetStudentId, teacherId: targetTeacherId, userId: id);
+        if (identityError is not null) return BadRequest(new { error = identityError });
+
         string oldUsername = user.Username;
-        string oldFullName = user.FullName;
 
         user.Username = dto.Username.Trim();
         user.FullName = dto.FullName.Trim();
@@ -289,9 +302,8 @@ public class UsersController : ControllerBase
         if (student == null && (user.Role == UserRole.Student || roleVal == UserRole.Student))
         {
             student = await _db.Students.FirstOrDefaultAsync(s =>
-                (!string.IsNullOrWhiteSpace(s.StudentIdentityNumber) && (s.StudentIdentityNumber.Trim() == oldUsername || s.StudentIdentityNumber.Trim() == user.Username)) ||
-                s.FullName.Trim().ToLower() == oldFullName.ToLower() ||
-                s.FullName.Trim().ToLower() == user.FullName.ToLower());
+                !string.IsNullOrWhiteSpace(s.StudentIdentityNumber) &&
+                (s.StudentIdentityNumber.Trim() == oldUsername || s.StudentIdentityNumber.Trim() == user.Username));
             if (student != null)
             {
                 user.StudentId = student.Id;
@@ -317,9 +329,8 @@ public class UsersController : ControllerBase
         if (teacher == null && (user.Role == UserRole.Teacher || roleVal == UserRole.Teacher))
         {
             teacher = await _db.Teachers.FirstOrDefaultAsync(t =>
-                (!string.IsNullOrWhiteSpace(t.IdentityNumber) && (t.IdentityNumber.Trim() == oldUsername || t.IdentityNumber.Trim() == user.Username)) ||
-                t.FullName.Trim().ToLower() == oldFullName.ToLower() ||
-                t.FullName.Trim().ToLower() == user.FullName.ToLower());
+                !string.IsNullOrWhiteSpace(t.IdentityNumber) &&
+                (t.IdentityNumber.Trim() == oldUsername || t.IdentityNumber.Trim() == user.Username));
             if (teacher != null)
             {
                 user.TeacherId = teacher.Id;

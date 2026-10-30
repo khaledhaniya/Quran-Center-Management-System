@@ -54,6 +54,13 @@ public class TeacherService
             ? idNumber
             : (!string.IsNullOrWhiteSpace(dto.Username) ? dto.Username.Trim() : "tch_" + Random.Shared.Next(10000, 99999));
 
+        var checker = new IdentityConflictChecker(_db);
+        err = await checker.CheckIdentityAsync(idNumber, allowExistingParentAccount: true);
+        if (err is not null) return (null, err);
+        err = await checker.CheckUsernameAsync(preferredUsername,
+            allowExistingParentAccount: idNumber != null && preferredUsername == idNumber);
+        if (err is not null) return (null, err);
+
         var password = string.IsNullOrWhiteSpace(dto.Password)
             ? PasswordHasher.GenerateTemporaryPassword()
             : dto.Password.Trim();
@@ -151,6 +158,17 @@ public class TeacherService
     {
         var t = await _db.Teachers.FindAsync(id);
         if (t is null) return (false, "المعلّم غير موجود.");
+
+        var checker = new IdentityConflictChecker(_db);
+        var identity = dto.IdentityNumber ?? t.IdentityNumber;
+        var linkedUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.TeacherId == id);
+        var identityError = await checker.CheckIdentityAsync(identity,
+            teacherId: id, allowExistingParentAccount: linkedUser == null);
+        if (identityError is not null) return (false, identityError);
+        var usernameError = await checker.CheckUsernameAsync(identity,
+            teacherId: id, userId: linkedUser?.Id,
+            allowExistingParentAccount: linkedUser == null);
+        if (usernameError is not null) return (false, usernameError);
 
         if (!string.IsNullOrWhiteSpace(dto.FullName))
         {

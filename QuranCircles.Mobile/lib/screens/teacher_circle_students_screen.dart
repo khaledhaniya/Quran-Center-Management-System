@@ -798,6 +798,16 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
   final _phoneController = TextEditingController();
   final _parentNameController = TextEditingController();
   final _memorizationController = TextEditingController(text: 'مبتدئ');
+  final _extra = <String, TextEditingController>{
+    for (final key in [
+      'dateOfBirth', 'healthStatus', 'parentIdentityNumber', 'kinship',
+      'studentMobile', 'studentWhatsapp', 'whatsappNumber',
+      'fatherStatus', 'motherStatus', 'originalAddress',
+      'originalHousingType', 'originalHousingStatus', 'currentAddress',
+      'currentHousingType', 'notes', 'walletNumber', 'bankAccountNumber',
+      'bankName', 'username', 'password',
+    ]) key: TextEditingController(),
+  };
   bool _isSaving = false;
 
   @override
@@ -807,6 +817,9 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
     _phoneController.dispose();
     _parentNameController.dispose();
     _memorizationController.dispose();
+    for (final controller in _extra.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -815,15 +828,38 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
     setState(() => _isSaving = true);
 
     try {
-      await OfflineSyncManager.queueAction(actionType: 'create_student', payload: {
+      final identity = _idNumberController.text.trim();
+      final parentIdentity = _extra['parentIdentityNumber']!.text.trim();
+      final username = _extra['username']!.text.trim();
+      if (identity == parentIdentity || (username.isNotEmpty && username == parentIdentity)) {
+        throw StateError('هوية الطالب واسم دخوله يجب أن يختلفا عن هوية ولي الأمر.');
+      }
+      if (ApiService.authToken != null) {
+        try {
+          final conflict = await ApiService.checkNewStudentIdentity(identity,
+              username: username.isEmpty ? null : username);
+          if (conflict != null) throw StateError(conflict);
+        } catch (error) {
+          if (!ApiService.isNetworkError(error)) rethrow;
+        }
+      }
+      final payload = <String, dynamic>{
         'fullName': _nameController.text.trim(),
-        'studentIdentityNumber': _idNumberController.text.trim(),
-        'studentMobile': _phoneController.text.trim(),
+        'studentIdentityNumber': identity,
         'familyContact': _phoneController.text.trim(),
         'parentName': _parentNameController.text.trim(),
         'previousQuranMemorization': _memorizationController.text.trim(),
         'circleId': widget.circle.id,
-      });
+      };
+      for (final entry in _extra.entries) {
+        final value = entry.value.text.trim();
+        if (value.isNotEmpty) payload[entry.key] = value;
+      }
+      if (_extra['originalAddress']!.text.trim().isNotEmpty) {
+        payload['address'] = _extra['originalAddress']!.text.trim();
+      }
+      await OfflineSyncManager.queueAction(
+          actionType: 'create_student', payload: payload);
       if (mounted) {
         setState(() => _isSaving = false);
         Navigator.pop(context);
@@ -842,89 +878,137 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: size.width > 720 ? 680 : size.width - 24,
+        height: size.height > 800 ? 740 : size.height - 40,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFF0D5C3A), Color(0xFF134E48)]),
+              ),
+              child: Row(children: [
+                const Icon(Icons.person_add_alt_1, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('تسجيل طالب جديد بالحلقة',
+                      style: AppTheme.cairoStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(widget.circle.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: AppTheme.cairoStyle(color: Colors.white70, fontSize: 12)),
+                ])),
+                IconButton(onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white)),
+              ]),
+            ),
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
                   children: [
-                    Text('تسجيل طالب جديد بالحلقة', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    _section('بيانات الطالب'),
+                    _fields([
+                      _input(_nameController, 'اسم الطالب الرباعي *',
+                          validator: (v) => v == null || v.trim().isEmpty ? 'اسم الطالب مطلوب' : null),
+                      _input(_idNumberController, 'رقم هوية الطالب *',
+                          keyboardType: TextInputType.number,
+                          validator: (v) => v == null || !RegExp(r'^\d{9}$').hasMatch(v.trim())
+                              ? 'أدخل رقم هوية من 9 أرقام' : null),
+                      _input(_extra['dateOfBirth']!, 'تاريخ الميلاد YYYY-MM-DD',
+                          keyboardType: TextInputType.datetime,
+                          validator: (v) => v != null && v.trim().isNotEmpty &&
+                                  (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v.trim()) || DateTime.tryParse(v.trim()) == null)
+                              ? 'تاريخ الميلاد غير صالح' : null),
+                      _input(_memorizationController, 'الحفظ السابق من القرآن'),
+                      _input(_extra['healthStatus']!, 'الحالة الصحية'),
+                    ]),
+                    _section('ولي الأمر والتواصل'),
+                    _fields([
+                      _input(_parentNameController, 'اسم ولي الأمر'),
+                      _input(_extra['parentIdentityNumber']!, 'رقم هوية ولي الأمر', keyboardType: TextInputType.number),
+                      _input(_extra['kinship']!, 'صلة القرابة'),
+                      _input(_phoneController, 'هاتف العائلة', keyboardType: TextInputType.phone),
+                      _input(_extra['studentMobile']!, 'جوال الطالب', keyboardType: TextInputType.phone),
+                      _input(_extra['studentWhatsapp']!, 'واتساب الطالب', keyboardType: TextInputType.phone),
+                      _input(_extra['whatsappNumber']!, 'واتساب العائلة', keyboardType: TextInputType.phone),
+                      _input(_extra['fatherStatus']!, 'حالة الأب'),
+                      _input(_extra['motherStatus']!, 'حالة الأم'),
+                    ]),
+                    _section('السكن والملاحظات'),
+                    _fields([
+                      _input(_extra['originalAddress']!, 'العنوان الأصلي'),
+                      _input(_extra['originalHousingType']!, 'نوع السكن الأصلي'),
+                      _input(_extra['originalHousingStatus']!, 'حالة السكن الأصلي'),
+                      _input(_extra['currentAddress']!, 'العنوان الحالي'),
+                      _input(_extra['currentHousingType']!, 'نوع السكن الحالي'),
+                      _input(_extra['notes']!, 'ملاحظات', maxLines: 3),
+                    ]),
+                    _section('بيانات إضافية وحساب الدخول'),
+                    _fields([
+                      _input(_extra['walletNumber']!, 'رقم المحفظة', keyboardType: TextInputType.phone),
+                      _input(_extra['bankAccountNumber']!, 'رقم الحساب البنكي'),
+                      _input(_extra['bankName']!, 'اسم البنك'),
+                      _input(_extra['username']!, 'اسم دخول الطالب (اختياري؛ الهوية افتراضيًا)'),
+                      _input(_extra['password']!, 'كلمة مرور الطالب (اختيارية)', obscureText: true),
+                    ]),
+                    const SizedBox(height: 12),
+                    Text('يُحفظ الطلب على الجهاز أولًا، ويظهر في الحلقة بانتظار تأكيد المزامنة.',
+                        style: AppTheme.cairoStyle(fontSize: 11, color: Colors.grey.shade700)),
                   ],
                 ),
-                Text('الحلقة: ${widget.circle.name}', style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold)),
-                const Divider(),
-
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'اسم الطالب الرباعي:',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الطالب مطلوب' : null,
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _idNumberController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'رقم الهوية:',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'رقم الهوية مطلوب' : null,
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _parentNameController,
-                  decoration: InputDecoration(
-                    labelText: 'اسم ولي الأمر:',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'رقم هاتف التواصل:',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _memorizationController,
-                  decoration: InputDecoration(
-                    labelText: 'مستوى / خطة الحفظ:',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                SizedBox(
-                  height: 46,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    onPressed: _isSaving ? null : _submitNewStudent,
-                    child: Text(_isSaving ? 'جاري الحفظ...' : 'تسجيل وتنسيب الطالب', style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey.shade50,
+                  border: Border(top: BorderSide(color: Colors.grey.shade200))),
+              child: SizedBox(width: double.infinity, height: 46,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                  onPressed: _isSaving ? null : _submitNewStudent,
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(_isSaving ? 'جاري التحقق والحفظ...' : 'تسجيل وتنسيب الطالب',
+                      style: AppTheme.cairoStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _section(String title) => Padding(
+    padding: const EdgeInsets.only(top: 12, bottom: 10),
+    child: Text(title, style: AppTheme.cairoStyle(
+        fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primary)),
+  );
+
+  Widget _fields(List<Widget> fields) => LayoutBuilder(builder: (context, constraints) {
+    final width = constraints.maxWidth;
+    final fieldWidth = width >= 560 ? (width - 12) / 2 : width;
+    return Wrap(spacing: 12, runSpacing: 12,
+        children: fields.map((field) => SizedBox(width: fieldWidth, child: field)).toList());
+  });
+
+  Widget _input(TextEditingController controller, String label,
+      {TextInputType? keyboardType, String? Function(String?)? validator,
+      bool obscureText = false, int maxLines = 1}) => TextFormField(
+    controller: controller,
+    keyboardType: keyboardType,
+    validator: validator,
+    obscureText: obscureText,
+    maxLines: maxLines,
+    style: AppTheme.cairoStyle(fontSize: 13),
+    decoration: InputDecoration(labelText: label, isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+  );
 }

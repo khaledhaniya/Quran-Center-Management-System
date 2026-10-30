@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using QuranCircles.Api.Data;
+using QuranCircles.Api.DTOs;
 using QuranCircles.Api.Entities;
 using QuranCircles.Api.Services;
 using Xunit;
@@ -159,6 +160,76 @@ public class SecurityAndSyncTests
         Assert.IsType<NoContentResult>(retry.Result);
         Assert.Equal(1, calls);
         Assert.Equal(1, await db.Announcements.CountAsync());
+    }
+
+    [Fact]
+    public async Task StudentRegistrationRejectsIdentityOwnedByAnotherPersonOrAccount()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        db.Students.Add(new Student { FullName = "طالب أول", StudentIdentityNumber = "123456789" });
+        db.Teachers.Add(new Teacher { FullName = "معلم", IdentityNumber = "234567890" });
+        var account = new User { Username = "345678901", FullName = "صاحب حساب",
+            Role = UserRole.Admin, PasswordHash = new PasswordHasher().HashPassword("original-password") };
+        db.Users.Add(account);
+        await db.SaveChangesAsync();
+
+        var service = new StudentService(db, new PasswordHasher());
+        foreach (var identity in new[] { "123456789", "234567890", "345678901" })
+        {
+            var (_, _, error) = await service.CreateAsync(new CreateStudentDto(
+                "طالب جديد", null, null, null, null, null, null, null,
+                StudentIdentityNumber: identity));
+            Assert.NotNull(error);
+        }
+        Assert.Equal(1, await db.Students.CountAsync());
+        Assert.Equal(1, await db.Teachers.CountAsync());
+        Assert.Equal("صاحب حساب", (await db.Users.FindAsync(account.Id))!.FullName);
+    }
+
+    [Fact]
+    public async Task IdentityCheckerAllowsLinkedAccountButRejectsOtherUsername()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        var student = new Student { FullName = "طالب", StudentIdentityNumber = "123456789" };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+        var account = new User { Username = "123456789", FullName = "طالب",
+            Role = UserRole.Student, StudentId = student.Id,
+            PasswordHash = new PasswordHasher().HashPassword("student-password") };
+        db.Users.Add(account);
+        await db.SaveChangesAsync();
+        var checker = new IdentityConflictChecker(db);
+        Assert.Null(await checker.CheckIdentityAsync("123456789", studentId: student.Id));
+        Assert.Null(await checker.CheckUsernameAsync("123456789", studentId: student.Id, userId: account.Id));
+        Assert.NotNull(await checker.CheckUsernameAsync("123456789"));
+    }
+
+    [Fact]
+    public async Task TeacherRegistrationRejectsStudentIdentityButCanLinkOwnParentAccount()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        db.Students.Add(new Student { FullName = "طالب", StudentIdentityNumber = "123456789" });
+        var parent = new User { Username = "234567890", FullName = "ولي أمر",
+            Role = UserRole.Parent, PasswordHash = new PasswordHasher().HashPassword("original-password") };
+        db.Users.Add(parent);
+        await db.SaveChangesAsync();
+        var service = new TeacherService(db, new PasswordHasher());
+        var (_, duplicateError) = await service.CreateAsync(new CreateTeacherDto(
+            "معلم آخر", null, null, null, null, null, IdentityNumber: "123456789"));
+        Assert.NotNull(duplicateError);
+        Assert.Equal(0, await db.Teachers.CountAsync());
+        var (teacher, linkError) = await service.CreateAsync(new CreateTeacherDto(
+            "ولي أمر", null, null, null, null, null, IdentityNumber: "234567890"));
+        Assert.Null(linkError);
+        Assert.NotNull(teacher);
+        Assert.Equal(teacher!.Id, parent.TeacherId);
+        Assert.Equal(UserRole.Teacher, parent.Role);
     }
 
     [Fact]

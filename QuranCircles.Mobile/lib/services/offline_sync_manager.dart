@@ -59,6 +59,7 @@ class OfflineSyncManager {
   static const _studentIdsKey = 'offline_student_ids';
   static Timer? _autoSyncTimer;
   static Future<int>? _syncFuture;
+  static bool _syncAgain = false;
   static Future<void> _queueTail = Future.value();
   static bool _stopping = false;
   static final pendingActionsCount = ValueNotifier<int>(0);
@@ -92,11 +93,13 @@ class OfflineSyncManager {
       lastSyncError.value = 'تعذر قراءة العمليات المحفوظة؛ لم تُحذف.';
     }));
     _autoSyncTimer = Timer.periodic(
-        const Duration(seconds: 45), (_) => syncPendingActions());
+        const Duration(seconds: 20), (_) => syncPendingActions());
+    unawaited(syncPendingActions());
   }
 
   static Future<void> stop() async {
     _stopping = true;
+    _syncAgain = false;
     _autoSyncTimer?.cancel();
     final active = _syncFuture;
     if (active != null) await active;
@@ -194,8 +197,12 @@ class OfflineSyncManager {
       if (businessKey != null) {
         for (final existing in current) {
           if ((existing.reviewError == null ||
-                  actionType == 'exam_evaluation_draft') &&
+                  actionType == 'exam_evaluation_draft' ||
+                  actionType == 'create_student') &&
               _businessKey(existing) == businessKey) {
+            if (actionType == 'create_student') {
+              throw StateError('رقم الهوية محفوظ بالفعل لطالب بانتظار المزامنة.');
+            }
             stored = existing;
             return;
           }
@@ -204,6 +211,7 @@ class OfflineSyncManager {
       current.add(action);
       await _save(current);
     });
+    if (_syncFuture != null) _syncAgain = true;
     unawaited(syncPendingActions());
     return stored;
   }
@@ -233,7 +241,13 @@ class OfflineSyncManager {
         ApiService.authToken == null) {
       return Future.value(0);
     }
-    return _syncFuture ??= _sync().whenComplete(() => _syncFuture = null);
+    return _syncFuture ??= _sync().whenComplete(() {
+      _syncFuture = null;
+      if (_syncAgain) {
+        _syncAgain = false;
+        unawaited(syncPendingActions());
+      }
+    });
   }
 
   static Future<int> _sync() async {

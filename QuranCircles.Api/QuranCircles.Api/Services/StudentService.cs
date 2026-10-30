@@ -250,6 +250,20 @@ public class StudentService
         var err = Validate(dto.FullName, dto.FamilyContact, dto.DateOfBirth);
         if (err is not null) return (null, null, err);
 
+        var identity = dto.StudentIdentityNumber?.Trim();
+        var parentIdentity = dto.ParentIdentityNumber?.Trim();
+        if (!string.IsNullOrEmpty(identity) && identity == parentIdentity)
+            return (null, null, "هوية الطالب لا يمكن أن تكون هوية ولي أمره.");
+        if (!string.IsNullOrEmpty(parentIdentity) &&
+            string.Equals(dto.Username?.Trim(), parentIdentity, StringComparison.OrdinalIgnoreCase))
+            return (null, null, "اسم دخول الطالب لا يمكن أن يكون هوية ولي أمره.");
+        var checker = new IdentityConflictChecker(_db);
+        err = await checker.CheckIdentityAsync(identity);
+        if (err is not null) return (null, null, err);
+        err = await checker.CheckUsernameAsync(
+            !string.IsNullOrWhiteSpace(dto.Username) ? dto.Username : identity);
+        if (err is not null) return (null, null, err);
+
         int? resolvedParentId = dto.ParentId;
         User? newlyCreatedParent = null;
 
@@ -418,6 +432,25 @@ public class StudentService
         var s = await _db.Students.FindAsync(id);
         if (s is null) return (false, "الطالب غير موجود.");
 
+        var linkedUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.StudentId == id);
+        var checker = new IdentityConflictChecker(_db);
+        var identity = dto.StudentIdentityNumber ?? s.StudentIdentityNumber;
+        var errIdentity = await checker.CheckIdentityAsync(identity, studentId: id);
+        if (errIdentity is not null) return (false, errIdentity);
+        var parentIdentity = dto.ParentIdentityNumber ?? s.ParentIdentityNumber;
+        if (!string.IsNullOrWhiteSpace(identity) &&
+            string.Equals(identity.Trim(), parentIdentity?.Trim(), StringComparison.OrdinalIgnoreCase))
+            return (false, "هوية الطالب لا يمكن أن تكون هوية ولي أمره.");
+        if (!string.IsNullOrWhiteSpace(dto.Username) &&
+            string.Equals(dto.Username.Trim(), parentIdentity?.Trim(), StringComparison.OrdinalIgnoreCase))
+            return (false, "اسم دخول الطالب لا يمكن أن يكون هوية ولي أمره.");
+        if (!string.IsNullOrWhiteSpace(dto.Username))
+        {
+            var errUsername = await checker.CheckUsernameAsync(dto.Username,
+                studentId: id, userId: linkedUser?.Id);
+            if (errUsername is not null) return (false, errUsername);
+        }
+
         if (!string.IsNullOrWhiteSpace(dto.FullName))
         {
             var err = Validate(dto.FullName, dto.FamilyContact ?? s.FamilyContact, dto.DateOfBirth ?? s.DateOfBirth);
@@ -567,18 +600,8 @@ public class StudentService
         // Update or create linked Student User
         string? customUsername = !string.IsNullOrWhiteSpace(dto.Username) ? dto.Username.Trim() : null;
         var studentUser = await _db.Users.FirstOrDefaultAsync(u => u.StudentId == s.Id);
-        if (studentUser == null && !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))
-        {
-            studentUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == s.StudentIdentityNumber.ToLower().Trim());
-        }
-        if (studentUser == null && customUsername != null)
-        {
-            studentUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == customUsername.ToLower());
-        }
-        if (studentUser == null && !string.IsNullOrWhiteSpace(s.FullName))
-        {
-            studentUser = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Student && u.FullName.ToLower() == s.FullName.ToLower().Trim());
-        }
+        // Only an explicit StudentId link proves ownership of an account.
+        // Matching a username or name must never attach somebody else's login.
 
         if (studentUser != null)
         {

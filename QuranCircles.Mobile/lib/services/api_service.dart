@@ -314,6 +314,24 @@ class ApiService {
   }
 
   // --- Students CRUD ---
+  static Future<String?> checkNewStudentIdentity(String identity,
+      {String? username}) async {
+    final uri = Uri.parse('$baseUrl/students/identity-check').replace(
+        queryParameters: {
+          'identity': identity.trim(),
+          if (username != null && username.trim().isNotEmpty)
+            'username': username.trim(),
+        });
+    final response = await httpClient.get(uri, headers: _headers())
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode != 200) {
+      throw Exception('تعذر التحقق من رقم الهوية حالياً.');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return data['available'] == true ? null
+        : (data['error']?.toString() ?? 'رقم الهوية أو اسم المستخدم مستخدم بالفعل.');
+  }
+
   static String _pendingCircleName(Object? circleId) {
     for (final circle in _cachedCircles ?? <Circle>[]) {
       if (circle.id == circleId) return circle.name;

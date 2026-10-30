@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/offline_sync_manager.dart';
 import '../services/api_service.dart';
@@ -15,23 +16,38 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
   List<Map<String, dynamic>> _recent = [];
   bool _loading = false;
   String? _readError;
+  int _refreshVersion = 0;
 
   @override
   void initState() {
     super.initState();
+    OfflineSyncManager.pendingActionsCount.addListener(_queueChanged);
+    OfflineSyncManager.reviewActionsCount.addListener(_queueChanged);
     _refresh();
   }
 
+  void _queueChanged() {
+    if (mounted) unawaited(_refresh());
+  }
+
+  @override
+  void dispose() {
+    OfflineSyncManager.pendingActionsCount.removeListener(_queueChanged);
+    OfflineSyncManager.reviewActionsCount.removeListener(_queueChanged);
+    super.dispose();
+  }
+
   Future<void> _refresh() async {
+    final version = ++_refreshVersion;
     setState(() => _loading = true);
     try {
       final actions = await OfflineSyncManager.getQueuedActions();
       final recent = await OfflineSyncManager.getRecentSynced();
-      if (mounted) setState(() { _actions = actions; _recent = recent; _readError = null; });
+      if (mounted && version == _refreshVersion) setState(() { _actions = actions; _recent = recent; _readError = null; });
     } catch (_) {
-      if (mounted) setState(() => _readError = 'تعذر قراءة العمليات المحفوظة. لم تُحذف البيانات.');
+      if (mounted && version == _refreshVersion) setState(() => _readError = 'تعذر قراءة العمليات المحفوظة. لم تُحذف البيانات.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && version == _refreshVersion) setState(() => _loading = false);
     }
   }
 

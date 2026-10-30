@@ -142,6 +142,7 @@ public class StudentsController : ControllerBase
 
     [HttpPost]
     [Idempotent]
+    [IdentityMutation]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> Create([FromBody] CreateStudentDto dto)
     {
@@ -182,7 +183,20 @@ public class StudentsController : ControllerBase
         });
     }
 
+    [HttpGet("identity-check")]
+    [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
+    public async Task<IActionResult> CheckIdentity([FromQuery] string? identity, [FromQuery] string? username)
+    {
+        var checker = new IdentityConflictChecker(_db);
+        var error = await checker.CheckIdentityAsync(identity);
+        if (error == null)
+            error = await checker.CheckUsernameAsync(
+                !string.IsNullOrWhiteSpace(username) ? username : identity);
+        return Ok(new { available = error == null, error });
+    }
+
     [HttpPut("{id:int}")]
+    [IdentityMutation]
     [RequireRole(UserRole.Admin, UserRole.Teacher, UserRole.Developer)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateStudentDto dto)
     {

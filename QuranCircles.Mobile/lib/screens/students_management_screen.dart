@@ -611,15 +611,33 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                             }
 
                             if (student == null) {
-                              await OfflineSyncManager.queueAction(
-                                  actionType: 'create_student', payload: payload);
-                              if (!dialogCtx.mounted) return;
-                              Navigator.pop(dialogCtx);
-                              _loadData();
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('تم حفظ الطالب على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Color(0xFF0D5C3A)),
-                              );
+                              try {
+                                final identity = identityController.text.trim();
+                                if (identity.isNotEmpty && ApiService.authToken != null) {
+                                  try {
+                                    final conflict = await ApiService.checkNewStudentIdentity(
+                                        identity, username: usernameController.text.trim());
+                                    if (conflict != null) throw StateError(conflict);
+                                  } catch (error) {
+                                    if (!ApiService.isNetworkError(error)) rethrow;
+                                  }
+                                }
+                                await OfflineSyncManager.queueAction(
+                                    actionType: 'create_student', payload: payload);
+                                if (!dialogCtx.mounted) return;
+                                Navigator.pop(dialogCtx);
+                                _loadData();
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('تم حفظ الطالب على الجهاز، وسيُعتمد بعد المزامنة.'), backgroundColor: Color(0xFF0D5C3A)),
+                                );
+                              } catch (error) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(error.toString().replaceFirst('Bad state: ', '')),
+                                  backgroundColor: Colors.red,
+                                ));
+                              }
                             } else {
                               final ok = await ApiService.updateStudent(student.id, payload);
                               if (!dialogCtx.mounted) return;

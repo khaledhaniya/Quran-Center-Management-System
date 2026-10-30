@@ -35,6 +35,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpPost]
+    [IdentityMutation]
     [RequireRole(UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> Create([FromBody] CreateTeacherDto dto)
     {
@@ -47,6 +48,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [IdentityMutation]
     [RequireRole(UserRole.Admin, UserRole.Developer)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateTeacherDto dto)
     {

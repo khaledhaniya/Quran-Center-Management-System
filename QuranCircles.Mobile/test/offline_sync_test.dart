@@ -81,12 +81,14 @@ void main() {
         payload: {'title': 'first', 'content': 'one'});
     final first = (await OfflineSyncManager.getQueuedActions()).single;
     final started = Completer<void>();
+    final secondSent = Completer<void>();
     final release = Completer<void>();
     final seenKeys = <String?>[];
     ApiService.httpClient = MockClient((request) async {
       seenKeys.add(request.headers['Idempotency-Key'] ??
           request.headers['idempotency-key']);
       if (!started.isCompleted) started.complete();
+      if (seenKeys.length == 2 && !secondSent.isCompleted) secondSent.complete();
       await release.future;
       return http.Response('{}', 200);
     });
@@ -98,12 +100,25 @@ void main() {
         payload: {'title': 'second', 'content': 'two'});
     release.complete();
     expect(await sync, 1);
-    final remaining = await OfflineSyncManager.getQueuedActions();
-    expect(remaining.length, 1);
-    expect(remaining.single.payload['title'], 'second');
-    expect(seenKeys.single, first.id);
-    expect(await OfflineSyncManager.syncPendingActions(), 1);
+    await secondSent.future.timeout(const Duration(seconds: 2));
+    await OfflineSyncManager.syncPendingActions();
+    expect(seenKeys.first, first.id);
+    expect(seenKeys.length, 2);
     expect(await OfflineSyncManager.getQueuedActions(), isEmpty);
+  });
+
+  test('Duplicate pending student identity is rejected before overwriting data',
+      () async {
+    await OfflineSyncManager.queueAction(actionType: 'create_student', payload: {
+      'fullName': 'طالب أول', 'studentIdentityNumber': '123456789',
+    });
+    await expectLater(
+        OfflineSyncManager.queueAction(actionType: 'create_student', payload: {
+          'fullName': 'طالب آخر', 'studentIdentityNumber': '123456789',
+        }), throwsStateError);
+    final queue = await OfflineSyncManager.getQueuedActions();
+    expect(queue.length, 1);
+    expect(queue.single.payload['fullName'], 'طالب أول');
   });
 
   test('Unknown and foreign operations are retained without sending', () async {
