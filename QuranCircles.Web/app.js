@@ -6610,45 +6610,16 @@ async function showStudentModal(studentId = null) {
         document.getElementById("student-parent").value = s.parentId;
     }
 
-    // Helper for father name extraction with compound names handling
-    function extractFatherNameJS(fullName) {
-        if (!fullName) return "الأب";
-        let clean = fullName.trim();
-        const compoundPrefixes = ["عبد الله", "عبد الرحمن", "عبد العزيز", "عبد القادر", "عبد الرحيم", "عبد السلام", "عبد المجيد", "عبد اللطيف", "عبد الوهاب", "عبد الكريم", "عبد الفتاح"];
-        for (let prefix of compoundPrefixes) {
-            if (clean.toLowerCase().startsWith(prefix.toLowerCase() + " ")) {
-                const rest = clean.substring(prefix.length).trim();
-                if (rest) return rest;
-            }
-        }
-        const parts = clean.split(/\s+/);
-        if (parts.length >= 2) return parts.slice(1).join(' ');
-        return "ولي أمر " + clean;
-    }
-
     const pIdInput = document.getElementById("student-parent-id");
     const pNameInput = document.getElementById("student-parent-name");
     const stNameInput = document.getElementById("student-name");
     const pSearchHint = document.getElementById("parent-search-hint");
-    let parentNameUserEdited = false;
-
     if (pNameInput) {
-        pNameInput.addEventListener("input", () => {
-            parentNameUserEdited = true;
-            updateParentSearchHint();
-        });
+        pNameInput.addEventListener("input", updateParentSearchHint);
     }
 
     if (stNameInput) {
-        stNameInput.addEventListener("input", () => {
-            if (!parentNameUserEdited && pNameInput && (!pNameInput.value || pNameInput.value === "الأب")) {
-                const autoFather = extractFatherNameJS(stNameInput.value);
-                if (autoFather && autoFather !== "الأب") {
-                    pNameInput.value = autoFather;
-                }
-            }
-            updateParentSearchHint();
-        });
+        stNameInput.addEventListener("input", updateParentSearchHint);
     }
 
     if (pIdInput) {
@@ -6688,8 +6659,7 @@ async function showStudentModal(studentId = null) {
             const parentSelect = document.getElementById("student-parent");
             if (parentSelect) parentSelect.value = "";
             const enteredParentName = pNameInput ? pNameInput.value.trim() : "";
-            const fatherNameCandidate = (stNameInput ? stNameInput.value : "").trim();
-            const fatherName = enteredParentName || (fatherNameCandidate ? extractFatherNameJS(fatherNameCandidate) : "الأب");
+            const fatherName = enteredParentName || "أدخل اسم ولي الأمر الكامل";
 
             if (pSearchHint) {
                 pSearchHint.innerHTML = `
