@@ -34,32 +34,16 @@ public class StudentService
 
         var students = await query.OrderBy(s => s.FullName).ToListAsync();
         var studentIds = students.Select(s => s.Id).ToList();
-        var studentIdentities = students.Where(s => !string.IsNullOrWhiteSpace(s.StudentIdentityNumber)).Select(s => s.StudentIdentityNumber!.Trim().ToLower()).ToList();
-
         var studentUsers = await _db.Users
-            .Where(u => (u.StudentId.HasValue && studentIds.Contains(u.StudentId.Value)) || (u.Role == UserRole.Student && studentIdentities.Contains(u.Username.ToLower())))
+            .Where(u => u.StudentId.HasValue && studentIds.Contains(u.StudentId.Value))
             .ToListAsync();
 
         var studentUserMap = new Dictionary<int, string>();
-        bool needsSave = false;
         foreach (var s in students)
         {
-            var matchedUser = studentUsers.FirstOrDefault(u => u.StudentId == s.Id)
-                           ?? (!string.IsNullOrWhiteSpace(s.StudentIdentityNumber) ? studentUsers.FirstOrDefault(u => u.Username.Trim().ToLower() == s.StudentIdentityNumber.Trim().ToLower()) : null)
-                           ?? studentUsers.FirstOrDefault(u => u.FullName.Trim().ToLower() == s.FullName.Trim().ToLower());
+            var matchedUser = studentUsers.FirstOrDefault(u => u.StudentId == s.Id);
             if (matchedUser != null)
-            {
                 studentUserMap[s.Id] = matchedUser.Username;
-                if (!matchedUser.StudentId.HasValue)
-                {
-                    matchedUser.StudentId = s.Id;
-                    needsSave = true;
-                }
-            }
-        }
-        if (needsSave)
-        {
-            try { await _db.SaveChangesAsync(); } catch { }
         }
 
         var parentIds = students.Where(s => s.ParentId.HasValue).Select(s => s.ParentId!.Value).Distinct().ToList();
@@ -103,23 +87,16 @@ public class StudentService
 
         var students = await query.OrderBy(s => s.Id).ToListAsync();
         var studentIds = students.Select(s => s.Id).ToList();
-        var studentIdentities = students.Where(s => !string.IsNullOrWhiteSpace(s.StudentIdentityNumber)).Select(s => s.StudentIdentityNumber!.Trim().ToLower()).ToList();
-
         var studentUsers = await _db.Users
-            .Where(u => (u.StudentId.HasValue && studentIds.Contains(u.StudentId.Value)) || (u.Role == UserRole.Student && studentIdentities.Contains(u.Username.ToLower())))
+            .Where(u => u.StudentId.HasValue && studentIds.Contains(u.StudentId.Value))
             .ToListAsync();
 
         var studentUserMap = new Dictionary<int, string>();
         foreach (var s in students)
         {
-            var matchedUser = studentUsers.FirstOrDefault(u => u.StudentId == s.Id)
-                           ?? (!string.IsNullOrWhiteSpace(s.StudentIdentityNumber) ? studentUsers.FirstOrDefault(u => u.Username.Trim().ToLower() == s.StudentIdentityNumber.Trim().ToLower()) : null)
-                           ?? studentUsers.FirstOrDefault(u => u.FullName.Trim().ToLower() == s.FullName.Trim().ToLower());
+            var matchedUser = studentUsers.FirstOrDefault(u => u.StudentId == s.Id);
             if (matchedUser != null)
-            {
                 studentUserMap[s.Id] = matchedUser.Username;
-                if (!matchedUser.StudentId.HasValue) matchedUser.StudentId = s.Id;
-            }
         }
 
         var parentIds = students.Where(s => s.ParentId.HasValue).Select(s => s.ParentId!.Value).Distinct().ToList();
@@ -194,30 +171,6 @@ public class StudentService
         }
 
         var stUser = await _db.Users.FirstOrDefaultAsync(u => u.StudentId == s.Id);
-        if (stUser == null && !string.IsNullOrWhiteSpace(s.StudentIdentityNumber))
-        {
-            stUser = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == s.StudentIdentityNumber.ToLower().Trim());
-            if (stUser != null && !stUser.StudentId.HasValue)
-            {
-                stUser.StudentId = s.Id;
-                await _db.SaveChangesAsync();
-            }
-        }
-        if (stUser == null && !string.IsNullOrWhiteSpace(s.FullName))
-        {
-            stUser = await _db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Student && u.FullName.ToLower() == s.FullName.ToLower().Trim());
-            if (stUser != null && !stUser.StudentId.HasValue)
-            {
-                stUser.StudentId = s.Id;
-                await _db.SaveChangesAsync();
-            }
-        }
-
-        if (stUser != null && !stUser.StudentId.HasValue)
-        {
-            stUser.StudentId = s.Id;
-            try { await _db.SaveChangesAsync(); } catch { }
-        }
 
         string? username = stUser?.Username ?? s.StudentIdentityNumber;
 
@@ -250,8 +203,18 @@ public class StudentService
         var err = Validate(dto.FullName, dto.FamilyContact, dto.DateOfBirth);
         if (err is not null) return (null, null, err);
 
+        if (string.IsNullOrWhiteSpace(dto.ParentName))
+            return (null, null, "اسم ولي الأمر مطلوب لتسجيل الطالب وربطه بملف العائلة.");
+        if (string.IsNullOrWhiteSpace(dto.ParentIdentityNumber) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(dto.ParentIdentityNumber.Trim(), @"^\d{9}$"))
+            return (null, null, "رقم هوية ولي الأمر مطلوب ويجب أن يتكون من 9 أرقام.");
+        if (string.IsNullOrWhiteSpace(dto.FamilyContact))
+            return (null, null, "رقم جوال ولي الأمر مطلوب.");
+
         var identity = dto.StudentIdentityNumber?.Trim();
         var parentIdentity = dto.ParentIdentityNumber?.Trim();
+        if (await _db.Students.AnyAsync(s => s.StudentIdentityNumber == parentIdentity))
+            return (null, null, "هوية ولي الأمر مسجلة كهوية طالب آخر؛ راجع رقم الهوية قبل التسجيل.");
         if (!string.IsNullOrEmpty(identity) && identity == parentIdentity)
             return (null, null, "هوية الطالب لا يمكن أن تكون هوية ولي أمره.");
         if (!string.IsNullOrEmpty(parentIdentity) &&
@@ -264,11 +227,12 @@ public class StudentService
             !string.IsNullOrWhiteSpace(dto.Username) ? dto.Username : identity);
         if (err is not null) return (null, null, err);
 
-        int? resolvedParentId = dto.ParentId;
+        // Resolve the guardian by verified identity, never by a submitted account ID alone.
+        int? resolvedParentId = null;
         User? newlyCreatedParent = null;
 
         // Auto-search or link parent account (checks Teachers and existing Users by National ID)
-        if (!resolvedParentId.HasValue && !string.IsNullOrWhiteSpace(dto.ParentIdentityNumber))
+        if (!string.IsNullOrWhiteSpace(dto.ParentIdentityNumber))
         {
             var pIdNum = dto.ParentIdentityNumber.Trim();
             var fatherName = !string.IsNullOrWhiteSpace(dto.ParentName) ? dto.ParentName.Trim() : ExtractFatherName(dto.FullName);
@@ -277,7 +241,7 @@ public class StudentService
             var matchedTeacher = await _db.Teachers.FirstOrDefaultAsync(t => t.IdentityNumber == pIdNum);
             if (matchedTeacher != null)
             {
-                var teacherUser = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == matchedTeacher.Id || u.Username == pIdNum);
+                var teacherUser = await _db.Users.FirstOrDefaultAsync(u => u.TeacherId == matchedTeacher.Id);
                 if (teacherUser != null)
                 {
                     teacherUser.ParentId = teacherUser.Id;
@@ -286,6 +250,8 @@ public class StudentService
                 }
                 else
                 {
+                    if (await _db.Users.AnyAsync(u => u.Username == pIdNum))
+                        return (null, null, "هوية ولي الأمر مستخدمة لحساب آخر؛ راجع إدارة الحسابات قبل التسجيل.");
                     var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
                     teacherUser = new User
                     {
@@ -308,13 +274,11 @@ public class StudentService
             else
             {
                 // 2. Check if a User already exists with this Username (any role: Parent, Admin, etc.)
-                var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Username == pIdNum || (u.ParentId.HasValue && u.ParentId.ToString() == pIdNum));
+                var existingUser = await _db.Users.FirstOrDefaultAsync(u => u.Username == pIdNum);
                 if (existingUser != null)
                 {
-                    if (!string.IsNullOrWhiteSpace(dto.ParentName) && existingUser.Role == UserRole.Parent)
-                    {
-                        existingUser.FullName = dto.ParentName.Trim();
-                    }
+                    if (existingUser.Role == UserRole.Student || existingUser.StudentId.HasValue)
+                        return (null, null, "هوية ولي الأمر تخص حساب طالب؛ راجع رقم الهوية قبل التسجيل.");
                     if (!existingUser.ParentId.HasValue)
                     {
                         existingUser.ParentId = existingUser.Id;
@@ -328,9 +292,13 @@ public class StudentService
                     var existingStudentWithParent = await _db.Students.FirstOrDefaultAsync(s => s.ParentIdentityNumber == pIdNum && s.ParentId != null);
                     if (existingStudentWithParent != null)
                     {
-                        resolvedParentId = existingStudentWithParent.ParentId;
+                        var linkedParent = await _db.Users.FirstOrDefaultAsync(u => u.Id == existingStudentWithParent.ParentId);
+                        if (linkedParent != null && linkedParent.Role != UserRole.Student &&
+                            (linkedParent.Username == pIdNum || linkedParent.TeacherId.HasValue &&
+                             await _db.Teachers.AnyAsync(t => t.Id == linkedParent.TeacherId && t.IdentityNumber == pIdNum)))
+                            resolvedParentId = linkedParent.ParentId ?? linkedParent.Id;
                     }
-                    else
+                    if (!resolvedParentId.HasValue)
                     {
                         // 4. Create new Parent user
                         var generatedPassword = PasswordHasher.GenerateTemporaryPassword();

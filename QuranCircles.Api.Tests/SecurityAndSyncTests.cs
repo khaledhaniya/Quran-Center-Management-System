@@ -189,6 +189,70 @@ public class SecurityAndSyncTests
     }
 
     [Fact]
+    public async Task NewStudentsRequireGuardianDetailsAndReuseOneGuardianAccountForSiblings()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        var service = new StudentService(db, new PasswordHasher());
+        var incomplete = new CreateStudentDto("طالب أول", null, null, "0591234567", null, null,
+            null, null, StudentIdentityNumber: "123456789");
+        var (_, _, requiredError) = await service.CreateAsync(incomplete);
+        Assert.NotNull(requiredError);
+        Assert.Empty(await db.Students.ToListAsync());
+
+        CreateStudentDto WithParent(string studentName, string studentIdentity) =>
+            new(studentName, null, null, "0591234567", null, null, null, null,
+                StudentIdentityNumber: studentIdentity, ParentIdentityNumber: "987654321",
+                ParentName: "والد الطالب");
+        var (first, parent, firstError) = await service.CreateAsync(WithParent("طالب أول", "123456789"));
+        Assert.Null(firstError);
+        Assert.NotNull(parent);
+        var (second, secondParent, secondError) = await service.CreateAsync(WithParent("طالب ثان", "234567890"));
+        Assert.Null(secondError);
+        Assert.Null(secondParent);
+        Assert.Equal(first!.ParentId, second!.ParentId);
+        Assert.True(ParentLinks.IsChild(parent!, first));
+        Assert.True(ParentLinks.IsChild(parent!, second));
+        Assert.Single(await db.Users.Where(u => u.Username == "987654321").ToListAsync());
+    }
+
+    [Fact]
+    public async Task StudentIdentityCannotBeUsedAsGuardianIdentity()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        db.Students.Add(new Student { FullName = "طالب سابق", StudentIdentityNumber = "987654321" });
+        await db.SaveChangesAsync();
+        var service = new StudentService(db, new PasswordHasher());
+        var (_, _, error) = await service.CreateAsync(new CreateStudentDto(
+            "طالب جديد", null, null, "0591234567", null, null, null, null,
+            StudentIdentityNumber: "123456789", ParentIdentityNumber: "987654321",
+            ParentName: "ولي الأمر"));
+        Assert.NotNull(error);
+        Assert.Equal(1, await db.Students.CountAsync());
+    }
+
+    [Fact]
+    public async Task ReadingAStudentNeverLinksAnAccountByMatchingNameOrIdentity()
+    {
+        using var services = Services(); using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        var student = new Student { FullName = "اسم متكرر", StudentIdentityNumber = "123456789" };
+        var unrelated = new User { Username = "123456789", FullName = "اسم متكرر",
+            Role = UserRole.Student, PasswordHash = new PasswordHasher().HashPassword("password") };
+        db.Students.Add(student);
+        db.Users.Add(unrelated);
+        await db.SaveChangesAsync();
+        var service = new StudentService(db, new PasswordHasher());
+        await service.GetAllAsync(null);
+        await service.GetFullStudentByIdAsync(student.Id);
+        Assert.Null(unrelated.StudentId);
+    }
+
+    [Fact]
     public async Task IdentityCheckerAllowsLinkedAccountButRejectsOtherUsername()
     {
         using var services = Services(); using var scope = services.CreateScope();

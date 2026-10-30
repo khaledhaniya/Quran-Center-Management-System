@@ -6182,7 +6182,7 @@ function openModal(title, isLarge = false) {
     closeMobileSidebar();
     document.getElementById("modal-title").textContent = title;
     const container = document.getElementById("modal-container");
-    container.classList.remove("circle-students-modal", "teacher-enroll-modal");
+    container.classList.remove("circle-students-modal", "teacher-enroll-modal", "student-success-modal");
     if (isLarge) {
         container.classList.add("modal-lg");
     } else {
@@ -6195,7 +6195,7 @@ function closeModal() {
     const container = document.getElementById("modal-container");
     container.classList.remove("open");
     container.classList.remove("modal-lg");
-    container.classList.remove("circle-students-modal", "teacher-enroll-modal");
+    container.classList.remove("circle-students-modal", "teacher-enroll-modal", "student-success-modal");
 }
 
 function debounce(func, delay) {
@@ -6358,14 +6358,14 @@ async function showStudentModal(studentId = null) {
                         </div>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label for="student-parent-id" class="form-label-custom"><i class="fa-solid fa-id-card text-success"></i> رقم هوية ولي الأمر (للبحث والربط):</label>
+                                <label for="student-parent-id" class="form-label-custom"><i class="fa-solid fa-id-card text-success"></i> رقم هوية ولي الأمر <span class="text-danger">${studentId ? '' : '*'}</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-magnifying-glass input-icon text-success"></i>
                                     <input type="text" id="student-parent-id" class="form-control-custom border-success font-monospace" placeholder="أدخل رقم هوية الأب..." value="${escapeXml(s ? (s.parentIdentityNumber || '') : '')}">
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label for="student-parent-name" class="form-label-custom"><i class="fa-solid fa-user-tag text-primary"></i> اسم ولي الأمر (الأب) الكامل:</label>
+                                <label for="student-parent-name" class="form-label-custom"><i class="fa-solid fa-user-tag text-primary"></i> اسم ولي الأمر الكامل <span class="text-danger">${studentId ? '' : '*'}</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-user-tie input-icon text-primary"></i>
                                     <input type="text" id="student-parent-name" class="form-control-custom" placeholder="أدخل اسم الأب الرباعي..." value="${escapeXml(s ? (s.parentName || s.fatherName || '') : '')}">
@@ -6654,6 +6654,14 @@ async function showStudentModal(studentId = null) {
     if (pIdInput) {
         pIdInput.addEventListener("input", updateParentSearchHint);
     }
+    document.getElementById("student-parent")?.addEventListener("change", (event) => {
+        const parent = cachedUsers.find(u => String(u.parentId || u.id) === event.target.value);
+        if (parent) {
+            if (pIdInput) pIdInput.value = parent.teacher?.identityNumber || parent.username || '';
+            if (pNameInput) pNameInput.value = parent.fullName || '';
+            updateParentSearchHint();
+        }
+    });
 
     async function updateParentSearchHint() {
         const val = pIdInput ? pIdInput.value.trim() : "";
@@ -6667,16 +6675,18 @@ async function showStudentModal(studentId = null) {
 
         const foundUser = cachedUsers.find(u =>
             (u.role === 'Parent' || u.role === 4 || u.parentId != null) &&
-            (u.username === val || u.parentId == val || (u.username && u.username.trim() === val))
+            u.username && u.username.trim() === val
         );
 
         if (foundUser) {
             if (document.getElementById("student-parent")) document.getElementById("student-parent").value = foundUser.parentId || foundUser.id;
             if (pNameInput && !pNameInput.value) pNameInput.value = foundUser.fullName;
             if (pSearchHint) {
-                pSearchHint.innerHTML = `<div class="alert alert-success border-success p-3 mt-2 mb-0 shadow-sm" dir="rtl" style="text-align: right;"><i class="fa-solid fa-circle-check text-success fs-5 me-2"></i> <b>تم العثور على ولي الأمر المسجل:</b> ${foundUser.fullName} (رقم الهوية: ${foundUser.username}) - وسيتم ربط الطالب كأخ تحت حسابه.</div>`;
+                pSearchHint.innerHTML = `<div class="alert alert-success border-success p-3 mt-2 mb-0 shadow-sm" dir="rtl" style="text-align: right;"><i class="fa-solid fa-circle-check text-success fs-5 me-2"></i> <b>تم العثور على ولي الأمر المسجل:</b> ${escapeXml(foundUser.fullName)} (رقم الهوية: ${escapeXml(foundUser.username)}) - وسيتم ربط الطالب كأخ تحت حسابه.</div>`;
             }
         } else {
+            const parentSelect = document.getElementById("student-parent");
+            if (parentSelect) parentSelect.value = "";
             const enteredParentName = pNameInput ? pNameInput.value.trim() : "";
             const fatherNameCandidate = (stNameInput ? stNameInput.value : "").trim();
             const fatherName = enteredParentName || (fatherNameCandidate ? extractFatherNameJS(fatherNameCandidate) : "الأب");
@@ -6686,9 +6696,9 @@ async function showStudentModal(studentId = null) {
                     <div class="alert alert-info border-primary p-3 mt-2 mb-0 shadow-sm" dir="rtl" style="text-align: right;">
                         <h6 class="fw-bold text-primary mb-2"><i class="fa-solid fa-user-plus"></i> سيتم إنشاء حساب جديد لولي الأمر تلقائياً عند الحفظ</h6>
                         <div class="small text-dark">
-                            • لم يُعثر على حساب سابق برقم الهوية: <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${val}</code><br>
-                            • اسم ولي الأمر للحساب الجديد: <span class="fw-bold text-success">${fatherName}</span><br>
-                            • اسم المستخدم (رقم الهوية): <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${val}</code><br>
+                            • لم يُعثر على حساب سابق برقم الهوية: <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${escapeXml(val)}</code><br>
+                            • اسم ولي الأمر للحساب الجديد: <span class="fw-bold text-success">${escapeXml(fatherName)}</span><br>
+                            • اسم المستخدم (رقم الهوية): <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${escapeXml(val)}</code><br>
                             • كلمة المرور: تُعين من إدارة الحسابات
                         </div>
                     </div>
@@ -6746,6 +6756,13 @@ async function showStudentModal(studentId = null) {
                     </div>
                 `;
             }
+            return;
+        }
+
+        if (!id && (!parentNameVal?.trim() || !/^\d{9}$/.test(pIdNum))) {
+            content.querySelector(`.student-tab-btn[data-tab='st-tab-parent']`)?.click();
+            document.getElementById(!parentNameVal?.trim() ? "student-parent-name" : "student-parent-id")?.focus();
+            if (alertBox) alertBox.innerHTML = '<div class="alert alert-danger p-3 mb-3" dir="rtl">اسم ولي الأمر ورقم هويته المكون من 9 أرقام مطلوبان لربط الطالب بملف العائلة.</div>';
             return;
         }
 
@@ -6879,11 +6896,13 @@ async function showStudentModal(studentId = null) {
                 const parentPassVal = 'تُعين من إدارة الحسابات';
 
                 // Change Modal Title
-                document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> 🎉 تم تسجيل الطالب وتوليد الحساب بنجاح';
+                document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> تم تسجيل الطالب بنجاح';
+                document.getElementById("modal-container").classList.add("student-success-modal");
+                content.scrollTop = 0;
 
                 // Render In-Modal Success Details
                 content.innerHTML = `
-                    <div class="text-center p-2 animate-zoom" dir="rtl">
+                    <div class="student-success-content text-center animate-zoom" dir="rtl">
                         <div class="mb-3">
                             <div style="width: 70px; height: 70px; margin: 0 auto; background: #e8f5e9; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(13,92,58,0.15);">
                                 <i class="fa-solid fa-circle-check text-success" style="font-size: 2.3rem;"></i>
@@ -6893,7 +6912,7 @@ async function showStudentModal(studentId = null) {
                         <h4 class="fw-bold mb-1" style="color: #0d5c3a;">🎉 تمت إضافة الطالب بنجاح!</h4>
                         <p class="text-muted small mb-4">تم حفظ كافة البيانات الشخصية والعائلية وإنشاء حسابات الدخول بالمنظومة فورياً.</p>
 
-                        <div class="row g-3 text-start mb-4">
+                        <div class="row g-3 text-end mb-4">
                             <!-- Student Card -->
                             <div class="col-md-6">
                                 <div class="card p-3 h-100 shadow-sm" style="border-radius: 12px; border: 1.5px solid #a7f3d0; background: #f0fdf4;">
@@ -6928,7 +6947,7 @@ async function showStudentModal(studentId = null) {
                         <!-- WhatsApp Copy Helper -->
                         <div class="alert alert-light border shadow-xs p-2.5 mb-4 text-center d-flex align-items-center justify-content-between flex-wrap gap-2">
                             <span class="small text-muted"><i class="fa-brands fa-whatsapp text-success fs-5 me-1"></i> مشاركة بيانات الدخول مع ولي الأمر فوراً:</span>
-                            <button type="button" class="btn btn-outline-success btn-sm fw-bold px-3" onclick="copyStudentCredentials('${escapeXml(name)}', '${escapeXml(studentUserVal)}', '${escapeXml(studentPassVal)}', '${escapeXml(parentNameFinal)}', '${escapeXml(parentUserVal)}', '${escapeXml(parentPassVal)}', '${escapeXml(circleName)}')">
+                            <button type="button" class="btn btn-outline-success btn-sm fw-bold px-3" id="btn-copy-student-credentials">
                                 <i class="fa-solid fa-copy me-1"></i> نسخ رسالة الدخول لواتساب
                             </button>
                         </div>
@@ -6944,6 +6963,8 @@ async function showStudentModal(studentId = null) {
                         </div>
                     </div>
                 `;
+                document.getElementById("btn-copy-student-credentials")?.addEventListener("click", () =>
+                    copyStudentCredentials(name, studentUserVal, studentPassVal, parentNameFinal, parentUserVal, parentPassVal, circleName));
             }
         } catch(err) {
             console.error(err);

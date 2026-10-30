@@ -204,6 +204,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
     final prevQuranController = TextEditingController(text: student?.previousQuranMemorization ?? '');
     final healthStatusController = TextEditingController(text: student?.healthStatus ?? 'سليم');
 
+    final parentNameController = TextEditingController();
     final parentIdentityController = TextEditingController(text: student?.parentIdentityNumber ?? '');
     final kinshipController = TextEditingController(text: student?.kinship ?? 'أب');
     final contactController = TextEditingController(text: student?.familyContact ?? '');
@@ -389,13 +390,18 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                             children: [
                               _buildSectionTitle('بيانات ولي الأمر والتواصل الأسري'),
                               const SizedBox(height: 12),
+                              TextField(
+                                controller: parentNameController,
+                                decoration: _inputDecoration('اسم ولي الأمر الكامل ${student == null ? '*' : ''}', Icons.person_outline),
+                              ),
+                              const SizedBox(height: 12),
                               Row(
                                 children: [
                                   Expanded(
                                     child: TextField(
                                       controller: parentIdentityController,
                                       keyboardType: TextInputType.number,
-                                      decoration: _inputDecoration('رقم هوية ولي الأمر', Icons.badge_outlined),
+                                      decoration: _inputDecoration('رقم هوية ولي الأمر ${student == null ? '*' : ''}', Icons.badge_outlined),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -582,10 +588,22 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               return;
                             }
 
+                            if (student == null && (parentNameController.text.trim().isEmpty ||
+                                !RegExp(r'^\d{9}$').hasMatch(parentIdentityController.text.trim()) ||
+                                contactController.text.trim().isEmpty)) {
+                              setModalState(() => currentTab = 1);
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text('اسم ولي الأمر ورقم هويته من 9 أرقام ورقم جواله مطلوبة.'),
+                                backgroundColor: Colors.red,
+                              ));
+                              return;
+                            }
+
                             final payload = <String, dynamic>{
                               'fullName': nameController.text.trim(),
                               'studentIdentityNumber': identityController.text.trim().isNotEmpty ? identityController.text.trim() : null,
                               'parentIdentityNumber': parentIdentityController.text.trim().isNotEmpty ? parentIdentityController.text.trim() : null,
+                              'parentName': parentNameController.text.trim().isNotEmpty ? parentNameController.text.trim() : null,
                               'address': addressController.text.trim().isNotEmpty ? addressController.text.trim() : null,
                               'originalAddress': addressController.text.trim().isNotEmpty ? addressController.text.trim() : null,
                               'currentAddress': currentAddressController.text.trim().isNotEmpty ? currentAddressController.text.trim() : null,

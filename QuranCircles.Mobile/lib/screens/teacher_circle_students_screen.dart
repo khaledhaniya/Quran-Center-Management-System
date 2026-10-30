@@ -930,10 +930,15 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
                     ]),
                     _section('ولي الأمر والتواصل'),
                     _fields([
-                      _input(_parentNameController, 'اسم ولي الأمر'),
-                      _input(_extra['parentIdentityNumber']!, 'رقم هوية ولي الأمر', keyboardType: TextInputType.number),
+                      _input(_parentNameController, 'اسم ولي الأمر *',
+                          validator: (v) => v == null || v.trim().isEmpty ? 'اسم ولي الأمر مطلوب' : null),
+                      _input(_extra['parentIdentityNumber']!, 'رقم هوية ولي الأمر *',
+                          keyboardType: TextInputType.number,
+                          validator: (v) => v == null || !RegExp(r'^\d{9}$').hasMatch(v.trim())
+                              ? 'أدخل رقم هوية ولي الأمر من 9 أرقام' : null),
                       _input(_extra['kinship']!, 'صلة القرابة'),
-                      _input(_phoneController, 'هاتف العائلة', keyboardType: TextInputType.phone),
+                      _input(_phoneController, 'هاتف العائلة *', keyboardType: TextInputType.phone,
+                          validator: (v) => v == null || v.trim().isEmpty ? 'هاتف ولي الأمر مطلوب' : null),
                       _input(_extra['studentMobile']!, 'جوال الطالب', keyboardType: TextInputType.phone),
                       _input(_extra['studentWhatsapp']!, 'واتساب الطالب', keyboardType: TextInputType.phone),
                       _input(_extra['whatsappNumber']!, 'واتساب العائلة', keyboardType: TextInputType.phone),
