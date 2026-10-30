@@ -9412,6 +9412,7 @@ body.dark-mode .plan-juz-btn:hover {
 .student-success-content .row,
 .student-success-content .row > div,
 .student-success-content .card { min-width: 0; }
+.student-success-content .row > .col-md-6 { flex: 1 1 calc(50% - 8px); }
 .student-success-content .card { text-align: right; }
 .student-success-content .card li {
     display: flex;
@@ -9445,6 +9446,7 @@ body.dark-mode .plan-juz-btn:hover {
     .student-success-modal .modal-header h3 { font-size: 1rem; }
     .student-success-modal .modal-body { padding: 10px !important; }
     .student-success-content { padding: 4px; }
+    .student-success-content .row > .col-md-6 { flex-basis: 100%; }
     .student-success-content .card { padding: 14px !important; }
     .student-success-content .alert { justify-content: center !important; }
     .student-success-content .alert button,
