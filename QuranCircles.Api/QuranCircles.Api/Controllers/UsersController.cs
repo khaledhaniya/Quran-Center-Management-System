@@ -160,10 +160,13 @@ public class UsersController : ControllerBase
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
-            return BadRequest(new { error = "اسم المستخدم وكلمة المرور مطلوبان." });
+        dto = dto with { Username = RegistrationRules.Digits(dto.Username) ?? "" };
+        if (string.IsNullOrWhiteSpace(dto.Username))
+            return BadRequest(new { error = "اسم المستخدم مطلوب." });
 
-        if (dto.Password.Trim().Length < 8) return BadRequest(new { error = "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل." });
+        var password = PasswordHasher.NewAccountPassword(dto.Password);
+        if (PasswordHasher.PasswordError(password) is string passwordError)
+            return BadRequest(new { error = passwordError });
 
         var taken = await _db.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower().Trim());
         if (taken) return BadRequest(new { error = "اسم المستخدم محجوز بالفعل." });
@@ -219,8 +222,8 @@ public class UsersController : ControllerBase
             StudentId = studentId,
             ParentId = parentId,
             IsActive = true,
-            PasswordHash = _hasher.HashPassword(dto.Password.Trim()),
-            PasswordCiphertext = _vault?.Protect(dto.Password.Trim()) ?? "",
+            PasswordHash = _hasher.HashPassword(password),
+            PasswordCiphertext = _vault?.Protect(password) ?? "",
             PlainPassword = string.Empty
         };
 
@@ -247,8 +250,9 @@ public class UsersController : ControllerBase
     [RequireRole(UserRole.Developer, UserRole.Admin)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
     {
-        if (!string.IsNullOrWhiteSpace(dto.Password) && dto.Password.Trim().Length < 8)
-            return BadRequest(new { error = "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل." });
+        dto = dto with { Username = RegistrationRules.Digits(dto.Username) ?? "" };
+        if (PasswordHasher.PasswordError(dto.Password) is string passwordError)
+            return BadRequest(new { error = passwordError });
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { error = "المستخدم غير موجود." });
 
@@ -471,7 +475,7 @@ public record CreateUserDto(
     string Username,
     string FullName,
     string Role,
-    string Password,
+    string? Password = null,
     int? TeacherId = null,
     int? StudentId = null,
     int? ParentId = null

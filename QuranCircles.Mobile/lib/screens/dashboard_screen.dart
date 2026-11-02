@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -760,9 +761,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text('أدخل التعديلات أو رقم التواصل المحدث لرفع طلب مباشر لإدارة المركز للمراجعة واعتماد التعديل:', style: AppTheme.cairoStyle(fontSize: 12, color: AppTheme.textMuted)),
               const SizedBox(height: 12),
-              TextField(
+              TextFormField(
                 controller: contactController,
                 keyboardType: TextInputType.phone,
+                inputFormatters: const [LimitedDigitsFormatter(10)],
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (v) => RegistrationRules.phoneError(v),
                 decoration: const InputDecoration(labelText: 'رقم هاتف التواصل والعائلة المحدث'),
               ),
               const SizedBox(height: 10),
@@ -780,6 +784,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
             onPressed: () async {
               if (notesController.text.trim().isEmpty) return;
+              final phoneError = RegistrationRules.phoneError(contactController.text);
+              if (phoneError != null) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(phoneError), backgroundColor: Colors.red));
+                return;
+              }
 
               final changes = <String, String>{
                 'familyContact': contactController.text.trim(),

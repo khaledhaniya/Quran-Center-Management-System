@@ -179,8 +179,8 @@ public class SecurityAndSyncTests
         foreach (var identity in new[] { "123456789", "234567890", "345678901" })
         {
             var (_, _, error) = await service.CreateAsync(new CreateStudentDto(
-                "طالب جديد", null, null, null, null, null, null, null,
-                StudentIdentityNumber: identity));
+                "طالب جديد", null, null, "0591234567", null, null, null, null,
+                StudentIdentityNumber: identity, ParentIdentityNumber: "987654321", ParentName: "ولي الأمر"));
             Assert.NotNull(error);
         }
         Assert.Equal(1, await db.Students.CountAsync());

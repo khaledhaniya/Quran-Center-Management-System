@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -35,7 +36,14 @@ class _ParentPortalScreenState extends State<ParentPortalScreen> {
     final profile=Map<String,dynamic>.from(child['profile']??{});
     final controllers={for(final key in fields.keys)key:TextEditingController(text:profile[key]?.toString()??'')};
     bool saving=false;
-    await showDialog(context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,change)=>AlertDialog(title:Text('طلب تعديل بيانات ${child['studentName']}'),scrollable:true,content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('يراجع المركز الطلب قبل اعتماد التعديل على بيانات الطالب.'),...fields.entries.map((f)=>Padding(padding:const EdgeInsets.only(top:12),child:TextField(controller:controllers[f.key],decoration:InputDecoration(labelText:f.value,border:const OutlineInputBorder()))))]),actions:[TextButton(onPressed:saving?null:()=>Navigator.pop(ctx),child:const Text('إلغاء')),FilledButton(onPressed:saving?null:()async{
+    await showDialog(context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,change)=>AlertDialog(title:Text('طلب تعديل بيانات ${child['studentName']}'),scrollable:true,content:Column(mainAxisSize:MainAxisSize.min,children:[const Text('يراجع المركز الطلب قبل اعتماد التعديل على بيانات الطالب.'),...fields.entries.map((f)=>Padding(padding:const EdgeInsets.only(top:12),child:TextFormField(controller:controllers[f.key],
+      keyboardType: f.key == 'familyContact' || f.key == 'studentMobile' ? TextInputType.phone : null,
+      inputFormatters: f.key == 'familyContact' || f.key == 'studentMobile' ? const [LimitedDigitsFormatter(10)] : null,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (v) => f.key == 'familyContact' || f.key == 'studentMobile' ? RegistrationRules.phoneError(v, required: f.key == 'familyContact') : null,
+      decoration:InputDecoration(labelText:f.value,errorMaxLines:2,border:const OutlineInputBorder()))))]),actions:[TextButton(onPressed:saving?null:()=>Navigator.pop(ctx),child:const Text('إلغاء')),FilledButton(onPressed:saving?null:()async{
+      final phoneError = RegistrationRules.phoneError(controllers['familyContact']!.text) ?? RegistrationRules.phoneError(controllers['studentMobile']!.text, required: false);
+      if(phoneError != null){ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content:Text(phoneError),backgroundColor:Colors.red));return;}
       final changes=<String,String>{};controllers.forEach((key,c){if(c.text.trim()!=(profile[key]?.toString()??''))changes[key]=c.text.trim();});
       if(changes.isEmpty){ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content:Text('غيّر أحد الحقول أولاً.')));return;}
       change(()=>saving=true);try{final ok=await ApiService.submitProfileUpdateRequest(studentId:child['studentId'],requestedByRole:'Parent',requestedByName:ApiService.currentUser?.fullName??'',changes:changes);if(!ok)throw Exception('تعذر إرسال الطلب');if(ctx.mounted)Navigator.pop(ctx);if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تم إرسال الطلب إلى إدارة المركز للمراجعة.')));}

@@ -269,8 +269,8 @@ public class AuthController : ControllerBase
         }
 
         var newPw = dto.NewPassword.Trim();
-        if (newPw.Length < 8)
-            return BadRequest(new { error = "يجب أن لا تقل كلمة المرور الجديدة عن 8 خانات." });
+        if (newPw.Length < PasswordHasher.MinimumPasswordLength)
+            return BadRequest(new { error = "يجب أن لا تقل كلمة المرور الجديدة عن 6 خانات." });
 
         user.PasswordHash = _hasher.HashPassword(newPw);
         user.PlainPassword = string.Empty;

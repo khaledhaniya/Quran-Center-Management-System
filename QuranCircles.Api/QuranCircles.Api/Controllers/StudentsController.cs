@@ -177,7 +177,7 @@ public class StudentsController : ControllerBase
             {
                 id = createdParent.Id,
                 username = createdParent.Username,
-                requiresPasswordSetup = true,
+                requiresPasswordSetup = false,
                 fullName = createdParent.FullName
             } : null
         });

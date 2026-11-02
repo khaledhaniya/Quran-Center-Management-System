@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -282,6 +283,11 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () async {
+                final passwordError = RegistrationRules.passwordError(passCtrl.text);
+                if (passwordError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(passwordError), backgroundColor: Colors.red));
+                  return;
+                }
                 final success = await ApiService.updateUser(user.id, {
                   'fullName': nameCtrl.text.trim(),
                   'username': userCtrl.text.trim(),
@@ -316,7 +322,7 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
   void _showCreateUserDialog() {
     final nameCtrl = TextEditingController();
     final userCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
+    final passCtrl = TextEditingController(text: RegistrationRules.defaultPassword);
     String selectedRole = 'Student';
 
     showDialog(
@@ -388,6 +394,11 @@ class _DeveloperUsersScreenState extends State<DeveloperUsersScreen> with Single
               ),
               onPressed: () async {
                 if (userCtrl.text.trim().isEmpty || passCtrl.text.trim().isEmpty) return;
+                final passwordError = RegistrationRules.passwordError(passCtrl.text, required: true);
+                if (passwordError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(passwordError), backgroundColor: Colors.red));
+                  return;
+                }
                 final success = await ApiService.createUser(
                   fullName: nameCtrl.text.trim(),
                   username: userCtrl.text.trim(),

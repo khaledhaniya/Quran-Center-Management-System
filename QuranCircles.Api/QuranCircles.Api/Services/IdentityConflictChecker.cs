@@ -12,8 +12,10 @@ public sealed class IdentityConflictChecker(AppDbContext db)
     public async Task<string?> CheckIdentityAsync(string? identity, int? studentId = null,
         int? teacherId = null, bool allowExistingParentAccount = false)
     {
-        var value = Clean(identity);
+        var value = Clean(RegistrationRules.Digits(identity));
         if (value is null) return null;
+        var formatError = RegistrationRules.IdentityError(value, "رقم الهوية");
+        if (formatError != null) return formatError;
         if (await db.Students.AnyAsync(s => (!studentId.HasValue || s.Id != studentId.Value) && s.StudentIdentityNumber != null &&
             s.StudentIdentityNumber.Trim().ToLower() == value))
             return "رقم الهوية مسجل لطالب آخر.";

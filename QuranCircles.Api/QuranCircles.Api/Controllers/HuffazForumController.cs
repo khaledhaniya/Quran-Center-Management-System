@@ -124,8 +124,10 @@ public class HuffazForumController : ControllerBase
     {
         string memberType = string.IsNullOrWhiteSpace(dto.MemberType) ? "Student" : dto.MemberType.Trim();
         string fullName = dto.FullName?.Trim() ?? "";
-        string? idNumber = dto.IdentityNumber?.Trim();
-        string? phone = dto.PhoneNumber?.Trim();
+        string? idNumber = RegistrationRules.Digits(dto.IdentityNumber);
+        string? phone = RegistrationRules.Digits(dto.PhoneNumber);
+        var inputError = RegistrationRules.IdentityError(idNumber, "رقم الهوية") ?? RegistrationRules.PhoneError(phone);
+        if (inputError != null) return BadRequest(new { error = inputError });
 
         if (memberType == "Teacher")
         {
@@ -196,7 +198,7 @@ public class HuffazForumController : ControllerBase
             var userExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == idNumber.ToLower());
             if (!userExists)
             {
-                var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
+                var generatedPassword = PasswordHasher.DefaultNewAccountPassword;
                 var newUser = new User
                 {
                     Username = idNumber,
@@ -225,6 +227,9 @@ public class HuffazForumController : ControllerBase
     [RequireRole(UserRole.Admin, UserRole.Developer, UserRole.Teacher)]
     public async Task<IActionResult> Update(int id, [FromBody] CreateHuffazMemberDto dto)
     {
+        dto = dto with { IdentityNumber = RegistrationRules.Digits(dto.IdentityNumber), PhoneNumber = RegistrationRules.Digits(dto.PhoneNumber) };
+        var inputError = RegistrationRules.IdentityError(dto.IdentityNumber, "رقم الهوية") ?? RegistrationRules.PhoneError(dto.PhoneNumber);
+        if (inputError != null) return BadRequest(new { error = inputError });
         var member = await _db.HuffazMembers.FindAsync(id);
         if (member == null) return NotFound(new { error = "عضو المنتدى غير موجود." });
 

@@ -429,18 +429,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 hintText: 'أدخل كلمة المرور الحالية...',
                                 hintStyle: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade400),
                                 prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.primary, size: 22),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _isPasswordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                                    color: _isPasswordVisible ? AppTheme.primary : Colors.grey.shade500,
-                                    size: 22,
+                                suffixIcon: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    decoration: BoxDecoration(
+                                      color: _isPasswordVisible ? const Color(0xFFD9EFE1) : const Color(0xFFEDF4EF),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: IconButton(
+                                      icon: AnimatedSwitcher(duration: const Duration(milliseconds: 180),
+                                        child: Icon(_isPasswordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                                          key: ValueKey(_isPasswordVisible), color: AppTheme.primary, size: 21)),
+                                      tooltip: _isPasswordVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور',
+                                      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                                    ),
                                   ),
-                                  tooltip: _isPasswordVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور',
-                                  onPressed: () {
-                                    setState(() {
-                                      _isPasswordVisible = !_isPasswordVisible;
-                                    });
-                                  },
                                 ),
                                 filled: true,
                                 fillColor: const Color(0xFFF8FAFC),

@@ -18,6 +18,32 @@ public class ProfileUpdateRequestsController : ControllerBase
         _db = db;
     }
 
+    private async Task<string?> ValidateChangesAsync(Dictionary<string, string> changes, Student? student)
+    {
+        foreach (var key in new[] { "studentIdentityNumber", "parentIdentityNumber", "familyContact", "studentMobile" })
+        {
+            if (!changes.TryGetValue(key, out var value)) continue;
+            changes[key] = RegistrationRules.Digits(value) ?? "";
+            var error = key.EndsWith("IdentityNumber")
+                ? RegistrationRules.IdentityError(changes[key], "رقم الهوية")
+                : RegistrationRules.PhoneError(changes[key], key == "familyContact");
+            if (error != null) return error;
+        }
+        foreach (var key in new[] { "whatsappNumber", "studentWhatsapp" })
+        {
+            if (!changes.TryGetValue(key, out var value)) continue;
+            var error = RegistrationRules.WhatsAppError(value);
+            if (error != null) return error;
+            changes[key] = RegistrationRules.WhatsApp(value) ?? "";
+        }
+        var identity = changes.TryGetValue("studentIdentityNumber", out var submittedIdentity) ? submittedIdentity : student?.StudentIdentityNumber;
+        var parentIdentity = changes.TryGetValue("parentIdentityNumber", out var submittedParentIdentity) ? submittedParentIdentity : student?.ParentIdentityNumber;
+        if (RegistrationRules.SameIdentity(identity, parentIdentity)) return "هوية الطالب تطابق هوية ولي الأمر بالكامل.";
+        if (changes.ContainsKey("studentIdentityNumber"))
+            return await new IdentityConflictChecker(_db).CheckIdentityAsync(identity, studentId: student?.Id);
+        return null;
+    }
+
     public record SubmitRequestDto(
         int? StudentId,
         string RequestedByRole,
@@ -40,6 +66,8 @@ public class ProfileUpdateRequestsController : ControllerBase
         if(dto.StudentId.HasValue&&target==null)return NotFound();
         if(target!=null&&user.Role is not (UserRole.Admin or UserRole.Developer)&&user.StudentId!=target.Id&&!ParentLinks.IsChild(user,target))return Forbid();
         if(dto.Changes==null||dto.Changes.Count==0||dto.Changes.Count>50||dto.Changes.Any(c=>c.Key.Length>64||(c.Value?.Length??0)>4000))return BadRequest(new {error="تحقق من البيانات المطلوب تعديلها."});
+        var fieldError = await ValidateChangesAsync(dto.Changes, target);
+        if (fieldError != null) return BadRequest(new { error = fieldError });
 
         var req = new ProfileUpdateRequest
         {
@@ -126,6 +154,12 @@ public class ProfileUpdateRequestsController : ControllerBase
 
         if (req.Status != "Pending")
             return BadRequest(new { error = "تم اتخاذ قرار سابق بشأن هذا الطلب." });
+
+        var pendingChanges = JsonSerializer.Deserialize<Dictionary<string, string>>(req.ChangesJson) ?? new();
+        var target = req.StudentId.HasValue ? await _db.Students.FindAsync(req.StudentId.Value) : null;
+        var fieldError = await ValidateChangesAsync(pendingChanges, target);
+        if (fieldError != null) return BadRequest(new { error = fieldError });
+        req.ChangesJson = JsonSerializer.Serialize(pendingChanges);
 
         req.Status = "Approved";
         req.ReviewDate = DateTime.UtcNow;

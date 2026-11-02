@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
+import '../widgets/whatsapp_number_field.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -209,7 +211,8 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
     final kinshipController = TextEditingController(text: student?.kinship ?? 'أب');
     final contactController = TextEditingController(text: student?.familyContact ?? '');
     final studentMobileController = TextEditingController(text: student?.studentMobile ?? '');
-    final studentWhatsappController = TextEditingController(text: student?.studentWhatsapp ?? student?.whatsappNumber ?? '');
+    final studentWhatsappController = TextEditingController(text: student?.studentWhatsapp ?? '');
+    final familyWhatsappController = TextEditingController(text: student?.whatsappNumber ?? '');
     String fatherStatus = student?.fatherStatus ?? 'سليم';
     String motherStatus = student?.motherStatus ?? 'سليم';
 
@@ -218,7 +221,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
     final notesController = TextEditingController(text: student?.notes ?? '');
 
     final usernameController = TextEditingController(text: student?.username ?? student?.studentIdentityNumber ?? '');
-    final passwordController = TextEditingController();
+    final passwordController = TextEditingController(text: student == null ? RegistrationRules.defaultPassword : '');
     int? selectedCircleId = student?.circleId;
     int currentTab = 0;
 
@@ -333,9 +336,12 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: TextField(
+                                    child: TextFormField(
                                       controller: identityController,
                                       keyboardType: TextInputType.number,
+                                      inputFormatters: const [LimitedDigitsFormatter(9)],
+                                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                                      validator: (v) => RegistrationRules.identityError(v, required: student == null),
                                       decoration: _inputDecoration('رقم هوية الطالب (9 أرقام)', Icons.credit_card),
                                     ),
                                   ),
@@ -398,9 +404,12 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: TextField(
+                                    child: TextFormField(
                                       controller: parentIdentityController,
                                       keyboardType: TextInputType.number,
+                                      inputFormatters: const [LimitedDigitsFormatter(9)],
+                                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                                      validator: (v) => RegistrationRules.identityError(v, required: student == null),
                                       decoration: _inputDecoration('رقم هوية ولي الأمر ${student == null ? '*' : ''}', Icons.badge_outlined),
                                     ),
                                   ),
@@ -417,9 +426,12 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: TextField(
+                                    child: TextFormField(
                                       controller: contactController,
                                       keyboardType: TextInputType.phone,
+                                      inputFormatters: const [LimitedDigitsFormatter(10)],
+                                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                                      validator: (v) => RegistrationRules.phoneError(v),
                                       decoration: _inputDecoration('هاتف العائلة الرئيسي *', Icons.phone_outlined),
                                     ),
                                   ),
@@ -428,17 +440,16 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                                     child: TextField(
                                       controller: studentMobileController,
                                       keyboardType: TextInputType.phone,
+                                      inputFormatters: const [LimitedDigitsFormatter(10)],
                                       decoration: _inputDecoration('جوال الطالب الشخصي', Icons.smartphone),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              TextField(
-                                controller: studentWhatsappController,
-                                keyboardType: TextInputType.phone,
-                                decoration: _inputDecoration('رقم الواتساب للتواصل والتعاميم', Icons.chat_bubble_outline),
-                              ),
+                              WhatsAppNumberField(controller: familyWhatsappController, label: 'واتساب العائلة (اختياري)'),
+                              const SizedBox(height: 12),
+                              WhatsAppNumberField(controller: studentWhatsappController, label: 'واتساب الطالب (اختياري)'),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
@@ -588,6 +599,24 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               return;
                             }
 
+                            final inputError = RegistrationRules.identityError(identityController.text, required: student == null) ??
+                                RegistrationRules.identityError(parentIdentityController.text, required: student == null) ??
+                                RegistrationRules.phoneError(contactController.text) ??
+                                RegistrationRules.phoneError(studentMobileController.text, required: false) ??
+                                RegistrationRules.whatsAppError(familyWhatsappController.text) ??
+                                RegistrationRules.whatsAppError(studentWhatsappController.text) ??
+                                RegistrationRules.passwordError(passwordController.text);
+                            if (inputError != null) {
+                              setModalState(() => currentTab = RegistrationRules.identityError(identityController.text, required: student == null) != null ? 0 : 1);
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(inputError), backgroundColor: Colors.red));
+                              return;
+                            }
+                            if (RegistrationRules.sameIdentity(identityController.text, parentIdentityController.text)) {
+                              setModalState(() => currentTab = 1);
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('هوية الطالب تطابق هوية ولي الأمر بالكامل.'), backgroundColor: Colors.red));
+                              return;
+                            }
+
                             if (student == null && (parentNameController.text.trim().isEmpty ||
                                 !RegExp(r'^\d{9}$').hasMatch(parentIdentityController.text.trim()) ||
                                 contactController.text.trim().isEmpty)) {
@@ -610,6 +639,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
                               'familyContact': contactController.text.trim(),
                               'studentMobile': studentMobileController.text.trim().isNotEmpty ? studentMobileController.text.trim() : null,
                               'studentWhatsapp': studentWhatsappController.text.trim().isNotEmpty ? studentWhatsappController.text.trim() : null,
+                              'whatsappNumber': familyWhatsappController.text.trim().isNotEmpty ? familyWhatsappController.text.trim() : null,
                               'healthStatus': healthStatusController.text.trim().isNotEmpty ? healthStatusController.text.trim() : 'سليم',
                               'previousQuranMemorization': prevQuranController.text.trim().isNotEmpty ? prevQuranController.text.trim() : null,
                               'kinship': kinshipController.text.trim().isNotEmpty ? kinshipController.text.trim() : null,
@@ -741,6 +771,7 @@ class _StudentsManagementScreenState extends State<StudentsManagementScreen> {
   static InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
+      errorMaxLines: 2,
       labelStyle: AppTheme.cairoStyle(fontSize: 12, color: Colors.grey.shade700),
       prefixIcon: Icon(icon, color: const Color(0xFF0D5C3A), size: 18),
       filled: true,

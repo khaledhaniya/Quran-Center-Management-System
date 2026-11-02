@@ -303,7 +303,7 @@ public static partial class DbSeeder
                             dbParentUser = new User
                             {
                                 Username = parentIdKey,
-                                PasswordHash = hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                                PasswordHash = hasher.HashPassword(PasswordHasher.DefaultNewAccountPassword),
                                 PlainPassword = string.Empty,
                                 Role = UserRole.Parent,
                                 FullName = pName,
@@ -358,7 +358,7 @@ public static partial class DbSeeder
                     db.Users.Add(new User
                     {
                         Username = stUsername,
-                        PasswordHash = hasher.HashPassword(PasswordHasher.GenerateTemporaryPassword()),
+                        PasswordHash = hasher.HashPassword(PasswordHasher.DefaultNewAccountPassword),
                         PlainPassword = string.Empty,
                         Role = UserRole.Student,
                         FullName = student.FullName,

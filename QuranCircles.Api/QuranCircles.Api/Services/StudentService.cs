@@ -200,13 +200,25 @@ public class StudentService
 
     public async Task<(Student? created, User? createdParent, string? error)> CreateAsync(CreateStudentDto dto)
     {
+        dto = dto with {
+            Username = RegistrationRules.Digits(dto.Username),
+            StudentIdentityNumber = RegistrationRules.Digits(dto.StudentIdentityNumber),
+            ParentIdentityNumber = RegistrationRules.Digits(dto.ParentIdentityNumber),
+            FamilyContact = RegistrationRules.Digits(dto.FamilyContact),
+            WhatsappNumber = RegistrationRules.WhatsApp(dto.WhatsappNumber),
+            StudentWhatsapp = RegistrationRules.WhatsApp(dto.StudentWhatsapp)
+        };
         var err = Validate(dto.FullName, dto.FamilyContact, dto.DateOfBirth);
         if (err is not null) return (null, null, err);
+        err = RegistrationRules.IdentityError(dto.StudentIdentityNumber, "رقم هوية الطالب") ??
+            RegistrationRules.PhoneError(dto.FamilyContact, true) ??
+            RegistrationRules.WhatsAppError(dto.WhatsappNumber) ?? RegistrationRules.WhatsAppError(dto.StudentWhatsapp) ??
+            PasswordHasher.PasswordError(dto.Password);
+        if (err != null) return (null, null, err);
 
         if (string.IsNullOrWhiteSpace(dto.ParentName))
             return (null, null, "اسم ولي الأمر مطلوب لتسجيل الطالب وربطه بملف العائلة.");
-        if (string.IsNullOrWhiteSpace(dto.ParentIdentityNumber) ||
-            !System.Text.RegularExpressions.Regex.IsMatch(dto.ParentIdentityNumber.Trim(), @"^\d{9}$"))
+        if (RegistrationRules.IdentityError(dto.ParentIdentityNumber, "رقم هوية ولي الأمر", true) != null)
             return (null, null, "رقم هوية ولي الأمر مطلوب ويجب أن يتكون من 9 أرقام.");
         if (string.IsNullOrWhiteSpace(dto.FamilyContact))
             return (null, null, "رقم جوال ولي الأمر مطلوب.");
@@ -215,8 +227,8 @@ public class StudentService
         var parentIdentity = dto.ParentIdentityNumber?.Trim();
         if (await _db.Students.AnyAsync(s => s.StudentIdentityNumber == parentIdentity))
             return (null, null, "هوية ولي الأمر مسجلة كهوية طالب آخر؛ راجع رقم الهوية قبل التسجيل.");
-        if (!string.IsNullOrEmpty(identity) && identity == parentIdentity)
-            return (null, null, "هوية الطالب لا يمكن أن تكون هوية ولي أمره.");
+        if (RegistrationRules.SameIdentity(identity, parentIdentity))
+            return (null, null, "رقم هوية الطالب يطابق رقم هوية ولي الأمر بالكامل؛ أدخل هوية مختلفة للطالب.");
         if (!string.IsNullOrEmpty(parentIdentity) &&
             string.Equals(dto.Username?.Trim(), parentIdentity, StringComparison.OrdinalIgnoreCase))
             return (null, null, "اسم دخول الطالب لا يمكن أن يكون هوية ولي أمره.");
@@ -252,7 +264,7 @@ public class StudentService
                 {
                     if (await _db.Users.AnyAsync(u => u.Username == pIdNum))
                         return (null, null, "هوية ولي الأمر مستخدمة لحساب آخر؛ راجع إدارة الحسابات قبل التسجيل.");
-                    var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
+                    var generatedPassword = PasswordHasher.DefaultNewAccountPassword;
                     teacherUser = new User
                     {
                         Username = pIdNum,
@@ -301,7 +313,7 @@ public class StudentService
                     if (!resolvedParentId.HasValue)
                     {
                         // 4. Create new Parent user
-                        var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
+                        var generatedPassword = PasswordHasher.DefaultNewAccountPassword;
                         newlyCreatedParent = new User
                         {
                             Username = pIdNum,
@@ -375,7 +387,7 @@ public class StudentService
             }
             else
             {
-                string stPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : PasswordHasher.GenerateTemporaryPassword();
+                string stPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : PasswordHasher.DefaultNewAccountPassword;
                 var stUser = new User
                 {
                     Username = stUsername,
@@ -397,6 +409,19 @@ public class StudentService
 
     public async Task<(bool success, string? error)> UpdateAsync(int id, UpdateStudentDto dto)
     {
+        dto = dto with {
+            Username = RegistrationRules.Digits(dto.Username),
+            StudentIdentityNumber = RegistrationRules.Digits(dto.StudentIdentityNumber),
+            ParentIdentityNumber = RegistrationRules.Digits(dto.ParentIdentityNumber),
+            FamilyContact = RegistrationRules.Digits(dto.FamilyContact),
+            WhatsappNumber = RegistrationRules.WhatsApp(dto.WhatsappNumber),
+            StudentWhatsapp = RegistrationRules.WhatsApp(dto.StudentWhatsapp)
+        };
+        var inputError = RegistrationRules.IdentityError(dto.StudentIdentityNumber, "رقم هوية الطالب") ??
+            RegistrationRules.IdentityError(dto.ParentIdentityNumber, "رقم هوية ولي الأمر") ??
+            RegistrationRules.PhoneError(dto.FamilyContact) ?? RegistrationRules.WhatsAppError(dto.WhatsappNumber) ??
+            RegistrationRules.WhatsAppError(dto.StudentWhatsapp) ?? PasswordHasher.PasswordError(dto.Password);
+        if (inputError != null) return (false, inputError);
         var s = await _db.Students.FindAsync(id);
         if (s is null) return (false, "الطالب غير موجود.");
 
@@ -406,8 +431,7 @@ public class StudentService
         var errIdentity = await checker.CheckIdentityAsync(identity, studentId: id);
         if (errIdentity is not null) return (false, errIdentity);
         var parentIdentity = dto.ParentIdentityNumber ?? s.ParentIdentityNumber;
-        if (!string.IsNullOrWhiteSpace(identity) &&
-            string.Equals(identity.Trim(), parentIdentity?.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (RegistrationRules.SameIdentity(identity, parentIdentity))
             return (false, "هوية الطالب لا يمكن أن تكون هوية ولي أمره.");
         if (!string.IsNullOrWhiteSpace(dto.Username) &&
             string.Equals(dto.Username.Trim(), parentIdentity?.Trim(), StringComparison.OrdinalIgnoreCase))
@@ -485,7 +509,7 @@ public class StudentService
                 }
                 else
                 {
-                    var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
+                    var generatedPassword = PasswordHasher.DefaultNewAccountPassword;
                     teacherUser = new User
                     {
                         Username = pIdNum,
@@ -532,7 +556,7 @@ public class StudentService
                     else
                     {
                         // 4. Create new Parent user
-                        var generatedPassword = PasswordHasher.GenerateTemporaryPassword();
+                        var generatedPassword = PasswordHasher.DefaultNewAccountPassword;
                         var newParent = new User
                         {
                             Username = pIdNum,
@@ -597,7 +621,7 @@ public class StudentService
             var taken = await _db.Users.AnyAsync(u => u.Username.ToLower() == finalUName.ToLower());
             if (taken) return (false, "اسم المستخدم محجوز بالفعل لمستخدم أو طالب آخر.");
 
-            string finalPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : PasswordHasher.GenerateTemporaryPassword();
+            string finalPw = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : PasswordHasher.DefaultNewAccountPassword;
             var newStUser = new User
             {
                 Username = finalUName,

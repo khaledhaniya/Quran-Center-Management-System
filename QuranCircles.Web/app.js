@@ -419,6 +419,10 @@ function setupAuth() {
             if (pwInput) {
                 const isPassword = pwInput.type === "password";
                 pwInput.type = isPassword ? "text" : "password";
+                toggleLoginPwBtn.classList.toggle('is-visible', isPassword);
+                toggleLoginPwBtn.setAttribute('aria-pressed', String(isPassword));
+                toggleLoginPwBtn.setAttribute('aria-label', isPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+                toggleLoginPwBtn.title = isPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور';
                 if (icon) {
                     icon.className = isPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
                 }
@@ -3996,10 +4000,11 @@ async function showTeacherModal(teacherId = null) {
             renderChips();
         },
         preConfirm: () => {
+            if (!RegistrationFields.validate(Swal.getPopup())) return false;
             const fullName = document.getElementById("swal-tch-name").value.trim();
             const identityNumber = document.getElementById("swal-tch-id").value.trim();
             const contact = document.getElementById("swal-tch-phone").value.trim();
-            const whatsappNumber = document.getElementById("swal-tch-whatsapp").value.trim();
+            const whatsappNumber = RegistrationFields.readWhatsApp("swal-tch-whatsapp");
             const qualification = document.getElementById("swal-tch-qual").value.trim();
             const mosqueName = document.getElementById("swal-tch-mosque").value.trim();
             const socialStatus = document.getElementById("swal-tch-social").value;
@@ -4014,8 +4019,8 @@ async function showTeacherModal(teacherId = null) {
                 Swal.showValidationMessage("يرجى إدخال الاسم الرباعي للمعلم.");
                 return false;
             }
-            if (!identityNumber) {
-                Swal.showValidationMessage("يرجى إدخال رقم الهوية الوطنية (يُستخدم كاسم مستخدم للدخول).");
+            if (RegistrationFields.identityError(identityNumber, true)) {
+                Swal.showValidationMessage("رقم هوية المعلم يجب أن يكون 9 أرقام بالضبط.");
                 return false;
             }
 
@@ -6306,7 +6311,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-id-num" class="form-label-custom">رقم هوية الطالب</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-id-card input-icon text-primary"></i>
-                                    <input type="text" id="student-id-num" class="form-control-custom font-monospace" placeholder="رقم هوية الطالب (9 أرقام)" value="${escapeXml(s ? (s.studentIdentityNumber || '') : '')}">
+                                    <input type="text" id="student-id-num" class="form-control-custom font-monospace" placeholder="رقم هوية الطالب (9 أرقام)" ${studentId ? '' : 'required'} value="${escapeXml(s ? (s.studentIdentityNumber || '') : '')}">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -6361,7 +6366,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-parent-id" class="form-label-custom"><i class="fa-solid fa-id-card text-success"></i> رقم هوية ولي الأمر <span class="text-danger">${studentId ? '' : '*'}</span></label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-magnifying-glass input-icon text-success"></i>
-                                    <input type="text" id="student-parent-id" class="form-control-custom border-success font-monospace" placeholder="أدخل رقم هوية الأب..." value="${escapeXml(s ? (s.parentIdentityNumber || '') : '')}">
+                                    <input type="text" id="student-parent-id" class="form-control-custom border-success font-monospace" placeholder="أدخل رقم هوية الأب..." ${studentId ? '' : 'required'} value="${escapeXml(s ? (s.parentIdentityNumber || '') : '')}">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -6531,10 +6536,10 @@ async function showStudentModal(studentId = null) {
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="student-username" class="form-label-custom">اسم المستخدم للطالب (Username) <span class="text-danger">*</span></label>
+                                <label for="student-username" class="form-label-custom">اسم المستخدم للطالب (رقم الهوية افتراضيًا)</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-id-card input-icon text-primary"></i>
-                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="أدخل اسم المستخدم أو رقم الهوية..." value="${escapeXml(resolvedStudentUsername || (s ? (s.username || s.studentIdentityNumber) : '') || ('st_' + (studentId || '')))}">
+                                    <input type="text" id="student-username" class="form-control-custom font-monospace" placeholder="اتركه فارغًا لاستخدام هوية الطالب" value="${escapeXml(resolvedStudentUsername || (s ? (s.username || s.studentIdentityNumber) : '') || (studentId ? 'st_' + studentId : ''))}">
                                 </div>
                                 <small class="form-text text-muted"><i class="fa-solid fa-user-pen me-1 text-primary"></i> تستطيع كتابة وتعديل اسم المستخدم بنفسك يدوياً كما تشاء.</small>
                             </div>
@@ -6542,7 +6547,7 @@ async function showStudentModal(studentId = null) {
                                 <label for="student-password" class="form-label-custom">كلمة المرور للطالب ${studentId ? '(اختياري)' : '<span class="text-danger">*</span>'}</label>
                                 <div class="input-icon-wrapper">
                                     <i class="fa-solid fa-lock input-icon text-success"></i>
-                                    <input type="password" id="student-password" class="form-control-custom font-monospace" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'أدخل كلمة مرور...'}" value="">
+                                    <input type="password" id="student-password" class="form-control-custom font-monospace" minlength="6" placeholder="${studentId ? 'اتركها فارغة للإبقاء على الحالية أو اكتب كلمة جديدة...' : 'الافتراضية 123456'}" value="${studentId ? '' : '123456'}">
                                 </div>
                                 ${studentId ? `<small class="form-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> اترك كلمة المرور فارغة إذا كنت لا ترغب بتغييرها.</small>` : ''}
                             </div>
@@ -6669,7 +6674,7 @@ async function showStudentModal(studentId = null) {
                             • لم يُعثر على حساب سابق برقم الهوية: <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${escapeXml(val)}</code><br>
                             • اسم ولي الأمر للحساب الجديد: <span class="fw-bold text-success">${escapeXml(fatherName)}</span><br>
                             • اسم المستخدم (رقم الهوية): <code class="bg-white text-dark px-2 py-1 rounded border border-info fw-bold">${escapeXml(val)}</code><br>
-                            • كلمة المرور: تُعين من إدارة الحسابات
+                            • كلمة المرور الافتراضية للحساب الجديد: 123456
                         </div>
                     </div>
                 `;
@@ -6702,7 +6707,7 @@ async function showStudentModal(studentId = null) {
         const fatherStat = (document.getElementById("student-father-status")?.value || "").trim();
         const motherStat = (document.getElementById("student-mother-status")?.value || "").trim();
         const contact = (document.getElementById("student-contact")?.value || "").trim();
-        const whatsapp = (document.getElementById("student-whatsapp")?.value || "").trim();
+        const whatsapp = RegistrationFields.readWhatsApp("student-whatsapp");
         const wallet = (document.getElementById("student-wallet")?.value || "").trim();
         const bankAcc = (document.getElementById("student-bank-acc")?.value || "").trim();
         const bankName = (document.getElementById("student-bank-name")?.value || "").trim();
@@ -6859,11 +6864,11 @@ async function showStudentModal(studentId = null) {
                 const circleObj = cachedCircles.find(c => c.id == circleIdVal);
                 const circleName = circleObj ? circleObj.name : (circleIdVal ? 'الحلقة المحددة' : 'بدون حلقة حالياً');
                 const studentUserVal = dto.username || stIdNum || '-';
-                const studentPassVal = dto.password || 'تُعين من إدارة الحسابات';
+                const studentPassVal = dto.password || RegistrationFields.defaultPassword;
 
                 const parentNameFinal = (res && res.createdParent) ? res.createdParent.fullName : (parentNameVal || 'ولي الأمر المسجل');
                 const parentUserVal = (res && res.createdParent) ? res.createdParent.username : (pIdNum || 'مسجل مسبقاً');
-                const parentPassVal = 'تُعين من إدارة الحسابات';
+                const parentPassVal = res?.createdParent ? RegistrationFields.defaultPassword : 'كلمة المرور الحالية للحساب';
 
                 // Change Modal Title
                 document.getElementById("modal-title").innerHTML = '<i class="fa-solid fa-circle-check text-success me-2"></i> تم تسجيل الطالب بنجاح';
@@ -7200,8 +7205,8 @@ async function showProfileUpdateRequestModal(studentId, studentName) {
             motherStatus: document.getElementById("req-mother-status")?.value.trim() || '',
             familyContact: document.getElementById("req-family-contact")?.value.trim() || '',
             studentMobile: document.getElementById("req-student-mobile")?.value.trim() || '',
-            whatsappNumber: document.getElementById("req-whatsapp")?.value.trim() || '',
-            studentWhatsapp: document.getElementById("req-student-whatsapp")?.value.trim() || '',
+            whatsappNumber: RegistrationFields.readWhatsApp("req-whatsapp"),
+            studentWhatsapp: RegistrationFields.readWhatsApp("req-student-whatsapp"),
             address: document.getElementById("req-address")?.value.trim() || '',
             currentAddress: document.getElementById("req-curr-address")?.value.trim() || '',
             currentHousingType: document.getElementById("req-curr-type")?.value.trim() || '',
@@ -9139,7 +9144,7 @@ function showCreateUserModal() {
 
                 <div class="form-group">
                     <label for="create-user-password">كلمة المرور (Password):</label>
-                    <input type="text" id="create-user-password" class="form-control font-monospace fw-bold" required placeholder="أدخل كلمة مرور للحساب...">
+                    <input type="text" id="create-user-password" class="form-control font-monospace fw-bold" required minlength="6" value="123456" placeholder="الافتراضية 123456">
                 </div>
             </div>
 
@@ -9223,7 +9228,7 @@ function showEditUserModal(user) {
                 <div class="form-group">
                     <label for="edit-user-password">تعيين كلمة مرور جديدة (اختياري):</label>
                     <div class="input-group">
-                        <input type="password" id="edit-user-password" class="form-control font-monospace fw-bold" autocomplete="new-password" placeholder="اتركها فارغة للإبقاء على الكلمة الحالية">
+                        <input type="password" id="edit-user-password" class="form-control font-monospace fw-bold" minlength="6" autocomplete="new-password" placeholder="اتركها فارغة للإبقاء على الكلمة الحالية">
                     </div>
                     <small class="form-helper-text text-muted"><i class="fa-solid fa-key me-1 text-warning"></i> تظهر الكلمات التي عُيّنت بعد تفعيل هذه الميزة، وكذلك الكلمات القديمة بعد دخول أصحابها. يمكنك إعادة تعيين الكلمات التي لم تظهر بعد.</small>
                 </div>
@@ -9381,18 +9386,18 @@ window.showChangeMyPasswordModal = function() {
                 <div class="form-group mb-3">
                     <label for="change-pw-new" class="fw-bold"><i class="fa-solid fa-key text-success me-1"></i> كلمة المرور الجديدة:</label>
                     <div class="input-group">
-                        <input type="password" id="change-pw-new" class="form-control font-monospace fw-bold" required minlength="8" placeholder="أدخل كلمة المرور الجديدة...">
+                        <input type="password" id="change-pw-new" class="form-control font-monospace fw-bold" required minlength="6" placeholder="أدخل كلمة المرور الجديدة...">
                         <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-new'); p.type = (p.type === 'password' ? 'text' : 'password');">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                     </div>
-                    <small class="form-helper-text text-muted"><i class="fa-solid fa-circle-info me-1"></i> يجب أن لا تقل كلمة المرور عن 8 خانات.</small>
+                    <small class="form-helper-text text-muted"><i class="fa-solid fa-circle-info me-1"></i> يجب أن لا تقل كلمة المرور عن 6 خانات.</small>
                 </div>
 
                 <div class="form-group mb-3">
                     <label for="change-pw-confirm" class="fw-bold"><i class="fa-solid fa-circle-check text-success me-1"></i> تأكيد كلمة المرور الجديدة:</label>
                     <div class="input-group">
-                        <input type="password" id="change-pw-confirm" class="form-control font-monospace fw-bold" required minlength="8" placeholder="أعد إدخال كلمة المرور الجديدة للتأكيد...">
+                        <input type="password" id="change-pw-confirm" class="form-control font-monospace fw-bold" required minlength="6" placeholder="أعد إدخال كلمة المرور الجديدة للتأكيد...">
                         <button class="btn btn-outline-secondary" type="button" onclick="const p = document.getElementById('change-pw-confirm'); p.type = (p.type === 'password' ? 'text' : 'password');">
                             <i class="fa-solid fa-eye"></i>
                         </button>
@@ -19014,6 +19019,10 @@ async function showAddEditHuffazMemberModal(memberId = null) {
             if (memberType === "External" && !extName) {
                 Swal.showValidationMessage("يرجى إدخال الاسم الرباعي للحافظ الخارجي.");
                 return false;
+            }
+            if (memberType === "External") {
+                const fieldError = RegistrationFields.identityError(extId) || RegistrationFields.phoneError(extPhone);
+                if (fieldError) { Swal.showValidationMessage(fieldError); return false; }
             }
 
             return {

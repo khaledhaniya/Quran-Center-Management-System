@@ -968,9 +968,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
                         );
                         return;
                       }
-                      if (newPw.length < 8) {
+                      if (newPw.length < 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('يجب ألا تقل كلمة المرور عن 8 أحرف', style: AppTheme.cairoStyle())),
+                          SnackBar(content: Text('يجب ألا تقل كلمة المرور عن 6 أحرف', style: AppTheme.cairoStyle())),
                         );
                         return;
                       }

@@ -46,8 +46,14 @@ public class TeacherService
 
     public async Task<(TeacherDto? dto, string? error)> CreateAsync(CreateTeacherDto dto)
     {
+        dto = dto with { IdentityNumber = RegistrationRules.Digits(dto.IdentityNumber),
+            Contact = RegistrationRules.Digits(dto.Contact), WhatsappNumber = RegistrationRules.WhatsApp(dto.WhatsappNumber) };
         var err = Validate(dto.FullName, dto.Contact, dto.DateOfBirth);
         if (err is not null) return (null, err);
+        err = RegistrationRules.IdentityError(dto.IdentityNumber, "رقم هوية المعلم") ??
+            RegistrationRules.PhoneError(dto.Contact) ?? RegistrationRules.WhatsAppError(dto.WhatsappNumber) ??
+            PasswordHasher.PasswordError(dto.Password);
+        if (err != null) return (null, err);
 
         var idNumber = !string.IsNullOrWhiteSpace(dto.IdentityNumber) ? dto.IdentityNumber.Trim() : null;
         var preferredUsername = !string.IsNullOrWhiteSpace(idNumber)
@@ -62,7 +68,7 @@ public class TeacherService
         if (err is not null) return (null, err);
 
         var password = string.IsNullOrWhiteSpace(dto.Password)
-            ? PasswordHasher.GenerateTemporaryPassword()
+            ? PasswordHasher.DefaultNewAccountPassword
             : dto.Password.Trim();
 
         var t = new Teacher
@@ -156,6 +162,11 @@ public class TeacherService
 
     public async Task<(bool ok, string? error)> UpdateAsync(int id, UpdateTeacherDto dto)
     {
+        dto = dto with { IdentityNumber = RegistrationRules.Digits(dto.IdentityNumber),
+            Contact = RegistrationRules.Digits(dto.Contact), WhatsappNumber = RegistrationRules.WhatsApp(dto.WhatsappNumber) };
+        var inputError = RegistrationRules.IdentityError(dto.IdentityNumber, "رقم هوية المعلم") ??
+            RegistrationRules.PhoneError(dto.Contact) ?? RegistrationRules.WhatsAppError(dto.WhatsappNumber);
+        if (inputError != null) return (false, inputError);
         var t = await _db.Teachers.FindAsync(id);
         if (t is null) return (false, "المعلّم غير موجود.");
 

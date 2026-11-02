@@ -15,6 +15,7 @@ jobs:
           dotnet-version: '9.0.x'
       - run: dotnet test QuranCircles.Api.Tests/QuranCircles.Api.Tests.csproj -c Release
       - run: node --check QuranCircles.Web/app.js
+      - run: node --test tools/registration-fields.test.cjs
       - run: python -m unittest discover -s tools -p 'test_*.py'
   flutter:
     runs-on: ubuntu-latest

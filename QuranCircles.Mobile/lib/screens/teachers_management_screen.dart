@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
+import '../widgets/whatsapp_number_field.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -361,7 +363,7 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
     final walletOwnerCtrl = TextEditingController(text: teacher?.walletOwner ?? '');
     final familyCountCtrl = TextEditingController(text: teacher?.familyMembersCount?.toString() ?? '');
     final targetStudentsCtrl = TextEditingController(text: teacher?.studentsCountTarget ?? '');
-    final passwordCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController(text: teacher == null ? RegistrationRules.defaultPassword : '');
 
     final availableRoles = TeacherRoleHelper.availableInputRoles;
 
@@ -462,22 +464,30 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: TextField(
+                              child: TextFormField(
                                 controller: idCtrl,
                                 keyboardType: TextInputType.number,
+                                inputFormatters: const [LimitedDigitsFormatter(9)],
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                validator: (v) => RegistrationRules.identityError(v),
                                 decoration: const InputDecoration(
                                   labelText: 'رقم الهوية الوطنية',
+                                  errorMaxLines: 2,
                                   prefixIcon: Icon(Icons.perm_identity),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: TextField(
+                              child: TextFormField(
                                 controller: contactCtrl,
                                 keyboardType: TextInputType.phone,
+                                inputFormatters: const [LimitedDigitsFormatter(10)],
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                validator: (v) => RegistrationRules.phoneError(v),
                                 decoration: const InputDecoration(
                                   labelText: 'رقم الجوال *',
+                                  errorMaxLines: 2,
                                   prefixIcon: Icon(Icons.phone_outlined),
                                 ),
                               ),
@@ -485,30 +495,10 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: whatsappCtrl,
-                                keyboardType: TextInputType.phone,
-                                decoration: const InputDecoration(
-                                  labelText: 'رقم الواتساب',
-                                  prefixIcon: Icon(Icons.chat_outlined, color: Colors.green),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: addressCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'مكان الإقامة / السكن',
-                                  prefixIcon: Icon(Icons.location_on_outlined),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        WhatsAppNumberField(controller: whatsappCtrl, label: 'واتساب المعلم (اختياري)'),
+                        const SizedBox(height: 12),
+                        TextField(controller: addressCtrl, decoration: const InputDecoration(
+                          labelText: 'مكان الإقامة / السكن', prefixIcon: Icon(Icons.location_on_outlined))),
 
                         const SizedBox(height: 18),
 
@@ -706,6 +696,14 @@ class _TeachersManagementScreenState extends State<TeachersManagementScreen> {
               ),
               onPressed: () async {
                 final fullName = nameCtrl.text.trim();
+                final inputError = RegistrationRules.identityError(idCtrl.text) ??
+                    RegistrationRules.phoneError(contactCtrl.text) ??
+                    RegistrationRules.whatsAppError(whatsappCtrl.text) ??
+                    RegistrationRules.passwordError(passwordCtrl.text);
+                if (inputError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(inputError), backgroundColor: Colors.red));
+                  return;
+                }
                 if (fullName.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('يرجى إدخال اسم المعلم الرباعي'), backgroundColor: Colors.orange),

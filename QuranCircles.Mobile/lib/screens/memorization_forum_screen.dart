@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -212,14 +213,18 @@ class _MemorizationForumScreenState extends State<MemorizationForumScreen> {
                         child: TextField(
                           controller: phoneCtrl,
                           keyboardType: TextInputType.phone,
+                          inputFormatters: const [LimitedDigitsFormatter(10)],
                           decoration: const InputDecoration(labelText: 'رقم الهاتف / الواتساب', prefixIcon: Icon(Icons.phone_outlined)),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: TextField(
+                        child: TextFormField(
                           controller: idCtrl,
                           keyboardType: TextInputType.number,
+                          inputFormatters: const [LimitedDigitsFormatter(9)],
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          validator: (v) => RegistrationRules.identityError(v, required: false),
                           decoration: const InputDecoration(labelText: 'رقم الهوية', prefixIcon: Icon(Icons.badge_outlined)),
                         ),
                       ),
@@ -311,6 +316,12 @@ class _MemorizationForumScreenState extends State<MemorizationForumScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
               onPressed: () async {
                 final name = nameCtrl.text.trim();
+                final fieldError = RegistrationRules.identityError(idCtrl.text, required: false) ??
+                    RegistrationRules.phoneError(phoneCtrl.text, required: false);
+                if (fieldError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(fieldError), backgroundColor: Colors.red));
+                  return;
+                }
                 if (name.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('يرجى إدخال اسم الحافظ الكامل')),

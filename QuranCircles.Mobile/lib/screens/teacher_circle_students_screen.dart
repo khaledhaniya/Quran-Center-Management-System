@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../utils/registration_rules.dart';
+import '../widgets/whatsapp_number_field.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/offline_sync_manager.dart';
@@ -806,7 +808,7 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
       'originalHousingType', 'originalHousingStatus', 'currentAddress',
       'currentHousingType', 'notes', 'walletNumber', 'bankAccountNumber',
       'bankName', 'username', 'password',
-    ]) key: TextEditingController(),
+    ]) key: TextEditingController(text: key == 'password' ? RegistrationRules.defaultPassword : ''),
   };
   bool _isSaving = false;
 
@@ -831,8 +833,11 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
       final identity = _idNumberController.text.trim();
       final parentIdentity = _extra['parentIdentityNumber']!.text.trim();
       final username = _extra['username']!.text.trim();
-      if (identity == parentIdentity || (username.isNotEmpty && username == parentIdentity)) {
-        throw StateError('هوية الطالب واسم دخوله يجب أن يختلفا عن هوية ولي الأمر.');
+      if (RegistrationRules.sameIdentity(identity, parentIdentity)) {
+        throw StateError('رقم هوية الطالب يطابق هوية ولي الأمر بالكامل.');
+      }
+      if (username.isNotEmpty && RegistrationRules.sameIdentity(username, parentIdentity)) {
+        throw StateError('اسم دخول الطالب هو رقم هوية ولي الأمر؛ اختر اسم دخول مختلفًا.');
       }
       if (ApiService.authToken != null) {
         try {
@@ -918,8 +923,7 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
                           validator: (v) => v == null || v.trim().isEmpty ? 'اسم الطالب مطلوب' : null),
                       _input(_idNumberController, 'رقم هوية الطالب *',
                           keyboardType: TextInputType.number,
-                          validator: (v) => v == null || !RegExp(r'^\d{9}$').hasMatch(v.trim())
-                              ? 'أدخل رقم هوية من 9 أرقام' : null),
+                          digitLimit: 9, validator: (v) => RegistrationRules.identityError(v)),
                       _input(_extra['dateOfBirth']!, 'تاريخ الميلاد YYYY-MM-DD',
                           keyboardType: TextInputType.datetime,
                           validator: (v) => v != null && v.trim().isNotEmpty &&
@@ -934,17 +938,19 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
                           validator: (v) => v == null || v.trim().isEmpty ? 'اسم ولي الأمر مطلوب' : null),
                       _input(_extra['parentIdentityNumber']!, 'رقم هوية ولي الأمر *',
                           keyboardType: TextInputType.number,
-                          validator: (v) => v == null || !RegExp(r'^\d{9}$').hasMatch(v.trim())
-                              ? 'أدخل رقم هوية ولي الأمر من 9 أرقام' : null),
+                          digitLimit: 9, validator: (v) => RegistrationRules.identityError(v)),
                       _input(_extra['kinship']!, 'صلة القرابة'),
                       _input(_phoneController, 'هاتف العائلة *', keyboardType: TextInputType.phone,
-                          validator: (v) => v == null || v.trim().isEmpty ? 'هاتف ولي الأمر مطلوب' : null),
-                      _input(_extra['studentMobile']!, 'جوال الطالب', keyboardType: TextInputType.phone),
-                      _input(_extra['studentWhatsapp']!, 'واتساب الطالب', keyboardType: TextInputType.phone),
-                      _input(_extra['whatsappNumber']!, 'واتساب العائلة', keyboardType: TextInputType.phone),
+                          digitLimit: 10, validator: (v) => RegistrationRules.phoneError(v)),
+                      _input(_extra['studentMobile']!, 'جوال الطالب', keyboardType: TextInputType.phone,
+                          digitLimit: 10, validator: (v) => RegistrationRules.phoneError(v, required: false)),
                       _input(_extra['fatherStatus']!, 'حالة الأب'),
                       _input(_extra['motherStatus']!, 'حالة الأم'),
                     ]),
+                    const SizedBox(height: 12),
+                    WhatsAppNumberField(controller: _extra['studentWhatsapp']!, label: 'واتساب الطالب (اختياري)'),
+                    const SizedBox(height: 12),
+                    WhatsAppNumberField(controller: _extra['whatsappNumber']!, label: 'واتساب العائلة (اختياري)'),
                     _section('السكن والملاحظات'),
                     _fields([
                       _input(_extra['originalAddress']!, 'العنوان الأصلي'),
@@ -960,7 +966,8 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
                       _input(_extra['bankAccountNumber']!, 'رقم الحساب البنكي'),
                       _input(_extra['bankName']!, 'اسم البنك'),
                       _input(_extra['username']!, 'اسم دخول الطالب (اختياري؛ الهوية افتراضيًا)'),
-                      _input(_extra['password']!, 'كلمة مرور الطالب (اختيارية)', obscureText: true),
+                      _input(_extra['password']!, 'كلمة مرور الطالب (الافتراضية 123456)', obscureText: true,
+                          validator: (v) => RegistrationRules.passwordError(v)),
                     ]),
                     const SizedBox(height: 12),
                     Text('يُحفظ الطلب على الجهاز أولًا، ويظهر في الحلقة بانتظار تأكيد المزامنة.',
@@ -1006,14 +1013,16 @@ class _AddNewStudentModalDialogState extends State<_AddNewStudentModalDialog> {
 
   Widget _input(TextEditingController controller, String label,
       {TextInputType? keyboardType, String? Function(String?)? validator,
-      bool obscureText = false, int maxLines = 1}) => TextFormField(
+      bool obscureText = false, int maxLines = 1, int? digitLimit}) => TextFormField(
     controller: controller,
     keyboardType: keyboardType,
     validator: validator,
+    autovalidateMode: AutovalidateMode.onUserInteraction,
+    inputFormatters: digitLimit == null ? null : [LimitedDigitsFormatter(digitLimit)],
     obscureText: obscureText,
     maxLines: maxLines,
     style: AppTheme.cairoStyle(fontSize: 13),
-    decoration: InputDecoration(labelText: label, isDense: true,
+    decoration: InputDecoration(labelText: label, isDense: true, errorMaxLines: 2,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
   );
 }
