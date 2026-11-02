@@ -102,4 +102,18 @@ public class RegistrationRulesTests
         Assert.IsType<OkObjectResult>(await auth.ChangePassword(new("123456", "abcdef")));
         Assert.True(hasher.VerifyPassword(user.PasswordHash, "abcdef"));
     }
+
+    [Fact]
+    public async Task AutoCreatedCourseSupervisorAlsoReceivesTheDefaultPassword()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:"); using var db = Open(connection);
+        var teacher = new Teacher { FullName = "مشرف دورة", IdentityNumber = "987654321", IsActive = true };
+        db.Teachers.Add(teacher); await db.SaveChangesAsync();
+        var context = new DefaultHttpContext();
+        context.Items["QuranCenter.VerifiedUser"] = new User { Id = 100, Role = UserRole.Developer };
+        var courses = new CoursesController(db) { ControllerContext = new ControllerContext { HttpContext = context } };
+        Assert.IsType<CreatedAtActionResult>(await courses.Create(new("دورة", null, null, teacher.Id)));
+        var account = await db.Users.SingleAsync(u => u.TeacherId == teacher.Id);
+        Assert.True(new PasswordHasher().VerifyPassword(account.PasswordHash, "123456"));
+    }
 }

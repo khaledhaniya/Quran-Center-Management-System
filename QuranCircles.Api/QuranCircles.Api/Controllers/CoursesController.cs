@@ -15,10 +15,14 @@ namespace QuranCircles.Api.Controllers;
 public class CoursesController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly PasswordHasher _hasher;
+    private readonly PasswordVault? _vault;
 
-    public CoursesController(AppDbContext db)
+    public CoursesController(AppDbContext db, PasswordHasher? hasher = null, PasswordVault? vault = null)
     {
         _db = db;
+        _hasher = hasher ?? new PasswordHasher();
+        _vault = vault;
     }
 
     [HttpGet]
@@ -290,7 +294,8 @@ public class CoursesController : ControllerBase
                 FullName = teacher.FullName,
                 Role = UserRole.Teacher,
                 TeacherId = teacher.Id,
-                PasswordHash = "AQAAAAIAAYagAAAAEJrM9mFp9G1Gv8eO6Wl1k6Y1U2Z7Q8W9E0R1T2Y3U4I5O6P7A8S9D0F1G2H3J4K5L6",
+                PasswordHash = _hasher.HashPassword(PasswordHasher.DefaultNewAccountPassword),
+                PasswordCiphertext = _vault?.Protect(PasswordHasher.DefaultNewAccountPassword) ?? string.Empty,
                 PlainPassword = string.Empty,
                 IsActive = true
             };
